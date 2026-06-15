@@ -1,6 +1,5 @@
 // Helper de "middleware" do Supabase: cria o server client e renova a sessão/cookies.
-// Na doc do Supabase este arquivo se chama `middleware.ts`; aqui foi renomeado para
-// `proxy.ts` apenas por consistência com a convenção `proxy` do Next.js 16.
+// Na doc do Supabase este arquivo se chama `middleware.ts`; aqui foi renomeado para `proxy.ts` apenas por consistência com a convenção `proxy` do Next.js 16.
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
