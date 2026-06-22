@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { signOut } from '@/app/auth/actions'
+import { ProcessOverview, ProcessPhasesFooter } from '@/app/components/process-overview'
 import './dashboard.css'
 
 export default async function Dashboard() {
@@ -44,7 +45,16 @@ export default async function Dashboard() {
         </form>
       </header>
 
-      <main className="dashboard-main" />
+      <main className="dashboard-main">
+        <div className="dashboard-content">
+          <ProcessOverview
+            createAction={<button type="button" className="btn-role-primary">Criar Novo Projeto</button>}
+            joinAction={<button type="button" className="btn-role-outline">Entrar no Projeto</button>}
+          />
+        </div>
+      </main>
+
+      <ProcessPhasesFooter />
     </div>
   )
 }
