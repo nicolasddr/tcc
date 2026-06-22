@@ -51,6 +51,10 @@
   color: #374151;
 }
 
+.dashboard-logout-form {
+  display: contents;
+}
+
 .dashboard-logout {
   display: inline-flex;
   align-items: center;
