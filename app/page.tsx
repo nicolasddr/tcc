@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import './home.css'
@@ -12,11 +13,11 @@ export default async function Home() {
   return (
     <div className="page">
       <header className="page-header">
-        <a className="logo" href="/">
+        <Link className="logo" href="/">
           <span className="logo-icon">✦</span>
           Engenharia de Prompt
           <span className="logo-badge">protótipo</span>
-        </a>
+        </Link>
         <GoogleSignInButton />
       </header>
 
