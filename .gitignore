@@ -44,3 +44,6 @@ next-env.d.ts
 AGENTS.MD
 CLAUDE.MD
 .claude/
+
+# docs
+docs/
