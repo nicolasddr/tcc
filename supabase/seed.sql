@@ -90,3 +90,8 @@ begin
   perform set_config('role', 'anon', true);
 end;
 $$;
+
+-- Os helpers são chamados DEPOIS de já estar personificando (p/ trocar de
+-- usuário), então anon/authenticated precisam de acesso ao schema tests.
+grant usage on schema tests to anon, authenticated;
+grant execute on all functions in schema tests to anon, authenticated;
