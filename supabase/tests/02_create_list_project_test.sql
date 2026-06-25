@@ -5,20 +5,22 @@
 --   - o tipo de tarefa opcional é salvo;
 --   - papéis agregam por usuário (admin que se auto-adiciona como avaliador);
 --   - um não-membro não vê o projeto;
---   - sem can_create_projects, a RLS barra a criação.
+--   - sem can_create_projects, a RLS barra a criação;
+--   - INSERT ... RETURNING (o caminho do supabase-js .insert().select()) é permitido
+--     ao criador — regressão da migration 0005.
 -- Molde: ver projects_rls_test.sql (Issue 00). Roda com `npm test`.
 
 begin;
 set local search_path = public, extensions;
-select plan(6);
+select plan(7);
 
 -- --- Fixtures (como superusuário, RLS desligada) -----------------------------
 select set_config('tests.admin_id',
   tests.create_user('admin02@test.local', 'Admin 02')::text, true);
 select set_config('tests.stranger_id',
   tests.create_user('stranger02@test.local', 'Estranho 02')::text, true);
--- id do projeto gerado de antemão: deixa o INSERT abaixo ser um statement simples
--- (RLS WITH CHECK não avalia direito dentro de um CTE que escreve — daí evitá-lo).
+-- id do projeto gerado de antemão só para reusá-lo nas asserções depois das trocas
+-- de usuário (o caminho INSERT ... RETURNING do app é coberto numa asserção à parte).
 select set_config('tests.p1_id', gen_random_uuid()::text, true);
 
 -- Só quem tem can_create_projects cria (fatia 08 entrega o fluxo de pedir; aqui
@@ -74,6 +76,18 @@ select is(
        and user_id    = current_setting('tests.admin_id')::uuid),
   2,
   'papéis agregam por usuário (Administrador + Avaliador no mesmo projeto)'
+);
+
+-- Regressão (migration 0005): o supabase-js faz INSERT ... RETURNING, que revalida
+-- a linha pela policy de SELECT. O criador precisa enxergá-la por created_by, já que
+-- a linha de Administrador só nasce no trigger AFTER INSERT (tarde demais p/ o RETURNING).
+select lives_ok(
+  $$ with src as (
+       insert into public.projects (name, task_type, created_by)
+       values ('Via RETURNING', 'generation', current_setting('tests.admin_id')::uuid)
+       returning id
+     ) select id from src $$,
+  'criar via INSERT ... RETURNING (caminho do supabase-js) é permitido ao criador'
 );
 
 -- --- Não-membro NÃO vê o projeto ---------------------------------------------
