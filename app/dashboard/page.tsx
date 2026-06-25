@@ -103,6 +103,12 @@ export default async function Dashboard() {
   // administrador pela RLS (não é membro ativo do projeto) — ver migration 0006.
   const { data: invitationData } = await supabase.rpc('list_my_pending_invitations')
   const pendingInvitations = (invitationData ?? []) as PendingInvitation[]
+  // Os projetos convidados aparecem na própria listagem (com selo "convite
+  // pendente" + Recusar) para o usuário poder agir sobre o convite. Aceitar
+  // (materializar o membro) é a fatia 04. Deduplica contra projetos onde já é
+  // membro (caso raro de re-convite de ex-membro inativo).
+  const invitedProjects = pendingInvitations.filter((inv) => !byProject.has(inv.project_id))
+  const hasProjects = projects.length > 0 || invitedProjects.length > 0
 
   return (
     <div className="dashboard">
@@ -139,31 +145,6 @@ export default async function Dashboard() {
 
       <main className="dashboard-main">
         <div className="dashboard-content">
-          {pendingInvitations.length > 0 ? (
-            <section className="invitations-section">
-              <h1 className="projects-title">Convites pendentes</h1>
-              <ul className="invitations-list">
-                {pendingInvitations.map((inv) => (
-                  <li key={inv.invitation_id} className="invitation-card">
-                    <div className="invitation-main">
-                      <span className="invitation-project">{inv.project_name}</span>
-                      <span className="invitation-meta">
-                        Convidado por {inv.inviter_name ?? 'um administrador'} ·{' '}
-                        {formatDate(inv.created_at)}
-                      </span>
-                    </div>
-                    <form action={declineInvitation}>
-                      <input type="hidden" name="invitation_id" value={inv.invitation_id} />
-                      <button type="submit" className="btn-decline">
-                        Recusar
-                      </button>
-                    </form>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          ) : null}
-
           <section className="projects-section">
             <div className="projects-section-head">
               <h1 className="projects-title">Meus projetos</h1>
@@ -172,7 +153,7 @@ export default async function Dashboard() {
               </Link>
             </div>
 
-            {projects.length === 0 ? (
+            {!hasProjects ? (
               <p className="projects-empty">
                 Você ainda não participa de nenhum projeto. Crie o primeiro para começar.
               </p>
@@ -196,6 +177,34 @@ export default async function Dashboard() {
                         </span>
                       </span>
                     </Link>
+                  </li>
+                ))}
+
+                {/* Convites pendentes: aparecem na listagem para o usuário agir.
+                    Recusar já funciona; Aceitar (materializar o membro) é a fatia 04. */}
+                {invitedProjects.map((inv) => (
+                  <li key={inv.invitation_id}>
+                    <div className="project-card project-card-invited">
+                      <Link
+                        href={`/projects/${inv.project_id}`}
+                        className="project-card-main project-card-link"
+                      >
+                        <span className="project-card-name">{inv.project_name}</span>
+                        <span className="project-card-roles">
+                          Convidado por {inv.inviter_name ?? 'um administrador'} ·{' '}
+                          {formatDate(inv.created_at)}
+                        </span>
+                      </Link>
+                      <span className="project-card-badges">
+                        <span className="invite-pending-badge">convite pendente</span>
+                        <form action={declineInvitation}>
+                          <input type="hidden" name="invitation_id" value={inv.invitation_id} />
+                          <button type="submit" className="btn-decline btn-decline-sm">
+                            Recusar
+                          </button>
+                        </form>
+                      </span>
+                    </div>
                   </li>
                 ))}
               </ul>
