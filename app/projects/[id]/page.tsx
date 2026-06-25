@@ -3,7 +3,9 @@ import { notFound, redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { taskTypeLabel } from '../task-types'
 import { projectStatusLabel, roleLabel } from '../labels'
+import { InviteEvaluatorForm } from './invite-evaluator-form'
 import '../projects.css'
+import '@/app/notifications/notifications.css'
 
 export default async function ProjectPage({
   params,
@@ -36,6 +38,10 @@ export default async function ProjectPage({
   const roles = (memberships ?? []).map((m) => roleLabel(m.role))
   const onboardingPending = (memberships ?? []).some(
     (m) => m.role === 'evaluator' && m.status === 'pending_onboarding',
+  )
+  // Só o Administrador ativo convida avaliadores (espelha a RLS inv_insert).
+  const isAdmin = (memberships ?? []).some(
+    (m) => m.role === 'administrator' && m.status === 'active',
   )
   const taskType = taskTypeLabel(project.task_type)
 
@@ -77,6 +83,17 @@ export default async function ProjectPage({
               <dd>{taskType ?? 'Não declarado'}</dd>
             </div>
           </dl>
+
+          {isAdmin ? (
+            <section className="project-section">
+              <h2 className="project-section-title">Convidar avaliador</h2>
+              <p className="project-section-hint">
+                Informe o e-mail de quem já tem conta. O convidado recebe uma notificação e
+                pode aceitar ou recusar.
+              </p>
+              <InviteEvaluatorForm projectId={project.id} />
+            </section>
+          ) : null}
         </div>
       </main>
     </div>

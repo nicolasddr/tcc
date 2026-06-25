@@ -2,10 +2,18 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { signOut } from '@/app/auth/actions'
+import { declineInvitation } from '@/app/invitations/actions'
 import { ProcessOverview, ProcessPhasesFooter } from '@/app/components/process-overview'
+import { NotificationBell, type InboxItem } from '@/app/components/notification-bell'
+import {
+  notificationText,
+  formatDate,
+  type NotificationPayload,
+} from '@/app/notifications/labels'
 import { projectStatusLabel, roleLabel } from '@/app/projects/labels'
 import './dashboard.css'
 import '@/app/projects/projects.css'
+import '@/app/notifications/notifications.css'
 
 type MembershipRow = {
   role: string
@@ -23,6 +31,22 @@ type ListedProject = {
   status: string
   roles: string[]
   onboardingPending: boolean
+}
+
+type NotificationRow = {
+  id: string
+  type: string
+  payload: NotificationPayload
+  read_at: string | null
+  created_at: string
+}
+
+type PendingInvitation = {
+  invitation_id: string
+  project_id: string
+  project_name: string
+  inviter_name: string | null
+  created_at: string
 }
 
 export default async function Dashboard() {
@@ -59,6 +83,27 @@ export default async function Dashboard() {
   }
   const projects = [...byProject.values()]
 
+  // HU-010/011: inbox in-platform. RLS (notifications_select_own) já limita ao
+  // próprio usuário; formatamos o texto/data no servidor e passamos pronto ao sino.
+  const { data: notificationData } = await supabase
+    .from('notifications')
+    .select('id, type, payload, read_at, created_at')
+    .order('created_at', { ascending: false })
+    .limit(30)
+  const notifications = (notificationData ?? []) as NotificationRow[]
+  const inboxItems: InboxItem[] = notifications.map((n) => ({
+    id: n.id,
+    text: notificationText(n.type, n.payload ?? {}),
+    dateLabel: formatDate(n.created_at),
+    read: n.read_at != null,
+  }))
+
+  // HU-019: convites pendentes do usuário (com nome do projeto e de quem convidou).
+  // Via RPC security definer porque o convidado ainda não enxerga o profile do
+  // administrador pela RLS (não é membro ativo do projeto) — ver migration 0006.
+  const { data: invitationData } = await supabase.rpc('list_my_pending_invitations')
+  const pendingInvitations = (invitationData ?? []) as PendingInvitation[]
+
   return (
     <div className="dashboard">
       <header className="dashboard-header">
@@ -71,6 +116,7 @@ export default async function Dashboard() {
           )}
           <span className="dashboard-email">{email}</span>
         </div>
+        <NotificationBell items={inboxItems} />
         <form action={signOut} className="dashboard-logout-form">
           <button type="submit" className="dashboard-logout">
             <svg
@@ -93,6 +139,31 @@ export default async function Dashboard() {
 
       <main className="dashboard-main">
         <div className="dashboard-content">
+          {pendingInvitations.length > 0 ? (
+            <section className="invitations-section">
+              <h1 className="projects-title">Convites pendentes</h1>
+              <ul className="invitations-list">
+                {pendingInvitations.map((inv) => (
+                  <li key={inv.invitation_id} className="invitation-card">
+                    <div className="invitation-main">
+                      <span className="invitation-project">{inv.project_name}</span>
+                      <span className="invitation-meta">
+                        Convidado por {inv.inviter_name ?? 'um administrador'} ·{' '}
+                        {formatDate(inv.created_at)}
+                      </span>
+                    </div>
+                    <form action={declineInvitation}>
+                      <input type="hidden" name="invitation_id" value={inv.invitation_id} />
+                      <button type="submit" className="btn-decline">
+                        Recusar
+                      </button>
+                    </form>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
+
           <section className="projects-section">
             <div className="projects-section-head">
               <h1 className="projects-title">Meus projetos</h1>

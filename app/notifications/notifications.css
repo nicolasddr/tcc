@@ -1,0 +1,270 @@
+/* Inbox de notificações (sino), convites pendentes (dashboard) e formulário de
+   convidar avaliador (página do projeto). Cores/tipografia seguem o dashboard. */
+
+/* ---- Sino + dropdown ----------------------------------------------------- */
+.bell {
+  position: relative;
+}
+
+.bell-button {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: none;
+  background: transparent;
+  color: #374151;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.bell-button:hover {
+  background: #f3f4f6;
+}
+.bell-button svg {
+  width: 20px;
+  height: 20px;
+}
+
+.bell-badge {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: #dc2626;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 16px;
+  text-align: center;
+}
+
+.bell-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  border: none;
+  background: transparent;
+  cursor: default;
+}
+
+.bell-panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 50;
+  width: 340px;
+  max-width: calc(100vw - 32px);
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  overflow: hidden;
+}
+
+.bell-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 12px 14px;
+  border-bottom: 1px solid #f0f1f3;
+}
+.bell-panel-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #111827;
+}
+.bell-mark-all {
+  border: none;
+  background: transparent;
+  color: #1d4ed8;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+}
+.bell-mark-all:hover {
+  text-decoration: underline;
+}
+
+.bell-empty {
+  margin: 0;
+  padding: 24px 14px;
+  font-size: 13px;
+  color: #6b7280;
+  text-align: center;
+}
+
+.bell-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 380px;
+  overflow-y: auto;
+}
+.bell-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 14px;
+  border-bottom: 1px solid #f0f1f3;
+}
+.bell-item:last-child {
+  border-bottom: none;
+}
+.bell-item-unread {
+  background: #eff6ff;
+}
+.bell-item-text {
+  font-size: 13px;
+  line-height: 1.45;
+  color: #1f2937;
+}
+.bell-item-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.bell-item-date {
+  font-size: 11px;
+  color: #9ca3af;
+}
+.bell-mark-one {
+  border: none;
+  background: transparent;
+  color: #1d4ed8;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+}
+.bell-mark-one:hover {
+  text-decoration: underline;
+}
+
+/* ---- Convites pendentes (dashboard) -------------------------------------- */
+.invitations-section {
+  margin-bottom: 40px;
+}
+.invitations-list {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.invitation-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid #fde68a;
+  background: #fffbeb;
+  border-radius: 12px;
+  padding: 14px 18px;
+}
+.invitation-main {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.invitation-project {
+  font-size: 15px;
+  font-weight: 600;
+  color: #111827;
+}
+.invitation-meta {
+  font-size: 12px;
+  color: #6b7280;
+}
+.btn-decline {
+  flex-shrink: 0;
+  border: 1px solid #d1d5db;
+  background: #fff;
+  color: #374151;
+  border-radius: 8px;
+  padding: 8px 16px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+.btn-decline:hover {
+  background: #fef2f2;
+  border-color: #fca5a5;
+  color: #b91c1c;
+}
+
+/* ---- Convidar avaliador (página do projeto) ------------------------------ */
+.project-section {
+  margin: 32px 0 0;
+  border-top: 1px solid #e5e7eb;
+  padding-top: 24px;
+}
+.project-section-title {
+  font-size: 16px;
+  font-weight: 700;
+  margin: 0;
+}
+.project-section-hint {
+  font-size: 13px;
+  color: #6b7280;
+  margin: 6px 0 16px;
+}
+
+.invite-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.invite-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+}
+.invite-field {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.btn-invite {
+  flex-shrink: 0;
+  background: #1d4ed8;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 18px;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.btn-invite:hover {
+  background: #1e40af;
+}
+.btn-invite:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.form-success {
+  font-size: 13px;
+  color: #166534;
+  background: #dcfce7;
+  border: 1px solid #bbf7d0;
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin: 0;
+}
