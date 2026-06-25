@@ -49,8 +49,7 @@ export function NewProjectForm() {
           ))}
         </select>
         <span className="field-hint">
-          Opcional. Só personaliza dicas durante a autoria do codebook mais adiante; não
-          muda o restante do processo.
+          Opcional. Apenas para personalização de dicas durante o processo.
         </span>
       </label>
 
