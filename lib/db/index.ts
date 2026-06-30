@@ -55,5 +55,20 @@ export async function withUser<T>(
   })
 }
 
+/**
+ * Extrai o SQLSTATE (ex.: '23505' = unique_violation, '42501' = RLS/insufficient
+ * privilege) de um erro de escrita. O driver `postgres` lança um `PostgresError`
+ * com o código em `.code`, mas o Drizzle o embrulha num `DrizzleQueryError` com o
+ * original em `.cause` — então uma action que cheque `err.code` direto erraria.
+ * Este helper desembrulha os dois formatos. Devolve `undefined` se não houver código.
+ */
+export function pgErrorCode(err: unknown): string | undefined {
+  for (const candidate of [err, (err as { cause?: unknown } | null)?.cause]) {
+    const code = (candidate as { code?: unknown } | null)?.code
+    if (typeof code === 'string') return code
+  }
+  return undefined
+}
+
 // Reexporta o schema p/ consumidores: `import { withUser, projects } from '@/lib/db'`.
 export * from './schema'

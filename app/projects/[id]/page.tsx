@@ -1,6 +1,8 @@
 import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
+import { and, eq } from 'drizzle-orm'
 import { createClient } from '@/lib/supabase/server'
+import { withUser, projects, projectMembers } from '@/lib/db'
 import { taskTypeLabel } from '../task-types'
 import { projectStatusLabel, roleLabel } from '../labels'
 import { InviteEvaluatorForm } from './invite-evaluator-form'
@@ -19,31 +21,42 @@ export default async function ProjectPage({
   } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  // RLS só deixa membro/convidado enxergar o projeto; quem não participa recebe
-  // null e cai no notFound (não distingue "não existe" de "sem acesso").
-  const { data: project } = await supabase
-    .from('projects')
-    .select('id, name, description, status, task_type, created_at')
-    .eq('id', id)
-    .single()
+  // Numa transação RLS-aware: o projeto (a RLS só deixa membro/convidado enxergar;
+  // quem não participa recebe linha nenhuma e cai no notFound — não distingue "não
+  // existe" de "sem acesso") e os papéis do usuário neste projeto (uma linha por
+  // papel — HU-024). A RLS continua no banco (ver ADR 0007 e lib/db).
+  const { project, memberships } = await withUser(user.id, async (tx) => {
+    const [project] = await tx
+      .select({
+        id: projects.id,
+        name: projects.name,
+        description: projects.description,
+        status: projects.status,
+        taskType: projects.taskType,
+        createdAt: projects.createdAt,
+      })
+      .from(projects)
+      .where(eq(projects.id, id))
+      .limit(1)
+
+    const memberships = await tx
+      .select({ role: projectMembers.role, status: projectMembers.status })
+      .from(projectMembers)
+      .where(and(eq(projectMembers.projectId, id), eq(projectMembers.userId, user.id)))
+
+    return { project, memberships }
+  })
   if (!project) notFound()
 
-  // Papéis do usuário neste projeto (uma linha por papel — HU-024).
-  const { data: memberships } = await supabase
-    .from('project_members')
-    .select('role, status')
-    .eq('project_id', id)
-    .eq('user_id', user.id)
-
-  const roles = (memberships ?? []).map((m) => roleLabel(m.role))
-  const onboardingPending = (memberships ?? []).some(
+  const roles = memberships.map((m) => roleLabel(m.role))
+  const onboardingPending = memberships.some(
     (m) => m.role === 'evaluator' && m.status === 'pending_onboarding',
   )
   // Só o Administrador ativo convida avaliadores (espelha a RLS inv_insert).
-  const isAdmin = (memberships ?? []).some(
+  const isAdmin = memberships.some(
     (m) => m.role === 'administrator' && m.status === 'active',
   )
-  const taskType = taskTypeLabel(project.task_type)
+  const taskType = taskTypeLabel(project.taskType)
 
   return (
     <div className="project-page">

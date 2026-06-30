@@ -1,6 +1,13 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
+import { eq, desc, sql } from 'drizzle-orm'
 import { createClient } from '@/lib/supabase/server'
+import {
+  withUser,
+  projectMembers,
+  projects as projectsTable,
+  notifications as notificationsTable,
+} from '@/lib/db'
 import { signOut } from '@/app/auth/actions'
 import { declineInvitation } from '@/app/invitations/actions'
 import { ProcessOverview, ProcessPhasesFooter } from '@/app/components/process-overview'
@@ -15,30 +22,12 @@ import './dashboard.css'
 import '@/app/projects/projects.css'
 import '@/app/notifications/notifications.css'
 
-type MembershipRow = {
-  role: string
-  status: string
-  project: {
-    id: string
-    name: string
-    status: string
-  } | null
-}
-
 type ListedProject = {
   id: string
   name: string
   status: string
   roles: string[]
   onboardingPending: boolean
-}
-
-type NotificationRow = {
-  id: string
-  type: string
-  payload: NotificationPayload
-  read_at: string | null
-  created_at: string
 }
 
 type PendingInvitation = {
@@ -58,18 +47,58 @@ export default async function Dashboard() {
   const email = user.email ?? ''
   const initial = email.charAt(0)
 
-  // HU-013: projetos em que o usuário é membro (Administrador ou Avaliador), com
-  // papéis agregados por projeto. O admin-avaliador tem duas linhas; agregamos aqui.
-  const { data: membershipData } = await supabase
-    .from('project_members')
-    .select('role, status, project:projects(id, name, status)')
-    .eq('user_id', user.id)
+  // HU-013/010/011/019: numa transação RLS-aware (papel `authenticated`), lemos os
+  // projetos em que o usuário é membro (com o projeto via innerJoin), o inbox de
+  // notificações e os convites pendentes. A RLS do banco continua valendo — ver ADR
+  // 0007 e lib/db.
+  const { membershipRows, notificationRows, pendingInvitationRows } = await withUser(
+    user.id,
+    async (tx) => {
+      const membershipRows = await tx
+        .select({
+          role: projectMembers.role,
+          status: projectMembers.status,
+          project: {
+            id: projectsTable.id,
+            name: projectsTable.name,
+            status: projectsTable.status,
+          },
+        })
+        .from(projectMembers)
+        .innerJoin(projectsTable, eq(projectMembers.projectId, projectsTable.id))
+        .where(eq(projectMembers.userId, user.id))
 
-  const rows = (membershipData ?? []) as unknown as MembershipRow[]
+      const notificationRows = await tx
+        .select({
+          id: notificationsTable.id,
+          type: notificationsTable.type,
+          payload: notificationsTable.payload,
+          readAt: notificationsTable.readAt,
+          createdAt: notificationsTable.createdAt,
+        })
+        .from(notificationsTable)
+        .orderBy(desc(notificationsTable.createdAt))
+        .limit(30)
+
+      // HU-019: convites pendentes do PRÓPRIO usuário, já com nome do projeto e do
+      // convidante. RPC security definer (migration 0006) porque o convidado ainda não
+      // é membro ativo e a RLS de profiles não o deixa ler o nome de quem o convidou.
+      // Por decisão da Fase 4 (ADR 0007) PERMANECE em SQL e roda aqui via Drizzle —
+      // auth.uid() resolve pela claim da transação —, não mais por supabase.rpc.
+      const pendingInvitationRows = await tx.execute<PendingInvitation>(
+        sql`select invitation_id, project_id, project_name, inviter_name, created_at
+            from public.list_my_pending_invitations()`,
+      )
+
+      return { membershipRows, notificationRows, pendingInvitationRows }
+    },
+  )
+
+  // O admin-avaliador tem duas linhas (uma por papel); agregamos por projeto. O
+  // innerJoin garante `project` não-nulo (todo membro enxerga seu projeto pela RLS).
   const byProject = new Map<string, ListedProject>()
-  for (const row of rows) {
+  for (const row of membershipRows) {
     const p = row.project
-    if (!p) continue
     if (p.status === 'archived') continue // arquivados ocultos por padrão
     let entry = byProject.get(p.id)
     if (!entry) {
@@ -83,26 +112,19 @@ export default async function Dashboard() {
   }
   const projects = [...byProject.values()]
 
-  // HU-010/011: inbox in-platform. RLS (notifications_select_own) já limita ao
-  // próprio usuário; formatamos o texto/data no servidor e passamos pronto ao sino.
-  const { data: notificationData } = await supabase
-    .from('notifications')
-    .select('id, type, payload, read_at, created_at')
-    .order('created_at', { ascending: false })
-    .limit(30)
-  const notifications = (notificationData ?? []) as NotificationRow[]
-  const inboxItems: InboxItem[] = notifications.map((n) => ({
+  // HU-010/011: inbox in-platform. A RLS (notifications_select_own) já limita ao
+  // próprio usuário; formatamos texto/data no servidor e passamos pronto ao sino. O
+  // payload é jsonb (sem forma no schema): casamos no consumo para NotificationPayload.
+  const inboxItems: InboxItem[] = notificationRows.map((n) => ({
     id: n.id,
-    text: notificationText(n.type, n.payload ?? {}),
-    dateLabel: formatDate(n.created_at),
-    read: n.read_at != null,
+    text: notificationText(n.type, (n.payload ?? {}) as NotificationPayload),
+    dateLabel: formatDate(n.createdAt),
+    read: n.readAt != null,
   }))
 
-  // HU-019: convites pendentes do usuário (com nome do projeto e de quem convidou).
-  // Via RPC security definer porque o convidado ainda não enxerga o profile do
-  // administrador pela RLS (não é membro ativo do projeto) — ver migration 0006.
-  const { data: invitationData } = await supabase.rpc('list_my_pending_invitations')
-  const pendingInvitations = (invitationData ?? []) as PendingInvitation[]
+  // Convites pendentes já vieram da transação RLS-aware acima (RowList é um array de
+  // PendingInvitation).
+  const pendingInvitations: PendingInvitation[] = pendingInvitationRows
   // Os projetos convidados aparecem na própria listagem (com selo "convite
   // pendente" + Recusar) para o usuário poder agir sobre o convite. Aceitar
   // (materializar o membro) é a fatia 04. Deduplica contra projetos onde já é

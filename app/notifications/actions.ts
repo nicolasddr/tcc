@@ -2,10 +2,13 @@
 
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
+import { and, eq, isNull } from 'drizzle-orm'
 import { createClient } from '@/lib/supabase/server'
+import { withUser, notifications } from '@/lib/db'
 
-// HU-010/011: marcar uma notificação como lida. A RLS (notifications_update_own) e o
-// grant por coluna (só read_at) garantem que o usuário só toca o próprio inbox.
+// HU-010/011: marcar uma notificação como lida. O UPDATE passa por `withUser` (papel
+// `authenticated`), então a RLS (notifications_update_own) e o grant por coluna (só
+// read_at) continuam garantindo que o usuário só toca o próprio inbox — ver ADR 0007.
 export async function markNotificationRead(formData: FormData): Promise<void> {
   const supabase = await createClient()
   const {
@@ -16,11 +19,12 @@ export async function markNotificationRead(formData: FormData): Promise<void> {
   const id = String(formData.get('notification_id') ?? '')
   if (!id) return
 
-  await supabase
-    .from('notifications')
-    .update({ read_at: new Date().toISOString() })
-    .eq('id', id)
-    .is('read_at', null)
+  await withUser(user.id, (tx) =>
+    tx
+      .update(notifications)
+      .set({ readAt: new Date().toISOString() })
+      .where(and(eq(notifications.id, id), isNull(notifications.readAt))),
+  )
 
   revalidatePath('/dashboard')
 }
@@ -33,11 +37,12 @@ export async function markAllNotificationsRead(): Promise<void> {
   } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  await supabase
-    .from('notifications')
-    .update({ read_at: new Date().toISOString() })
-    .eq('user_id', user.id)
-    .is('read_at', null)
+  await withUser(user.id, (tx) =>
+    tx
+      .update(notifications)
+      .set({ readAt: new Date().toISOString() })
+      .where(and(eq(notifications.userId, user.id), isNull(notifications.readAt))),
+  )
 
   revalidatePath('/dashboard')
 }
