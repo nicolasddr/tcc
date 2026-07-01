@@ -3,17 +3,15 @@ import { notFound, redirect } from 'next/navigation'
 import { and, eq } from 'drizzle-orm'
 import { createClient } from '@/lib/supabase/server'
 import { withUser, projects, projectMembers, onboardingQuestions } from '@/lib/db'
-import { CONSENT_TEXT } from '@/app/onboarding/consent'
 import { coerceOptions, type OnboardingQuestion } from '@/app/onboarding/questions'
-import { ConsentForm } from './consent-form'
+import { QuestionManager } from './question-manager'
 import '../../projects.css'
 import '@/app/notifications/notifications.css'
 
-// HU-028: passo de consentimento do onboarding do avaliador. Só faz sentido quando o
-// usuário tem uma linha de avaliador em pending_onboarding (aceitou o convite mas ainda
-// não consentiu). Se já está active (concluiu) ou não tem linha (não aceitou), volta
-// para a página do projeto.
-export default async function OnboardingPage({
+// HU-026/027 (US 29/30): o Administrador define/edita/remove as perguntas de onboarding
+// do projeto. Só o admin ativo entra aqui (espelha a RLS oq_insert/oq_update/oq_delete);
+// quem não é admin volta para a página do projeto.
+export default async function QuestionsPage({
   params,
 }: {
   params: Promise<{ id: string }>
@@ -25,27 +23,19 @@ export default async function OnboardingPage({
   } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { project, membership, questions } = await withUser(user.id, async (tx) => {
+  const { project, isAdmin, questions } = await withUser(user.id, async (tx) => {
     const [project] = await tx
       .select({ id: projects.id, name: projects.name })
       .from(projects)
       .where(eq(projects.id, id))
       .limit(1)
 
-    const [membership] = await tx
-      .select({ status: projectMembers.status })
+    const memberships = await tx
+      .select({ role: projectMembers.role, status: projectMembers.status })
       .from(projectMembers)
-      .where(
-        and(
-          eq(projectMembers.projectId, id),
-          eq(projectMembers.userId, user.id),
-          eq(projectMembers.role, 'evaluator'),
-        ),
-      )
-      .limit(1)
+      .where(and(eq(projectMembers.projectId, id), eq(projectMembers.userId, user.id)))
 
-    // As perguntas do projeto (oq_select: is_project_member — a linha pendente já conta).
-    const questionRows = await tx
+    const rows = await tx
       .select({
         id: onboardingQuestions.id,
         questionText: onboardingQuestions.questionText,
@@ -56,37 +46,41 @@ export default async function OnboardingPage({
       .where(eq(onboardingQuestions.projectId, id))
       .orderBy(onboardingQuestions.orderIndex)
 
-    const questions = questionRows.map<OnboardingQuestion>((q) => ({
+    const isAdmin = memberships.some(
+      (m) => m.role === 'administrator' && m.status === 'active',
+    )
+
+    return { project, isAdmin, rows }
+  }).then(({ project, isAdmin, rows }) => ({
+    project,
+    isAdmin,
+    questions: rows.map<OnboardingQuestion>((q) => ({
       id: q.id,
       questionText: q.questionText,
       questionType: q.questionType === 'multiple_choice' ? 'multiple_choice' : 'open',
       options: coerceOptions(q.options),
-    }))
-
-    return { project, membership, questions }
-  })
+    })),
+  }))
 
   if (!project) notFound()
-  if (!membership || membership.status !== 'pending_onboarding') {
-    redirect(`/projects/${id}`)
-  }
+  if (!isAdmin) redirect(`/projects/${id}`)
 
   return (
     <div className="project-page">
       <header className="project-topbar">
         <Link href={`/projects/${id}`} className="project-back">
-          ← Voltar
+          ← Voltar ao projeto
         </Link>
       </header>
 
       <main className="project-main">
         <div className="project-narrow">
-          <h1 className="project-page-title">Onboarding — {project.name}</h1>
+          <h1 className="project-page-title">Perguntas de onboarding</h1>
           <p className="project-page-subtitle">
-            Antes de participar como avaliador, leia e aceite o termo de consentimento
-            {questions.length > 0 ? ' e responda às perguntas abaixo' : ''}.
+            Defina o que os avaliadores respondem ao entrar em “{project.name}”. Todas as
+            perguntas são obrigatórias para concluir o onboarding.
           </p>
-          <ConsentForm projectId={id} consentText={CONSENT_TEXT} questions={questions} />
+          <QuestionManager projectId={id} questions={questions} />
         </div>
       </main>
     </div>

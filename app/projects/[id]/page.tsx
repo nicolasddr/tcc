@@ -228,10 +228,35 @@ export default async function ProjectPage({
                           {memberStatusLabel(m.status)}
                         </span>
                       ) : null}
+                      {/* HU-029: só o admin, e só para quem é avaliador. */}
+                      {isAdmin && m.roles.includes('evaluator') ? (
+                        <Link
+                          href={`/projects/${project.id}/responses/${m.userId}`}
+                          className="member-link"
+                        >
+                          Ver respostas
+                        </Link>
+                      ) : null}
                     </span>
                   </li>
                 ))}
               </ul>
+            </section>
+          ) : null}
+
+          {isAdmin ? (
+            <section className="project-section">
+              <h2 className="project-section-title">Onboarding dos avaliadores</h2>
+              <p className="project-section-hint">
+                Defina as perguntas (abertas ou de múltipla escolha) que os avaliadores
+                respondem ao entrar no projeto.
+              </p>
+              <Link
+                href={`/projects/${project.id}/questions`}
+                className="btn-secondary"
+              >
+                Gerenciar perguntas de onboarding
+              </Link>
             </section>
           ) : null}
 

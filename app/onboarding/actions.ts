@@ -4,8 +4,15 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { and, eq } from 'drizzle-orm'
 import { createClient } from '@/lib/supabase/server'
-import { withUser, projectMembers, projectInvitations } from '@/lib/db'
+import {
+  withUser,
+  projectMembers,
+  projectInvitations,
+  onboardingQuestions,
+  onboardingResponses,
+} from '@/lib/db'
 import { CONSENT_TEXT } from './consent'
+import { OTHER_VALUE, coerceOptions } from './questions'
 
 export type OnboardingState = { error: string } | null
 
@@ -67,11 +74,13 @@ export async function acceptInvitation(formData: FormData): Promise<void> {
   redirect(`/projects/${projectId}/onboarding`)
 }
 
-// HU-028: o avaliador registra o consentimento (timestamp + snapshot do texto) e a
-// linha é promovida a `active`. A RLS (pm_update, própria linha) e o grant por coluna
-// (status, consent_accepted_at, consent_text_snapshot, onboarding_completed_at) valem
-// sob `authenticated`; os CHECKs pm_consent_required / pm_onboarding_done do banco
-// garantem que um avaliador só fica active com consentimento + onboarding registrados.
+// HU-028/032 (US 31/32): o avaliador registra o consentimento (timestamp + snapshot do
+// texto) E responde a TODAS as perguntas de onboarding (obrigatórias) — só então a linha
+// é promovida a `active`. Tudo numa transação `withUser`: as respostas entram ENQUANTO a
+// linha ainda é pending_onboarding (a RLS or_insert / can_answer_onboarding exige isso),
+// e só depois o status vira active. As respostas são validadas ANTES de qualquer escrita,
+// então um onboarding incompleto não grava nada. Os CHECKs pm_consent_required /
+// pm_onboarding_done do banco garantem consentimento + onboarding registrados no active.
 export async function completeOnboarding(
   _prev: OnboardingState,
   formData: FormData,
@@ -90,8 +99,55 @@ export async function completeOnboarding(
   }
 
   const now = new Date().toISOString()
-  const promoted = await withUser(user.id, (tx) =>
-    tx
+
+  const result = await withUser(user.id, async (tx) => {
+    const [member] = await tx
+      .select({ id: projectMembers.id, status: projectMembers.status })
+      .from(projectMembers)
+      .where(
+        and(
+          eq(projectMembers.projectId, projectId),
+          eq(projectMembers.userId, user.id),
+          eq(projectMembers.role, 'evaluator'),
+        ),
+      )
+      .limit(1)
+
+    // Sem linha pendente (já concluiu ou nunca aceitou): trata como concluído.
+    if (!member || member.status !== 'pending_onboarding') return { done: true } as const
+
+    const questions = await tx
+      .select({
+        id: onboardingQuestions.id,
+        questionType: onboardingQuestions.questionType,
+        options: onboardingQuestions.options,
+      })
+      .from(onboardingQuestions)
+      .where(eq(onboardingQuestions.projectId, projectId))
+      .orderBy(onboardingQuestions.orderIndex)
+
+    // Monta e valida as respostas ANTES de escrever (todas são obrigatórias). Na múltipla
+    // escolha: ou uma das opções cadastradas, ou "Outro" + texto livre (modelo Google Forms).
+    const answers: { projectMemberId: string; questionId: string; answer: string }[] = []
+    for (const q of questions) {
+      const raw = String(formData.get(`q_${q.id}`) ?? '').trim()
+      let answer = raw
+      if (q.questionType === 'multiple_choice') {
+        const options = coerceOptions(q.options) ?? []
+        if (raw === OTHER_VALUE) {
+          answer = String(formData.get(`q_${q.id}__other`) ?? '').trim()
+        } else if (!options.includes(raw)) {
+          answer = '' // opção vazia ou inválida → força a falha de obrigatoriedade
+        }
+      }
+      if (!answer) return { invalid: true } as const
+      answers.push({ projectMemberId: member.id, questionId: q.id, answer })
+    }
+
+    if (answers.length > 0) {
+      await tx.insert(onboardingResponses).values(answers)
+    }
+    await tx
       .update(projectMembers)
       .set({
         status: 'active',
@@ -101,17 +157,20 @@ export async function completeOnboarding(
       })
       .where(
         and(
-          eq(projectMembers.projectId, projectId),
-          eq(projectMembers.userId, user.id),
-          eq(projectMembers.role, 'evaluator'),
+          eq(projectMembers.id, member.id),
           eq(projectMembers.status, 'pending_onboarding'),
         ),
       )
-      .returning({ id: projectMembers.id }),
-  )
+    return { ok: true } as const
+  })
 
-  // Se nada foi promovido (já ativo ou linha inexistente), trata como concluído.
-  if (promoted.length > 0) revalidatePath('/dashboard')
+  if ('invalid' in result) {
+    return { error: 'Responda todas as perguntas do onboarding para concluir.' }
+  }
+
+  // Concluído (ou já estava): revalida e volta para o projeto. redirect fica FORA do
+  // withUser (lança control-flow do Next → abortaria a transação).
+  if ('ok' in result) revalidatePath('/dashboard')
   redirect(`/projects/${projectId}`)
 }
 

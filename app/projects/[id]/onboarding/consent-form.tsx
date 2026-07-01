@@ -6,26 +6,73 @@ import {
   abandonOnboarding,
   type OnboardingState,
 } from '@/app/onboarding/actions'
+import { OTHER_VALUE, type OnboardingQuestion } from '@/app/onboarding/questions'
 
 const initialState: OnboardingState = null
 
 export function ConsentForm({
   projectId,
   consentText,
+  questions,
 }: {
   projectId: string
   consentText: string
+  questions: OnboardingQuestion[]
 }) {
   const [state, action, pending] = useActionState(completeOnboarding, initialState)
 
   return (
     <>
-      <div className="consent-box">
-        <p className="consent-text">{consentText}</p>
-      </div>
-
       <form action={action} className="consent-form">
         <input type="hidden" name="project_id" value={projectId} />
+
+        {/* Perguntas de onboarding (HU-028/032): todas obrigatórias. */}
+        {questions.length > 0 ? (
+          <div className="onboarding-questions">
+            {questions.map((q, i) => (
+              <fieldset key={q.id} className="onboarding-question">
+                <legend className="field-label">
+                  {i + 1}. {q.questionText}
+                </legend>
+
+                {q.questionType === 'open' ? (
+                  <textarea
+                    name={`q_${q.id}`}
+                    rows={2}
+                    required
+                    className="field-input"
+                    placeholder="Sua resposta"
+                  />
+                ) : (
+                  <div className="choice-list">
+                    {(q.options ?? []).map((opt, j) => (
+                      <label key={j} className="choice-option">
+                        <input type="radio" name={`q_${q.id}`} value={opt} required />
+                        <span>{opt}</span>
+                      </label>
+                    ))}
+                    {/* "Outro": marca o rádio e escreve o próprio texto. */}
+                    <label className="choice-option choice-other-row">
+                      <input type="radio" name={`q_${q.id}`} value={OTHER_VALUE} />
+                      <span>Outro:</span>
+                      <input
+                        type="text"
+                        name={`q_${q.id}__other`}
+                        className="field-input choice-other"
+                        placeholder="Escreva sua resposta"
+                      />
+                    </label>
+                  </div>
+                )}
+              </fieldset>
+            ))}
+          </div>
+        ) : null}
+
+        <div className="consent-box">
+          <p className="consent-text">{consentText}</p>
+        </div>
+
         <label className="consent-check">
           <input type="checkbox" name="consent" />
           <span>Li e aceito o termo de consentimento acima.</span>
