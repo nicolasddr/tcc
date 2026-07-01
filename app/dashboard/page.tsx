@@ -4,6 +4,7 @@ import { eq, desc, sql } from 'drizzle-orm'
 import { createClient } from '@/lib/supabase/server'
 import {
   withUser,
+  profiles,
   projectMembers,
   projects as projectsTable,
   notifications as notificationsTable,
@@ -52,9 +53,17 @@ export default async function Dashboard() {
   // projetos em que o usuário é membro (com o projeto via innerJoin), o inbox de
   // notificações e os convites pendentes. A RLS do banco continua valendo — ver ADR
   // 0007 e lib/db.
-  const { membershipRows, notificationRows, pendingInvitationRows } = await withUser(
+  const { profileRows, membershipRows, notificationRows, pendingInvitationRows } = await withUser(
     user.id,
     async (tx) => {
+      // HU-005: nome do próprio perfil (profiles_select_own) para o cabeçalho — o
+      // usuário o edita em /profile e a alteração reflete aqui de imediato.
+      const profileRows = await tx
+        .select({ name: profiles.name })
+        .from(profiles)
+        .where(eq(profiles.id, user.id))
+        .limit(1)
+
       const membershipRows = await tx
         .select({
           role: projectMembers.role,
@@ -91,9 +100,11 @@ export default async function Dashboard() {
             from public.list_my_pending_invitations()`,
       )
 
-      return { membershipRows, notificationRows, pendingInvitationRows }
+      return { profileRows, membershipRows, notificationRows, pendingInvitationRows }
     },
   )
+
+  const displayName = profileRows[0]?.name ?? email
 
   // O admin-avaliador tem duas linhas (uma por papel); agregamos por projeto. O
   // innerJoin garante `project` não-nulo (todo membro enxerga seu projeto pela RLS).
@@ -136,15 +147,18 @@ export default async function Dashboard() {
   return (
     <div className="dashboard">
       <header className="dashboard-header">
-        <div className="dashboard-user">
+        <Link href="/profile" className="dashboard-user" title="Editar meu perfil">
           {avatarUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img className="dashboard-avatar" src={avatarUrl} alt="" />
           ) : (
             <span className="dashboard-avatar-fallback">{initial}</span>
           )}
-          <span className="dashboard-email">{email}</span>
-        </div>
+          <span className="dashboard-identity">
+            <span className="dashboard-name">{displayName}</span>
+            <span className="dashboard-email">{email}</span>
+          </span>
+        </Link>
         <NotificationBell items={inboxItems} />
         <form action={signOut} className="dashboard-logout-form">
           <button type="submit" className="dashboard-logout">

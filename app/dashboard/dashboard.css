@@ -21,6 +21,26 @@
   display: flex;
   align-items: center;
   gap: 10px;
+  text-decoration: none;
+  color: inherit;
+  border-radius: 8px;
+  padding: 2px;
+}
+
+.dashboard-user:hover {
+  background: #f3f4f6;
+}
+
+.dashboard-identity {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+}
+
+.dashboard-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1f2937;
 }
 
 .dashboard-avatar {
@@ -47,8 +67,8 @@
 }
 
 .dashboard-email {
-  font-size: 14px;
-  color: #374151;
+  font-size: 12px;
+  color: #6b7280;
 }
 
 .dashboard-logout-form {

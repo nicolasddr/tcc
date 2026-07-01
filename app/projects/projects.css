@@ -188,6 +188,16 @@ textarea.field-input {
   margin: 0;
 }
 
+.form-success {
+  font-size: 13px;
+  color: #166534;
+  background: #dcfce7;
+  border: 1px solid #bbf7d0;
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin: 0;
+}
+
 .form-actions {
   display: flex;
   justify-content: flex-end;

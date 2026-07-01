@@ -1,0 +1,46 @@
+import Link from 'next/link'
+import { redirect } from 'next/navigation'
+import { eq } from 'drizzle-orm'
+import { createClient } from '@/lib/supabase/server'
+import { withUser, profiles } from '@/lib/db'
+import { ProfileForm } from './profile-form'
+import '../projects/projects.css'
+
+export default async function ProfilePage() {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) redirect('/login')
+
+  // Leitura RLS-aware do próprio perfil (profiles_select_own só devolve a própria
+  // linha) — ver ADR 0007.
+  const [profile] = await withUser(user.id, (tx) =>
+    tx
+      .select({ name: profiles.name, email: profiles.email })
+      .from(profiles)
+      .where(eq(profiles.id, user.id))
+      .limit(1),
+  )
+
+  return (
+    <div className="project-page">
+      <header className="project-topbar">
+        <Link href="/dashboard" className="project-back">
+          ← Voltar
+        </Link>
+      </header>
+
+      <main className="project-main">
+        <div className="project-narrow">
+          <h1 className="project-page-title">Meu perfil</h1>
+          <p className="project-page-subtitle">
+            {profile?.email} — o nome aparece para os demais membros dos seus projetos.
+          </p>
+
+          <ProfileForm initialName={profile?.name ?? ''} />
+        </div>
+      </main>
+    </div>
+  )
+}
