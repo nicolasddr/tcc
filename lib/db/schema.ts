@@ -149,6 +149,7 @@ export const projectMembers = pgTable("project_members", {
 	pgPolicy("pm_select", { as: "permissive", for: "select", to: ["public"], using: sql`((user_id = auth.uid()) OR is_project_admin(project_id) OR (is_member_of(project_id) AND (status <> 'pending_onboarding'::text)))` }),
 	pgPolicy("pm_insert", { as: "permissive", for: "insert", to: ["public"] }),
 	pgPolicy("pm_update", { as: "permissive", for: "update", to: ["public"] }),
+	pgPolicy("pm_delete_own_pending", { as: "permissive", for: "delete", to: ["public"], using: sql`((user_id = auth.uid()) AND (status = 'pending_onboarding'::text))` }),
 	check("project_members_role_check", sql`role = ANY (ARRAY['administrator'::text, 'evaluator'::text])`),
 	check("project_members_status_check", sql`status = ANY (ARRAY['pending_onboarding'::text, 'active'::text, 'inactive'::text])`),
 	check("pm_consent_required", sql`(status = 'pending_onboarding'::text) OR (role = 'administrator'::text) OR ((consent_accepted_at IS NOT NULL) AND (consent_text_snapshot IS NOT NULL))`),

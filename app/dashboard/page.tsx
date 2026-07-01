@@ -10,6 +10,7 @@ import {
 } from '@/lib/db'
 import { signOut } from '@/app/auth/actions'
 import { declineInvitation } from '@/app/invitations/actions'
+import { acceptInvitation } from '@/app/onboarding/actions'
 import { ProcessOverview, ProcessPhasesFooter } from '@/app/components/process-overview'
 import { NotificationBell, type InboxItem } from '@/app/components/notification-bell'
 import {
@@ -126,9 +127,9 @@ export default async function Dashboard() {
   // PendingInvitation).
   const pendingInvitations: PendingInvitation[] = pendingInvitationRows
   // Os projetos convidados aparecem na própria listagem (com selo "convite
-  // pendente" + Recusar) para o usuário poder agir sobre o convite. Aceitar
-  // (materializar o membro) é a fatia 04. Deduplica contra projetos onde já é
-  // membro (caso raro de re-convite de ex-membro inativo).
+  // pendente" + Aceitar/Recusar) para o usuário poder agir sobre o convite.
+  // Deduplica contra projetos onde já é membro (caso raro de re-convite de
+  // ex-membro inativo).
   const invitedProjects = pendingInvitations.filter((inv) => !byProject.has(inv.project_id))
   const hasProjects = projects.length > 0 || invitedProjects.length > 0
 
@@ -202,8 +203,8 @@ export default async function Dashboard() {
                   </li>
                 ))}
 
-                {/* Convites pendentes: aparecem na listagem para o usuário agir.
-                    Recusar já funciona; Aceitar (materializar o membro) é a fatia 04. */}
+                {/* Convites pendentes: aparecem na listagem para o usuário agir
+                    (Aceitar materializa o membro em onboarding; Recusar encerra o convite). */}
                 {invitedProjects.map((inv) => (
                   <li key={inv.invitation_id}>
                     <div className="project-card project-card-invited">
@@ -219,6 +220,12 @@ export default async function Dashboard() {
                       </Link>
                       <span className="project-card-badges">
                         <span className="invite-pending-badge">convite pendente</span>
+                        <form action={acceptInvitation}>
+                          <input type="hidden" name="project_id" value={inv.project_id} />
+                          <button type="submit" className="btn-accept btn-accept-sm">
+                            Aceitar
+                          </button>
+                        </form>
                         <form action={declineInvitation}>
                           <input type="hidden" name="invitation_id" value={inv.invitation_id} />
                           <button type="submit" className="btn-decline btn-decline-sm">

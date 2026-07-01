@@ -17,3 +17,18 @@ export function projectStatusLabel(status: string): string {
       return status
   }
 }
+
+// Rótulo (PT) do status de um membro dentro do projeto (HU-025). Usado na lista de
+// membros da página do projeto.
+export function memberStatusLabel(status: string): string {
+  switch (status) {
+    case 'active':
+      return 'Ativo'
+    case 'pending_onboarding':
+      return 'Onboarding pendente'
+    case 'inactive':
+      return 'Inativo'
+    default:
+      return status
+  }
+}
