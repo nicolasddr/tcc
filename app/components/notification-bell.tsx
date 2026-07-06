@@ -5,6 +5,7 @@ import {
   markNotificationRead,
   markAllNotificationsRead,
 } from '@/app/notifications/actions'
+import { SubmitButton } from './submit-button'
 
 // Itens já formatados no servidor (texto + data como string) para o sino só
 // cuidar da interação (abrir/fechar) e disparar as ações de marcar como lida.
@@ -56,9 +57,9 @@ export function NotificationBell({ items }: { items: InboxItem[] }) {
               <span className="bell-panel-title">Notificações</span>
               {unread > 0 ? (
                 <form action={markAllNotificationsRead}>
-                  <button type="submit" className="bell-mark-all">
+                  <SubmitButton className="bell-mark-all" pendingText="Marcando…">
                     Marcar todas como lidas
-                  </button>
+                  </SubmitButton>
                 </form>
               ) : null}
             </div>
@@ -75,9 +76,9 @@ export function NotificationBell({ items }: { items: InboxItem[] }) {
                       {!n.read ? (
                         <form action={markNotificationRead}>
                           <input type="hidden" name="notification_id" value={n.id} />
-                          <button type="submit" className="bell-mark-one">
+                          <SubmitButton className="bell-mark-one" pendingText="Marcando…">
                             Marcar como lida
-                          </button>
+                          </SubmitButton>
                         </form>
                       ) : null}
                     </span>

@@ -8,6 +8,7 @@ import {
   type QuestionState,
 } from './actions'
 import type { OnboardingQuestion } from '@/app/onboarding/questions'
+import { SubmitButton } from '@/app/components/submit-button'
 
 const initialState: QuestionState = null
 
@@ -150,9 +151,9 @@ function EditQuestionForm({
       >
         <input type="hidden" name="project_id" value={projectId} />
         <input type="hidden" name="question_id" value={question.id} />
-        <button type="submit" className="btn-decline">
+        <SubmitButton className="btn-decline" pendingText="Removendo…">
           Remover
-        </button>
+        </SubmitButton>
       </form>
     </div>
   )

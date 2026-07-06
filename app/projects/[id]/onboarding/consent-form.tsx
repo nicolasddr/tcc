@@ -7,6 +7,7 @@ import {
   type OnboardingState,
 } from '@/app/onboarding/actions'
 import { OTHER_VALUE, type OnboardingQuestion } from '@/app/onboarding/questions'
+import { SubmitButton } from '@/app/components/submit-button'
 
 const initialState: OnboardingState = null
 
@@ -95,9 +96,9 @@ export function ConsentForm({
           separado para não arrastar a validação/pending do consentimento. */}
       <form action={abandonOnboarding} className="consent-abandon">
         <input type="hidden" name="project_id" value={projectId} />
-        <button type="submit" className="btn-decline">
+        <SubmitButton className="btn-decline" pendingText="Abandonando…">
           Abandonar
-        </button>
+        </SubmitButton>
       </form>
     </>
   )

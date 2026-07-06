@@ -14,6 +14,7 @@ import { declineInvitation } from '@/app/invitations/actions'
 import { acceptInvitation } from '@/app/onboarding/actions'
 import { ProcessOverview, ProcessPhasesFooter } from '@/app/components/process-overview'
 import { NotificationBell, type InboxItem } from '@/app/components/notification-bell'
+import { SubmitButton } from '@/app/components/submit-button'
 import {
   notificationText,
   formatDate,
@@ -161,7 +162,7 @@ export default async function Dashboard() {
         </Link>
         <NotificationBell items={inboxItems} />
         <form action={signOut} className="dashboard-logout-form">
-          <button type="submit" className="dashboard-logout">
+          <SubmitButton className="dashboard-logout" pendingText="Saindo…">
             <svg
               viewBox="0 0 24 24"
               fill="none"
@@ -176,7 +177,7 @@ export default async function Dashboard() {
               <line x1="21" y1="12" x2="9" y2="12" />
             </svg>
             Sair
-          </button>
+          </SubmitButton>
         </form>
       </header>
 
@@ -236,15 +237,15 @@ export default async function Dashboard() {
                         <span className="invite-pending-badge">convite pendente</span>
                         <form action={acceptInvitation}>
                           <input type="hidden" name="project_id" value={inv.project_id} />
-                          <button type="submit" className="btn-accept btn-accept-sm">
+                          <SubmitButton className="btn-accept btn-accept-sm" pendingText="Aceitando…">
                             Aceitar
-                          </button>
+                          </SubmitButton>
                         </form>
                         <form action={declineInvitation}>
                           <input type="hidden" name="invitation_id" value={inv.invitation_id} />
-                          <button type="submit" className="btn-decline btn-decline-sm">
+                          <SubmitButton className="btn-decline btn-decline-sm" pendingText="Recusando…">
                             Recusar
-                          </button>
+                          </SubmitButton>
                         </form>
                       </span>
                     </div>

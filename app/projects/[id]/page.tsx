@@ -8,6 +8,7 @@ import { declineInvitation } from '@/app/invitations/actions'
 import { taskTypeLabel } from '../task-types'
 import { projectStatusLabel, roleLabel, memberStatusLabel } from '../labels'
 import { InviteEvaluatorForm } from './invite-evaluator-form'
+import { SubmitButton } from '@/app/components/submit-button'
 import '../projects.css'
 import '@/app/notifications/notifications.css'
 
@@ -180,15 +181,15 @@ export default async function ProjectPage({
               <div className="invite-actions">
                 <form action={acceptInvitation}>
                   <input type="hidden" name="project_id" value={project.id} />
-                  <button type="submit" className="btn-invite btn-inline">
+                  <SubmitButton className="btn-invite btn-inline" pendingText="Aceitando…">
                     Aceitar convite
-                  </button>
+                  </SubmitButton>
                 </form>
                 <form action={declineInvitation}>
                   <input type="hidden" name="invitation_id" value={pendingInvitation.id} />
-                  <button type="submit" className="btn-decline">
+                  <SubmitButton className="btn-decline" pendingText="Recusando…">
                     Recusar
-                  </button>
+                  </SubmitButton>
                 </form>
               </div>
             </section>

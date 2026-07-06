@@ -23,3 +23,11 @@ body {
   color: var(--foreground);
   font-family: var(--font-sans), Arial, Helvetica, sans-serif;
 }
+
+/* Feedback padrão enquanto uma ação de form está em andamento. O SubmitButton marca
+   aria-busy no envio; damos cursor de espera e leve opacidade para qualquer botão que
+   ainda não tenha um estilo :disabled próprio. */
+button[aria-busy='true'] {
+  cursor: progress;
+  opacity: 0.7;
+}
