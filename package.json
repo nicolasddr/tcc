@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "test": "supabase start && supabase db reset && supabase test db",
+    "test:e2e": "playwright test",
     "db:reset": "supabase db reset"
   },
   "dependencies": {
@@ -20,10 +21,12 @@
     "react-dom": "19.2.4"
   },
   "devDependencies": {
+    "@playwright/test": "^1.61.1",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "dotenv": "^17.4.2",
     "drizzle-kit": "^0.31.10",
     "eslint": "^9",
     "eslint-config-next": "16.2.9",

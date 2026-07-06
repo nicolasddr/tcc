@@ -2,6 +2,9 @@
 .branches
 .temp
 
+# JWT signing keys — NUNCA commitar (chave privada de assinatura de tokens)
+signing_keys.json
+
 # dotenvx
 .env.keys
 .env.local
