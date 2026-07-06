@@ -25,7 +25,10 @@ export async function updateSession(request: NextRequest) {
     }
   )
 
-  await supabase.auth.getUser()
+  // getClaims() verifica o JWT localmente (WebCrypto, chaves assimétricas) sem
+  // round-trip ao Supabase Auth quando o token está válido; ainda renova a
+  // sessão e reescreve os cookies (via setAll) quando está perto de expirar.
+  await supabase.auth.getClaims()
 
   return supabaseResponse
 }
