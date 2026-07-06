@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { and, eq } from 'drizzle-orm'
-import { createClient } from '@/lib/supabase/server'
+import { getClaims } from '@/lib/supabase/server'
 import { withUser, projectInvitations } from '@/lib/db'
 
 // HU-019: o convidado recusa um convite pendente (status → declined). O UPDATE passa
@@ -12,23 +12,21 @@ import { withUser, projectInvitations } from '@/lib/db'
 // admin) muda a linha; o filtro por invitee_id é defesa em profundidade. Aceitar o
 // convite é a fatia 04.
 export async function declineInvitation(formData: FormData): Promise<void> {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
+  const claims = await getClaims()
+  if (!claims) redirect('/login')
+  const userId = claims.sub
 
   const invitationId = String(formData.get('invitation_id') ?? '')
   if (!invitationId) return
 
-  await withUser(user.id, (tx) =>
+  await withUser(userId, (tx) =>
     tx
       .update(projectInvitations)
       .set({ status: 'declined', resolvedAt: new Date().toISOString() })
       .where(
         and(
           eq(projectInvitations.id, invitationId),
-          eq(projectInvitations.inviteeId, user.id),
+          eq(projectInvitations.inviteeId, userId),
           eq(projectInvitations.status, 'pending'),
         ),
       ),

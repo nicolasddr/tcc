@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { and, eq } from 'drizzle-orm'
-import { createClient } from '@/lib/supabase/server'
+import { getClaims } from '@/lib/supabase/server'
 import {
   withUser,
   projectMembers,
@@ -23,16 +23,14 @@ export type OnboardingState = { error: string } | null
 // só depois viramos o convite para `accepted`. O consentimento (promover a active) é o
 // passo seguinte, na página de onboarding.
 export async function acceptInvitation(formData: FormData): Promise<void> {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
+  const claims = await getClaims()
+  if (!claims) redirect('/login')
+  const userId = claims.sub
 
   const projectId = String(formData.get('project_id') ?? '')
   if (!projectId) redirect('/dashboard')
 
-  await withUser(user.id, async (tx) => {
+  await withUser(userId, async (tx) => {
     // Idempotência (re-clique / já aceitou antes): se a linha já existe, NÃO reinsere.
     // Reinserir falharia na RLS pm_insert — que exige convite PENDENTE — pois o aceite
     // anterior já virou o convite para accepted. onConflictDoNothing NÃO cobriria isso:
@@ -44,7 +42,7 @@ export async function acceptInvitation(formData: FormData): Promise<void> {
       .where(
         and(
           eq(projectMembers.projectId, projectId),
-          eq(projectMembers.userId, user.id),
+          eq(projectMembers.userId, userId),
           eq(projectMembers.role, 'evaluator'),
         ),
       )
@@ -53,7 +51,7 @@ export async function acceptInvitation(formData: FormData): Promise<void> {
 
     await tx.insert(projectMembers).values({
       projectId,
-      userId: user.id,
+      userId: userId,
       role: 'evaluator',
       status: 'pending_onboarding',
     })
@@ -64,7 +62,7 @@ export async function acceptInvitation(formData: FormData): Promise<void> {
       .where(
         and(
           eq(projectInvitations.projectId, projectId),
-          eq(projectInvitations.inviteeId, user.id),
+          eq(projectInvitations.inviteeId, userId),
           eq(projectInvitations.status, 'pending'),
         ),
       )
@@ -85,11 +83,9 @@ export async function completeOnboarding(
   _prev: OnboardingState,
   formData: FormData,
 ): Promise<OnboardingState> {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
+  const claims = await getClaims()
+  if (!claims) redirect('/login')
+  const userId = claims.sub
 
   const projectId = String(formData.get('project_id') ?? '')
   const consented = formData.get('consent') === 'on'
@@ -100,14 +96,14 @@ export async function completeOnboarding(
 
   const now = new Date().toISOString()
 
-  const result = await withUser(user.id, async (tx) => {
+  const result = await withUser(userId, async (tx) => {
     const [member] = await tx
       .select({ id: projectMembers.id, status: projectMembers.status })
       .from(projectMembers)
       .where(
         and(
           eq(projectMembers.projectId, projectId),
-          eq(projectMembers.userId, user.id),
+          eq(projectMembers.userId, userId),
           eq(projectMembers.role, 'evaluator'),
         ),
       )
@@ -179,22 +175,20 @@ export async function completeOnboarding(
 // para `pending`, para o avaliador poder reconsiderar depois. Deletar primeiro, depois
 // reverter: nenhum passo depende do outro, mas mantém a ordem espelho do aceite.
 export async function abandonOnboarding(formData: FormData): Promise<void> {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
+  const claims = await getClaims()
+  if (!claims) redirect('/login')
+  const userId = claims.sub
 
   const projectId = String(formData.get('project_id') ?? '')
   if (!projectId) redirect('/dashboard')
 
-  await withUser(user.id, async (tx) => {
+  await withUser(userId, async (tx) => {
     await tx
       .delete(projectMembers)
       .where(
         and(
           eq(projectMembers.projectId, projectId),
-          eq(projectMembers.userId, user.id),
+          eq(projectMembers.userId, userId),
           eq(projectMembers.role, 'evaluator'),
           eq(projectMembers.status, 'pending_onboarding'),
         ),
@@ -206,7 +200,7 @@ export async function abandonOnboarding(formData: FormData): Promise<void> {
       .where(
         and(
           eq(projectInvitations.projectId, projectId),
-          eq(projectInvitations.inviteeId, user.id),
+          eq(projectInvitations.inviteeId, userId),
           eq(projectInvitations.status, 'accepted'),
         ),
       )

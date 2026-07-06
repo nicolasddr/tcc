@@ -1,14 +1,13 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
-import { createClient } from '@/lib/supabase/server'
+import { getClaims } from '@/lib/supabase/server'
 import './home.css'
 import { GoogleSignInButton, LoginButton } from './components/auth-buttons'
 import { ProcessOverview, ProcessPhasesFooter } from './components/process-overview'
 
 export default async function Home() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (user) redirect('/dashboard')
+  const claims = await getClaims()
+  if (claims) redirect('/dashboard')
 
   return (
     <div className="page">

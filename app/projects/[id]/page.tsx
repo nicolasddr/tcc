@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
 import { and, eq } from 'drizzle-orm'
-import { createClient } from '@/lib/supabase/server'
+import { getClaims } from '@/lib/supabase/server'
 import { withUser, projects, projectMembers, projectInvitations, profiles } from '@/lib/db'
 import { acceptInvitation } from '@/app/onboarding/actions'
 import { declineInvitation } from '@/app/invitations/actions'
@@ -34,11 +34,9 @@ export default async function ProjectPage({
   params: Promise<{ id: string }>
 }) {
   const { id } = await params
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
+  const claims = await getClaims()
+  if (!claims) redirect('/login')
+  const userId = claims.sub
 
   // Numa transação RLS-aware (papel `authenticated`): o projeto (a RLS só deixa
   // membro/convidado enxergar; quem não participa recebe 0 linhas e cai no notFound), os
@@ -46,7 +44,7 @@ export default async function ProjectPage({
   // pendente (para oferecer aceitar/recusar) e a lista de membros com nome/e-mail
   // (HU-025 — a RLS pm_select + profiles_select_shared_members recorta o que cada um vê).
   const { project, memberships, pendingInvitation, memberRows } = await withUser(
-    user.id,
+    userId,
     async (tx) => {
       const [project] = await tx
         .select({
@@ -64,7 +62,7 @@ export default async function ProjectPage({
       const memberships = await tx
         .select({ role: projectMembers.role, status: projectMembers.status })
         .from(projectMembers)
-        .where(and(eq(projectMembers.projectId, id), eq(projectMembers.userId, user.id)))
+        .where(and(eq(projectMembers.projectId, id), eq(projectMembers.userId, userId)))
 
       const [pendingInvitation] = await tx
         .select({ id: projectInvitations.id })
@@ -72,7 +70,7 @@ export default async function ProjectPage({
         .where(
           and(
             eq(projectInvitations.projectId, id),
-            eq(projectInvitations.inviteeId, user.id),
+            eq(projectInvitations.inviteeId, userId),
             eq(projectInvitations.status, 'pending'),
           ),
         )

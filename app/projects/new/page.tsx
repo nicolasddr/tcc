@@ -1,26 +1,24 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { eq } from 'drizzle-orm'
-import { createClient } from '@/lib/supabase/server'
+import { getClaims } from '@/lib/supabase/server'
 import { withUser, profiles } from '@/lib/db'
 import { NewProjectForm } from './new-project-form'
 import '../projects.css'
 
 export default async function NewProjectPage() {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
+  const claims = await getClaims()
+  if (!claims) redirect('/login')
+  const userId = claims.sub
 
   // A criação é gated pela RLS (can_create_projects). A fatia 08 entrega o fluxo de
   // pedir permissão; aqui só avisamos quando o usuário ainda não tem. Leitura
   // RLS-aware (profiles_select_own só devolve a própria linha) — ver ADR 0007.
-  const [profile] = await withUser(user.id, (tx) =>
+  const [profile] = await withUser(userId, (tx) =>
     tx
       .select({ canCreateProjects: profiles.canCreateProjects })
       .from(profiles)
-      .where(eq(profiles.id, user.id))
+      .where(eq(profiles.id, userId))
       .limit(1),
   )
 

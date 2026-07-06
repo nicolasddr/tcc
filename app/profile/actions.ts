@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { eq } from 'drizzle-orm'
-import { createClient } from '@/lib/supabase/server'
+import { getClaims } from '@/lib/supabase/server'
 import { withUser, profiles } from '@/lib/db'
 
 export type UpdateProfileState = { error: string } | { ok: string } | null
@@ -18,21 +18,19 @@ export async function updateProfile(
   _prev: UpdateProfileState,
   formData: FormData,
 ): Promise<UpdateProfileState> {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
+  const claims = await getClaims()
+  if (!claims) redirect('/login')
+  const userId = claims.sub
 
   const name = String(formData.get('name') ?? '').trim()
 
   if (!name) return { error: 'Informe um nome.' }
 
-  const updated = await withUser(user.id, (tx) =>
+  const updated = await withUser(userId, (tx) =>
     tx
       .update(profiles)
       .set({ name })
-      .where(eq(profiles.id, user.id))
+      .where(eq(profiles.id, userId))
       .returning({ id: profiles.id }),
   )
 

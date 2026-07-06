@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
 import { and, eq } from 'drizzle-orm'
-import { createClient } from '@/lib/supabase/server'
+import { getClaims } from '@/lib/supabase/server'
 import { withUser, projects, projectMembers, onboardingQuestions } from '@/lib/db'
 import { CONSENT_TEXT } from '@/app/onboarding/consent'
 import { coerceOptions, type OnboardingQuestion } from '@/app/onboarding/questions'
@@ -19,13 +19,11 @@ export default async function OnboardingPage({
   params: Promise<{ id: string }>
 }) {
   const { id } = await params
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
+  const claims = await getClaims()
+  if (!claims) redirect('/login')
+  const userId = claims.sub
 
-  const { project, membership, questions } = await withUser(user.id, async (tx) => {
+  const { project, membership, questions } = await withUser(userId, async (tx) => {
     const [project] = await tx
       .select({ id: projects.id, name: projects.name })
       .from(projects)
@@ -38,7 +36,7 @@ export default async function OnboardingPage({
       .where(
         and(
           eq(projectMembers.projectId, id),
-          eq(projectMembers.userId, user.id),
+          eq(projectMembers.userId, userId),
           eq(projectMembers.role, 'evaluator'),
         ),
       )

@@ -1,25 +1,23 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { eq } from 'drizzle-orm'
-import { createClient } from '@/lib/supabase/server'
+import { getClaims } from '@/lib/supabase/server'
 import { withUser, profiles } from '@/lib/db'
 import { ProfileForm } from './profile-form'
 import '../projects/projects.css'
 
 export default async function ProfilePage() {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
+  const claims = await getClaims()
+  if (!claims) redirect('/login')
+  const userId = claims.sub
 
   // Leitura RLS-aware do próprio perfil (profiles_select_own só devolve a própria
   // linha) — ver ADR 0007.
-  const [profile] = await withUser(user.id, (tx) =>
+  const [profile] = await withUser(userId, (tx) =>
     tx
       .select({ name: profiles.name, email: profiles.email })
       .from(profiles)
-      .where(eq(profiles.id, user.id))
+      .where(eq(profiles.id, userId))
       .limit(1),
   )
 

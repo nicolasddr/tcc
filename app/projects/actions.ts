@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { and, eq, sql } from 'drizzle-orm'
-import { createClient } from '@/lib/supabase/server'
+import { getClaims } from '@/lib/supabase/server'
 import { withUser, pgErrorCode, projects, projectInvitations, projectMembers } from '@/lib/db'
 import { normalizeTaskType } from './task-types'
 
@@ -21,11 +21,9 @@ export async function createProject(
   _prev: CreateProjectState,
   formData: FormData,
 ): Promise<CreateProjectState> {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
+  const claims = await getClaims()
+  if (!claims) redirect('/login')
+  const userId = claims.sub
 
   const name = String(formData.get('name') ?? '').trim()
   const description = String(formData.get('description') ?? '').trim()
@@ -35,14 +33,14 @@ export async function createProject(
 
   let projectId: string
   try {
-    const [created] = await withUser(user.id, (tx) =>
+    const [created] = await withUser(userId, (tx) =>
       tx
         .insert(projects)
         .values({
           name,
           description: description || null,
           taskType,
-          createdBy: user.id,
+          createdBy: userId,
         })
         .returning({ id: projects.id }),
     )
@@ -76,11 +74,9 @@ export async function inviteEvaluator(
   _prev: InviteEvaluatorState,
   formData: FormData,
 ): Promise<InviteEvaluatorState> {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
+  const claims = await getClaims()
+  if (!claims) redirect('/login')
+  const userId = claims.sub
 
   const projectId = String(formData.get('project_id') ?? '')
   const email = String(formData.get('email') ?? '').trim()
@@ -88,7 +84,7 @@ export async function inviteEvaluator(
   if (!projectId) return { error: 'Projeto inválido.' }
   if (!email) return { error: 'Informe o e-mail do avaliador.' }
 
-  const [invitee] = await withUser(user.id, (tx) =>
+  const [invitee] = await withUser(userId, (tx) =>
     tx.execute<{ id: string; name: string }>(
       sql`select id, name from public.find_invitee_by_email(${email})`,
     ),
@@ -103,7 +99,7 @@ export async function inviteEvaluator(
 
   // check_invitation_target em TS: não convidar quem já é membro ativo (mensagem
   // clara). Sob `withUser`, o admin enxerga os membros do projeto (pm_select).
-  const [active] = await withUser(user.id, (tx) =>
+  const [active] = await withUser(userId, (tx) =>
     tx
       .select({ id: projectMembers.id })
       .from(projectMembers)
@@ -121,11 +117,11 @@ export async function inviteEvaluator(
   }
 
   try {
-    await withUser(user.id, (tx) =>
+    await withUser(userId, (tx) =>
       tx.insert(projectInvitations).values({
         projectId,
         inviteeId: invitee.id,
-        invitedBy: user.id,
+        invitedBy: userId,
         status: 'pending',
       }),
     )

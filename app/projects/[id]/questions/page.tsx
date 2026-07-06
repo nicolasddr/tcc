@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
 import { and, eq } from 'drizzle-orm'
-import { createClient } from '@/lib/supabase/server'
+import { getClaims } from '@/lib/supabase/server'
 import { withUser, projects, projectMembers, onboardingQuestions } from '@/lib/db'
 import { coerceOptions, type OnboardingQuestion } from '@/app/onboarding/questions'
 import { QuestionManager } from './question-manager'
@@ -17,13 +17,11 @@ export default async function QuestionsPage({
   params: Promise<{ id: string }>
 }) {
   const { id } = await params
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
+  const claims = await getClaims()
+  if (!claims) redirect('/login')
+  const userId = claims.sub
 
-  const { project, isAdmin, questions } = await withUser(user.id, async (tx) => {
+  const { project, isAdmin, questions } = await withUser(userId, async (tx) => {
     const [project] = await tx
       .select({ id: projects.id, name: projects.name })
       .from(projects)
@@ -33,7 +31,7 @@ export default async function QuestionsPage({
     const memberships = await tx
       .select({ role: projectMembers.role, status: projectMembers.status })
       .from(projectMembers)
-      .where(and(eq(projectMembers.projectId, id), eq(projectMembers.userId, user.id)))
+      .where(and(eq(projectMembers.projectId, id), eq(projectMembers.userId, userId)))
 
     const rows = await tx
       .select({

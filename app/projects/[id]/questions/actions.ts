@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { and, desc, eq } from 'drizzle-orm'
-import { createClient } from '@/lib/supabase/server'
+import { getClaims } from '@/lib/supabase/server'
 import { withUser, onboardingQuestions } from '@/lib/db'
 import { parseOptionsInput, type OnboardingQuestionType } from '@/app/onboarding/questions'
 
@@ -46,11 +46,9 @@ export async function addQuestion(
   _prev: QuestionState,
   formData: FormData,
 ): Promise<QuestionState> {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
+  const claims = await getClaims()
+  if (!claims) redirect('/login')
+  const userId = claims.sub
 
   const projectId = String(formData.get('project_id') ?? '')
   if (!projectId) return { error: 'Projeto inválido.' }
@@ -59,7 +57,7 @@ export async function addQuestion(
   if ('error' in parsed) return parsed
 
   try {
-    await withUser(user.id, async (tx) => {
+    await withUser(userId, async (tx) => {
       const [last] = await tx
         .select({ orderIndex: onboardingQuestions.orderIndex })
         .from(onboardingQuestions)
@@ -94,11 +92,9 @@ export async function updateQuestion(
   _prev: QuestionState,
   formData: FormData,
 ): Promise<QuestionState> {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
+  const claims = await getClaims()
+  if (!claims) redirect('/login')
+  const userId = claims.sub
 
   const projectId = String(formData.get('project_id') ?? '')
   const questionId = String(formData.get('question_id') ?? '')
@@ -108,7 +104,7 @@ export async function updateQuestion(
   if ('error' in parsed) return parsed
 
   try {
-    await withUser(user.id, (tx) =>
+    await withUser(userId, (tx) =>
       tx
         .update(onboardingQuestions)
         .set({
@@ -135,17 +131,15 @@ export async function updateQuestion(
 // onboarding_responses.question_id ON DELETE CASCADE). A RLS oq_delete exige
 // is_project_admin. Ação simples (sem estado): o form client confirma antes de enviar.
 export async function removeQuestion(formData: FormData): Promise<void> {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
+  const claims = await getClaims()
+  if (!claims) redirect('/login')
+  const userId = claims.sub
 
   const projectId = String(formData.get('project_id') ?? '')
   const questionId = String(formData.get('question_id') ?? '')
   if (!projectId || !questionId) return
 
-  await withUser(user.id, (tx) =>
+  await withUser(userId, (tx) =>
     tx
       .delete(onboardingQuestions)
       .where(

@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { eq, desc, sql } from 'drizzle-orm'
-import { createClient } from '@/lib/supabase/server'
+import { getClaims } from '@/lib/supabase/server'
 import {
   withUser,
   profiles,
@@ -42,12 +42,12 @@ type PendingInvitation = {
 }
 
 export default async function Dashboard() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
+  const claims = await getClaims()
+  if (!claims) redirect('/login')
 
-  const avatarUrl = user.user_metadata?.avatar_url ?? user.user_metadata?.picture
-  const email = user.email ?? ''
+  const userId = claims.sub
+  const avatarUrl = claims.user_metadata?.avatar_url ?? claims.user_metadata?.picture
+  const email = claims.email ?? ''
   const initial = email.charAt(0)
 
   // HU-013/010/011/019: numa transação RLS-aware (papel `authenticated`), lemos os
@@ -55,14 +55,14 @@ export default async function Dashboard() {
   // notificações e os convites pendentes. A RLS do banco continua valendo — ver ADR
   // 0007 e lib/db.
   const { profileRows, membershipRows, notificationRows, pendingInvitationRows } = await withUser(
-    user.id,
+    userId,
     async (tx) => {
       // HU-005: nome do próprio perfil (profiles_select_own) para o cabeçalho — o
       // usuário o edita em /profile e a alteração reflete aqui de imediato.
       const profileRows = await tx
         .select({ name: profiles.name })
         .from(profiles)
-        .where(eq(profiles.id, user.id))
+        .where(eq(profiles.id, userId))
         .limit(1)
 
       const membershipRows = await tx
@@ -77,7 +77,7 @@ export default async function Dashboard() {
         })
         .from(projectMembers)
         .innerJoin(projectsTable, eq(projectMembers.projectId, projectsTable.id))
-        .where(eq(projectMembers.userId, user.id))
+        .where(eq(projectMembers.userId, userId))
 
       const notificationRows = await tx
         .select({

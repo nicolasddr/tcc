@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
 import { and, eq } from 'drizzle-orm'
-import { createClient } from '@/lib/supabase/server'
+import { getClaims } from '@/lib/supabase/server'
 import {
   withUser,
   projects,
@@ -23,13 +23,11 @@ export default async function MemberResponsesPage({
   params: Promise<{ id: string; userId: string }>
 }) {
   const { id, userId } = await params
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
+  const claims = await getClaims()
+  if (!claims) redirect('/login')
+  const viewerId = claims.sub
 
-  const { project, isAdmin, target, rows } = await withUser(user.id, async (tx) => {
+  const { project, isAdmin, target, rows } = await withUser(viewerId, async (tx) => {
     const [project] = await tx
       .select({ id: projects.id, name: projects.name })
       .from(projects)
@@ -39,7 +37,7 @@ export default async function MemberResponsesPage({
     const memberships = await tx
       .select({ role: projectMembers.role, status: projectMembers.status })
       .from(projectMembers)
-      .where(and(eq(projectMembers.projectId, id), eq(projectMembers.userId, user.id)))
+      .where(and(eq(projectMembers.projectId, id), eq(projectMembers.userId, viewerId)))
     const isAdmin = memberships.some(
       (m) => m.role === 'administrator' && m.status === 'active',
     )
