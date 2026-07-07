@@ -59,17 +59,26 @@ export async function createProject(
   redirect(`/projects/${projectId}`)
 }
 
-// HU-018 (parcial) / HU-010: o Administrador convida um avaliador JÁ CADASTRADO pelo
-// e-mail. find_invitee_by_email (RPC security definer) devolve só id+name sem enumerar
-// e-mails — por decisão da Fase 4 (ADR 0007) PERMANECE em SQL (é a fronteira anti-
-// enumeração, garantida pelo banco) e passa a ser chamada via Drizzle sob `withUser`,
-// não mais por supabase.rpc; o auth.uid() interno resolve pela claim da transação. O
-// INSERT do convite vai por Drizzle sob `withUser`: a RLS (inv_insert, exige
-// is_project_admin) vale; o pré-check de membro ativo reimplementa check_invitation_target
-// (mensagem amigável) e o trigger homônimo segue no banco como rede; o índice único barra
-// convite pendente duplicado (23505); notify_on_invitation cria a notificação in-platform
-// (AFTER INSERT, fica no banco: notifications não tem policy de INSERT). Convidar quem não
-// tem conta é a fatia 07.
+// Regex propositalmente frouxa: só barra digitação obviamente inválida antes de
+// gravar; a validação real do endereço é o próprio login com Google (ADR 0006).
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+// HU-010 / HU-018 / ADR 0006: o Administrador convida um avaliador por e-mail —
+// mesmo que a pessoa AINDA NÃO tenha conta. find_invitee_by_email (RPC security
+// definer) devolve só id+name sem enumerar e-mails; por decisão da Fase 4 (ADR 0007)
+// PERMANECE em SQL (fronteira anti-enumeração, garantida pelo banco) e é chamada via
+// Drizzle sob `withUser`, com auth.uid() resolvido pela claim da transação.
+//
+// Dois caminhos, os dois passando pela RLS inv_insert (exige is_project_admin):
+//  - JÁ CADASTRADO: grava invitee_id + invitee_email; pré-check de membro ativo
+//    reimplementa check_invitation_target (mensagem amigável, o trigger segue no banco
+//    como rede); notify_on_invitation cria a notificação in-platform na hora.
+//  - SEM CONTA: grava só invitee_email (invitee_id NULL). O convite fica pendente até o
+//    1º login com Google daquele e-mail, quando handle_new_user vincula o invitee_id e
+//    dispara a notificação (fatia 07 / ADR 0006). O admin compartilha o link por fora.
+//
+// O índice único (inv_one_pending_per_invitee / inv_one_pending_per_email) barra convite
+// pendente duplicado (23505) nos dois caminhos.
 export async function inviteEvaluator(
   _prev: InviteEvaluatorState,
   formData: FormData,
@@ -79,10 +88,13 @@ export async function inviteEvaluator(
   const userId = claims.sub
 
   const projectId = String(formData.get('project_id') ?? '')
-  const email = String(formData.get('email') ?? '').trim()
+  const email = String(formData.get('email') ?? '')
+    .trim()
+    .toLowerCase()
 
   if (!projectId) return { error: 'Projeto inválido.' }
   if (!email) return { error: 'Informe o e-mail do avaliador.' }
+  if (!EMAIL_RE.test(email)) return { error: 'Informe um e-mail válido.' }
 
   const [invitee] = await withUser(userId, (tx) =>
     tx.execute<{ id: string; name: string }>(
@@ -90,53 +102,54 @@ export async function inviteEvaluator(
     ),
   )
 
-  if (!invitee) {
-    return {
-      error:
-        'Nenhum usuário cadastrado com esse e-mail. Por enquanto só é possível convidar quem já entrou ao menos uma vez.',
-    }
-  }
+  // Alvo do convite: quem se vê no sucesso e na mensagem de duplicado.
+  const target = invitee ? invitee.name : email
 
   // check_invitation_target em TS: não convidar quem já é membro ativo (mensagem
-  // clara). Sob `withUser`, o admin enxerga os membros do projeto (pm_select).
-  const [active] = await withUser(userId, (tx) =>
-    tx
-      .select({ id: projectMembers.id })
-      .from(projectMembers)
-      .where(
-        and(
-          eq(projectMembers.projectId, projectId),
-          eq(projectMembers.userId, invitee.id),
-          eq(projectMembers.status, 'active'),
-        ),
-      )
-      .limit(1),
-  )
-  if (active) {
-    return { error: `${invitee.name} já é membro ativo deste projeto.` }
+  // clara). Só faz sentido para quem já tem conta — sem perfil não há membership.
+  if (invitee) {
+    const [active] = await withUser(userId, (tx) =>
+      tx
+        .select({ id: projectMembers.id })
+        .from(projectMembers)
+        .where(
+          and(
+            eq(projectMembers.projectId, projectId),
+            eq(projectMembers.userId, invitee.id),
+            eq(projectMembers.status, 'active'),
+          ),
+        )
+        .limit(1),
+    )
+    if (active) {
+      return { error: `${invitee.name} já é membro ativo deste projeto.` }
+    }
   }
 
   try {
     await withUser(userId, (tx) =>
       tx.insert(projectInvitations).values({
         projectId,
-        inviteeId: invitee.id,
+        inviteeId: invitee ? invitee.id : null,
+        inviteeEmail: email,
         invitedBy: userId,
         status: 'pending',
       }),
     )
   } catch (err) {
-    // 23505: índice único (convite pendente já existe).
+    // 23505: índice único (convite pendente já existe para esse e-mail/usuário).
     if (pgErrorCode(err) === '23505') {
-      return { error: `${invitee.name} já tem um convite pendente neste projeto.` }
+      return { error: `${target} já tem um convite pendente neste projeto.` }
     }
     // Demais (P0001 do trigger check_invitation_target como rede, p/ corrida; ou RLS
     // negando): já é membro ativo ou sem permissão de admin.
     return {
-      error: `Não foi possível convidar ${invitee.name}. Talvez já seja membro ativo do projeto.`,
+      error: `Não foi possível convidar ${target}. Talvez já seja membro ativo do projeto.`,
     }
   }
 
   revalidatePath(`/projects/${projectId}`)
-  return { ok: `Convite enviado para ${invitee.name}.` }
+  return invitee
+    ? { ok: `Convite enviado para ${invitee.name}.` }
+    : { ok: `Convite enviado para ${email}. A pessoa verá o convite ao entrar com o Google.` }
 }

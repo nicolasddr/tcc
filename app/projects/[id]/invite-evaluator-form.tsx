@@ -34,6 +34,11 @@ export function InviteEvaluatorForm({ projectId }: { projectId: string }) {
         </button>
       </div>
 
+      <p className="field-hint">
+        Pode convidar mesmo quem ainda não tem conta: o convite aparece no primeiro
+        acesso com o Google.
+      </p>
+
       {state && 'error' in state ? (
         <p className="form-error" role="alert">
           {state.error}

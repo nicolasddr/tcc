@@ -159,7 +159,10 @@ export const projectMembers = pgTable("project_members", {
 export const projectInvitations = pgTable("project_invitations", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	projectId: uuid("project_id").notNull(),
-	inviteeId: uuid("invitee_id").notNull(),
+	// NULLABLE desde 0009 (ADR 0006): convite por e-mail fica pendente sem perfil;
+	// invitee_id é preenchido na resolução (1º login). Ver inviteeEmail.
+	inviteeId: uuid("invitee_id"),
+	inviteeEmail: text("invitee_email"),
 	invitedBy: uuid("invited_by"),
 	status: text().default('pending').notNull(),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
@@ -167,6 +170,7 @@ export const projectInvitations = pgTable("project_invitations", {
 }, (table) => [
 	index("inv_invitee_status").using("btree", table.inviteeId.asc().nullsLast().op("text_ops"), table.status.asc().nullsLast().op("uuid_ops")),
 	uniqueIndex("inv_one_pending_per_invitee").using("btree", table.projectId.asc().nullsLast().op("uuid_ops"), table.inviteeId.asc().nullsLast().op("uuid_ops")).where(sql`(status = 'pending'::text)`),
+	uniqueIndex("inv_one_pending_per_email").using("btree", table.projectId.asc().nullsLast().op("uuid_ops"), sql`lower(invitee_email)`).where(sql`(status = 'pending'::text)`),
 	index("inv_project_status").using("btree", table.projectId.asc().nullsLast().op("text_ops"), table.status.asc().nullsLast().op("uuid_ops")),
 	foreignKey({
 			columns: [table.projectId],
@@ -187,6 +191,7 @@ export const projectInvitations = pgTable("project_invitations", {
 	pgPolicy("inv_insert", { as: "permissive", for: "insert", to: ["public"] }),
 	pgPolicy("inv_update", { as: "permissive", for: "update", to: ["public"] }),
 	check("project_invitations_status_check", sql`status = ANY (ARRAY['pending'::text, 'accepted'::text, 'declined'::text, 'cancelled'::text])`),
+	check("inv_target_present", sql`(invitee_id IS NOT NULL) OR (invitee_email IS NOT NULL)`),
 ]);
 
 export const onboardingResponses = pgTable("onboarding_responses", {
