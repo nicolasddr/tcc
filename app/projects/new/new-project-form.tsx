@@ -1,7 +1,7 @@
 'use client'
 
 import { useActionState } from 'react'
-import Link from 'next/link'
+import Link from '@/app/components/app-link'
 import { createProject, type CreateProjectState } from '@/app/projects/actions'
 import { TASK_TYPE_OPTIONS } from '@/app/projects/task-types'
 

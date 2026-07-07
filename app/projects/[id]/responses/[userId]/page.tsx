@@ -1,4 +1,4 @@
-import Link from 'next/link'
+import Link from '@/app/components/app-link'
 import { notFound, redirect } from 'next/navigation'
 import { and, eq } from 'drizzle-orm'
 import { getClaims } from '@/lib/supabase/server'

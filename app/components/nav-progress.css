@@ -1,0 +1,40 @@
+/* Barra de progresso de navegação, fixa no topo da viewport.
+   Só aparece se a navegação passar de ~250ms (animation-delay), então as
+   navegações rápidas não a mostram. Cresce até ~90% sem nunca "completar"
+   (estilo nprogress) e some quando o pending termina e o componente desmonta. */
+.nav-progress {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  z-index: 9999;
+  background: var(--nav-progress-color, #1d4ed8);
+  transform: scaleX(0.02);
+  transform-origin: 0 50%;
+  opacity: 0;
+  pointer-events: none;
+  animation:
+    nav-progress-fade 200ms ease 250ms forwards,
+    nav-progress-grow 12s cubic-bezier(0.15, 0.75, 0.2, 1) 250ms forwards;
+}
+
+@keyframes nav-progress-fade {
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes nav-progress-grow {
+  to {
+    transform: scaleX(0.9);
+  }
+}
+
+/* Sem crescimento animado; ainda respeita o atraso p/ não piscar em navegações rápidas. */
+@media (prefers-reduced-motion: reduce) {
+  .nav-progress {
+    transform: scaleX(1);
+    animation: nav-progress-fade 1ms linear 250ms forwards;
+  }
+}

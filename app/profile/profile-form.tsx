@@ -1,7 +1,7 @@
 'use client'
 
 import { useActionState } from 'react'
-import Link from 'next/link'
+import Link from '@/app/components/app-link'
 import { updateProfile, type UpdateProfileState } from './actions'
 
 const initialState: UpdateProfileState = null
