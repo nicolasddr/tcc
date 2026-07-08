@@ -9,6 +9,7 @@ import { taskTypeLabel } from '../task-types'
 import { projectStatusLabel, roleLabel, memberStatusLabel } from '../labels'
 import { InviteEvaluatorForm } from './invite-evaluator-form'
 import { ManageProject } from './manage-project'
+import { RemoveMemberButton, LeaveProjectButton } from './member-actions'
 import { SubmitButton } from '@/app/components/submit-button'
 import '../projects.css'
 import '@/app/notifications/notifications.css'
@@ -106,6 +107,10 @@ export default async function ProjectPage({
   )
   const isActiveMember = memberships.some((m) => m.status === 'active')
   const isMember = memberships.length > 0
+  // Só um avaliador ativo que NÃO é administrador pode sair voluntariamente (HU-022);
+  // o Administrador gere o ciclo do projeto, não "sai" dele.
+  const canLeave =
+    !isAdmin && memberships.some((m) => m.role === 'evaluator' && m.status === 'active')
   const taskType = taskTypeLabel(project.taskType)
 
   // Agrega os membros por usuário (o admin-avaliador tem duas linhas — HU-024).
@@ -237,10 +242,35 @@ export default async function ProjectPage({
                           Ver respostas
                         </Link>
                       ) : null}
+                      {/* HU-021: o admin remove um avaliador ativo (não a si mesmo,
+                          nem outro administrador). */}
+                      {isAdmin &&
+                      m.roles.includes('evaluator') &&
+                      !m.roles.includes('administrator') &&
+                      m.status === 'active' &&
+                      m.userId !== userId ? (
+                        <RemoveMemberButton
+                          projectId={project.id}
+                          memberUserId={m.userId}
+                          memberName={m.name}
+                        />
+                      ) : null}
                     </span>
                   </li>
                 ))}
               </ul>
+            </section>
+          ) : null}
+
+          {/* HU-022: um avaliador ativo (não-admin) pode sair voluntariamente. */}
+          {canLeave ? (
+            <section className="project-section">
+              <h2 className="project-section-title">Sair do projeto</h2>
+              <p className="project-section-hint">
+                Você deixa de participar como avaliador. Suas avaliações são preservadas,
+                mas só o administrador poderá readmiti-lo depois.
+              </p>
+              <LeaveProjectButton projectId={project.id} />
             </section>
           ) : null}
 

@@ -234,3 +234,81 @@ export async function setProjectStatus(formData: FormData): Promise<void> {
   revalidatePath(`/projects/${projectId}`)
   revalidatePath('/dashboard')
 }
+
+// HU-021: o Administrador remove um avaliador do projeto. status → 'inactive'
+// (as avaliações são preservadas — nada é apagado), e os convites pendentes daquele
+// avaliador para o projeto são cancelados. Sem notificação ao removido. Numa única
+// transação sob `withUser`, então tudo passa pela RLS:
+//   • pm_update (is_project_admin) + o trigger enforce_member_status_transition (ramo
+//     admin) autorizam a transição active→inactive de OUTRO membro;
+//   • inv_update (is_project_admin) autoriza cancelar os convites pendentes.
+// O filtro `status = 'active'` evita mexer em avaliador ainda em onboarding (cuja
+// linha inactive violaria o CHECK pm_consent_required) e torna a ação idempotente.
+// A trava da fatia 05 impede que o removido reative a própria linha depois.
+export async function removeMember(formData: FormData): Promise<void> {
+  const claims = await getClaims()
+  if (!claims) redirect('/login')
+  const userId = claims.sub
+
+  const projectId = String(formData.get('project_id') ?? '')
+  const memberUserId = String(formData.get('member_user_id') ?? '')
+  if (!projectId || !memberUserId) return
+
+  await withUser(userId, async (tx) => {
+    await tx
+      .update(projectMembers)
+      .set({ status: 'inactive', updatedAt: new Date().toISOString() })
+      .where(
+        and(
+          eq(projectMembers.projectId, projectId),
+          eq(projectMembers.userId, memberUserId),
+          eq(projectMembers.role, 'evaluator'),
+          eq(projectMembers.status, 'active'),
+        ),
+      )
+
+    await tx
+      .update(projectInvitations)
+      .set({ status: 'cancelled', resolvedAt: new Date().toISOString() })
+      .where(
+        and(
+          eq(projectInvitations.projectId, projectId),
+          eq(projectInvitations.inviteeId, memberUserId),
+          eq(projectInvitations.status, 'pending'),
+        ),
+      )
+  })
+
+  revalidatePath(`/projects/${projectId}`)
+}
+
+// HU-022: o Avaliador sai voluntariamente do projeto. status → 'inactive' na PRÓPRIA
+// linha de avaliador ativo; avaliações preservadas. O trigger da fatia 05 permite
+// active→inactive na própria linha (não-admin), e a mesma trava impede reativar-se
+// depois. Redireciona ao dashboard (já não é mais membro ativo aqui).
+export async function leaveProject(formData: FormData): Promise<void> {
+  const claims = await getClaims()
+  if (!claims) redirect('/login')
+  const userId = claims.sub
+
+  const projectId = String(formData.get('project_id') ?? '')
+  if (!projectId) return
+
+  await withUser(userId, (tx) =>
+    tx
+      .update(projectMembers)
+      .set({ status: 'inactive', updatedAt: new Date().toISOString() })
+      .where(
+        and(
+          eq(projectMembers.projectId, projectId),
+          eq(projectMembers.userId, userId),
+          eq(projectMembers.role, 'evaluator'),
+          eq(projectMembers.status, 'active'),
+        ),
+      ),
+  )
+
+  // redirect lança a exceção de controle do Next — fica FORA do withUser.
+  revalidatePath('/dashboard')
+  redirect('/dashboard')
+}

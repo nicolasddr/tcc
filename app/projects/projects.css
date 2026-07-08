@@ -490,6 +490,25 @@ textarea.field-input {
 .member-link:hover {
   text-decoration: underline;
 }
+/* HU-021: botão de remover avaliador na linha do membro (destrutivo, discreto). */
+.member-remove {
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  color: #b91c1c;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.member-remove:hover:not(:disabled) {
+  text-decoration: underline;
+}
+.member-remove:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
 
 /* ---- Perguntas de onboarding: gerenciamento do admin (HU-026/027) --------- */
 .questions-list {
