@@ -41,7 +41,12 @@ type PendingInvitation = {
   created_at: string
 }
 
-export default async function Dashboard() {
+export default async function Dashboard({
+  searchParams,
+}: {
+  searchParams: Promise<{ arquivados?: string }>
+}) {
+  const showArchived = (await searchParams).arquivados === '1'
   const claims = await getClaims()
   if (!claims) redirect('/login')
 
@@ -110,9 +115,13 @@ export default async function Dashboard() {
   // O admin-avaliador tem duas linhas (uma por papel); agregamos por projeto. O
   // innerJoin garante `project` não-nulo (todo membro enxerga seu projeto pela RLS).
   const byProject = new Map<string, ListedProject>()
+  let hasArchived = false
   for (const row of membershipRows) {
     const p = row.project
-    if (p.status === 'archived') continue // arquivados ocultos por padrão
+    if (p.status === 'archived') {
+      hasArchived = true
+      if (!showArchived) continue // arquivados ocultos por padrão (HU-016)
+    }
     let entry = byProject.get(p.id)
     if (!entry) {
       entry = { id: p.id, name: p.name, status: p.status, roles: [], onboardingPending: false }
@@ -186,9 +195,19 @@ export default async function Dashboard() {
           <section className="projects-section">
             <div className="projects-section-head">
               <h1 className="projects-title">Meus projetos</h1>
-              <Link href="/projects/new" className="btn-new-project">
-                + Novo projeto
-              </Link>
+              <div className="projects-head-actions">
+                {hasArchived ? (
+                  <Link
+                    href={showArchived ? '/dashboard' : '/dashboard?arquivados=1'}
+                    className="projects-filter-toggle"
+                  >
+                    {showArchived ? 'Ocultar arquivados' : 'Mostrar arquivados'}
+                  </Link>
+                ) : null}
+                <Link href="/projects/new" className="btn-new-project">
+                  + Novo projeto
+                </Link>
+              </div>
             </div>
 
             {!hasProjects ? (

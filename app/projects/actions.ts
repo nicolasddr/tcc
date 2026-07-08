@@ -11,6 +11,8 @@ export type CreateProjectState = { error: string } | null
 
 export type InviteEvaluatorState = { error: string } | { ok: string } | null
 
+export type UpdateProjectState = { error: string } | { ok: string } | null
+
 // HU-012/013: cria um projeto via Drizzle sob `withUser` (papel `authenticated`),
 // então a RLS (projects_insert, exige can_create_projects) continua valendo. O
 // INSERT ... RETURNING revalida projects_select; o criador se enxerga por created_by
@@ -152,4 +154,83 @@ export async function inviteEvaluator(
   return invitee
     ? { ok: `Convite enviado para ${invitee.name}.` }
     : { ok: `Convite enviado para ${email}. A pessoa verá o convite ao entrar com o Google.` }
+}
+
+// HU-014/016: o Administrador edita nome/descrição — só com o projeto `active`. O UPDATE
+// vai via Drizzle sob `withUser`: a RLS projects_update (is_project_admin) é o gate de
+// permissão e o trigger enforce_project_readonly barra a edição em completed/archived como
+// rede. O `where status = 'active'` embutido no UPDATE evita a corrida (o projeto ser
+// concluído entre a checagem e a escrita) — se casar 0 linhas, avisamos que está travado.
+export async function updateProject(
+  _prev: UpdateProjectState,
+  formData: FormData,
+): Promise<UpdateProjectState> {
+  const claims = await getClaims()
+  if (!claims) redirect('/login')
+  const userId = claims.sub
+
+  const projectId = String(formData.get('project_id') ?? '')
+  const name = String(formData.get('name') ?? '').trim()
+  const description = String(formData.get('description') ?? '').trim()
+
+  if (!projectId) return { error: 'Projeto inválido.' }
+  if (!name) return { error: 'Informe um nome para o projeto.' }
+
+  let updated: { id: string }[]
+  try {
+    updated = await withUser(userId, (tx) =>
+      tx
+        .update(projects)
+        .set({ name, description: description || null })
+        .where(and(eq(projects.id, projectId), eq(projects.status, 'active')))
+        .returning({ id: projects.id }),
+    )
+  } catch {
+    // 42501 (RLS: não é admin) ou P0001 (trigger enforce_project_readonly, na corrida).
+    return { error: 'Não foi possível salvar. Apenas o administrador edita, e só em projeto ativo.' }
+  }
+
+  if (updated.length === 0) {
+    // Casou 0 linhas: o projeto não está `active` (foi concluído/arquivado) — read-only.
+    return { error: 'Projeto concluído ou arquivado é somente leitura. Reative-o para editar.' }
+  }
+
+  revalidatePath(`/projects/${projectId}`)
+  return { ok: 'Alterações salvas.' }
+}
+
+// HU-015/016/017: transições do ciclo de vida do projeto pelo Administrador —
+// concluir (active→completed), arquivar (active/completed→archived) e reativar
+// (completed/archived→active). Ação sem estado: os botões da UI confirmam antes de
+// enviar e só aparecem nas transições válidas para o status atual. A RLS projects_update
+// (is_project_admin) é o gate; o `where status = <origem>` embutido torna a transição
+// idempotente e imune à corrida. enforce_project_readonly não barra (só nome/descrição).
+const STATUS_TRANSITIONS: Record<string, readonly string[]> = {
+  active: ['completed', 'archived'],
+  completed: ['active', 'archived'],
+  archived: ['active'],
+}
+
+export async function setProjectStatus(formData: FormData): Promise<void> {
+  const claims = await getClaims()
+  if (!claims) redirect('/login')
+  const userId = claims.sub
+
+  const projectId = String(formData.get('project_id') ?? '')
+  const from = String(formData.get('from') ?? '')
+  const to = String(formData.get('to') ?? '')
+  if (!projectId) return
+
+  // Transição precisa ser conhecida e permitida a partir do status de origem declarado.
+  if (!STATUS_TRANSITIONS[from]?.includes(to)) return
+
+  await withUser(userId, (tx) =>
+    tx
+      .update(projects)
+      .set({ status: to })
+      .where(and(eq(projects.id, projectId), eq(projects.status, from))),
+  )
+
+  revalidatePath(`/projects/${projectId}`)
+  revalidatePath('/dashboard')
 }

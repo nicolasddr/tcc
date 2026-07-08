@@ -8,6 +8,7 @@ import { declineInvitation } from '@/app/invitations/actions'
 import { taskTypeLabel } from '../task-types'
 import { projectStatusLabel, roleLabel, memberStatusLabel } from '../labels'
 import { InviteEvaluatorForm } from './invite-evaluator-form'
+import { ManageProject } from './manage-project'
 import { SubmitButton } from '@/app/components/submit-button'
 import '../projects.css'
 import '@/app/notifications/notifications.css'
@@ -241,6 +242,17 @@ export default async function ProjectPage({
                 ))}
               </ul>
             </section>
+          ) : null}
+
+          {/* HU-014–017: gerência do ciclo de vida do projeto (editar / concluir /
+              arquivar / reativar), só para o Administrador. */}
+          {isAdmin ? (
+            <ManageProject
+              projectId={project.id}
+              status={project.status}
+              name={project.name}
+              description={project.description}
+            />
           ) : null}
 
           {isAdmin ? (
