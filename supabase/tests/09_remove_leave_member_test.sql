@@ -14,7 +14,7 @@
 
 begin;
 set local search_path = public, extensions;
-select plan(7);
+select plan(8);
 
 -- --- Fixtures (como superusuário, RLS desligada) -----------------------------
 select set_config('tests.admin_id',
@@ -95,6 +95,19 @@ select is(
      where project_member_id = current_setting('tests.pm_ev_id')::uuid),
   'resposta preservada',
   'a remoção preserva as avaliações do avaliador'
+);
+
+-- Rede do grant de coluna: `updated_at` está FORA do grant de UPDATE do papel
+-- `authenticated` (seção 5 da 0002 — só status/consent/onboarding). Setá-la direto é
+-- negado (42501); foi exatamente isso que quebrou a action em produção quando ela
+-- setava updated_at à mão. Quem mantém a coluna é o trigger set_updated_at — por isso
+-- a action seta SÓ status. Este teste trava a fronteira do grant contra regressão.
+select throws_ok(
+  $$ update public.project_members set updated_at = now()
+     where project_id = current_setting('tests.p1_id')::uuid
+       and user_id = current_setting('tests.ev_id')::uuid $$,
+  '42501', null,
+  'setar updated_at direto é negado ao authenticated (coluna fora do grant)'
 );
 
 -- --- (Rede da fatia 05) o removido NÃO se reativa ------------------------------

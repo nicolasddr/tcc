@@ -255,9 +255,12 @@ export async function removeMember(formData: FormData): Promise<void> {
   if (!projectId || !memberUserId) return
 
   await withUser(userId, async (tx) => {
+    // `updated_at` NÃO é setado aqui: a coluna não está no grant de UPDATE do papel
+    // `authenticated` (seção 5 da 0002 — só status/consent/onboarding), e o trigger
+    // project_members_set_updated_at já a mantém. Setá-la daria 42501 (permission denied).
     await tx
       .update(projectMembers)
-      .set({ status: 'inactive', updatedAt: new Date().toISOString() })
+      .set({ status: 'inactive' })
       .where(
         and(
           eq(projectMembers.projectId, projectId),
@@ -294,10 +297,12 @@ export async function leaveProject(formData: FormData): Promise<void> {
   const projectId = String(formData.get('project_id') ?? '')
   if (!projectId) return
 
+  // `updated_at` NÃO é setado aqui (ver removeMember): fora do grant de UPDATE do
+  // papel `authenticated`; o trigger project_members_set_updated_at cuida disso.
   await withUser(userId, (tx) =>
     tx
       .update(projectMembers)
-      .set({ status: 'inactive', updatedAt: new Date().toISOString() })
+      .set({ status: 'inactive' })
       .where(
         and(
           eq(projectMembers.projectId, projectId),
