@@ -4,6 +4,9 @@ import { useActionState } from 'react'
 import Link from '@/app/components/app-link'
 import { createProject, type CreateProjectState } from '@/app/projects/actions'
 import { TASK_TYPE_OPTIONS } from '@/app/projects/task-types'
+import { Button, buttonClass } from '@/app/components/ui/button'
+import { Field, Input, Textarea, Select } from '@/app/components/ui/field'
+import { Alert } from '@/app/components/ui/alert'
 
 const initialState: CreateProjectState = null
 
@@ -12,60 +15,49 @@ export function NewProjectForm() {
 
   return (
     <form action={action} className="project-form">
-      <label className="field">
-        <span className="field-label">
-          Nome <span className="field-required">*</span>
-        </span>
-        <input
+      <Field label="Nome" required>
+        <Input
           type="text"
           name="name"
           required
           maxLength={200}
           autoComplete="off"
           placeholder="Ex.: Classificação de intenção de busca"
-          className="field-input"
         />
-      </label>
+      </Field>
 
-      <label className="field">
-        <span className="field-label">Descrição</span>
-        <textarea
+      <Field label="Descrição">
+        <Textarea
           name="description"
           rows={4}
           maxLength={2000}
           placeholder="Opcional — o objetivo do projeto, o contexto da tarefa…"
-          className="field-input"
         />
-      </label>
+      </Field>
 
-      <label className="field">
-        <span className="field-label">Tipo de tarefa</span>
-        <select name="task_type" defaultValue="" className="field-input">
+      <Field
+        label="Tipo de tarefa"
+        hint="Opcional. Apenas para personalização de dicas durante o processo."
+      >
+        <Select name="task_type" defaultValue="">
           <option value="">Não declarar agora</option>
           {TASK_TYPE_OPTIONS.map((opt) => (
             <option key={opt.value} value={opt.value}>
               {opt.label}
             </option>
           ))}
-        </select>
-        <span className="field-hint">
-          Opcional. Apenas para personalização de dicas durante o processo.
-        </span>
-      </label>
+        </Select>
+      </Field>
 
-      {state?.error ? (
-        <p className="form-error" role="alert">
-          {state.error}
-        </p>
-      ) : null}
+      {state?.error ? <Alert tone="error">{state.error}</Alert> : null}
 
       <div className="form-actions">
-        <Link href="/dashboard" className="btn-secondary">
+        <Link href="/dashboard" className={buttonClass('secondary')}>
           Cancelar
         </Link>
-        <button type="submit" className="btn-role-primary btn-inline" disabled={pending}>
-          {pending ? 'Criando…' : 'Criar projeto'}
-        </button>
+        <Button type="submit" loading={pending} loadingText="Criando…">
+          Criar projeto
+        </Button>
       </div>
     </form>
   )

@@ -9,6 +9,10 @@ import {
 } from './actions'
 import type { OnboardingQuestion } from '@/app/onboarding/questions'
 import { SubmitButton } from '@/app/components/submit-button'
+import { Button } from '@/app/components/ui/button'
+import { Field, Input, Textarea, Select } from '@/app/components/ui/field'
+import { Alert } from '@/app/components/ui/alert'
+import { Section } from '@/app/components/ui/section'
 
 const initialState: QuestionState = null
 
@@ -27,45 +31,39 @@ function QuestionFields({
 
   return (
     <>
-      <label className="field">
-        <span className="field-label">Pergunta</span>
-        <input
+      <Field label="Pergunta">
+        <Input
           type="text"
           name="question_text"
           required
           defaultValue={defaultText}
           placeholder="Ex.: Qual é a sua área de formação?"
-          className="field-input"
         />
-      </label>
+      </Field>
 
-      <label className="field">
-        <span className="field-label">Tipo</span>
-        <select
+      <Field label="Tipo">
+        <Select
           name="question_type"
           value={type}
           onChange={(e) => setType(e.target.value)}
-          className="field-input"
         >
           <option value="open">Resposta aberta</option>
           <option value="multiple_choice">Múltipla escolha</option>
-        </select>
-      </label>
+        </Select>
+      </Field>
 
       {type === 'multiple_choice' ? (
-        <label className="field">
-          <span className="field-label">Opções (uma por linha)</span>
-          <textarea
+        <Field
+          label="Opções (uma por linha)"
+          hint="O avaliador escolhe uma opção ou marca “Outro” e escreve. Mínimo de 2 opções."
+        >
+          <Textarea
             name="options"
             rows={3}
             defaultValue={defaultOptions?.join('\n')}
             placeholder={'Graduação\nMestrado\nDoutorado'}
-            className="field-input"
           />
-          <span className="field-hint">
-            O avaliador escolhe uma opção ou marca “Outro” e escreve. Mínimo de 2 opções.
-          </span>
-        </label>
+        </Field>
       ) : null}
     </>
   )
@@ -82,16 +80,12 @@ function AddQuestionForm({ projectId }: { projectId: string }) {
       <input type="hidden" name="project_id" value={projectId} />
       <QuestionFields key={fieldsKey} />
 
-      {state && 'error' in state ? (
-        <p className="form-error" role="alert">
-          {state.error}
-        </p>
-      ) : null}
+      {state && 'error' in state ? <Alert tone="error">{state.error}</Alert> : null}
 
       <div className="form-actions">
-        <button type="submit" className="btn-invite btn-inline" disabled={pending}>
-          {pending ? 'Adicionando…' : 'Adicionar pergunta'}
-        </button>
+        <Button type="submit" loading={pending} loadingText="Adicionando…">
+          Adicionar pergunta
+        </Button>
       </div>
     </form>
   )
@@ -117,21 +111,15 @@ function EditQuestionForm({
           defaultOptions={question.options ?? undefined}
         />
 
-        {state && 'error' in state ? (
-          <p className="form-error" role="alert">
-            {state.error}
-          </p>
-        ) : null}
+        {state && 'error' in state ? <Alert tone="error">{state.error}</Alert> : null}
         {state && 'ok' in state ? (
-          <p className="form-success" role="status">
-            Pergunta atualizada.
-          </p>
+          <Alert tone="success">Pergunta atualizada.</Alert>
         ) : null}
 
         <div className="form-actions question-actions">
-          <button type="submit" className="btn-invite btn-inline" disabled={pending}>
-            {pending ? 'Salvando…' : 'Salvar alterações'}
-          </button>
+          <Button type="submit" loading={pending} loadingText="Salvando…">
+            Salvar alterações
+          </Button>
         </div>
       </form>
 
@@ -151,7 +139,7 @@ function EditQuestionForm({
       >
         <input type="hidden" name="project_id" value={projectId} />
         <input type="hidden" name="question_id" value={question.id} />
-        <SubmitButton className="btn-decline" pendingText="Removendo…">
+        <SubmitButton variant="danger" pendingText="Removendo…">
           Remover
         </SubmitButton>
       </form>
@@ -184,10 +172,9 @@ export function QuestionManager({
         </ul>
       )}
 
-      <section className="project-section">
-        <h2 className="project-section-title">Adicionar pergunta</h2>
+      <Section title="Adicionar pergunta">
         <AddQuestionForm projectId={projectId} />
-      </section>
+      </Section>
     </div>
   )
 }

@@ -3,6 +3,9 @@
 import { useActionState } from 'react'
 import Link from '@/app/components/app-link'
 import { updateProfile, type UpdateProfileState } from './actions'
+import { Button, buttonClass } from '@/app/components/ui/button'
+import { Field, Input } from '@/app/components/ui/field'
+import { Alert } from '@/app/components/ui/alert'
 
 const initialState: UpdateProfileState = null
 
@@ -11,39 +14,27 @@ export function ProfileForm({ initialName }: { initialName: string }) {
 
   return (
     <form action={action} className="project-form">
-      <label className="field">
-        <span className="field-label">
-          Nome <span className="field-required">*</span>
-        </span>
-        <input
+      <Field label="Nome" required>
+        <Input
           type="text"
           name="name"
           required
           maxLength={200}
           autoComplete="name"
           defaultValue={initialName}
-          className="field-input"
         />
-      </label>
+      </Field>
 
-      {state && 'error' in state ? (
-        <p className="form-error" role="alert">
-          {state.error}
-        </p>
-      ) : null}
-      {state && 'ok' in state ? (
-        <p className="form-success" role="status">
-          {state.ok}
-        </p>
-      ) : null}
+      {state && 'error' in state ? <Alert tone="error">{state.error}</Alert> : null}
+      {state && 'ok' in state ? <Alert tone="success">{state.ok}</Alert> : null}
 
       <div className="form-actions">
-        <Link href="/dashboard" className="btn-secondary">
+        <Link href="/dashboard" className={buttonClass('secondary')}>
           Voltar
         </Link>
-        <button type="submit" className="btn-role-primary btn-inline" disabled={pending}>
-          {pending ? 'Salvando…' : 'Salvar'}
-        </button>
+        <Button type="submit" loading={pending} loadingText="Salvando…">
+          Salvar
+        </Button>
       </div>
     </form>
   )

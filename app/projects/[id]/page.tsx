@@ -11,6 +11,8 @@ import { InviteEvaluatorForm } from './invite-evaluator-form'
 import { ManageProject } from './manage-project'
 import { RemoveMemberButton, LeaveProjectButton } from './member-actions'
 import { SubmitButton } from '@/app/components/submit-button'
+import { buttonClass } from '@/app/components/ui/button'
+import { Badge, StatusBadge } from '@/app/components/ui/badge'
 import '../projects.css'
 import '@/app/notifications/notifications.css'
 
@@ -147,16 +149,16 @@ export default async function ProjectPage({
         <div className="project-narrow">
           <div className="project-heading-row">
             <h1 className="project-page-title">{project.name}</h1>
-            <span className={`status-badge status-${project.status}`}>
+            <StatusBadge status={project.status}>
               {projectStatusLabel(project.status)}
-            </span>
+            </StatusBadge>
           </div>
 
           {roles.length > 0 ? (
             <p className="project-roles">
               Seu papel: {roles.join(' · ')}
               {onboardingPending ? (
-                <span className="onboarding-badge">onboarding pendente</span>
+                <Badge tone="warning">onboarding pendente</Badge>
               ) : null}
             </p>
           ) : null}
@@ -185,13 +187,13 @@ export default async function ProjectPage({
               <div className="invite-actions">
                 <form action={acceptInvitation}>
                   <input type="hidden" name="project_id" value={project.id} />
-                  <SubmitButton className="btn-invite btn-inline" pendingText="Aceitando…">
+                  <SubmitButton variant="primary" pendingText="Aceitando…">
                     Aceitar convite
                   </SubmitButton>
                 </form>
                 <form action={declineInvitation}>
                   <input type="hidden" name="invitation_id" value={pendingInvitation.id} />
-                  <SubmitButton className="btn-decline" pendingText="Recusando…">
+                  <SubmitButton variant="danger" pendingText="Recusando…">
                     Recusar
                   </SubmitButton>
                 </form>
@@ -207,7 +209,10 @@ export default async function ProjectPage({
                 Você aceitou o convite. Falta registrar o consentimento para ativar sua
                 participação como avaliador.
               </p>
-              <Link href={`/projects/${project.id}/onboarding`} className="btn-invite btn-inline btn-link-inline">
+              <Link
+                href={`/projects/${project.id}/onboarding`}
+                className={buttonClass('primary')}
+              >
                 Concluir onboarding
               </Link>
             </section>
@@ -229,9 +234,9 @@ export default async function ProjectPage({
                         {m.roles.map(roleLabel).join(' · ')}
                       </span>
                       {m.status !== 'active' ? (
-                        <span className={`member-status member-status-${m.status}`}>
+                        <StatusBadge status={m.status}>
                           {memberStatusLabel(m.status)}
-                        </span>
+                        </StatusBadge>
                       ) : null}
                       {/* HU-029: só o admin, e só para quem é avaliador. */}
                       {isAdmin && m.roles.includes('evaluator') ? (

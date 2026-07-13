@@ -2,6 +2,9 @@
 
 import { useActionState, useEffect, useRef } from 'react'
 import { inviteEvaluator, type InviteEvaluatorState } from '@/app/projects/actions'
+import { Button } from '@/app/components/ui/button'
+import { Field, Input } from '@/app/components/ui/field'
+import { Alert } from '@/app/components/ui/alert'
 
 const initialState: InviteEvaluatorState = null
 
@@ -18,37 +21,27 @@ export function InviteEvaluatorForm({ projectId }: { projectId: string }) {
     <form ref={formRef} action={action} className="invite-form">
       <input type="hidden" name="project_id" value={projectId} />
       <div className="invite-row">
-        <label className="field invite-field">
-          <span className="field-label">E-mail do avaliador</span>
-          <input
+        <Field label="E-mail do avaliador" className="invite-field">
+          <Input
             type="email"
             name="email"
             required
             autoComplete="off"
             placeholder="avaliador@exemplo.com"
-            className="field-input"
           />
-        </label>
-        <button type="submit" className="btn-invite" disabled={pending}>
-          {pending ? 'Convidando…' : 'Convidar'}
-        </button>
+        </Field>
+        <Button type="submit" loading={pending} loadingText="Convidando…">
+          Convidar
+        </Button>
       </div>
 
-      <p className="field-hint">
+      <p className="text-xs text-muted">
         Pode convidar mesmo quem ainda não tem conta: o convite aparece no primeiro
         acesso com o Google.
       </p>
 
-      {state && 'error' in state ? (
-        <p className="form-error" role="alert">
-          {state.error}
-        </p>
-      ) : null}
-      {state && 'ok' in state ? (
-        <p className="form-success" role="status">
-          {state.ok}
-        </p>
-      ) : null}
+      {state && 'error' in state ? <Alert tone="error">{state.error}</Alert> : null}
+      {state && 'ok' in state ? <Alert tone="success">{state.ok}</Alert> : null}
     </form>
   )
 }

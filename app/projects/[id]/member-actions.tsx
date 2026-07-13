@@ -28,7 +28,7 @@ export function RemoveMemberButton({
     >
       <input type="hidden" name="project_id" value={projectId} />
       <input type="hidden" name="member_user_id" value={memberUserId} />
-      <SubmitButton className="member-remove" pendingText="Removendo…">
+      <SubmitButton variant="dangerGhost" pendingText="Removendo…">
         Remover
       </SubmitButton>
     </form>
@@ -51,7 +51,7 @@ export function LeaveProjectButton({ projectId }: { projectId: string }) {
       }}
     >
       <input type="hidden" name="project_id" value={projectId} />
-      <SubmitButton className="btn-decline" pendingText="Saindo…">
+      <SubmitButton variant="danger" pendingText="Saindo…">
         Sair do projeto
       </SubmitButton>
     </form>

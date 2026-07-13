@@ -15,6 +15,7 @@ import { acceptInvitation } from '@/app/onboarding/actions'
 import { ProcessOverview, ProcessPhasesFooter } from '@/app/components/process-overview'
 import { NotificationBell, type InboxItem } from '@/app/components/notification-bell'
 import { SubmitButton } from '@/app/components/submit-button'
+import { Badge, StatusBadge } from '@/app/components/ui/badge'
 import {
   notificationText,
   formatDate,
@@ -227,11 +228,11 @@ export default async function Dashboard({
                       </span>
                       <span className="project-card-badges">
                         {p.onboardingPending ? (
-                          <span className="onboarding-badge">onboarding pendente</span>
+                          <Badge tone="warning">onboarding pendente</Badge>
                         ) : null}
-                        <span className={`status-badge status-${p.status}`}>
+                        <StatusBadge status={p.status}>
                           {projectStatusLabel(p.status)}
-                        </span>
+                        </StatusBadge>
                       </span>
                     </Link>
                   </li>
@@ -256,13 +257,13 @@ export default async function Dashboard({
                         <span className="invite-pending-badge">convite pendente</span>
                         <form action={acceptInvitation}>
                           <input type="hidden" name="project_id" value={inv.project_id} />
-                          <SubmitButton className="btn-accept btn-accept-sm" pendingText="Aceitando…">
+                          <SubmitButton variant="primary" size="sm" pendingText="Aceitando…">
                             Aceitar
                           </SubmitButton>
                         </form>
                         <form action={declineInvitation}>
                           <input type="hidden" name="invitation_id" value={inv.invitation_id} />
-                          <SubmitButton className="btn-decline btn-decline-sm" pendingText="Recusando…">
+                          <SubmitButton variant="danger" size="sm" pendingText="Recusando…">
                             Recusar
                           </SubmitButton>
                         </form>

@@ -8,6 +8,9 @@ import {
 } from '@/app/onboarding/actions'
 import { OTHER_VALUE, type OnboardingQuestion } from '@/app/onboarding/questions'
 import { SubmitButton } from '@/app/components/submit-button'
+import { Button } from '@/app/components/ui/button'
+import { Input, Textarea } from '@/app/components/ui/field'
+import { Alert } from '@/app/components/ui/alert'
 
 const initialState: OnboardingState = null
 
@@ -37,11 +40,10 @@ export function ConsentForm({
                 </legend>
 
                 {q.questionType === 'open' ? (
-                  <textarea
+                  <Textarea
                     name={`q_${q.id}`}
                     rows={2}
                     required
-                    className="field-input"
                     placeholder="Sua resposta"
                   />
                 ) : (
@@ -56,10 +58,10 @@ export function ConsentForm({
                     <label className="choice-option choice-other-row">
                       <input type="radio" name={`q_${q.id}`} value={OTHER_VALUE} />
                       <span>Outro:</span>
-                      <input
+                      <Input
                         type="text"
                         name={`q_${q.id}__other`}
-                        className="field-input choice-other"
+                        className="choice-other"
                         placeholder="Escreva sua resposta"
                       />
                     </label>
@@ -79,16 +81,12 @@ export function ConsentForm({
           <span>Li e aceito o termo de consentimento acima.</span>
         </label>
 
-        {state && 'error' in state ? (
-          <p className="form-error" role="alert">
-            {state.error}
-          </p>
-        ) : null}
+        {state && 'error' in state ? <Alert tone="error">{state.error}</Alert> : null}
 
         <div className="consent-actions">
-          <button type="submit" className="btn-invite btn-inline" disabled={pending}>
-            {pending ? 'Concluindo…' : 'Concluir onboarding'}
-          </button>
+          <Button type="submit" loading={pending} loadingText="Concluindo…">
+            Concluir onboarding
+          </Button>
         </div>
       </form>
 
@@ -96,7 +94,7 @@ export function ConsentForm({
           separado para não arrastar a validação/pending do consentimento. */}
       <form action={abandonOnboarding} className="consent-abandon">
         <input type="hidden" name="project_id" value={projectId} />
-        <SubmitButton className="btn-decline" pendingText="Abandonando…">
+        <SubmitButton variant="danger" pendingText="Abandonando…">
           Abandonar
         </SubmitButton>
       </form>

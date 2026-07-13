@@ -7,6 +7,10 @@ import {
   type UpdateProjectState,
 } from '@/app/projects/actions'
 import { SubmitButton } from '@/app/components/submit-button'
+import { Button, type ButtonVariant } from '@/app/components/ui/button'
+import { Field, Input, Textarea } from '@/app/components/ui/field'
+import { Alert } from '@/app/components/ui/alert'
+import { Section } from '@/app/components/ui/section'
 
 const initialState: UpdateProjectState = null
 
@@ -34,48 +38,34 @@ function EditProjectForm({
     <form action={action} className="project-form">
       <input type="hidden" name="project_id" value={projectId} />
 
-      <label className="field">
-        <span className="field-label">
-          Nome <span className="field-required">*</span>
-        </span>
-        <input
+      <Field label="Nome" required>
+        <Input
           type="text"
           name="name"
           required
           maxLength={200}
           autoComplete="off"
           defaultValue={name}
-          className="field-input"
         />
-      </label>
+      </Field>
 
-      <label className="field">
-        <span className="field-label">Descrição</span>
-        <textarea
+      <Field label="Descrição">
+        <Textarea
           name="description"
           rows={4}
           maxLength={2000}
           defaultValue={description ?? ''}
           placeholder="Opcional — o objetivo do projeto, o contexto da tarefa…"
-          className="field-input"
         />
-      </label>
+      </Field>
 
-      {state && 'error' in state ? (
-        <p className="form-error" role="alert">
-          {state.error}
-        </p>
-      ) : null}
-      {state && 'ok' in state ? (
-        <p className="form-success" role="status">
-          {state.ok}
-        </p>
-      ) : null}
+      {state && 'error' in state ? <Alert tone="error">{state.error}</Alert> : null}
+      {state && 'ok' in state ? <Alert tone="success">{state.ok}</Alert> : null}
 
       <div className="form-actions">
-        <button type="submit" className="btn-role-primary btn-inline" disabled={pending}>
-          {pending ? 'Salvando…' : 'Salvar alterações'}
-        </button>
+        <Button type="submit" loading={pending} loadingText="Salvando…">
+          Salvar alterações
+        </Button>
       </div>
     </form>
   )
@@ -89,7 +79,7 @@ function StatusButton({
   to,
   label,
   pendingText,
-  className,
+  variant,
   confirmMessage,
 }: {
   projectId: string
@@ -97,7 +87,7 @@ function StatusButton({
   to: string
   label: string
   pendingText: string
-  className: string
+  variant: ButtonVariant
   confirmMessage?: string
 }) {
   return (
@@ -110,7 +100,7 @@ function StatusButton({
       <input type="hidden" name="project_id" value={projectId} />
       <input type="hidden" name="from" value={from} />
       <input type="hidden" name="to" value={to} />
-      <SubmitButton className={className} pendingText={pendingText}>
+      <SubmitButton variant={variant} pendingText={pendingText}>
         {label}
       </SubmitButton>
     </form>
@@ -120,25 +110,20 @@ function StatusButton({
 export function ManageProject({ projectId, status, name, description }: ManageProjectProps) {
   return (
     <>
-      {status === 'active' ? (
-        <section className="project-section">
-          <h2 className="project-section-title">Editar projeto</h2>
+      <Section title="Editar projeto">
+        {status === 'active' ? (
           <EditProjectForm projectId={projectId} name={name} description={description} />
-        </section>
-      ) : (
-        <section className="project-section">
-          <h2 className="project-section-title">Editar projeto</h2>
-          <p className="form-notice">
+        ) : (
+          <Alert tone="notice">
             {status === 'completed'
               ? 'Projeto concluído: somente leitura. Reative-o para editar nome ou descrição.'
               : 'Projeto arquivado: somente leitura. Reative-o para editar nome ou descrição.'}
-          </p>
-        </section>
-      )}
+          </Alert>
+        )}
+      </Section>
 
-      <section className="project-section">
-        <h2 className="project-section-title">Status do projeto</h2>
-        <div className="project-status-actions">
+      <Section title="Status do projeto">
+        <div className="flex flex-wrap gap-3">
           {status === 'active' ? (
             <>
               <StatusButton
@@ -147,7 +132,7 @@ export function ManageProject({ projectId, status, name, description }: ManagePr
                 to="completed"
                 label="Concluir projeto"
                 pendingText="Concluindo…"
-                className="btn-secondary btn-inline"
+                variant="secondary"
                 confirmMessage="Concluir o projeto? Ele fica somente leitura (você pode reativá-lo depois)."
               />
               <StatusButton
@@ -156,7 +141,7 @@ export function ManageProject({ projectId, status, name, description }: ManagePr
                 to="archived"
                 label="Arquivar"
                 pendingText="Arquivando…"
-                className="btn-secondary btn-inline"
+                variant="secondary"
                 confirmMessage="Arquivar o projeto? Ele sai da lista padrão e fica somente leitura (você pode reativá-lo depois)."
               />
             </>
@@ -170,7 +155,7 @@ export function ManageProject({ projectId, status, name, description }: ManagePr
                 to="active"
                 label="Reativar"
                 pendingText="Reativando…"
-                className="btn-role-primary btn-inline"
+                variant="primary"
               />
               <StatusButton
                 projectId={projectId}
@@ -178,7 +163,7 @@ export function ManageProject({ projectId, status, name, description }: ManagePr
                 to="archived"
                 label="Arquivar"
                 pendingText="Arquivando…"
-                className="btn-secondary btn-inline"
+                variant="secondary"
                 confirmMessage="Arquivar o projeto? Ele sai da lista padrão (você pode reativá-lo depois)."
               />
             </>
@@ -191,11 +176,11 @@ export function ManageProject({ projectId, status, name, description }: ManagePr
               to="active"
               label="Reativar"
               pendingText="Reativando…"
-              className="btn-role-primary btn-inline"
+              variant="primary"
             />
           ) : null}
         </div>
-      </section>
+      </Section>
     </>
   )
 }
