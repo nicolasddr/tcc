@@ -24,7 +24,17 @@ if (process.env.NODE_ENV !== 'production') globalForDb.__dbClient = client
 const baseDb = drizzle(client, { schema: { ...schema, ...relations } })
 
 // Tipo exato da transação que o callback recebe (evita um cast `as`).
-type Transaction = Parameters<Parameters<typeof baseDb.transaction>[0]>[0]
+export type Transaction = Parameters<Parameters<typeof baseDb.transaction>[0]>[0]
+
+// Executor aceito pelas funções de autorização: a conexão base OU uma transação.
+export type DbExecutor = typeof baseDb | Transaction
+
+// Conexão DONA (papel `postgres`, BYPASSA a RLS). Exposta APENAS para as
+// funções-predicado de `lib/authz` — o equivalente app-layer das antigas
+// funções `security definer`, que precisam enxergar todas as linhas
+// independentemente de quem pergunta. NÃO usar para queries comuns: essas
+// passam por `withUser` (papel `authenticated`, RLS ativa).
+export const ownerDb = baseDb
 
 /**
  * Executa `run` sob a identidade de `userId`, com a RLS ATIVA.
