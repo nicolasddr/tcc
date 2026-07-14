@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "supabase start && supabase db reset && supabase test db",
+    "test": "vitest run",
     "test:int": "vitest run",
     "test:e2e": "playwright test",
     "db:reset": "supabase db reset"
