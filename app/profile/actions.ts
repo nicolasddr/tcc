@@ -8,10 +8,10 @@ import { withUser, profiles } from '@/lib/db'
 
 export type UpdateProfileState = { error: string } | { ok: string } | null
 
-// HU-005: o usuário edita o PRÓPRIO nome. UPDATE via Drizzle sob `withUser` (papel
-// `authenticated`), então a RLS (profiles_update_own: `id = auth.uid()`) e o grant de
-// coluna (só `name` é atualizável por authenticated — migration 0002) continuam valendo:
-// não dá para alterar o nome de outro usuário nem escalar outra coluna. O trigger
+// HU-005: o usuário edita o PRÓPRIO nome. O escopo "own" é EXPLÍCITO na app: o WHERE
+// filtra por `id = userId` e só `name` é gravado — não dá para alterar o nome de outro
+// nem escalar outra coluna. Espelha profiles_update_own; a RLS e o grant de coluna (só
+// `name` para authenticated — migration 0002) seguem como backstop. O trigger
 // profiles_set_updated_at cuida do updated_at. A alteração reflete de imediato nas telas
 // que exibem o nome (Server Components) via revalidatePath — sem reautenticar. Ver ADR 0007.
 export async function updateProfile(
@@ -34,8 +34,8 @@ export async function updateProfile(
       .returning({ id: profiles.id }),
   )
 
-  // A RLS filtra o UPDATE por linha: se por algum motivo nada foi atualizado, avisamos
-  // em vez de fingir sucesso.
+  // O WHERE filtra o UPDATE por linha (id = userId): se por algum motivo nada foi
+  // atualizado, avisamos em vez de fingir sucesso.
   if (updated.length === 0) {
     return { error: 'Não foi possível atualizar seu nome. Tente novamente.' }
   }

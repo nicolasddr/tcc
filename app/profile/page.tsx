@@ -11,8 +11,8 @@ export default async function ProfilePage() {
   if (!claims) redirect('/login')
   const userId = claims.sub
 
-  // Leitura RLS-aware do próprio perfil (profiles_select_own só devolve a própria
-  // linha) — ver ADR 0007.
+  // Leitura com escopo "own" explícito: o WHERE filtra pela própria linha (id = userId),
+  // espelhando profiles_select_own; a RLS segue como backstop — ver ADR 0007.
   const [profile] = await withUser(userId, (tx) =>
     tx
       .select({ name: profiles.name, email: profiles.email })
