@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { and, eq, isNull } from 'drizzle-orm'
 import { getClaims } from '@/lib/supabase/server'
-import { withUser, notifications } from '@/lib/db'
+import { transaction, notifications } from '@/lib/db'
 
 // HU-010/011: marcar uma notificação como lida. O escopo "own" agora é EXPLÍCITO na app
 // (o WHERE filtra por `userId`, espelha notifications_update_own): o usuário só toca o
@@ -18,7 +18,7 @@ export async function markNotificationRead(formData: FormData): Promise<void> {
   const id = String(formData.get('notification_id') ?? '')
   if (!id) return
 
-  await withUser(userId, (tx) =>
+  await transaction((tx) =>
     tx
       .update(notifications)
       .set({ readAt: new Date().toISOString() })
@@ -41,7 +41,7 @@ export async function markAllNotificationsRead(): Promise<void> {
   if (!claims) redirect('/login')
   const userId = claims.sub
 
-  await withUser(userId, (tx) =>
+  await transaction((tx) =>
     tx
       .update(notifications)
       .set({ readAt: new Date().toISOString() })

@@ -2,7 +2,7 @@ import Link from '@/app/components/app-link'
 import { notFound, redirect } from 'next/navigation'
 import { and, eq } from 'drizzle-orm'
 import { getClaims } from '@/lib/supabase/server'
-import { withUser, projects, projectMembers, onboardingQuestions } from '@/lib/db'
+import { transaction, projects, projectMembers, onboardingQuestions } from '@/lib/db'
 import { CONSENT_TEXT } from '@/app/onboarding/consent'
 import { coerceOptions, type OnboardingQuestion } from '@/app/onboarding/questions'
 import { ConsentForm } from './consent-form'
@@ -25,7 +25,7 @@ export default async function OnboardingPage({
   if (!claims) redirect('/login')
   const userId = claims.sub
 
-  const { project, membership, questions } = await withUser(userId, async (tx) => {
+  const { project, membership, questions } = await transaction(async (tx) => {
     const [project] = await tx
       .select({ id: projects.id, name: projects.name })
       .from(projects)

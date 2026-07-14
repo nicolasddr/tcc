@@ -5,7 +5,7 @@ import { redirect } from 'next/navigation'
 import { and, eq } from 'drizzle-orm'
 import { getClaims } from '@/lib/supabase/server'
 import {
-  withUser,
+  transaction,
   projectMembers,
   projectInvitations,
   onboardingQuestions,
@@ -18,7 +18,7 @@ import { OTHER_VALUE, coerceOptions } from './questions'
 export type OnboardingState = { error: string } | null
 
 // HU-020 (Opção A, ADR-003): aceitar o convite MATERIALIZA a linha do avaliador em
-// pending_onboarding e marca o convite como accepted — tudo numa transação `withUser`.
+// pending_onboarding e marca o convite como accepted — tudo numa transação `transaction`.
 // Entrar num projeto exige um convite PENDENTE: isso agora é checado EXPLICITAMENTE na
 // app (`hasPendingInvitation`, espelha a policy pm_insert); a RLS segue como backstop. A
 // ORDEM importa: o membro entra ENQUANTO o convite ainda está `pending`; só depois viramos
@@ -31,7 +31,7 @@ export async function acceptInvitation(formData: FormData): Promise<void> {
   const projectId = String(formData.get('project_id') ?? '')
   if (!projectId) redirect('/dashboard')
 
-  const joined = await withUser(userId, async (tx) => {
+  const joined = await transaction(async (tx) => {
     // Idempotência (re-clique / já aceitou antes): se a linha já existe, NÃO reinsere e
     // trata como sucesso (segue para o onboarding).
     const [existing] = await tx
@@ -71,14 +71,14 @@ export async function acceptInvitation(formData: FormData): Promise<void> {
     return true
   })
 
-  // redirect lança control-flow do Next — fora do withUser p/ não abortar a transação.
+  // redirect lança control-flow do Next — fora do transaction p/ não abortar a transação.
   // Sem convite (joined=false) não houve escrita: volta para a página do projeto.
   redirect(joined ? `/projects/${projectId}/onboarding` : `/projects/${projectId}`)
 }
 
 // HU-028/032 (US 31/32): o avaliador registra o consentimento (timestamp + snapshot do
 // texto) E responde a TODAS as perguntas de onboarding (obrigatórias) — só então a linha
-// é promovida a `active`. Tudo numa transação `withUser`. O escopo é EXPLÍCITO na app: a
+// é promovida a `active`. Tudo numa transação `transaction`. O escopo é EXPLÍCITO na app: a
 // linha do membro é buscada por `userId` e só se prossegue se ela estiver em
 // pending_onboarding — exatamente `can_answer_onboarding` (or_insert), agora garantido no
 // código (o `project_member_id` das respostas nunca vem do cliente, é derivado daqui). As
@@ -102,7 +102,7 @@ export async function completeOnboarding(
 
   const now = new Date().toISOString()
 
-  const result = await withUser(userId, async (tx) => {
+  const result = await transaction(async (tx) => {
     const [member] = await tx
       .select({ id: projectMembers.id, status: projectMembers.status })
       .from(projectMembers)
@@ -172,7 +172,7 @@ export async function completeOnboarding(
   }
 
   // Concluído (ou já estava): revalida e volta para o projeto. redirect fica FORA do
-  // withUser (lança control-flow do Next → abortaria a transação).
+  // transaction (lança control-flow do Next → abortaria a transação).
   if ('ok' in result) revalidatePath('/dashboard')
   redirect(`/projects/${projectId}`)
 }
@@ -190,7 +190,7 @@ export async function abandonOnboarding(formData: FormData): Promise<void> {
   const projectId = String(formData.get('project_id') ?? '')
   if (!projectId) redirect('/dashboard')
 
-  await withUser(userId, async (tx) => {
+  await transaction(async (tx) => {
     await tx
       .delete(projectMembers)
       .where(

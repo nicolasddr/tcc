@@ -5,7 +5,7 @@ import { redirect } from 'next/navigation'
 import { and, eq, sql } from 'drizzle-orm'
 import { getClaims } from '@/lib/supabase/server'
 import {
-  withUser,
+  transaction,
   ownerDb,
   pgErrorCode,
   projects,
@@ -26,7 +26,7 @@ export type UpdateProjectState = { error: string } | { ok: string } | null
 // HU-012/013: cria um projeto. A checagem de permissão agora é EXPLÍCITA na app
 // (`canCreateProjects`, espelha o predicado da policy projects_insert), feita ANTES
 // da escrita — a RLS segue ligada como backstop enquanto não fazemos o flip (issue #22).
-// O INSERT do projeto vai via Drizzle sob `withUser` (papel `authenticated`); o criador se
+// O INSERT do projeto vai via Drizzle sob `transaction` (papel `authenticated`); o criador se
 // enxerga por created_by (migration 0005). A linha de Administrador ativo passa a ser criada
 // EXPLICITAMENTE aqui (substitui o trigger auto_add_creator_as_admin, que sai no flip —
 // issue #22, Fase 4). Ver ADR 0007.
@@ -53,7 +53,7 @@ export async function createProject(
     }
   }
 
-  const [created] = await withUser(userId, (tx) =>
+  const [created] = await transaction((tx) =>
     tx
       .insert(projects)
       .values({
@@ -77,7 +77,7 @@ export async function createProject(
       target: [projectMembers.projectId, projectMembers.userId, projectMembers.role],
     })
 
-  // redirect lança a exceção de controle do Next — fica FORA do withUser p/ não
+  // redirect lança a exceção de controle do Next — fica FORA do transaction p/ não
   // abortar a transação por engano.
   redirect(`/projects/${created.id}`)
 }
@@ -135,7 +135,7 @@ export async function inviteEvaluator(
   // check_invitation_target em TS: não convidar quem já é membro ativo (mensagem
   // clara). Só faz sentido para quem já tem conta — sem perfil não há membership.
   if (invitee) {
-    const [active] = await withUser(userId, (tx) =>
+    const [active] = await transaction((tx) =>
       tx
         .select({ id: projectMembers.id })
         .from(projectMembers)
@@ -155,7 +155,7 @@ export async function inviteEvaluator(
 
   let invitationId: string
   try {
-    const [row] = await withUser(userId, (tx) =>
+    const [row] = await transaction((tx) =>
       tx
         .insert(projectInvitations)
         .values({
@@ -237,7 +237,7 @@ export async function updateProject(
     return { error: 'Não foi possível salvar. Apenas o administrador edita, e só em projeto ativo.' }
   }
 
-  const updated = await withUser(userId, (tx) =>
+  const updated = await transaction((tx) =>
     tx
       .update(projects)
       .set({ name, description: description || null })
@@ -282,7 +282,7 @@ export async function setProjectStatus(formData: FormData): Promise<void> {
 
   if (!(await isProjectAdmin(userId, projectId))) return
 
-  await withUser(userId, (tx) =>
+  await transaction((tx) =>
     tx
       .update(projects)
       .set({ status: to })
@@ -297,7 +297,7 @@ export async function setProjectStatus(formData: FormData): Promise<void> {
 // (as avaliações são preservadas — nada é apagado), e os convites pendentes daquele
 // avaliador para o projeto são cancelados. Sem notificação ao removido. A permissão de
 // admin é checada EXPLICITAMENTE (`isProjectAdmin`) antes da escrita; a RLS segue como
-// backstop. Numa única transação sob `withUser`:
+// backstop. Numa única transação sob `transaction`:
 //   • a checagem `isProjectAdmin` + o filtro `role='evaluator' AND status='active'` são a
 //     guarda PRIMÁRIA da transição active→inactive de OUTRO membro (issue #22, Fase 2);
 //     enforce_member_status_transition (ramo admin) segue no banco como backstop até o flip;
@@ -318,7 +318,7 @@ export async function removeMember(formData: FormData): Promise<void> {
 
   if (!(await isProjectAdmin(userId, projectId))) return
 
-  await withUser(userId, async (tx) => {
+  await transaction(async (tx) => {
     // `updated_at` NÃO é setado aqui: a coluna não está no grant de UPDATE do papel
     // `authenticated` (seção 5 da 0002 — só status/consent/onboarding), e o trigger
     // project_members_set_updated_at já a mantém. Setá-la daria 42501 (permission denied).
@@ -366,7 +366,7 @@ export async function leaveProject(formData: FormData): Promise<void> {
 
   // `updated_at` NÃO é setado aqui (ver removeMember): fora do grant de UPDATE do
   // papel `authenticated`; o trigger project_members_set_updated_at cuida disso.
-  await withUser(userId, (tx) =>
+  await transaction((tx) =>
     tx
       .update(projectMembers)
       .set({ status: 'inactive' })
@@ -380,7 +380,7 @@ export async function leaveProject(formData: FormData): Promise<void> {
       ),
   )
 
-  // redirect lança a exceção de controle do Next — fica FORA do withUser.
+  // redirect lança a exceção de controle do Next — fica FORA do transaction.
   revalidatePath('/dashboard')
   redirect('/dashboard')
 }

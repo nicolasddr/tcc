@@ -3,7 +3,7 @@ import { notFound, redirect } from 'next/navigation'
 import { and, eq } from 'drizzle-orm'
 import { getClaims } from '@/lib/supabase/server'
 import {
-  withUser,
+  transaction,
   projects,
   projectMembers,
   profiles,
@@ -28,7 +28,7 @@ export default async function MemberResponsesPage({
   if (!claims) redirect('/login')
   const viewerId = claims.sub
 
-  const { project, isAdmin, target, rows } = await withUser(viewerId, async (tx) => {
+  const { project, isAdmin, target, rows } = await transaction(async (tx) => {
     const [project] = await tx
       .select({ id: projects.id, name: projects.name })
       .from(projects)

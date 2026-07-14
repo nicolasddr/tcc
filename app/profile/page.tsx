@@ -2,7 +2,7 @@ import Link from '@/app/components/app-link'
 import { redirect } from 'next/navigation'
 import { eq } from 'drizzle-orm'
 import { getClaims } from '@/lib/supabase/server'
-import { withUser, profiles } from '@/lib/db'
+import { transaction, profiles } from '@/lib/db'
 import { ProfileForm } from './profile-form'
 import '../projects/projects.css'
 
@@ -13,7 +13,7 @@ export default async function ProfilePage() {
 
   // Leitura com escopo "own" explícito: o WHERE filtra pela própria linha (id = userId),
   // espelhando profiles_select_own; a RLS segue como backstop — ver ADR 0007.
-  const [profile] = await withUser(userId, (tx) =>
+  const [profile] = await transaction((tx) =>
     tx
       .select({ name: profiles.name, email: profiles.email })
       .from(profiles)

@@ -2,7 +2,7 @@ import Link from '@/app/components/app-link'
 import { notFound, redirect } from 'next/navigation'
 import { and, eq } from 'drizzle-orm'
 import { getClaims } from '@/lib/supabase/server'
-import { withUser, projects, projectMembers, onboardingQuestions } from '@/lib/db'
+import { transaction, projects, projectMembers, onboardingQuestions } from '@/lib/db'
 import { coerceOptions, type OnboardingQuestion } from '@/app/onboarding/questions'
 import { QuestionManager } from './question-manager'
 import '../../projects.css'
@@ -22,7 +22,7 @@ export default async function QuestionsPage({
   if (!claims) redirect('/login')
   const userId = claims.sub
 
-  const { project, isAdmin, questions } = await withUser(userId, async (tx) => {
+  const { project, isAdmin, questions } = await transaction(async (tx) => {
     const [project] = await tx
       .select({ id: projects.id, name: projects.name })
       .from(projects)

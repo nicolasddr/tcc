@@ -2,7 +2,7 @@ import Link from '@/app/components/app-link'
 import { redirect } from 'next/navigation'
 import { eq } from 'drizzle-orm'
 import { getClaims } from '@/lib/supabase/server'
-import { withUser, profiles } from '@/lib/db'
+import { transaction, profiles } from '@/lib/db'
 import { NewProjectForm } from './new-project-form'
 import '../projects.css'
 
@@ -15,7 +15,7 @@ export default async function NewProjectPage() {
   // A fatia 08 entrega o fluxo de pedir permissão; aqui só avisamos quando o usuário ainda
   // não tem. Leitura com escopo "own" explícito (só a própria linha de profile), com a RLS
   // profiles_select_own como backstop — ver ADR 0007.
-  const [profile] = await withUser(userId, (tx) =>
+  const [profile] = await transaction((tx) =>
     tx
       .select({ canCreateProjects: profiles.canCreateProjects })
       .from(profiles)

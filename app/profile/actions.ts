@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { eq } from 'drizzle-orm'
 import { getClaims } from '@/lib/supabase/server'
-import { withUser, profiles } from '@/lib/db'
+import { transaction, profiles } from '@/lib/db'
 
 export type UpdateProfileState = { error: string } | { ok: string } | null
 
@@ -26,7 +26,7 @@ export async function updateProfile(
 
   if (!name) return { error: 'Informe um nome.' }
 
-  const updated = await withUser(userId, (tx) =>
+  const updated = await transaction((tx) =>
     tx
       .update(profiles)
       .set({ name })

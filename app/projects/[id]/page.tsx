@@ -2,7 +2,7 @@ import Link from '@/app/components/app-link'
 import { notFound, redirect } from 'next/navigation'
 import { and, eq, ne, or } from 'drizzle-orm'
 import { getClaims } from '@/lib/supabase/server'
-import { withUser, projects, projectMembers, projectInvitations, profiles } from '@/lib/db'
+import { transaction, projects, projectMembers, projectInvitations, profiles } from '@/lib/db'
 import { acceptInvitation } from '@/app/onboarding/actions'
 import { declineInvitation } from '@/app/invitations/actions'
 import { taskTypeLabel } from '../task-types'
@@ -42,72 +42,69 @@ export default async function ProjectPage({
   if (!claims) redirect('/login')
   const userId = claims.sub
 
-  // Numa transação `withUser` (RLS ainda ligada como backstop — ver ADR 0007), com o
+  // Numa transação `transaction` (RLS ainda ligada como backstop — ver ADR 0007), com o
   // ESCOPO agora explícito na app (issue #22, Fase 1): o projeto (por id), os papéis do
   // usuário neste projeto (uma linha por papel — HU-024), um eventual convite pendente
   // (para oferecer aceitar/recusar) e a lista de membros com nome/e-mail (HU-025).
-  const { project, memberships, pendingInvitation, memberRows } = await withUser(
-    userId,
-    async (tx) => {
-      const [project] = await tx
-        .select({
-          id: projects.id,
-          name: projects.name,
-          description: projects.description,
-          status: projects.status,
-          taskType: projects.taskType,
-          createdAt: projects.createdAt,
-          createdBy: projects.createdBy,
-        })
-        .from(projects)
-        .where(eq(projects.id, id))
-        .limit(1)
+  const { project, memberships, pendingInvitation, memberRows } = await transaction(async (tx) => {
+    const [project] = await tx
+      .select({
+        id: projects.id,
+        name: projects.name,
+        description: projects.description,
+        status: projects.status,
+        taskType: projects.taskType,
+        createdAt: projects.createdAt,
+        createdBy: projects.createdBy,
+      })
+      .from(projects)
+      .where(eq(projects.id, id))
+      .limit(1)
 
-      const memberships = await tx
-        .select({ role: projectMembers.role, status: projectMembers.status })
-        .from(projectMembers)
-        .where(and(eq(projectMembers.projectId, id), eq(projectMembers.userId, userId)))
+    const memberships = await tx
+      .select({ role: projectMembers.role, status: projectMembers.status })
+      .from(projectMembers)
+      .where(and(eq(projectMembers.projectId, id), eq(projectMembers.userId, userId)))
 
-      const [pendingInvitation] = await tx
-        .select({ id: projectInvitations.id })
-        .from(projectInvitations)
-        .where(
-          and(
-            eq(projectInvitations.projectId, id),
-            eq(projectInvitations.inviteeId, userId),
-            eq(projectInvitations.status, 'pending'),
-          ),
-        )
-        .limit(1)
-
-      // Escopo explícito da lista de membros (espelha pm_select): o admin vê todas as
-      // linhas; um membro ativo vê as não-`pending_onboarding` (mais a própria); quem não
-      // é ativo vê só a própria. O innerJoin com profiles reproduz profiles_select_shared_members
-      // (todo profile aqui é de um co-membro do projeto). A RLS segue como backstop.
-      const viewerIsAdmin = memberships.some(
-        (m) => m.role === 'administrator' && m.status === 'active',
+    const [pendingInvitation] = await tx
+      .select({ id: projectInvitations.id })
+      .from(projectInvitations)
+      .where(
+        and(
+          eq(projectInvitations.projectId, id),
+          eq(projectInvitations.inviteeId, userId),
+          eq(projectInvitations.status, 'pending'),
+        ),
       )
-      const viewerIsActive = memberships.some((m) => m.status === 'active')
-      const memberScope = viewerIsAdmin
-        ? undefined
-        : viewerIsActive
-          ? or(eq(projectMembers.userId, userId), ne(projectMembers.status, 'pending_onboarding'))
-          : eq(projectMembers.userId, userId)
-      const memberRows = await tx
-        .select({
-          userId: projectMembers.userId,
-          role: projectMembers.role,
-          status: projectMembers.status,
-          name: profiles.name,
-          email: profiles.email,
-        })
-        .from(projectMembers)
-        .innerJoin(profiles, eq(profiles.id, projectMembers.userId))
-        .where(and(eq(projectMembers.projectId, id), memberScope))
+      .limit(1)
 
-      return { project, memberships, pendingInvitation, memberRows }
-    },
-  )
+    // Escopo explícito da lista de membros (espelha pm_select): o admin vê todas as
+    // linhas; um membro ativo vê as não-`pending_onboarding` (mais a própria); quem não
+    // é ativo vê só a própria. O innerJoin com profiles reproduz profiles_select_shared_members
+    // (todo profile aqui é de um co-membro do projeto). A RLS segue como backstop.
+    const viewerIsAdmin = memberships.some(
+      (m) => m.role === 'administrator' && m.status === 'active',
+    )
+    const viewerIsActive = memberships.some((m) => m.status === 'active')
+    const memberScope = viewerIsAdmin
+      ? undefined
+      : viewerIsActive
+        ? or(eq(projectMembers.userId, userId), ne(projectMembers.status, 'pending_onboarding'))
+        : eq(projectMembers.userId, userId)
+    const memberRows = await tx
+      .select({
+        userId: projectMembers.userId,
+        role: projectMembers.role,
+        status: projectMembers.status,
+        name: profiles.name,
+        email: profiles.email,
+      })
+      .from(projectMembers)
+      .innerJoin(profiles, eq(profiles.id, projectMembers.userId))
+      .where(and(eq(projectMembers.projectId, id), memberScope))
+
+    return { project, memberships, pendingInvitation, memberRows }
+  })
   if (!project) notFound()
 
   // Escopo explícito de VISIBILIDADE do projeto (espelha projects_select): só o criador,

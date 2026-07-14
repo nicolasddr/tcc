@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation'
 import { eq, desc } from 'drizzle-orm'
 import { getClaims } from '@/lib/supabase/server'
 import {
-  withUser,
+  transaction,
   profiles,
   projectMembers,
   projects as projectsTable,
@@ -49,59 +49,56 @@ export default async function Dashboard({
   const email = claims.email ?? ''
   const initial = email.charAt(0)
 
-  // HU-013/010/011/019: numa transação `withUser`, lemos os projetos em que o usuário é
+  // HU-013/010/011/019: numa transação `transaction`, lemos os projetos em que o usuário é
   // membro (com o projeto via innerJoin), o inbox de notificações e os convites pendentes.
   // O ESCOPO ("own") agora é explícito na app (issue #22, Fase 1) — cada SELECT filtra pelo
   // `userId`; a RLS do banco segue como backstop. Ver ADR 0007 e lib/db.
-  const { profileRows, membershipRows, notificationRows } = await withUser(
-    userId,
-    async (tx) => {
-      // HU-005: nome do próprio perfil (profiles_select_own) para o cabeçalho — o
-      // usuário o edita em /profile e a alteração reflete aqui de imediato.
-      const profileRows = await tx
-        .select({ name: profiles.name })
-        .from(profiles)
-        .where(eq(profiles.id, userId))
-        .limit(1)
+  const { profileRows, membershipRows, notificationRows } = await transaction(async (tx) => {
+    // HU-005: nome do próprio perfil (profiles_select_own) para o cabeçalho — o
+    // usuário o edita em /profile e a alteração reflete aqui de imediato.
+    const profileRows = await tx
+      .select({ name: profiles.name })
+      .from(profiles)
+      .where(eq(profiles.id, userId))
+      .limit(1)
 
-      // Escopo explícito: só as linhas de membership do próprio usuário (o innerJoin
-      // traz o projeto de cada uma). Espelha o recorte que a RLS projects_select/pm_select
-      // fazia — quem não é membro simplesmente não aparece aqui.
-      const membershipRows = await tx
-        .select({
-          role: projectMembers.role,
-          status: projectMembers.status,
-          project: {
-            id: projectsTable.id,
-            name: projectsTable.name,
-            status: projectsTable.status,
-          },
-        })
-        .from(projectMembers)
-        .innerJoin(projectsTable, eq(projectMembers.projectId, projectsTable.id))
-        .where(eq(projectMembers.userId, userId))
+    // Escopo explícito: só as linhas de membership do próprio usuário (o innerJoin
+    // traz o projeto de cada uma). Espelha o recorte que a RLS projects_select/pm_select
+    // fazia — quem não é membro simplesmente não aparece aqui.
+    const membershipRows = await tx
+      .select({
+        role: projectMembers.role,
+        status: projectMembers.status,
+        project: {
+          id: projectsTable.id,
+          name: projectsTable.name,
+          status: projectsTable.status,
+        },
+      })
+      .from(projectMembers)
+      .innerJoin(projectsTable, eq(projectMembers.projectId, projectsTable.id))
+      .where(eq(projectMembers.userId, userId))
 
-      // Escopo explícito "own" (espelha notifications_select_own): só o inbox do usuário.
-      const notificationRows = await tx
-        .select({
-          id: notificationsTable.id,
-          type: notificationsTable.type,
-          payload: notificationsTable.payload,
-          readAt: notificationsTable.readAt,
-          createdAt: notificationsTable.createdAt,
-        })
-        .from(notificationsTable)
-        .where(eq(notificationsTable.userId, userId))
-        .orderBy(desc(notificationsTable.createdAt))
-        .limit(30)
+    // Escopo explícito "own" (espelha notifications_select_own): só o inbox do usuário.
+    const notificationRows = await tx
+      .select({
+        id: notificationsTable.id,
+        type: notificationsTable.type,
+        payload: notificationsTable.payload,
+        readAt: notificationsTable.readAt,
+        createdAt: notificationsTable.createdAt,
+      })
+      .from(notificationsTable)
+      .where(eq(notificationsTable.userId, userId))
+      .orderBy(desc(notificationsTable.createdAt))
+      .limit(30)
 
-      return { profileRows, membershipRows, notificationRows }
-    },
-  )
+    return { profileRows, membershipRows, notificationRows }
+  })
 
   // HU-019: convites pendentes do PRÓPRIO usuário, já com nome do projeto e do convidante.
   // Reimplementado como query Drizzle em lib/authz (issue #22, Fase 3, commit 15); roda como
-  // DONO (fora do `withUser`) porque o convidado ainda não é membro e a RLS de profiles não o
+  // DONO (fora do `transaction`) porque o convidado ainda não é membro e a RLS de profiles não o
   // deixaria ler o nome de quem o convidou — o escopo é explícito (invitee_id = userId). A RPC
   // SQL list_my_pending_invitations segue no banco até o flip (Fase 4).
   const pendingInvitationRows = await listMyPendingInvitations(userId)

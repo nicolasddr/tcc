@@ -32,19 +32,16 @@ export type DbExecutor = typeof baseDb | Transaction
 export const ownerDb = baseDb
 
 /**
- * Abre uma transação e executa `run` dentro dela. Desde o flip da Fase 4 (issue #22) NÃO
- * troca mais de papel nem seta claims (a RLS foi removida; a autorização é feita na app,
- * ANTES/JUNTO da query — ver lib/authz e as checagens nas actions).
- *
- * A assinatura mantém `userId` (não usado) só para não tocar os ~58 call sites de uma vez;
- * a Fase 5 renomeia para `tx(run)` e remove o parâmetro.
+ * Abre uma transação e executa `run` dentro dela. Sem RLS no banco (flip da Fase 4,
+ * issue #22), é um wrapper de transação simples — não troca de papel nem seta claims. A
+ * autorização é feita na app-layer, ANTES/JUNTO da query (ver lib/authz e as checagens
+ * nas actions).
  *
  * @example
- *   import { withUser, projects } from '@/lib/db'
- *   const rows = await withUser(user.id, (tx) => tx.select().from(projects))
+ *   import { transaction, projects } from '@/lib/db'
+ *   const rows = await transaction((tx) => tx.select().from(projects))
  */
-export async function withUser<T>(
-  _userId: string,
+export async function transaction<T>(
   run: (tx: Transaction) => Promise<T>,
 ): Promise<T> {
   return baseDb.transaction(run)

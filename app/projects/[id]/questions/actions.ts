@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { and, desc, eq } from 'drizzle-orm'
 import { getClaims } from '@/lib/supabase/server'
-import { withUser, onboardingQuestions } from '@/lib/db'
+import { transaction, onboardingQuestions } from '@/lib/db'
 import { isProjectAdmin } from '@/lib/authz'
 import { parseOptionsInput, type OnboardingQuestionType } from '@/app/onboarding/questions'
 
@@ -65,7 +65,7 @@ export async function addQuestion(
     }
   }
 
-  await withUser(userId, async (tx) => {
+  await transaction(async (tx) => {
     const [last] = await tx
       .select({ orderIndex: onboardingQuestions.orderIndex })
       .from(onboardingQuestions)
@@ -112,7 +112,7 @@ export async function updateQuestion(
     }
   }
 
-  await withUser(userId, (tx) =>
+  await transaction((tx) =>
     tx
       .update(onboardingQuestions)
       .set({
@@ -147,7 +147,7 @@ export async function removeQuestion(formData: FormData): Promise<void> {
 
   if (!(await isProjectAdmin(userId, projectId))) return
 
-  await withUser(userId, (tx) =>
+  await transaction((tx) =>
     tx
       .delete(onboardingQuestions)
       .where(
