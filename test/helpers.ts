@@ -14,6 +14,7 @@ import {
   projectInvitations,
   onboardingQuestions,
   onboardingResponses,
+  notifications,
 } from '@/lib/db'
 
 const ROLLBACK = Symbol('rollback')
@@ -138,6 +139,19 @@ export async function addOnboardingQuestion(
       orderIndex: opts.orderIndex ?? 0,
     })
     .returning({ id: onboardingQuestions.id })
+  return row.id
+}
+
+/** Cria uma notificação para `userId` (não lida) e devolve o id. */
+export async function addNotification(
+  tx: DbExecutor,
+  userId: string,
+  type = 'project_invitation',
+): Promise<string> {
+  const [row] = await tx
+    .insert(notifications)
+    .values({ userId, type, payload: {} })
+    .returning({ id: notifications.id })
   return row.id
 }
 
