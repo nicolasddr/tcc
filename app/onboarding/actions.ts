@@ -11,17 +11,18 @@ import {
   onboardingQuestions,
   onboardingResponses,
 } from '@/lib/db'
+import { hasPendingInvitation } from '@/lib/authz'
 import { CONSENT_TEXT } from './consent'
 import { OTHER_VALUE, coerceOptions } from './questions'
 
 export type OnboardingState = { error: string } | null
 
 // HU-020 (Opção A, ADR-003): aceitar o convite MATERIALIZA a linha do avaliador em
-// pending_onboarding e marca o convite como accepted — tudo numa transação `withUser`
-// (papel `authenticated`, RLS ativa). A ORDEM importa: o membro entra ENQUANTO o
-// convite ainda está `pending`, porque a policy pm_insert exige has_pending_invitation;
-// só depois viramos o convite para `accepted`. O consentimento (promover a active) é o
-// passo seguinte, na página de onboarding.
+// pending_onboarding e marca o convite como accepted — tudo numa transação `withUser`.
+// Entrar num projeto exige um convite PENDENTE: isso agora é checado EXPLICITAMENTE na
+// app (`hasPendingInvitation`, espelha a policy pm_insert); a RLS segue como backstop. A
+// ORDEM importa: o membro entra ENQUANTO o convite ainda está `pending`; só depois viramos
+// o convite para `accepted`. O consentimento (promover a active) é o passo seguinte.
 export async function acceptInvitation(formData: FormData): Promise<void> {
   const claims = await getClaims()
   if (!claims) redirect('/login')
@@ -30,12 +31,9 @@ export async function acceptInvitation(formData: FormData): Promise<void> {
   const projectId = String(formData.get('project_id') ?? '')
   if (!projectId) redirect('/dashboard')
 
-  await withUser(userId, async (tx) => {
-    // Idempotência (re-clique / já aceitou antes): se a linha já existe, NÃO reinsere.
-    // Reinserir falharia na RLS pm_insert — que exige convite PENDENTE — pois o aceite
-    // anterior já virou o convite para accepted. onConflictDoNothing NÃO cobriria isso:
-    // o WITH CHECK da RLS é avaliado ANTES do ON CONFLICT, então o 42501 estoura mesmo
-    // com o ON CONFLICT presente.
+  const joined = await withUser(userId, async (tx) => {
+    // Idempotência (re-clique / já aceitou antes): se a linha já existe, NÃO reinsere e
+    // trata como sucesso (segue para o onboarding).
     const [existing] = await tx
       .select({ id: projectMembers.id })
       .from(projectMembers)
@@ -47,7 +45,11 @@ export async function acceptInvitation(formData: FormData): Promise<void> {
         ),
       )
       .limit(1)
-    if (existing) return
+    if (existing) return true
+
+    // Sem convite pendente, não materializa a linha (espelha pm_insert). Evita que
+    // qualquer um se auto-adicione a um projeto ao chamar esta action.
+    if (!(await hasPendingInvitation(userId, projectId, tx))) return false
 
     await tx.insert(projectMembers).values({
       projectId,
@@ -66,19 +68,23 @@ export async function acceptInvitation(formData: FormData): Promise<void> {
           eq(projectInvitations.status, 'pending'),
         ),
       )
+    return true
   })
 
   // redirect lança control-flow do Next — fora do withUser p/ não abortar a transação.
-  redirect(`/projects/${projectId}/onboarding`)
+  // Sem convite (joined=false) não houve escrita: volta para a página do projeto.
+  redirect(joined ? `/projects/${projectId}/onboarding` : `/projects/${projectId}`)
 }
 
 // HU-028/032 (US 31/32): o avaliador registra o consentimento (timestamp + snapshot do
 // texto) E responde a TODAS as perguntas de onboarding (obrigatórias) — só então a linha
-// é promovida a `active`. Tudo numa transação `withUser`: as respostas entram ENQUANTO a
-// linha ainda é pending_onboarding (a RLS or_insert / can_answer_onboarding exige isso),
-// e só depois o status vira active. As respostas são validadas ANTES de qualquer escrita,
-// então um onboarding incompleto não grava nada. Os CHECKs pm_consent_required /
-// pm_onboarding_done do banco garantem consentimento + onboarding registrados no active.
+// é promovida a `active`. Tudo numa transação `withUser`. O escopo é EXPLÍCITO na app: a
+// linha do membro é buscada por `userId` e só se prossegue se ela estiver em
+// pending_onboarding — exatamente `can_answer_onboarding` (or_insert), agora garantido no
+// código (o `project_member_id` das respostas nunca vem do cliente, é derivado daqui). As
+// respostas são validadas ANTES de qualquer escrita, então um onboarding incompleto não
+// grava nada. A RLS or_insert e os CHECKs pm_consent_required / pm_onboarding_done seguem
+// como backstop.
 export async function completeOnboarding(
   _prev: OnboardingState,
   formData: FormData,
@@ -109,7 +115,8 @@ export async function completeOnboarding(
       )
       .limit(1)
 
-    // Sem linha pendente (já concluiu ou nunca aceitou): trata como concluído.
+    // can_answer_onboarding em app: sem linha própria em pending_onboarding (já concluiu
+    // ou nunca aceitou), não responde nada — trata como concluído.
     if (!member || member.status !== 'pending_onboarding') return { done: true } as const
 
     const questions = await tx
@@ -170,10 +177,11 @@ export async function completeOnboarding(
   redirect(`/projects/${projectId}`)
 }
 
-// HU-020 (Opção A): abandonar o onboarding DELETA a linha ainda em pending_onboarding
-// (policy pm_delete_own_pending + grant de DELETE, migration 0007) e REVERTE o convite
-// para `pending`, para o avaliador poder reconsiderar depois. Deletar primeiro, depois
-// reverter: nenhum passo depende do outro, mas mantém a ordem espelho do aceite.
+// HU-020 (Opção A): abandonar o onboarding DELETA a linha ainda em pending_onboarding e
+// REVERTE o convite para `pending`, para o avaliador poder reconsiderar depois. Ambas as
+// escritas têm escopo "own" explícito (WHERE user_id/invitee_id = userId), então mexem só
+// nas linhas do próprio usuário — espelham pm_delete_own_pending (migration 0007) e o
+// inv_update do convidado; a RLS segue como backstop. Deletar primeiro, depois reverter.
 export async function abandonOnboarding(formData: FormData): Promise<void> {
   const claims = await getClaims()
   if (!claims) redirect('/login')

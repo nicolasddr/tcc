@@ -11,8 +11,10 @@ import '@/app/notifications/notifications.css'
 
 // HU-028: passo de consentimento do onboarding do avaliador. Só faz sentido quando o
 // usuário tem uma linha de avaliador em pending_onboarding (aceitou o convite mas ainda
-// não consentiu). Se já está active (concluiu) ou não tem linha (não aceitou), volta
-// para a página do projeto.
+// não consentiu). O acesso é gated EXPLICITAMENTE na app pela própria linha de membership
+// (buscada por userId): se já está active (concluiu) ou não tem linha (não aceitou), volta
+// para a página do projeto. As perguntas (oq_select: is_project_member) só são exibidas ao
+// membro pendente. A RLS segue como backstop.
 export default async function OnboardingPage({
   params,
 }: {
