@@ -124,7 +124,7 @@ describe('app/projects/actions — autorização explícita (RLS como backstop)'
     })
 
     const [before] = await ownerDb
-      .select({ name: projects.name })
+      .select({ name: projects.name, updatedAt: projects.updatedAt })
       .from(projects)
       .where(eq(projects.id, project))
     expect(before.name).toBe('Projeto de Teste')
@@ -134,10 +134,15 @@ describe('app/projects/actions — autorização explícita (RLS como backstop)'
       ok: expect.any(String),
     })
     const [after] = await ownerDb
-      .select({ name: projects.name })
+      .select({ name: projects.name, updatedAt: projects.updatedAt })
       .from(projects)
       .where(eq(projects.id, project))
     expect(after.name).toBe('Editado')
+    // issue #22, Fase 2: o UPDATE emite `updated_at = now()` via $onUpdate (o grant de
+    // coluna de projects permite ao papel `authenticated`), sem 42501. Prova que a app passa
+    // a manter updated_at: fica não-nulo e avança em relação ao valor pré-edição.
+    expect(after.updatedAt).not.toBeNull()
+    expect(after.updatedAt).not.toBe(before.updatedAt)
   })
 
   it('setProjectStatus: avaliador → no-op; admin → muda o status', async () => {

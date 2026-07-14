@@ -20,7 +20,14 @@ export const projects = pgTable("projects", {
 	status: text().default('active').notNull(),
 	createdBy: uuid("created_by").notNull(),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
-	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }),
+	// updated_at gerido pela app via $onUpdate (issue #22, Fase 2). projects tem grant de
+	// UPDATE e de INSERT em todas as colunas ao papel `authenticated` (0003), então emitir
+	// `updated_at = now()` daqui não esbarra em grant. O trigger projects_set_updated_at
+	// segue no banco como backstop até o flip (Fase 4), sobrescrevendo com o mesmo now().
+	// Nota: no Drizzle o $onUpdate também popula a coluna no INSERT (sem .default), então um
+	// projeto novo passa a nascer com updated_at = now() (antes nascia nulo — o trigger só
+	// dispara em UPDATE). Inofensivo: nada no app lê projects.updated_at; equivale a created_at.
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).$onUpdate(() => sql`now()`),
 	taskType: text("task_type"),
 }, (table) => [
 	index("projects_created_by_status").using("btree", table.createdBy.asc().nullsLast().op("text_ops"), table.status.asc().nullsLast().op("text_ops")),
@@ -45,6 +52,10 @@ export const profiles = pgTable("profiles", {
 	email: text().notNull(),
 	canCreateProjects: boolean("can_create_projects").default(false).notNull(),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	// updated_at fica no trigger profiles_set_updated_at até o flip (Fase 4). O grant de
+	// coluna da 0002 só libera UPDATE(name) ao papel `authenticated`, então emitir
+	// `updated_at = now()` daqui via $onUpdate daria 42501 enquanto a RLS/grants estão on.
+	// Ao remover os grants no flip, adicionar `.$onUpdate(() => sql\`now()\`)` aqui.
 	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }),
 }, (table) => [
 	foreignKey({
@@ -131,6 +142,11 @@ export const projectMembers = pgTable("project_members", {
 	onboardingCompletedAt: timestamp("onboarding_completed_at", { withTimezone: true, mode: 'string' }),
 	consentAcceptedAt: timestamp("consent_accepted_at", { withTimezone: true, mode: 'string' }),
 	consentTextSnapshot: text("consent_text_snapshot"),
+	// updated_at fica no trigger project_members_set_updated_at até o flip (Fase 4). O grant
+	// de coluna da 0002 só libera UPDATE(status, consent_accepted_at, consent_text_snapshot,
+	// onboarding_completed_at) ao papel `authenticated`, então emitir `updated_at = now()`
+	// daqui via $onUpdate daria 42501 enquanto a RLS/grants estão on (ver removeMember/
+	// leaveProject). Ao remover os grants no flip, adicionar `.$onUpdate(() => sql\`now()\`)`.
 	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }),
 }, (table) => [
 	index("pm_project_status").using("btree", table.projectId.asc().nullsLast().op("uuid_ops"), table.status.asc().nullsLast().op("text_ops")),
