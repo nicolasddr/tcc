@@ -11,12 +11,13 @@
 // rollback, e nas actions para reaproveitar a transação já aberta).
 //
 // ⚠️ SERVER-ONLY (importa `lib/db`, que abre conexão TCP). Nunca importar no cliente.
-import { and, eq, sql } from 'drizzle-orm'
+import { and, desc, eq, sql } from 'drizzle-orm'
 import { alias } from 'drizzle-orm/pg-core'
 import {
   ownerDb,
   type DbExecutor,
   profiles,
+  projects,
   projectMembers,
   projectInvitations,
   superAdmins,
@@ -216,4 +217,44 @@ export async function findInviteeByEmail(
     .where(eq(sql`lower(${profiles.email})`, email.toLowerCase()))
     .limit(1)
   return row ?? null
+}
+
+export type PendingInvitation = {
+  invitationId: string
+  projectId: string
+  projectName: string
+  inviterName: string | null
+  createdAt: string
+}
+
+/**
+ * Lista os convites PENDENTES do PRÓPRIO usuário, já com o nome do projeto e de quem
+ * convidou — reimplementa a RPC `list_my_pending_invitations` (0006).
+ *
+ * ⚠️ Roda como DONO (ownerDb, bypassa a RLS) de propósito: o convidado ainda NÃO é
+ * membro, então a policy `profiles_select_shared_members` não o deixaria ler o nome de
+ * quem o convidou (o `left join` devolveria nome nulo) — foi exatamente esse bug que
+ * motivou a RPC security definer da 0006. O escopo é EXPLÍCITO (`invitee_id = userId`),
+ * então rodar como owner não vaza nada de terceiros. Ordena do mais recente ao mais antigo.
+ */
+export function listMyPendingInvitations(
+  userId: string,
+  db: DbExecutor = ownerDb,
+): Promise<PendingInvitation[]> {
+  const inviter = alias(profiles, 'inviter')
+  return db
+    .select({
+      invitationId: projectInvitations.id,
+      projectId: projectInvitations.projectId,
+      projectName: projects.name,
+      inviterName: inviter.name,
+      createdAt: projectInvitations.createdAt,
+    })
+    .from(projectInvitations)
+    .innerJoin(projects, eq(projects.id, projectInvitations.projectId))
+    .leftJoin(inviter, eq(inviter.id, projectInvitations.invitedBy))
+    .where(
+      and(eq(projectInvitations.inviteeId, userId), eq(projectInvitations.status, 'pending')),
+    )
+    .orderBy(desc(projectInvitations.createdAt))
 }

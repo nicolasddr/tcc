@@ -1,6 +1,6 @@
 import Link from '@/app/components/app-link'
 import { redirect } from 'next/navigation'
-import { eq, desc, sql } from 'drizzle-orm'
+import { eq, desc } from 'drizzle-orm'
 import { getClaims } from '@/lib/supabase/server'
 import {
   withUser,
@@ -9,6 +9,7 @@ import {
   projects as projectsTable,
   notifications as notificationsTable,
 } from '@/lib/db'
+import { listMyPendingInvitations, type PendingInvitation } from '@/lib/authz'
 import { signOut } from '@/app/auth/actions'
 import { declineInvitation } from '@/app/invitations/actions'
 import { acceptInvitation } from '@/app/onboarding/actions'
@@ -34,14 +35,6 @@ type ListedProject = {
   onboardingPending: boolean
 }
 
-type PendingInvitation = {
-  invitation_id: string
-  project_id: string
-  project_name: string
-  inviter_name: string | null
-  created_at: string
-}
-
 export default async function Dashboard({
   searchParams,
 }: {
@@ -60,7 +53,7 @@ export default async function Dashboard({
   // membro (com o projeto via innerJoin), o inbox de notificações e os convites pendentes.
   // O ESCOPO ("own") agora é explícito na app (issue #22, Fase 1) — cada SELECT filtra pelo
   // `userId`; a RLS do banco segue como backstop. Ver ADR 0007 e lib/db.
-  const { profileRows, membershipRows, notificationRows, pendingInvitationRows } = await withUser(
+  const { profileRows, membershipRows, notificationRows } = await withUser(
     userId,
     async (tx) => {
       // HU-005: nome do próprio perfil (profiles_select_own) para o cabeçalho — o
@@ -102,19 +95,16 @@ export default async function Dashboard({
         .orderBy(desc(notificationsTable.createdAt))
         .limit(30)
 
-      // HU-019: convites pendentes do PRÓPRIO usuário, já com nome do projeto e do
-      // convidante. RPC security definer (migration 0006) porque o convidado ainda não
-      // é membro ativo e a RLS de profiles não o deixa ler o nome de quem o convidou.
-      // Por decisão da Fase 4 (ADR 0007) PERMANECE em SQL e roda aqui via Drizzle —
-      // auth.uid() resolve pela claim da transação —, não mais por supabase.rpc.
-      const pendingInvitationRows = await tx.execute<PendingInvitation>(
-        sql`select invitation_id, project_id, project_name, inviter_name, created_at
-            from public.list_my_pending_invitations()`,
-      )
-
-      return { profileRows, membershipRows, notificationRows, pendingInvitationRows }
+      return { profileRows, membershipRows, notificationRows }
     },
   )
+
+  // HU-019: convites pendentes do PRÓPRIO usuário, já com nome do projeto e do convidante.
+  // Reimplementado como query Drizzle em lib/authz (issue #22, Fase 3, commit 15); roda como
+  // DONO (fora do `withUser`) porque o convidado ainda não é membro e a RLS de profiles não o
+  // deixaria ler o nome de quem o convidou — o escopo é explícito (invitee_id = userId). A RPC
+  // SQL list_my_pending_invitations segue no banco até o flip (Fase 4).
+  const pendingInvitationRows = await listMyPendingInvitations(userId)
 
   const displayName = profileRows[0]?.name ?? email
 
@@ -150,14 +140,13 @@ export default async function Dashboard({
     read: n.readAt != null,
   }))
 
-  // Convites pendentes já vieram da transação RLS-aware acima (RowList é um array de
-  // PendingInvitation).
+  // Convites pendentes já vieram da query Drizzle acima (listMyPendingInvitations).
   const pendingInvitations: PendingInvitation[] = pendingInvitationRows
   // Os projetos convidados aparecem na própria listagem (com selo "convite
   // pendente" + Aceitar/Recusar) para o usuário poder agir sobre o convite.
   // Deduplica contra projetos onde já é membro (caso raro de re-convite de
   // ex-membro inativo).
-  const invitedProjects = pendingInvitations.filter((inv) => !byProject.has(inv.project_id))
+  const invitedProjects = pendingInvitations.filter((inv) => !byProject.has(inv.projectId))
   const hasProjects = projects.length > 0 || invitedProjects.length > 0
 
   return (
@@ -246,28 +235,28 @@ export default async function Dashboard({
                 {/* Convites pendentes: aparecem na listagem para o usuário agir
                     (Aceitar materializa o membro em onboarding; Recusar encerra o convite). */}
                 {invitedProjects.map((inv) => (
-                  <li key={inv.invitation_id}>
+                  <li key={inv.invitationId}>
                     <div className="project-card project-card-invited">
                       <Link
-                        href={`/projects/${inv.project_id}`}
+                        href={`/projects/${inv.projectId}`}
                         className="project-card-main project-card-link"
                       >
-                        <span className="project-card-name">{inv.project_name}</span>
+                        <span className="project-card-name">{inv.projectName}</span>
                         <span className="project-card-roles">
-                          Convidado por {inv.inviter_name ?? 'um administrador'} ·{' '}
-                          {formatDate(inv.created_at)}
+                          Convidado por {inv.inviterName ?? 'um administrador'} ·{' '}
+                          {formatDate(inv.createdAt)}
                         </span>
                       </Link>
                       <span className="project-card-badges">
                         <span className="invite-pending-badge">convite pendente</span>
                         <form action={acceptInvitation}>
-                          <input type="hidden" name="project_id" value={inv.project_id} />
+                          <input type="hidden" name="project_id" value={inv.projectId} />
                           <SubmitButton variant="primary" size="sm" pendingText="Aceitando…">
                             Aceitar
                           </SubmitButton>
                         </form>
                         <form action={declineInvitation}>
-                          <input type="hidden" name="invitation_id" value={inv.invitation_id} />
+                          <input type="hidden" name="invitation_id" value={inv.invitationId} />
                           <SubmitButton variant="danger" size="sm" pendingText="Recusando…">
                             Recusar
                           </SubmitButton>

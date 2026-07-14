@@ -17,8 +17,9 @@ import {
   canAnswerOnboarding,
   canCreateProjects,
   findInviteeByEmail,
+  listMyPendingInvitations,
 } from '@/lib/authz'
-import { profiles } from '@/lib/db'
+import { profiles, projectInvitations } from '@/lib/db'
 import {
   inRollbackTx,
   createUser,
@@ -175,6 +176,38 @@ describe('lib/authz — predicados de autorização', () => {
 
       // E-mail inexistente → null (mesmo com permissão).
       expect(await findInviteeByEmail(inviter, 'ninguem@test.local', tx)).toBeNull()
+    })
+  })
+
+  // list_my_pending_invitations reimplementada como query Drizzle (issue #22, Fase 3, commit 15).
+  it('listMyPendingInvitations: só pendentes do próprio, com projeto+convidante; escopado', async () => {
+    await inRollbackTx(async (tx) => {
+      const admin = await createUser(tx, 'Convidante')
+      const invitee = await createUser(tx, 'Convidado')
+      const other = await createUser(tx, 'Outro')
+      const projectA = await createProject(tx, admin, 'Projeto A')
+      const projectB = await createProject(tx, admin, 'Projeto B')
+      const invA = await addPendingInvitation(tx, projectA, invitee, admin)
+      const invB = await addPendingInvitation(tx, projectB, invitee, admin)
+
+      const rows = await listMyPendingInvitations(invitee, tx)
+      // Traz o nome do projeto e do convidante — o join de profiles que a RLS barraria p/ um
+      // convidado (ainda não-membro). Ambos criados na mesma transação têm created_at igual
+      // (now() é fixo por transação), então não assertamos ordem entre eles.
+      expect(new Set(rows.map((r) => r.invitationId))).toEqual(new Set([invA, invB]))
+      expect(rows.map((r) => r.projectName).sort()).toEqual(['Projeto A', 'Projeto B'])
+      expect(rows.every((r) => r.inviterName === 'Convidante')).toBe(true)
+
+      // Escopo "own": outro usuário não vê convite alheio.
+      expect(await listMyPendingInvitations(other, tx)).toEqual([])
+
+      // Só PENDENTES: recusar um convite o tira da lista.
+      await tx
+        .update(projectInvitations)
+        .set({ status: 'declined' })
+        .where(eq(projectInvitations.id, invA))
+      const afterDecline = await listMyPendingInvitations(invitee, tx)
+      expect(afterDecline.map((r) => r.invitationId)).toEqual([invB])
     })
   })
 })
