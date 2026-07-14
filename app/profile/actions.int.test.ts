@@ -1,9 +1,8 @@
 // app/profile/actions.int.test.ts — teste de integração da Server Action de perfil
-// (issue #22, Fase 1, commit 11). Prova o escopo "own" EXPLÍCITO: o usuário edita só o
-// PRÓPRIO nome (o WHERE é `id = userId`), sem tocar no de outro — com a RLS de backstop
-// (espelha profiles_update_own). Porta 01_profile_update_name.
+// (issue #22). Prova o escopo "own" EXPLÍCITO: o usuário edita só o PRÓPRIO nome (o WHERE
+// é `id = userId`), sem tocar no de outro.
 //
-// A action commita via `withUser`: fixtures via `ownerDb`, limpas por `cleanup()`.
+// A action commita via `transaction`: fixtures via `ownerDb`, limpas por `cleanup()`.
 // PRÉ-REQUISITO: Supabase LOCAL de pé (`supabase start`).
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { eq } from 'drizzle-orm'

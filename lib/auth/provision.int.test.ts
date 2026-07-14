@@ -1,21 +1,11 @@
 // lib/auth/provision.int.test.ts — testes de integração do provisionamento no 1º
-// login (issue #22, Fase 4, commit 17). Cobre o COMPORTAMENTO que substitui os
-// triggers handle_new_user + sync_profile_email + notify_on_invitation_resolved:
-// criação de perfil, sincronização de e-mail, vínculo de convite por e-mail e
-// notificação — a rede que passa a ser load-bearing quando os triggers saírem (c19).
+// login (issue #22). Cobrem o COMPORTAMENTO do provisionamento na app-layer: criação de
+// perfil, sincronização de e-mail, vínculo de convite por e-mail e notificação.
 //
 // PRÉ-REQUISITO: Supabase LOCAL de pé (`supabase start`). Rodam sob transação-com-
 // rollback (test/helpers.ts): não sujam o banco.
-//
-// GOTCHA da coexistência: nos commits 17-18 os triggers AINDA existem. O trigger
-// inv_notify_resolved pega carona no nosso UPDATE de invitee_id e emitiria uma 2ª
-// notificação idêntica — no fluxo real isso não acontece (o trigger handle_new_user
-// vence a corrida, resolve tudo no insert de auth.users, e nossa função vira no-op).
-// Para medir SÓ o efeito da nossa função (e escrever a asserção que continuará valendo
-// pós-flip), desligamos os triggers na transação de teste com
-// `set local session_replication_role = replica` — simula o mundo sem triggers.
 import { describe, it, expect } from 'vitest'
-import { eq, sql } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
 import { provisionUserOnFirstLogin } from '@/lib/auth/provision'
 import { profiles, projectInvitations, notifications } from '@/lib/db'
 import type { Transaction } from '@/lib/db'
@@ -40,20 +30,13 @@ async function addEmailInvitation(
   return row.id
 }
 
-// Desliga os triggers para o resto da transação: mede o efeito puro da app-layer,
-// como será pós-flip (commit 19 remove os triggers de fato).
-async function suppressTriggers(tx: Transaction): Promise<void> {
-  await tx.execute(sql`set local session_replication_role = replica`)
-}
-
 describe('provisionUserOnFirstLogin', () => {
   it('cria o perfil no 1º login (nome e e-mail do provedor)', async () => {
     await inRollbackTx(async (tx) => {
-      // Materializa auth.users (o trigger cria o perfil) e o remove para simular o
-      // 1º login sem perfil — o cenário que a nossa função cobre pós-flip.
+      // `createUser` materializa auth.users + profile; removemos o profile para simular
+      // o 1º login sem perfil — o cenário que a nossa função cobre.
       const id = await createUser(tx, 'Nome Antigo', 'novo@exemplo.test')
       await tx.delete(profiles).where(eq(profiles.id, id))
-      await suppressTriggers(tx)
 
       await provisionUserOnFirstLogin({ id, email: 'novo@exemplo.test', name: 'Fulana' }, tx)
 
@@ -70,8 +53,6 @@ describe('provisionUserOnFirstLogin', () => {
       const id = await createUser(tx, 'Nome Original', 'antigo@exemplo.test')
       // Usuário editou o nome no perfil depois da criação.
       await tx.update(profiles).set({ name: 'Nome Editado' }).where(eq(profiles.id, id))
-      await suppressTriggers(tx)
-
       // Novo login com e-mail atualizado no provedor.
       await provisionUserOnFirstLogin({ id, email: 'atualizado@exemplo.test', name: 'Ignorado' }, tx)
 
@@ -91,8 +72,6 @@ describe('provisionUserOnFirstLogin', () => {
       const email = 'convidada@exemplo.test'
       const newUser = await createUser(tx, 'Convidada', email)
       const invitationId = await addEmailInvitation(tx, project, email, inviter)
-      await suppressTriggers(tx)
-
       await provisionUserOnFirstLogin({ id: newUser, email, name: 'Convidada' }, tx)
 
       // Convite vinculado ao novo id.
@@ -125,8 +104,6 @@ describe('provisionUserOnFirstLogin', () => {
       const project = await createProject(tx, inviter)
       const newUser = await createUser(tx, 'Convidada', 'pessoa@exemplo.test')
       const invitationId = await addEmailInvitation(tx, project, 'Pessoa@Exemplo.TEST', inviter)
-      await suppressTriggers(tx)
-
       await provisionUserOnFirstLogin({ id: newUser, email: 'pessoa@exemplo.test', name: 'Convidada' }, tx)
 
       const [inv] = await tx
@@ -144,8 +121,6 @@ describe('provisionUserOnFirstLogin', () => {
       const email = 'repetida@exemplo.test'
       const newUser = await createUser(tx, 'Convidada', email)
       await addEmailInvitation(tx, project, email, inviter)
-      await suppressTriggers(tx)
-
       await provisionUserOnFirstLogin({ id: newUser, email, name: 'Convidada' }, tx)
       await provisionUserOnFirstLogin({ id: newUser, email, name: 'Convidada' }, tx)
 
@@ -160,8 +135,6 @@ describe('provisionUserOnFirstLogin', () => {
   it('não notifica quando não há convite pendente para o e-mail', async () => {
     await inRollbackTx(async (tx) => {
       const id = await createUser(tx, 'Sozinho', 'sozinho@exemplo.test')
-      await suppressTriggers(tx)
-
       await provisionUserOnFirstLogin({ id, email: 'sozinho@exemplo.test', name: 'Sozinho' }, tx)
 
       const notes = await tx

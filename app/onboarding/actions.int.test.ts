@@ -1,11 +1,10 @@
 // app/onboarding/actions.int.test.ts — testes de integração das Server Actions de
-// onboarding (issue #22, Fase 1, commit 7). Provam as checagens EXPLÍCITAS que passam a
-// gatear o "entrar num projeto" e o "responder o onboarding" — com a RLS de backstop:
-//   • acceptInvitation exige convite pendente (hasPendingInvitation, espelha pm_insert);
-//   • completeOnboarding só responde pela própria linha pending (can_answer_onboarding).
-// Portam os casos de 04_accept_onboarding_members / 06_onboarding_questions.
+// onboarding (issue #22). Provam as checagens EXPLÍCITAS que gateiam o "entrar num
+// projeto" e o "responder o onboarding":
+//   • acceptInvitation exige convite pendente (hasPendingInvitation);
+//   • completeOnboarding só responde pela própria linha pending.
 //
-// Cada action commita via `withUser`: fixtures via `ownerDb`, limpas por `cleanup()`.
+// Cada action commita via `transaction`: fixtures via `ownerDb`, limpas por `cleanup()`.
 // PRÉ-REQUISITO: Supabase LOCAL de pé (`supabase start`).
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { and, eq } from 'drizzle-orm'

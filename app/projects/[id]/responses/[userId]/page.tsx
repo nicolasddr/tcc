@@ -14,9 +14,8 @@ import '../../../projects.css'
 import '@/app/notifications/notifications.css'
 
 // HU-029 (US 33): o Administrador vê as respostas de onboarding de um avaliador (somente
-// leitura). O gate é EXPLÍCITO na app: só um admin ativo do projeto passa (`isAdmin`,
-// espelha a via admin de can_view_response/or_select) — os demais são redirecionados e a
-// leitura das respostas só ocorre para o admin. A RLS segue como backstop.
+// leitura). O gate é EXPLÍCITO na app: só um admin ativo do projeto passa (`isAdmin`) — os
+// demais são redirecionados e a leitura das respostas só ocorre para o admin.
 // Um leftJoin lista as perguntas mesmo sem resposta (perguntas criadas após o onboarding).
 export default async function MemberResponsesPage({
   params,

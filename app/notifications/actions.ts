@@ -6,10 +6,9 @@ import { and, eq, isNull } from 'drizzle-orm'
 import { getClaims } from '@/lib/supabase/server'
 import { transaction, notifications } from '@/lib/db'
 
-// HU-010/011: marcar uma notificação como lida. O escopo "own" agora é EXPLÍCITO na app
-// (o WHERE filtra por `userId`, espelha notifications_update_own): o usuário só toca o
-// próprio inbox, mesmo que o id venha adulterado do cliente. A RLS e o grant por coluna
-// (só read_at) seguem como backstop — ver ADR 0007.
+// HU-010/011: marcar uma notificação como lida. O escopo "own" é EXPLÍCITO na app (o
+// WHERE filtra por `userId`): o usuário só toca o próprio inbox, mesmo que o id venha
+// adulterado do cliente. Ver ADR 0007.
 export async function markNotificationRead(formData: FormData): Promise<void> {
   const claims = await getClaims()
   if (!claims) redirect('/login')
@@ -35,7 +34,7 @@ export async function markNotificationRead(formData: FormData): Promise<void> {
 }
 
 // Marca todas as notificações ainda não lidas do usuário como lidas de uma vez. Escopo
-// "own" explícito (WHERE user_id = userId), espelhando notifications_update_own.
+// "own" explícito (WHERE user_id = userId).
 export async function markAllNotificationsRead(): Promise<void> {
   const claims = await getClaims()
   if (!claims) redirect('/login')

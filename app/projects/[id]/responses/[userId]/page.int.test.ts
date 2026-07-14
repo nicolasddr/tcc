@@ -1,11 +1,10 @@
 // app/projects/[id]/responses/[userId]/page.int.test.ts — teste de integração do ESCOPO
-// da página de respostas de onboarding (issue #22, Fase 1, commit 8). Porta o caso do
-// pgTAP (06_onboarding_questions: "quem não pode ver, não vê"): só o admin do projeto
-// enxerga as respostas de um avaliador — os demais são redirecionados. Prova a checagem
-// EXPLÍCITA (`isAdmin`, espelha can_view_response), com a RLS de backstop.
+// da página de respostas de onboarding (issue #22). "Quem não pode ver, não vê": só o
+// admin do projeto enxerga as respostas de um avaliador — os demais são redirecionados.
+// Prova a checagem EXPLÍCITA (`isAdmin`) na app-layer.
 //
 // A página é um Server Component: renderizá-la só monta a árvore. Acessos commitam via
-// `withUser`: fixtures via `ownerDb`, limpas por `cleanup()`.
+// `transaction`: fixtures via `ownerDb`, limpas por `cleanup()`.
 // PRÉ-REQUISITO: Supabase LOCAL de pé (`supabase start`).
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 

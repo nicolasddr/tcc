@@ -1,14 +1,14 @@
-// lib/authz.ts — autorização na camada de aplicação (issue #22, Fase 0).
+// lib/authz.ts — autorização na camada de aplicação (issue #22).
 //
-// Cada função aqui espelha, em TypeScript, um predicado `security definer` que
-// hoje vive na migration 0002 (`is_project_admin`, `is_member_of`, etc.). O `userId`
-// que na versão SQL vinha de `auth.uid()` passa a ser um ARGUMENTO explícito.
+// Este módulo é a fonte única da verdade de "quem pode o quê": cada função é um predicado
+// tipado (`isProjectAdmin`, `isProjectMember`, etc.) que recebe o `userId` como ARGUMENTO
+// explícito e responde com uma query Drizzle. As actions/páginas chamam estes predicados
+// ANTES/JUNTO de cada leitura ou escrita.
 //
-// ⚠️ Rodam como DONO (bypassam a RLS), igual ao `security definer` original: um
-// predicado precisa enxergar TODAS as linhas para decidir "fulano é admin?",
-// independentemente de quem pergunta. Por isso o executor default é `ownerDb`.
-// O parâmetro `db` permite injetar uma transação (usado nos testes para rodar sob
-// rollback, e nas actions para reaproveitar a transação já aberta).
+// O executor default é `ownerDb` (a única conexão): um predicado precisa enxergar TODAS as
+// linhas para decidir "fulano é admin?", independentemente de quem pergunta. O parâmetro
+// `db` permite injetar uma transação (usado nos testes para rodar sob rollback, e nas
+// actions para reaproveitar a transação já aberta).
 //
 // ⚠️ SERVER-ONLY (importa `lib/db`, que abre conexão TCP). Nunca importar no cliente.
 import { and, desc, eq, sql } from 'drizzle-orm'
@@ -30,14 +30,14 @@ async function any(rows: Promise<unknown[]>): Promise<boolean> {
 
 const ONE = sql<number>`1`
 
-/** É super-admin da plataforma? (espelha `is_super_admin`) */
+/** É super-admin da plataforma? */
 export function isSuperAdmin(userId: string, db: DbExecutor = ownerDb): Promise<boolean> {
   return any(
     db.select({ one: ONE }).from(superAdmins).where(eq(superAdmins.userId, userId)).limit(1),
   )
 }
 
-/** Membro ATIVO do projeto (qualquer papel)? (espelha `is_member_of`) */
+/** Membro ATIVO do projeto (qualquer papel)? */
 export function isMemberOf(
   userId: string,
   projectId: string,
@@ -58,7 +58,7 @@ export function isMemberOf(
   )
 }
 
-/** Tem QUALQUER linha de membership (inclui pending/inactive)? (espelha `is_project_member`) */
+/** Tem QUALQUER linha de membership (inclui pending/inactive)? */
 export function isProjectMember(
   userId: string,
   projectId: string,
@@ -73,7 +73,7 @@ export function isProjectMember(
   )
 }
 
-/** Administrador ATIVO do projeto? (espelha `is_project_admin`) */
+/** Administrador ATIVO do projeto? */
 export function isProjectAdmin(
   userId: string,
   projectId: string,
@@ -95,7 +95,7 @@ export function isProjectAdmin(
   )
 }
 
-/** Tem convite PENDENTE para o projeto? (espelha `has_pending_invitation`) */
+/** Tem convite PENDENTE para o projeto? */
 export function hasPendingInvitation(
   userId: string,
   projectId: string,
@@ -118,7 +118,7 @@ export function hasPendingInvitation(
 
 /**
  * Compartilha algum projeto com `otherUserId`, sendo `userId` membro ATIVO?
- * (espelha `shares_project_with` — self-join de project_members)
+ * (self-join de project_members)
  */
 export function sharesProjectWith(
   userId: string,
@@ -141,7 +141,7 @@ export function sharesProjectWith(
 
 /**
  * Pode VER a resposta de onboarding do membro `memberId`? — o próprio respondente
- * ou o admin do projeto. (espelha `can_view_response`)
+ * ou o admin do projeto.
  */
 export async function canViewResponse(
   userId: string,
@@ -160,7 +160,7 @@ export async function canViewResponse(
 
 /**
  * Pode RESPONDER ao onboarding do membro `memberId`? — precisa ser o próprio
- * membro e ainda estar em `pending_onboarding`. (espelha `can_answer_onboarding`)
+ * membro e ainda estar em `pending_onboarding`.
  */
 export function canAnswerOnboarding(
   userId: string,
@@ -194,16 +194,13 @@ export function canCreateProjects(userId: string, db: DbExecutor = ownerDb): Pro
 }
 
 /**
- * Resolve o convidado por e-mail para o fluxo de convite (HU-018) — reimplementa a
- * RPC `find_invitee_by_email` (0002). Devolve SÓ `{ id, name }` (nunca o e-mail nem
- * outro dado), ou `null` se não achar.
+ * Resolve o convidado por e-mail para o fluxo de convite (HU-018). Devolve SÓ
+ * `{ id, name }` (nunca o e-mail nem outro dado), ou `null` se não achar.
  *
  * ⚠️ GUARDA ANTI-ENUMERAÇÃO: só resolve o perfil se QUEM convida (`callerId`) tem
  * `can_create_projects`. Sem essa permissão devolve `null` de forma INDISTINGUÍVEL de
  * "e-mail não cadastrado" — quem não pode convidar não consegue sondar se um e-mail
- * existe. (No SQL isso era o `exists(... me.id = auth.uid() and me.can_create_projects)`
- * embutido na mesma query; aqui é a checagem prévia de `canCreateProjects`, mesmo
- * resultado.) Comparação de e-mail case-insensitive, espelhando `lower(email)`.
+ * existe. Comparação de e-mail case-insensitive (`lower(email)`).
  */
 export async function findInviteeByEmail(
   callerId: string,
@@ -229,13 +226,11 @@ export type PendingInvitation = {
 
 /**
  * Lista os convites PENDENTES do PRÓPRIO usuário, já com o nome do projeto e de quem
- * convidou — reimplementa a RPC `list_my_pending_invitations` (0006).
+ * convidou.
  *
- * ⚠️ Roda como DONO (ownerDb, bypassa a RLS) de propósito: o convidado ainda NÃO é
- * membro, então a policy `profiles_select_shared_members` não o deixaria ler o nome de
- * quem o convidou (o `left join` devolveria nome nulo) — foi exatamente esse bug que
- * motivou a RPC security definer da 0006. O escopo é EXPLÍCITO (`invitee_id = userId`),
- * então rodar como owner não vaza nada de terceiros. Ordena do mais recente ao mais antigo.
+ * O escopo é EXPLÍCITO (`invitee_id = userId`), então o `left join` que traz o nome de
+ * quem convidou não vaza nada de terceiros: só o próprio inbox de convites. Ordena do
+ * mais recente ao mais antigo.
  */
 export function listMyPendingInvitations(
   userId: string,

@@ -41,9 +41,8 @@ function parseQuestionForm(
 
 // HU-026 (US 29): o administrador define uma pergunta de onboarding (aberta ou de
 // múltipla escolha com "Outro"). A permissão de admin é checada EXPLICITAMENTE
-// (isProjectAdmin, espelha oq_insert) antes do INSERT; a RLS segue como backstop. O
-// order_index é o próximo na sequência do projeto (sem unique — inserções concorrentes
-// só podem empatar a ordem, nunca falhar).
+// (isProjectAdmin) antes do INSERT. O order_index é o próximo na sequência do projeto (sem
+// unique — inserções concorrentes só podem empatar a ordem, nunca falhar).
 export async function addQuestion(
   _prev: QuestionState,
   formData: FormData,
@@ -89,7 +88,7 @@ export async function addQuestion(
 
 // HU-027 (US 30): editar mantém as respostas — só atualiza o texto/tipo/opções da
 // pergunta; onboarding_responses não é tocado (as respostas antigas passam a ser
-// exibidas com o texto novo). Admin checado EXPLICITAMENTE (espelha oq_update); RLS backstop.
+// exibidas com o texto novo). Admin checado EXPLICITAMENTE (isProjectAdmin).
 export async function updateQuestion(
   _prev: QuestionState,
   formData: FormData,
@@ -134,8 +133,7 @@ export async function updateQuestion(
 
 // HU-027 (US 30): remover cascateia as respostas daquela pergunta (FK
 // onboarding_responses.question_id ON DELETE CASCADE). Admin checado EXPLICITAMENTE
-// (espelha oq_delete); RLS backstop. Ação simples (sem estado): o form client confirma
-// antes de enviar.
+// (isProjectAdmin). Ação simples (sem estado): o form client confirma antes de enviar.
 export async function removeQuestion(formData: FormData): Promise<void> {
   const claims = await getClaims()
   if (!claims) redirect('/login')

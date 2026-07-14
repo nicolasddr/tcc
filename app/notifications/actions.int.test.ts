@@ -1,9 +1,8 @@
 // app/notifications/actions.int.test.ts — testes de integração das Server Actions de
-// notificações (issue #22, Fase 1, commit 9). Provam o escopo "own" EXPLÍCITO: o usuário
-// só marca como lidas as PRÓPRIAS notificações, mesmo passando o id de outra — com a RLS
-// de backstop (espelha notifications_update_own).
+// notificações (issue #22). Provam o escopo "own" EXPLÍCITO: o usuário só marca como
+// lidas as PRÓPRIAS notificações, mesmo passando o id de outra.
 //
-// Cada action commita via `withUser`: fixtures via `ownerDb`, limpas por `cleanup()`
+// Cada action commita via `transaction`: fixtures via `ownerDb`, limpas por `cleanup()`
 // (deletar os usuários cascateia as notificações). PRÉ-REQUISITO: Supabase LOCAL de pé.
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { eq } from 'drizzle-orm'

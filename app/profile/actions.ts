@@ -10,10 +10,9 @@ export type UpdateProfileState = { error: string } | { ok: string } | null
 
 // HU-005: o usuário edita o PRÓPRIO nome. O escopo "own" é EXPLÍCITO na app: o WHERE
 // filtra por `id = userId` e só `name` é gravado — não dá para alterar o nome de outro
-// nem escalar outra coluna. Espelha profiles_update_own; a RLS e o grant de coluna (só
-// `name` para authenticated — migration 0002) seguem como backstop. O trigger
-// profiles_set_updated_at cuida do updated_at. A alteração reflete de imediato nas telas
-// que exibem o nome (Server Components) via revalidatePath — sem reautenticar. Ver ADR 0007.
+// nem escalar outra coluna. O `$onUpdate` do schema cuida do updated_at. A alteração
+// reflete de imediato nas telas que exibem o nome (Server Components) via revalidatePath —
+// sem reautenticar. Ver ADR 0007.
 export async function updateProfile(
   _prev: UpdateProfileState,
   formData: FormData,

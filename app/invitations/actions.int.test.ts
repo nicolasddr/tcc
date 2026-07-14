@@ -1,9 +1,8 @@
 // app/invitations/actions.int.test.ts — teste de integração da Server Action de recusa
-// de convite (issue #22, Fase 1, commit 10). Prova o escopo "own" EXPLÍCITO: só o próprio
-// convidado recusa o seu convite pendente — mesmo passando o id de outro — com a RLS de
-// backstop (espelha inv_update do convidado).
+// de convite (issue #22). Prova o escopo "own" EXPLÍCITO: só o próprio convidado recusa o
+// seu convite pendente — mesmo passando o id de outro.
 //
-// Cada action commita via `withUser`: fixtures via `ownerDb`, limpas por `cleanup()`.
+// Cada action commita via `transaction`: fixtures via `ownerDb`, limpas por `cleanup()`.
 // PRÉ-REQUISITO: Supabase LOCAL de pé (`supabase start`).
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { eq } from 'drizzle-orm'

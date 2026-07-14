@@ -3,9 +3,9 @@
 // ⚠️ SERVER-ONLY: importa o driver `postgres` (TCP). Use só em Server Components e
 // Server Actions; nunca em código que vá para o cliente.
 //
-// Desde o flip da Fase 4 (issue #22) NÃO há mais RLS no banco: a autorização vive na
-// app-layer (lib/authz + checagens explícitas nas actions). Existe uma única conexão
-// (papel `postgres`, dono das tabelas); `withUser` virou um wrapper de transação simples.
+// NÃO há RLS no banco (issue #22): a autorização vive na app-layer (lib/authz + checagens
+// explícitas nas actions). Existe uma única conexão (papel `postgres`, dono das tabelas);
+// `transaction()` é apenas um wrapper de transação.
 import { drizzle } from 'drizzle-orm/postgres-js'
 import postgres from 'postgres'
 import * as schema from './schema'
@@ -48,8 +48,8 @@ export async function transaction<T>(
 }
 
 /**
- * Extrai o SQLSTATE (ex.: '23505' = unique_violation, '42501' = RLS/insufficient
- * privilege) de um erro de escrita. O driver `postgres` lança um `PostgresError`
+ * Extrai o SQLSTATE (ex.: '23505' = unique_violation) de um erro de escrita. O driver
+ * `postgres` lança um `PostgresError`
  * com o código em `.code`, mas o Drizzle o embrulha num `DrizzleQueryError` com o
  * original em `.cause` — então uma action que cheque `err.code` direto erraria.
  * Este helper desembrulha os dois formatos. Devolve `undefined` se não houver código.
@@ -62,5 +62,5 @@ export function pgErrorCode(err: unknown): string | undefined {
   return undefined
 }
 
-// Reexporta o schema p/ consumidores: `import { withUser, projects } from '@/lib/db'`.
+// Reexporta o schema p/ consumidores: `import { transaction, projects } from '@/lib/db'`.
 export * from './schema'

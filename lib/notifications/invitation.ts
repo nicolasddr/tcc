@@ -1,9 +1,8 @@
 // lib/notifications/invitation.ts — emissão da notificação in-platform de convite.
 //
 // ⚠️ SERVER-ONLY. Fonte única do payload denormalizado de 'project_invitation',
-// consumido por app/notifications/labels.ts (chaves snake_case). Substitui os triggers
-// notify_on_invitation (convite a quem já tem conta) e notify_on_invitation_resolved
-// (convite por e-mail resolvido no 1º login) — ambos saem no flip da Fase 4 (issue #22).
+// consumido por app/notifications/labels.ts (chaves snake_case). Emite a notificação
+// tanto no convite direto (quem já tem conta) quanto na resolução por e-mail no 1º login.
 import { eq } from 'drizzle-orm'
 import { type DbExecutor, projects, profiles, notifications } from '@/lib/db'
 
@@ -19,8 +18,8 @@ export type InvitationNotice = {
 
 /**
  * Insere UMA notificação de convite para `inv.userId`, denormalizando nome do projeto e
- * de quem convidou (como os triggers faziam). Roda como DONO — notifications não tem
- * grant/policy de INSERT para o papel `authenticated`.
+ * de quem convidou. Fonte única do payload de notificação de convite, usada tanto pelo
+ * provisionamento no 1º login quanto pela action de convite.
  */
 export async function emitInvitationNotification(
   db: DbExecutor,

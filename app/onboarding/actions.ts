@@ -18,11 +18,11 @@ import { OTHER_VALUE, coerceOptions } from './questions'
 export type OnboardingState = { error: string } | null
 
 // HU-020 (Opção A, ADR-003): aceitar o convite MATERIALIZA a linha do avaliador em
-// pending_onboarding e marca o convite como accepted — tudo numa transação `transaction`.
-// Entrar num projeto exige um convite PENDENTE: isso agora é checado EXPLICITAMENTE na
-// app (`hasPendingInvitation`, espelha a policy pm_insert); a RLS segue como backstop. A
-// ORDEM importa: o membro entra ENQUANTO o convite ainda está `pending`; só depois viramos
-// o convite para `accepted`. O consentimento (promover a active) é o passo seguinte.
+// pending_onboarding e marca o convite como accepted — tudo numa única transação. Entrar
+// num projeto exige um convite PENDENTE: isso é checado EXPLICITAMENTE na app
+// (`hasPendingInvitation`). A ORDEM importa: o membro entra ENQUANTO o convite ainda está
+// `pending`; só depois viramos o convite para `accepted`. O consentimento (promover a
+// active) é o passo seguinte.
 export async function acceptInvitation(formData: FormData): Promise<void> {
   const claims = await getClaims()
   if (!claims) redirect('/login')
@@ -47,8 +47,8 @@ export async function acceptInvitation(formData: FormData): Promise<void> {
       .limit(1)
     if (existing) return true
 
-    // Sem convite pendente, não materializa a linha (espelha pm_insert). Evita que
-    // qualquer um se auto-adicione a um projeto ao chamar esta action.
+    // Sem convite pendente, não materializa a linha. Evita que qualquer um se
+    // auto-adicione a um projeto ao chamar esta action.
     if (!(await hasPendingInvitation(userId, projectId, tx))) return false
 
     await tx.insert(projectMembers).values({
@@ -78,13 +78,11 @@ export async function acceptInvitation(formData: FormData): Promise<void> {
 
 // HU-028/032 (US 31/32): o avaliador registra o consentimento (timestamp + snapshot do
 // texto) E responde a TODAS as perguntas de onboarding (obrigatórias) — só então a linha
-// é promovida a `active`. Tudo numa transação `transaction`. O escopo é EXPLÍCITO na app: a
-// linha do membro é buscada por `userId` e só se prossegue se ela estiver em
-// pending_onboarding — exatamente `can_answer_onboarding` (or_insert), agora garantido no
-// código (o `project_member_id` das respostas nunca vem do cliente, é derivado daqui). As
+// é promovida a `active`. Tudo numa única transação. O escopo é EXPLÍCITO na app: a linha
+// do membro é buscada por `userId` e só se prossegue se ela estiver em pending_onboarding
+// (o `project_member_id` das respostas nunca vem do cliente, é derivado daqui). As
 // respostas são validadas ANTES de qualquer escrita, então um onboarding incompleto não
-// grava nada. A RLS or_insert e os CHECKs pm_consent_required / pm_onboarding_done seguem
-// como backstop.
+// grava nada.
 export async function completeOnboarding(
   _prev: OnboardingState,
   formData: FormData,
@@ -115,8 +113,8 @@ export async function completeOnboarding(
       )
       .limit(1)
 
-    // can_answer_onboarding em app: sem linha própria em pending_onboarding (já concluiu
-    // ou nunca aceitou), não responde nada — trata como concluído.
+    // Sem linha própria em pending_onboarding (já concluiu ou nunca aceitou), não responde
+    // nada — trata como concluído.
     if (!member || member.status !== 'pending_onboarding') return { done: true } as const
 
     const questions = await tx
@@ -180,8 +178,7 @@ export async function completeOnboarding(
 // HU-020 (Opção A): abandonar o onboarding DELETA a linha ainda em pending_onboarding e
 // REVERTE o convite para `pending`, para o avaliador poder reconsiderar depois. Ambas as
 // escritas têm escopo "own" explícito (WHERE user_id/invitee_id = userId), então mexem só
-// nas linhas do próprio usuário — espelham pm_delete_own_pending (migration 0007) e o
-// inv_update do convidado; a RLS segue como backstop. Deletar primeiro, depois reverter.
+// nas linhas do próprio usuário. Deletar primeiro, depois reverter.
 export async function abandonOnboarding(formData: FormData): Promise<void> {
   const claims = await getClaims()
   if (!claims) redirect('/login')

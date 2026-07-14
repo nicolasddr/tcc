@@ -13,8 +13,7 @@ export default async function NewProjectPage() {
 
   // A criação exige can_create_projects (checada na app em createProject; ver issue #22).
   // A fatia 08 entrega o fluxo de pedir permissão; aqui só avisamos quando o usuário ainda
-  // não tem. Leitura com escopo "own" explícito (só a própria linha de profile), com a RLS
-  // profiles_select_own como backstop — ver ADR 0007.
+  // não tem. Leitura com escopo "own" explícito (só a própria linha de profile).
   const [profile] = await transaction((tx) =>
     tx
       .select({ canCreateProjects: profiles.canCreateProjects })

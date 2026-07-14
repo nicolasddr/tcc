@@ -1,6 +1,6 @@
 // lib/authz.int.test.ts — testes de integração dos predicados de autorização
-// (issue #22, Fase 0). Portam os casos de COMPORTAMENTO EXTERNO que hoje o pgTAP
-// afirma sob RLS ("quem pode o quê"), agora contra as funções de `lib/authz`.
+// (issue #22). Provam o COMPORTAMENTO EXTERNO ("quem pode o quê") contra as funções de
+// `lib/authz`.
 //
 // PRÉ-REQUISITO: Supabase LOCAL de pé (`supabase start`), igual ao `npm test`.
 // Rodam sob transação-com-rollback (ver test/helpers.ts): não sujam o banco.
@@ -147,7 +147,6 @@ describe('lib/authz — predicados de autorização', () => {
     })
   })
 
-  // find_invitee_by_email reimplementada em TS (issue #22, Fase 3, commit 14).
   it('findInviteeByEmail: resolve {id,name}; anti-enumeração barra quem não pode criar projetos', async () => {
     await inRollbackTx(async (tx) => {
       const inviter = await createUser(tx, 'Convidante')
@@ -168,7 +167,7 @@ describe('lib/authz — predicados de autorização', () => {
         name: 'Convidado',
       })
 
-      // Case-insensitive (espelha `lower(email)`).
+      // Case-insensitive (`lower(email)`).
       expect(await findInviteeByEmail(inviter, email.toUpperCase(), tx)).toEqual({
         id: invitee,
         name: 'Convidado',
@@ -179,7 +178,6 @@ describe('lib/authz — predicados de autorização', () => {
     })
   })
 
-  // list_my_pending_invitations reimplementada como query Drizzle (issue #22, Fase 3, commit 15).
   it('listMyPendingInvitations: só pendentes do próprio, com projeto+convidante; escopado', async () => {
     await inRollbackTx(async (tx) => {
       const admin = await createUser(tx, 'Convidante')
@@ -191,9 +189,9 @@ describe('lib/authz — predicados de autorização', () => {
       const invB = await addPendingInvitation(tx, projectB, invitee, admin)
 
       const rows = await listMyPendingInvitations(invitee, tx)
-      // Traz o nome do projeto e do convidante — o join de profiles que a RLS barraria p/ um
-      // convidado (ainda não-membro). Ambos criados na mesma transação têm created_at igual
-      // (now() é fixo por transação), então não assertamos ordem entre eles.
+      // Traz o nome do projeto e do convidante via join de profiles, escopado a invitee_id.
+      // Ambos criados na mesma transação têm created_at igual (now() é fixo por transação),
+      // então não assertamos ordem entre eles.
       expect(new Set(rows.map((r) => r.invitationId))).toEqual(new Set([invA, invB]))
       expect(rows.map((r) => r.projectName).sort()).toEqual(['Projeto A', 'Projeto B'])
       expect(rows.every((r) => r.inviterName === 'Convidante')).toBe(true)

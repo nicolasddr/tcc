@@ -1,8 +1,8 @@
-// test/helpers.ts — utilidades para os testes de integração (issue #22, Fase 0).
+// test/helpers.ts — utilidades para os testes de integração (issue #22).
 //
 // Não é um arquivo de teste (não casa `*.int.test.ts`). Reúne o padrão de
 // isolamento por transação-com-rollback e as fixtures da camada de dados,
-// espelhando o que o seed pgTAP (`tests.create_user`, etc.) já faz.
+// apoiando-se no `tests.create_user` do seed.
 import { and, eq, inArray, sql } from 'drizzle-orm'
 import {
   ownerDb,
@@ -22,7 +22,7 @@ const ROLLBACK = Symbol('rollback')
 /**
  * Roda `run` dentro de uma transação que é SEMPRE revertida ao final — os
  * predicados recebem essa mesma `tx`, então enxergam as fixtures, e nada suja o
- * banco local. Espelha o `begin; … rollback;` de cada arquivo pgTAP.
+ * banco local.
  */
 export async function inRollbackTx(run: (tx: Transaction) => Promise<void>): Promise<void> {
   try {
@@ -42,9 +42,9 @@ function uniqueEmail(prefix: string): string {
 }
 
 /**
- * Cria um usuário em auth.users via `tests.create_user` (do seed), disparando o
- * trigger `handle_new_user` que materializa o profile. Devolve o id. Passe `email`
- * quando o teste precisar casar um endereço específico (ex.: convite por e-mail).
+ * Cria um usuário em auth.users + o profile correspondente via `tests.create_user`
+ * (do seed). Devolve o id. Passe `email` quando o teste precisar casar um endereço
+ * específico (ex.: convite por e-mail).
  */
 export async function createUser(
   tx: DbExecutor,
@@ -58,9 +58,8 @@ export async function createUser(
 }
 
 /**
- * Cria um projeto e materializa `createdBy` como Administrador ativo. Antes do flip da
- * Fase 4 (issue #22) a linha de admin vinha do trigger auto_add_creator_as_admin; com ele
- * removido, o helper a insere explicitamente — igual à action createProject.
+ * Cria um projeto e materializa `createdBy` como Administrador ativo. O helper insere a
+ * linha de admin explicitamente — igual à action createProject.
  */
 export async function createProject(
   tx: DbExecutor,
@@ -197,7 +196,7 @@ export async function memberId(
 
 /**
  * Apaga as fixtures COMMITADAS de um teste. `inRollbackTx` reverte tudo
- * automaticamente, mas uma Server Action abre a própria transação (`withUser`) e
+ * automaticamente, mas uma Server Action abre a própria transação (`transaction`) e
  * COMMITA — logo não dá para testá-la sob rollback. Nesses testes as fixtures são
  * gravadas via `ownerDb` e removidas aqui no fim. Ordem: projetos ANTES dos
  * usuários (projects.created_by é `on delete restrict`); apagar auth.users cascateia

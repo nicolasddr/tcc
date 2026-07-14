@@ -1,10 +1,8 @@
 // app/projects/[id]/questions/actions.int.test.ts — testes de integração das Server
-// Actions de perguntas de onboarding (issue #22, Fase 1, commit 6). Portam os casos de
-// comportamento externo do pgTAP (06_onboarding_questions): só o admin define/edita/
-// remove perguntas; um avaliador não pode. Provam a checagem de admin EXPLÍCITA que as
-// actions passam a fazer na app — com a RLS ainda ligada como backstop.
+// Actions de perguntas de onboarding (issue #22): só o admin define/edita/remove
+// perguntas; um avaliador não pode. Provam a checagem de admin EXPLÍCITA na app-layer.
 //
-// Cada action commita via `withUser`: fixtures via `ownerDb`, limpas por `cleanup()`.
+// Cada action commita via `transaction`: fixtures via `ownerDb`, limpas por `cleanup()`.
 // PRÉ-REQUISITO: Supabase LOCAL de pé (`supabase start`).
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { eq } from 'drizzle-orm'

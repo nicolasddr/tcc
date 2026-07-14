@@ -10,8 +10,7 @@ import '@/app/notifications/notifications.css'
 
 // HU-026/027 (US 29/30): o Administrador define/edita/remove as perguntas de onboarding
 // do projeto. Só o admin ativo entra aqui — a checagem é explícita na app (`isAdmin`
-// derivado das memberships do usuário, espelha is_project_admin); quem não é admin volta
-// para a página do projeto. A RLS oq_* segue como backstop enquanto não fazemos o flip.
+// derivado das memberships do usuário); quem não é admin volta para a página do projeto.
 export default async function QuestionsPage({
   params,
 }: {

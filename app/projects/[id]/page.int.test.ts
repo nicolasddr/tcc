@@ -1,11 +1,9 @@
 // app/projects/[id]/page.int.test.ts — teste de integração do ESCOPO de visibilidade
-// da página do projeto (issue #22, Fase 1, commit 5). Porta o caso de comportamento
-// externo que o pgTAP afirma sob RLS ("quem não participa não enxerga o projeto",
-// 08_project_lifecycle), agora provando a checagem EXPLÍCITA (`canView` → notFound) que
-// a página passa a fazer na app — com a RLS ainda ligada como backstop.
+// da página do projeto (issue #22). "Quem não participa não enxerga o projeto": prova a
+// checagem EXPLÍCITA (`canView` → notFound) que a página faz na app-layer.
 //
 // A página é um Server Component: renderizá-la aqui só monta a árvore de elementos
-// (nenhum componente-cliente executa). Cada acesso commita via `withUser`, então as
+// (nenhum componente-cliente executa). Cada acesso commita via `transaction`, então as
 // fixtures são gravadas por `ownerDb` e limpas por `cleanup()`.
 //
 // PRÉ-REQUISITO: Supabase LOCAL de pé (`supabase start`), igual ao `npm test`.
@@ -39,7 +37,7 @@ function render(id: string) {
   return ProjectPage({ params: Promise.resolve({ id }) })
 }
 
-describe('app/projects/[id]/page — escopo de visibilidade (RLS como backstop)', () => {
+describe('app/projects/[id]/page — escopo de visibilidade', () => {
   let users: string[]
   let projs: string[]
 

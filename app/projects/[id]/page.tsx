@@ -42,10 +42,10 @@ export default async function ProjectPage({
   if (!claims) redirect('/login')
   const userId = claims.sub
 
-  // Numa transação `transaction` (RLS ainda ligada como backstop — ver ADR 0007), com o
-  // ESCOPO agora explícito na app (issue #22, Fase 1): o projeto (por id), os papéis do
-  // usuário neste projeto (uma linha por papel — HU-024), um eventual convite pendente
-  // (para oferecer aceitar/recusar) e a lista de membros com nome/e-mail (HU-025).
+  // Numa única transação, com o ESCOPO explícito na app (ver ADR 0007): o projeto (por
+  // id), os papéis do usuário neste projeto (uma linha por papel — HU-024), um eventual
+  // convite pendente (para oferecer aceitar/recusar) e a lista de membros com nome/e-mail
+  // (HU-025).
   const { project, memberships, pendingInvitation, memberRows } = await transaction(async (tx) => {
     const [project] = await tx
       .select({
@@ -78,10 +78,9 @@ export default async function ProjectPage({
       )
       .limit(1)
 
-    // Escopo explícito da lista de membros (espelha pm_select): o admin vê todas as
-    // linhas; um membro ativo vê as não-`pending_onboarding` (mais a própria); quem não
-    // é ativo vê só a própria. O innerJoin com profiles reproduz profiles_select_shared_members
-    // (todo profile aqui é de um co-membro do projeto). A RLS segue como backstop.
+    // Escopo explícito da lista de membros: o admin vê todas as linhas; um membro ativo
+    // vê as não-`pending_onboarding` (mais a própria); quem não é ativo vê só a própria.
+    // O innerJoin com profiles só traz perfis de co-membros do projeto.
     const viewerIsAdmin = memberships.some(
       (m) => m.role === 'administrator' && m.status === 'active',
     )
@@ -107,9 +106,8 @@ export default async function ProjectPage({
   })
   if (!project) notFound()
 
-  // Escopo explícito de VISIBILIDADE do projeto (espelha projects_select): só o criador,
-  // um membro (qualquer status) ou um convidado pendente enxerga — quem não participa cai
-  // no notFound. Antes isso vinha só da RLS; agora é checado na app, com a RLS de backstop.
+  // Escopo explícito de VISIBILIDADE do projeto: só o criador, um membro (qualquer status)
+  // ou um convidado pendente enxerga — quem não participa cai no notFound.
   const canView =
     project.createdBy === userId ||
     memberships.length > 0 ||
@@ -120,7 +118,7 @@ export default async function ProjectPage({
   const onboardingPending = memberships.some(
     (m) => m.role === 'evaluator' && m.status === 'pending_onboarding',
   )
-  // Só o Administrador ativo convida avaliadores (espelha a RLS inv_insert).
+  // Só o Administrador ativo convida avaliadores.
   const isAdmin = memberships.some(
     (m) => m.role === 'administrator' && m.status === 'active',
   )

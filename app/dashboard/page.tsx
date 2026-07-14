@@ -49,13 +49,12 @@ export default async function Dashboard({
   const email = claims.email ?? ''
   const initial = email.charAt(0)
 
-  // HU-013/010/011/019: numa transação `transaction`, lemos os projetos em que o usuário é
-  // membro (com o projeto via innerJoin), o inbox de notificações e os convites pendentes.
-  // O ESCOPO ("own") agora é explícito na app (issue #22, Fase 1) — cada SELECT filtra pelo
-  // `userId`; a RLS do banco segue como backstop. Ver ADR 0007 e lib/db.
+  // HU-013/010/011/019: numa única transação, lemos os projetos em que o usuário é membro
+  // (com o projeto via innerJoin), o inbox de notificações e os convites pendentes. O
+  // ESCOPO ("own") é explícito na app — cada SELECT filtra pelo `userId`. Ver ADR 0007.
   const { profileRows, membershipRows, notificationRows } = await transaction(async (tx) => {
-    // HU-005: nome do próprio perfil (profiles_select_own) para o cabeçalho — o
-    // usuário o edita em /profile e a alteração reflete aqui de imediato.
+    // HU-005: nome do próprio perfil para o cabeçalho — o usuário o edita em /profile e a
+    // alteração reflete aqui de imediato.
     const profileRows = await tx
       .select({ name: profiles.name })
       .from(profiles)
@@ -63,8 +62,7 @@ export default async function Dashboard({
       .limit(1)
 
     // Escopo explícito: só as linhas de membership do próprio usuário (o innerJoin
-    // traz o projeto de cada uma). Espelha o recorte que a RLS projects_select/pm_select
-    // fazia — quem não é membro simplesmente não aparece aqui.
+    // traz o projeto de cada uma) — quem não é membro simplesmente não aparece aqui.
     const membershipRows = await tx
       .select({
         role: projectMembers.role,
@@ -79,7 +77,7 @@ export default async function Dashboard({
       .innerJoin(projectsTable, eq(projectMembers.projectId, projectsTable.id))
       .where(eq(projectMembers.userId, userId))
 
-    // Escopo explícito "own" (espelha notifications_select_own): só o inbox do usuário.
+    // Escopo explícito "own": só o inbox do usuário.
     const notificationRows = await tx
       .select({
         id: notificationsTable.id,
@@ -97,16 +95,13 @@ export default async function Dashboard({
   })
 
   // HU-019: convites pendentes do PRÓPRIO usuário, já com nome do projeto e do convidante.
-  // Reimplementado como query Drizzle em lib/authz (issue #22, Fase 3, commit 15); roda como
-  // DONO (fora do `transaction`) porque o convidado ainda não é membro e a RLS de profiles não o
-  // deixaria ler o nome de quem o convidou — o escopo é explícito (invitee_id = userId). A RPC
-  // SQL list_my_pending_invitations segue no banco até o flip (Fase 4).
+  // Query Drizzle em lib/authz, com escopo explícito (invitee_id = userId).
   const pendingInvitationRows = await listMyPendingInvitations(userId)
 
   const displayName = profileRows[0]?.name ?? email
 
   // O admin-avaliador tem duas linhas (uma por papel); agregamos por projeto. O
-  // innerJoin garante `project` não-nulo (todo membro enxerga seu projeto pela RLS).
+  // innerJoin garante `project` não-nulo (toda membership tem seu projeto).
   const byProject = new Map<string, ListedProject>()
   let hasArchived = false
   for (const row of membershipRows) {

@@ -13,8 +13,7 @@ import '@/app/notifications/notifications.css'
 // usuário tem uma linha de avaliador em pending_onboarding (aceitou o convite mas ainda
 // não consentiu). O acesso é gated EXPLICITAMENTE na app pela própria linha de membership
 // (buscada por userId): se já está active (concluiu) ou não tem linha (não aceitou), volta
-// para a página do projeto. As perguntas (oq_select: is_project_member) só são exibidas ao
-// membro pendente. A RLS segue como backstop.
+// para a página do projeto. As perguntas só são exibidas ao membro pendente.
 export default async function OnboardingPage({
   params,
 }: {

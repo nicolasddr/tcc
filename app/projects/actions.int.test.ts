@@ -1,11 +1,9 @@
 // app/projects/actions.int.test.ts — testes de integração das Server Actions de
-// projetos (issue #22, Fase 1, commit 4). Portam os casos de COMPORTAMENTO EXTERNO
-// que o pgTAP afirma sob RLS (02_create_list, 08_project_lifecycle, 09_remove_leave,
-// 07_invitation_by_email), agora provando a checagem de autorização EXPLÍCITA que as
-// actions passam a fazer na app — com a RLS ainda ligada como backstop.
+// projetos (issue #22). Provam o COMPORTAMENTO EXTERNO de autorização (quem pode o quê)
+// através da checagem EXPLÍCITA que as actions fazem na app-layer.
 //
 // Diferente de `lib/authz.int.test.ts`, aqui NÃO dá para usar `inRollbackTx`: cada
-// action abre a própria transação (`withUser`) e COMMITA. Então as fixtures são
+// action abre a própria transação (`transaction`) e COMMITA. Então as fixtures são
 // gravadas via `ownerDb` e removidas por `cleanup()` no fim de cada teste.
 //
 // PRÉ-REQUISITO: Supabase LOCAL de pé (`supabase start`), igual ao `npm test`.
@@ -59,7 +57,7 @@ function fd(fields: Record<string, string>): FormData {
   return form
 }
 
-describe('app/projects/actions — autorização explícita (RLS como backstop)', () => {
+describe('app/projects/actions — autorização explícita', () => {
   let users: string[]
   let projs: string[]
 
@@ -101,9 +99,8 @@ describe('app/projects/actions — autorização explícita (RLS como backstop)'
     const newId = redirected.split('/projects/')[1]
     projs.push(newId)
 
-    // A app materializa o criador como admin ativo (insert explícito; issue #22, Fase 4).
-    // EXATAMENTE uma linha: prova que o insert explícito + trigger (backstop) não duplicam
-    // (onConflictDoNothing sobre pm_unique_role).
+    // A app materializa o criador como admin ativo (insert explícito). EXATAMENTE uma
+    // linha: o insert é idempotente (onConflictDoNothing sobre pm_unique_role).
     const admins = await ownerDb
       .select({ status: projectMembers.status })
       .from(projectMembers)
@@ -149,9 +146,8 @@ describe('app/projects/actions — autorização explícita (RLS como backstop)'
       .from(projects)
       .where(eq(projects.id, project))
     expect(after.name).toBe('Editado')
-    // issue #22, Fase 2: o UPDATE emite `updated_at = now()` via $onUpdate (o grant de
-    // coluna de projects permite ao papel `authenticated`), sem 42501. Prova que a app passa
-    // a manter updated_at: fica não-nulo e avança em relação ao valor pré-edição.
+    // O UPDATE emite `updated_at = now()` via $onUpdate (schema.ts): fica não-nulo e
+    // avança em relação ao valor pré-edição.
     expect(after.updatedAt).not.toBeNull()
     expect(after.updatedAt).not.toBe(before.updatedAt)
   })
@@ -184,7 +180,7 @@ describe('app/projects/actions — autorização explícita (RLS como backstop)'
     const evaluator = await newUser()
     const outsider = await newUser()
     const project = await newProject(admin)
-    // Convite ANTES de virar membro ativo (check_invitation_target barra convidar ativo).
+    // Convite ANTES de virar membro ativo (não se convida quem já é membro ativo).
     await addPendingInvitation(ownerDb, project, evaluator, admin)
     const memberRow = await addActiveEvaluator(ownerDb, project, evaluator)
 
@@ -240,7 +236,7 @@ describe('app/projects/actions — autorização explícita (RLS como backstop)'
     expect(created.status).toBe('pending')
   })
 
-  // Fase 3, commit 14: findInviteeByEmail em TS (guarda anti-enumeração) flui pela action.
+  // findInviteeByEmail (guarda anti-enumeração) flui pela action.
   it('inviteEvaluator: resolve invitee só quando o admin pode criar projetos (anti-enumeração)', async () => {
     const admin = await newUser('Admin')
     const invitee = await newUser('Convidado')
@@ -273,9 +269,8 @@ describe('app/projects/actions — autorização explícita (RLS como backstop)'
       .where(eq(projectInvitations.projectId, project2))
     expect(resolved.inviteeId).toBe(invitee)
 
-    // O convidado já-cadastrado recebe EXATAMENTE uma notificação (issue #22, Fase 4):
-    // o insert explícito + o trigger notify_on_invitation (backstop) não duplicam, graças
-    // à guarda not-exists por invitation_id. Payload denormalizado com nome do projeto.
+    // O convidado já-cadastrado recebe EXATAMENTE uma notificação: a guarda not-exists por
+    // invitation_id mantém o insert idempotente. Payload denormalizado com nome do projeto.
     const notes = await ownerDb
       .select({ type: notifications.type, payload: notifications.payload })
       .from(notifications)
@@ -290,12 +285,11 @@ describe('app/projects/actions — autorização explícita (RLS como backstop)'
     })
   })
 
-  // --- Fase 2, commit 13: regras de negócio como guarda PRIMÁRIA na app --------------
-  // Cada teste prova, através da action real, o COMPORTAMENTO que hoje um trigger também
-  // garante (backstop enquanto a RLS está ligada). Locka a regra antes do flip da Fase 4.
+  // --- regras de negócio como guarda na app ------------------------------------------
+  // Cada teste prova, através da action real, a regra de negócio na app-layer.
 
-  // enforce_project_readonly: projeto completed/archived é somente leitura p/ nome/descrição.
-  it('updateProject: projeto concluído é somente leitura (enforce_project_readonly backstop)', async () => {
+  // Projeto completed/archived é somente leitura p/ nome/descrição.
+  it('updateProject: projeto concluído é somente leitura', async () => {
     const admin = await newUser()
     const project = await newProject(admin)
     // Concluir via fixture direta: o `where status='active'` do UPDATE passa a casar 0 linhas.
@@ -312,8 +306,8 @@ describe('app/projects/actions — autorização explícita (RLS como backstop)'
     expect(after.name).toBe('Projeto de Teste')
   })
 
-  // check_invitation_target: não convidar quem já é membro ATIVO do projeto.
-  it('inviteEvaluator: recusa convidar quem já é membro ativo (check_invitation_target backstop)', async () => {
+  // Não convidar quem já é membro ATIVO do projeto.
+  it('inviteEvaluator: recusa convidar quem já é membro ativo', async () => {
     const admin = await newUser()
     const evaluator = await newUser('Avaliador Ativo')
     const project = await newProject(admin)
@@ -337,8 +331,8 @@ describe('app/projects/actions — autorização explícita (RLS como backstop)'
     expect(invites).toHaveLength(0)
   })
 
-  // enforce_member_status_transition: o avaliador só faz active→inactive na PRÓPRIA linha;
-  // não existe caminho de app para reativar-se (inactive→active).
+  // O avaliador só faz active→inactive na PRÓPRIA linha; não existe caminho de app para
+  // reativar-se (inactive→active).
   it('leaveProject: sai (active→inactive próprio) e não reativa a própria linha depois', async () => {
     const admin = await newUser()
     const evaluator = await newUser()

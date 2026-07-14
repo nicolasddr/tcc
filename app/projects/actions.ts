@@ -23,13 +23,10 @@ export type InviteEvaluatorState = { error: string } | { ok: string } | null
 
 export type UpdateProjectState = { error: string } | { ok: string } | null
 
-// HU-012/013: cria um projeto. A checagem de permissão agora é EXPLÍCITA na app
-// (`canCreateProjects`, espelha o predicado da policy projects_insert), feita ANTES
-// da escrita — a RLS segue ligada como backstop enquanto não fazemos o flip (issue #22).
-// O INSERT do projeto vai via Drizzle sob `transaction` (papel `authenticated`); o criador se
-// enxerga por created_by (migration 0005). A linha de Administrador ativo passa a ser criada
-// EXPLICITAMENTE aqui (substitui o trigger auto_add_creator_as_admin, que sai no flip —
-// issue #22, Fase 4). Ver ADR 0007.
+// HU-012/013: cria um projeto. A permissão é checada EXPLICITAMENTE na app-layer
+// (`canCreateProjects`) ANTES da escrita. O INSERT do projeto vai via Drizzle; logo
+// depois, a linha de Administrador ativo é criada EXPLICITAMENTE aqui (na app-layer, não
+// mais por trigger). Ver ADR 0007.
 export async function createProject(
   _prev: CreateProjectState,
   formData: FormData,
@@ -65,11 +62,8 @@ export async function createProject(
       .returning({ id: projects.id }),
   )
 
-  // HU-012: materializa o criador como Administrador ativo. Via ownerDb: a policy pm_insert
-  // (RLS ainda ligada) exige que o criador JÁ seja admin — chicken/egg que só o dono fura.
-  // onConflictDoNothing torna idempotente e coexistente com o trigger até ele ser removido
-  // no flip: hoje o trigger auto_add_creator_as_admin já criou a linha (no-op aqui); pós-flip
-  // esta passa a ser a criadora. Admin dispensa consentimento/onboarding (CHECKs pm_*).
+  // HU-012: materializa o criador como Administrador ativo. onConflictDoNothing mantém a
+  // escrita idempotente (defensivo contra reenvio). Admin nasce já consentido/sem onboarding.
   await ownerDb
     .insert(projectMembers)
     .values({ projectId: created.id, userId, role: 'administrator', status: 'active' })
@@ -88,21 +82,17 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 // HU-010 / HU-018 / ADR 0006: o Administrador convida um avaliador por e-mail —
 // mesmo que a pessoa AINDA NÃO tenha conta. findInviteeByEmail (lib/authz) devolve só
-// id+name sem enumerar e-mails; a guarda anti-enumeração (só resolve se quem convida tem
-// can_create_projects) migrou da RPC security definer para TS (issue #22, Fase 3, commit
-// 14). A RPC SQL `find_invitee_by_email` segue no banco até o flip (Fase 4).
+// id+name sem enumerar e-mails: a guarda anti-enumeração (só resolve se quem convida tem
+// can_create_projects) vive em TS.
 //
-// A permissão de admin agora é checada EXPLICITAMENTE na app (`isProjectAdmin`, espelha
-// o predicado de inv_insert) ANTES das queries; a RLS segue como backstop até o flip.
-// Dois caminhos:
-//  - JÁ CADASTRADO: grava invitee_id + invitee_email; pré-check de membro ativo
-//    reimplementa check_invitation_target (mensagem amigável, o trigger segue no banco
-//    como rede); a notificação in-platform é criada EXPLICITAMENTE aqui (substitui
-//    notify_on_invitation, que sai no flip — issue #22, Fase 4).
+// A permissão de admin é checada EXPLICITAMENTE na app (`isProjectAdmin`) ANTES das
+// queries. Dois caminhos:
+//  - JÁ CADASTRADO: grava invitee_id + invitee_email; pré-check de membro ativo (mensagem
+//    amigável); a notificação in-platform é criada EXPLICITAMENTE aqui.
 //  - SEM CONTA: grava só invitee_email (invitee_id NULL). O convite fica pendente até o
-//    1º login com Google daquele e-mail, quando o provisionamento (lib/auth/provision,
-//    que substitui handle_new_user) vincula o invitee_id e dispara a notificação
-//    (fatia 07 / ADR 0006). O admin compartilha o link por fora.
+//    1º login com Google daquele e-mail, quando o provisionamento (lib/auth/provision)
+//    vincula o invitee_id e dispara a notificação (fatia 07 / ADR 0006). O admin
+//    compartilha o link por fora.
 //
 // O índice único (inv_one_pending_per_invitee / inv_one_pending_per_email) barra convite
 // pendente duplicado (23505) nos dois caminhos.
@@ -132,8 +122,8 @@ export async function inviteEvaluator(
   // Alvo do convite: quem se vê no sucesso e na mensagem de duplicado.
   const target = invitee ? invitee.name : email
 
-  // check_invitation_target em TS: não convidar quem já é membro ativo (mensagem
-  // clara). Só faz sentido para quem já tem conta — sem perfil não há membership.
+  // Não convidar quem já é membro ativo (mensagem clara). Só faz sentido para quem já
+  // tem conta — sem perfil não há membership.
   if (invitee) {
     const [active] = await transaction((tx) =>
       tx
@@ -173,18 +163,16 @@ export async function inviteEvaluator(
     if (pgErrorCode(err) === '23505') {
       return { error: `${target} já tem um convite pendente neste projeto.` }
     }
-    // Demais (P0001 do trigger check_invitation_target como rede, p/ corrida): a pessoa
-    // virou membro ativo entre o pré-check e a escrita.
+    // Demais: numa corrida, a pessoa pode ter virado membro ativo entre o pré-check e a
+    // escrita.
     return {
       error: `Não foi possível convidar ${target}. Talvez já seja membro ativo do projeto.`,
     }
   }
 
   // Notificação in-platform do convite (só o ramo JÁ-CADASTRADO: quem não tem conta é
-  // notificado na resolução, no 1º login — ver lib/auth/provision). Substitui o trigger
-  // notify_on_invitation, que sai no flip (issue #22, Fase 4). Guarda not-exists p/
-  // coexistir com o trigger sem duplicar: hoje o trigger já inseriu (skip aqui); pós-flip
-  // esta é a fonte. Via ownerDb — notifications não tem grant/policy de INSERT p/ authenticated.
+  // notificado na resolução, no 1º login — ver lib/auth/provision). A guarda not-exists
+  // mantém a escrita idempotente (não duplica se a mesma notificação já existe).
   if (invitee) {
     const [dup] = await ownerDb
       .select({ id: notifications.id })
@@ -213,11 +201,9 @@ export async function inviteEvaluator(
 }
 
 // HU-014/016: o Administrador edita nome/descrição — só com o projeto `active`. A
-// permissão de admin agora é checada EXPLICITAMENTE na app (`isProjectAdmin`, espelha
-// projects_update) ANTES da escrita; a RLS segue como backstop. O `where status = 'active'`
-// embutido no UPDATE evita a corrida (o projeto ser concluído entre a checagem e a
-// escrita) — se casar 0 linhas, avisamos que está travado (enforce_project_readonly segue
-// como rede no banco para completed/archived).
+// permissão de admin é checada EXPLICITAMENTE na app (`isProjectAdmin`) ANTES da escrita.
+// O `where status = 'active'` embutido no UPDATE evita a corrida (o projeto ser concluído
+// entre a checagem e a escrita) — se casar 0 linhas, avisamos que está travado.
 export async function updateProject(
   _prev: UpdateProjectState,
   formData: FormData,
@@ -258,9 +244,8 @@ export async function updateProject(
 // concluir (active→completed), arquivar (active/completed→archived) e reativar
 // (completed/archived→active). Ação sem estado: os botões da UI confirmam antes de
 // enviar e só aparecem nas transições válidas para o status atual. A permissão de admin
-// é checada EXPLICITAMENTE (`isProjectAdmin`, espelha projects_update); a RLS segue como
-// backstop. O `where status = <origem>` embutido torna a transição idempotente e imune à
-// corrida. enforce_project_readonly não barra (só nome/descrição).
+// é checada EXPLICITAMENTE (`isProjectAdmin`). O `where status = <origem>` embutido torna
+// a transição idempotente e imune à corrida.
 const STATUS_TRANSITIONS: Record<string, readonly string[]> = {
   active: ['completed', 'archived'],
   completed: ['active', 'archived'],
@@ -296,17 +281,12 @@ export async function setProjectStatus(formData: FormData): Promise<void> {
 // HU-021: o Administrador remove um avaliador do projeto. status → 'inactive'
 // (as avaliações são preservadas — nada é apagado), e os convites pendentes daquele
 // avaliador para o projeto são cancelados. Sem notificação ao removido. A permissão de
-// admin é checada EXPLICITAMENTE (`isProjectAdmin`) antes da escrita; a RLS segue como
-// backstop. Numa única transação sob `transaction`:
+// admin é checada EXPLICITAMENTE (`isProjectAdmin`) antes da escrita. Numa única transação:
 //   • a checagem `isProjectAdmin` + o filtro `role='evaluator' AND status='active'` são a
-//     guarda PRIMÁRIA da transição active→inactive de OUTRO membro (issue #22, Fase 2);
-//     enforce_member_status_transition (ramo admin) segue no banco como backstop até o flip;
-//   • inv_update (is_project_admin) autoriza cancelar os convites pendentes.
-// O filtro `status = 'active'` evita mexer em avaliador ainda em onboarding (cuja
-// linha inactive violaria o CHECK pm_consent_required) e torna a ação idempotente.
-// O furo "removido reativa a própria linha (inactive→active)" fica fechado na app pela
-// AUSÊNCIA de qualquer caminho que faça inactive→active (nenhuma action o oferece) —
-// enforce_member_status_transition é só rede enquanto a RLS está ligada.
+//     guarda da transição active→inactive de OUTRO membro;
+//   • cancelar os convites pendentes daquele avaliador.
+// O filtro `status = 'active'` evita mexer em avaliador ainda em onboarding e torna a ação
+// idempotente. Reativar-se (inactive→active) não é oferecido por nenhuma action.
 export async function removeMember(formData: FormData): Promise<void> {
   const claims = await getClaims()
   if (!claims) redirect('/login')
@@ -319,9 +299,8 @@ export async function removeMember(formData: FormData): Promise<void> {
   if (!(await isProjectAdmin(userId, projectId))) return
 
   await transaction(async (tx) => {
-    // `updated_at` NÃO é setado aqui: a coluna não está no grant de UPDATE do papel
-    // `authenticated` (seção 5 da 0002 — só status/consent/onboarding), e o trigger
-    // project_members_set_updated_at já a mantém. Setá-la daria 42501 (permission denied).
+    // `updated_at` não é setado aqui: o `$onUpdate` do schema (lib/db/schema.ts) já o
+    // mantém automaticamente em todo UPDATE.
     await tx
       .update(projectMembers)
       .set({ status: 'inactive' })
@@ -350,12 +329,10 @@ export async function removeMember(formData: FormData): Promise<void> {
 }
 
 // HU-022: o Avaliador sai voluntariamente do projeto. status → 'inactive' na PRÓPRIA
-// linha de avaliador ativo; avaliações preservadas. A guarda PRIMÁRIA é o próprio filtro
-// `user_id = self AND role='evaluator' AND status='active'` (issue #22, Fase 2): só a
-// própria linha ativa vira inactive, e nunca o contrário. enforce_member_status_transition
-// (ramo do próprio membro: pending→active e active→inactive) segue como backstop até o
-// flip. Reativar-se (inactive→active) não é oferecido por nenhuma action.
-// Redireciona ao dashboard (já não é mais membro ativo aqui).
+// linha de avaliador ativo; avaliações preservadas. A guarda é o próprio filtro
+// `user_id = self AND role='evaluator' AND status='active'`: só a própria linha ativa
+// vira inactive, e nunca o contrário. Reativar-se (inactive→active) não é oferecido por
+// nenhuma action. Redireciona ao dashboard (já não é mais membro ativo aqui).
 export async function leaveProject(formData: FormData): Promise<void> {
   const claims = await getClaims()
   if (!claims) redirect('/login')
@@ -364,8 +341,7 @@ export async function leaveProject(formData: FormData): Promise<void> {
   const projectId = String(formData.get('project_id') ?? '')
   if (!projectId) return
 
-  // `updated_at` NÃO é setado aqui (ver removeMember): fora do grant de UPDATE do
-  // papel `authenticated`; o trigger project_members_set_updated_at cuida disso.
+  // `updated_at` não é setado aqui (ver removeMember): o `$onUpdate` do schema cuida disso.
   await transaction((tx) =>
     tx
       .update(projectMembers)
