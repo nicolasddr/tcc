@@ -13,6 +13,7 @@ import {
   projectMembers,
   projectInvitations,
   onboardingQuestions,
+  onboardingResponses,
 } from '@/lib/db'
 
 const ROLLBACK = Symbol('rollback')
@@ -138,6 +139,16 @@ export async function addOnboardingQuestion(
     })
     .returning({ id: onboardingQuestions.id })
   return row.id
+}
+
+/** Grava a resposta de onboarding de um membro a uma pergunta. */
+export async function addOnboardingResponse(
+  tx: DbExecutor,
+  projectMemberId: string,
+  questionId: string,
+  answer: string,
+): Promise<void> {
+  await tx.insert(onboardingResponses).values({ projectMemberId, questionId, answer })
 }
 
 /** id da linha de membership de `userId` no projeto (ex.: o admin criado pelo trigger). */
