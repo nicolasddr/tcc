@@ -2,7 +2,7 @@ import Link from '@/app/components/app-link'
 import { redirect } from 'next/navigation'
 import { eq } from 'drizzle-orm'
 import { getClaims } from '@/lib/supabase/server'
-import { withUser, profiles } from '@/lib/db'
+import { transaction, profiles } from '@/lib/db'
 import { NewProjectForm } from './new-project-form'
 import '../projects.css'
 
@@ -11,10 +11,10 @@ export default async function NewProjectPage() {
   if (!claims) redirect('/login')
   const userId = claims.sub
 
-  // A criação é gated pela RLS (can_create_projects). A fatia 08 entrega o fluxo de
-  // pedir permissão; aqui só avisamos quando o usuário ainda não tem. Leitura
-  // RLS-aware (profiles_select_own só devolve a própria linha) — ver ADR 0007.
-  const [profile] = await withUser(userId, (tx) =>
+  // A criação exige can_create_projects (checada na app em createProject; ver issue #22).
+  // A fatia 08 entrega o fluxo de pedir permissão; aqui só avisamos quando o usuário ainda
+  // não tem. Leitura com escopo "own" explícito (só a própria linha de profile).
+  const [profile] = await transaction((tx) =>
     tx
       .select({ canCreateProjects: profiles.canCreateProjects })
       .from(profiles)

@@ -2,7 +2,7 @@ import Link from '@/app/components/app-link'
 import { notFound, redirect } from 'next/navigation'
 import { and, eq } from 'drizzle-orm'
 import { getClaims } from '@/lib/supabase/server'
-import { withUser, projects, projectMembers, onboardingQuestions } from '@/lib/db'
+import { transaction, projects, projectMembers, onboardingQuestions } from '@/lib/db'
 import { CONSENT_TEXT } from '@/app/onboarding/consent'
 import { coerceOptions, type OnboardingQuestion } from '@/app/onboarding/questions'
 import { ConsentForm } from './consent-form'
@@ -11,8 +11,9 @@ import '@/app/notifications/notifications.css'
 
 // HU-028: passo de consentimento do onboarding do avaliador. Só faz sentido quando o
 // usuário tem uma linha de avaliador em pending_onboarding (aceitou o convite mas ainda
-// não consentiu). Se já está active (concluiu) ou não tem linha (não aceitou), volta
-// para a página do projeto.
+// não consentiu). O acesso é gated EXPLICITAMENTE na app pela própria linha de membership
+// (buscada por userId): se já está active (concluiu) ou não tem linha (não aceitou), volta
+// para a página do projeto. As perguntas só são exibidas ao membro pendente.
 export default async function OnboardingPage({
   params,
 }: {
@@ -23,7 +24,7 @@ export default async function OnboardingPage({
   if (!claims) redirect('/login')
   const userId = claims.sub
 
-  const { project, membership, questions } = await withUser(userId, async (tx) => {
+  const { project, membership, questions } = await transaction(async (tx) => {
     const [project] = await tx
       .select({ id: projects.id, name: projects.name })
       .from(projects)

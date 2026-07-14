@@ -2,7 +2,7 @@
 // lista de convites pendentes (HU-019). Módulo neutro: usado no Server Component
 // do dashboard para montar texto pronto antes de passar ao sino (client).
 
-// Payload denormalizado pelos triggers notify_on_invitation / notify_on_permission_decision.
+// Payload denormalizado ao emitir a notificação (ver lib/notifications/invitation).
 export type NotificationPayload = {
   project_name?: string
   inviter_name?: string

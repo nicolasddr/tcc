@@ -1,0 +1,55 @@
+// lib/notifications/invitation.ts — emissão da notificação in-platform de convite.
+//
+// ⚠️ SERVER-ONLY. Fonte única do payload denormalizado de 'project_invitation',
+// consumido por app/notifications/labels.ts (chaves snake_case). Emite a notificação
+// tanto no convite direto (quem já tem conta) quanto na resolução por e-mail no 1º login.
+import { eq } from 'drizzle-orm'
+import { type DbExecutor, projects, profiles, notifications } from '@/lib/db'
+
+export type InvitationNotice = {
+  /** id do convite (project_invitations.id). */
+  id: string
+  /** destinatário da notificação (o convidado, já com perfil). */
+  userId: string
+  projectId: string
+  /** quem convidou; nullable (FK set null). */
+  invitedBy: string | null
+}
+
+/**
+ * Insere UMA notificação de convite para `inv.userId`, denormalizando nome do projeto e
+ * de quem convidou. Fonte única do payload de notificação de convite, usada tanto pelo
+ * provisionamento no 1º login quanto pela action de convite.
+ */
+export async function emitInvitationNotification(
+  db: DbExecutor,
+  inv: InvitationNotice,
+): Promise<void> {
+  const [proj] = await db
+    .select({ name: projects.name })
+    .from(projects)
+    .where(eq(projects.id, inv.projectId))
+    .limit(1)
+
+  let inviterName: string | null = null
+  if (inv.invitedBy) {
+    const [row] = await db
+      .select({ name: profiles.name })
+      .from(profiles)
+      .where(eq(profiles.id, inv.invitedBy))
+      .limit(1)
+    inviterName = row?.name ?? null
+  }
+
+  await db.insert(notifications).values({
+    userId: inv.userId,
+    type: 'project_invitation',
+    payload: {
+      invitation_id: inv.id,
+      project_id: inv.projectId,
+      project_name: proj?.name ?? null,
+      invited_by: inv.invitedBy,
+      inviter_name: inviterName,
+    },
+  })
+}

@@ -28,7 +28,8 @@ async function globalSetup() {
     )
   }
 
-  // 1. Garante o usuário de teste. O trigger on_auth_user_created materializa o profile.
+  // 1. Garante o usuário de teste em auth.users. O profile é criado no passo 2.5 (antes do
+  //    flip da Fase 4 vinha do trigger handle_new_user, removido — issue #22).
   const admin = createClient(url, secretKey, {
     auth: { autoRefreshToken: false, persistSession: false },
   })
@@ -53,6 +54,16 @@ async function globalSetup() {
     throw signInErr ?? new Error('Login de teste não retornou sessão')
   }
   const { access_token, refresh_token } = signIn.session
+
+  // 2.5. Materializa o profile (o trigger handle_new_user saiu no flip da Fase 4). No app
+  //      real isso acontece no auth callback (lib/auth/provision); o E2E injeta a sessão e
+  //      não passa pelo callback, então o profile é criado aqui via service_role. Idempotente.
+  const fullName =
+    (signIn.user?.user_metadata?.full_name as string | undefined) ?? email
+  const { error: profileErr } = await admin
+    .from('profiles')
+    .upsert({ id: signIn.user!.id, name: fullName, email }, { onConflict: 'id' })
+  if (profileErr) throw profileErr
 
   // 3. Deixa a @supabase/ssr produzir os cookies (captura via setAll em memória).
   const cookies: { name: string; value: string }[] = []

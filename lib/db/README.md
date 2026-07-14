@@ -1,33 +1,31 @@
 # `lib/db` — camada de acesso a dados (Drizzle)
 
-Esta pasta contém **só artefatos de tipagem** + a **conexão RLS-aware**. A fonte da
-verdade do schema e da RLS continua sendo `supabase/migrations/*.sql` (ver
-`docs/adr/0007-migracao-para-drizzle-orm.md`). O Drizzle entra apenas para **tipar as
-queries** — a segurança permanece no banco.
+O Drizzle é o **dono do schema**: `schema.ts` é a fonte da verdade das tabelas,
+constraints, índices e FKs, e `drizzle-kit generate` gera o baseline SQL em
+`supabase/migrations/`. Não há RLS, policies, triggers de negócio nem RPCs no banco — a
+autorização vive na **camada de aplicação** (`lib/authz` + checagens explícitas nas
+actions/páginas). Ver `docs/adr/0007-migracao-para-drizzle-orm.md`.
 
 ## Arquivos
 
-- **`schema.ts`** / **`relations.ts`** — gerados por `drizzle-kit introspect` (lê o banco
-  e gera os tipos). Não editar à mão, com **uma exceção documentada**: o stub
-  `usersInAuth` (tabela externa `auth.users`) é adicionado manualmente porque o
-  drizzle-kit referencia essa FK mas não gera a tabela (fica fora do `schemaFilter`).
-- **`index.ts`** — conexão. Exporta `withUser(userId, run)`: a única porta para queries
-  comuns. Abre uma transação, assume o papel `authenticated` e seta `request.jwt.claims`,
-  de modo que **a RLS do banco vale** (igual aos testes pgTAP). O `baseDb` (papel
-  `postgres`, que **fura a RLS**) é interno e não é exportado.
+- **`schema.ts`** — fonte da verdade do schema, **editado à mão**. Exceção documentada: o
+  stub `usersInAuth` (tabela externa `auth.users`, do schema `auth` gerido pelo Supabase
+  Auth) existe só para tipar a FK `profiles.id → auth.users.id`; o baseline **não** cria
+  essa tabela.
+- **`relations.ts`** — relações do Drizzle para as queries relacionais.
+- **`index.ts`** — conexão. Existe uma única conexão (`ownerDb`, papel `postgres`, dono das
+  tabelas). `transaction(run)` abre uma transação e roda `run` dentro dela. `pgErrorCode`
+  desembrulha o SQLSTATE de um erro de escrita.
 
-## ⚠️ Nunca rode `drizzle-kit generate` / `push` / `migrate`
+## Fluxo oficial: mudar o schema
 
-Isso faria o Drizzle querer ser dono do schema e criaria uma **segunda fonte da verdade**,
-conflitando com as migrations. Por isso esta pasta **não** versiona migrations do Drizzle
-(`meta/`, `0000_*.sql` são apagados após o introspect).
-
-## Regerar os tipos após mudar uma migration
+O schema muda em `schema.ts`; o `drizzle-kit generate` produz a migration correspondente:
 
 ```bash
-# precisa do Supabase local rodando (supabase start) com as migrations aplicadas
-DATABASE_URL='postgresql://postgres:postgres@127.0.0.1:54322/postgres' npx drizzle-kit introspect
+# precisa do Supabase local rodando (supabase start)
+DATABASE_URL='postgresql://postgres:postgres@127.0.0.1:54322/postgres' npx drizzle-kit generate
+supabase db reset   # aplica o baseline + seed no banco local
 ```
 
-Depois confira se o stub `usersInAuth` em `schema.ts` sobreviveu (o introspect o sobrescreve;
-reaplicar se necessário) e apague de novo `lib/db/meta/` e `lib/db/0000_*.sql`.
+Gotcha do `generate`: ele re-emite um `CREATE TABLE "auth"."users"` (o stub acima).
+Remova esse `CREATE TABLE` da migration gerada à mão — a tabela já existe no schema `auth`.

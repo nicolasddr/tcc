@@ -2,7 +2,7 @@ import Link from '@/app/components/app-link'
 import { redirect } from 'next/navigation'
 import { eq } from 'drizzle-orm'
 import { getClaims } from '@/lib/supabase/server'
-import { withUser, profiles } from '@/lib/db'
+import { transaction, profiles } from '@/lib/db'
 import { ProfileForm } from './profile-form'
 import '../projects/projects.css'
 
@@ -11,9 +11,8 @@ export default async function ProfilePage() {
   if (!claims) redirect('/login')
   const userId = claims.sub
 
-  // Leitura RLS-aware do próprio perfil (profiles_select_own só devolve a própria
-  // linha) — ver ADR 0007.
-  const [profile] = await withUser(userId, (tx) =>
+  // Leitura com escopo "own" explícito: o WHERE filtra pela própria linha (id = userId).
+  const [profile] = await transaction((tx) =>
     tx
       .select({ name: profiles.name, email: profiles.email })
       .from(profiles)

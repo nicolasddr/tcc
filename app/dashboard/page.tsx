@@ -1,14 +1,15 @@
 import Link from '@/app/components/app-link'
 import { redirect } from 'next/navigation'
-import { eq, desc, sql } from 'drizzle-orm'
+import { eq, desc } from 'drizzle-orm'
 import { getClaims } from '@/lib/supabase/server'
 import {
-  withUser,
+  transaction,
   profiles,
   projectMembers,
   projects as projectsTable,
   notifications as notificationsTable,
 } from '@/lib/db'
+import { listMyPendingInvitations, type PendingInvitation } from '@/lib/authz'
 import { signOut } from '@/app/auth/actions'
 import { declineInvitation } from '@/app/invitations/actions'
 import { acceptInvitation } from '@/app/onboarding/actions'
@@ -34,14 +35,6 @@ type ListedProject = {
   onboardingPending: boolean
 }
 
-type PendingInvitation = {
-  invitation_id: string
-  project_id: string
-  project_name: string
-  inviter_name: string | null
-  created_at: string
-}
-
 export default async function Dashboard({
   searchParams,
 }: {
@@ -56,65 +49,59 @@ export default async function Dashboard({
   const email = claims.email ?? ''
   const initial = email.charAt(0)
 
-  // HU-013/010/011/019: numa transação RLS-aware (papel `authenticated`), lemos os
-  // projetos em que o usuário é membro (com o projeto via innerJoin), o inbox de
-  // notificações e os convites pendentes. A RLS do banco continua valendo — ver ADR
-  // 0007 e lib/db.
-  const { profileRows, membershipRows, notificationRows, pendingInvitationRows } = await withUser(
-    userId,
-    async (tx) => {
-      // HU-005: nome do próprio perfil (profiles_select_own) para o cabeçalho — o
-      // usuário o edita em /profile e a alteração reflete aqui de imediato.
-      const profileRows = await tx
-        .select({ name: profiles.name })
-        .from(profiles)
-        .where(eq(profiles.id, userId))
-        .limit(1)
+  // HU-013/010/011/019: numa única transação, lemos os projetos em que o usuário é membro
+  // (com o projeto via innerJoin), o inbox de notificações e os convites pendentes. O
+  // ESCOPO ("own") é explícito na app — cada SELECT filtra pelo `userId`. Ver ADR 0007.
+  const { profileRows, membershipRows, notificationRows } = await transaction(async (tx) => {
+    // HU-005: nome do próprio perfil para o cabeçalho — o usuário o edita em /profile e a
+    // alteração reflete aqui de imediato.
+    const profileRows = await tx
+      .select({ name: profiles.name })
+      .from(profiles)
+      .where(eq(profiles.id, userId))
+      .limit(1)
 
-      const membershipRows = await tx
-        .select({
-          role: projectMembers.role,
-          status: projectMembers.status,
-          project: {
-            id: projectsTable.id,
-            name: projectsTable.name,
-            status: projectsTable.status,
-          },
-        })
-        .from(projectMembers)
-        .innerJoin(projectsTable, eq(projectMembers.projectId, projectsTable.id))
-        .where(eq(projectMembers.userId, userId))
+    // Escopo explícito: só as linhas de membership do próprio usuário (o innerJoin
+    // traz o projeto de cada uma) — quem não é membro simplesmente não aparece aqui.
+    const membershipRows = await tx
+      .select({
+        role: projectMembers.role,
+        status: projectMembers.status,
+        project: {
+          id: projectsTable.id,
+          name: projectsTable.name,
+          status: projectsTable.status,
+        },
+      })
+      .from(projectMembers)
+      .innerJoin(projectsTable, eq(projectMembers.projectId, projectsTable.id))
+      .where(eq(projectMembers.userId, userId))
 
-      const notificationRows = await tx
-        .select({
-          id: notificationsTable.id,
-          type: notificationsTable.type,
-          payload: notificationsTable.payload,
-          readAt: notificationsTable.readAt,
-          createdAt: notificationsTable.createdAt,
-        })
-        .from(notificationsTable)
-        .orderBy(desc(notificationsTable.createdAt))
-        .limit(30)
+    // Escopo explícito "own": só o inbox do usuário.
+    const notificationRows = await tx
+      .select({
+        id: notificationsTable.id,
+        type: notificationsTable.type,
+        payload: notificationsTable.payload,
+        readAt: notificationsTable.readAt,
+        createdAt: notificationsTable.createdAt,
+      })
+      .from(notificationsTable)
+      .where(eq(notificationsTable.userId, userId))
+      .orderBy(desc(notificationsTable.createdAt))
+      .limit(30)
 
-      // HU-019: convites pendentes do PRÓPRIO usuário, já com nome do projeto e do
-      // convidante. RPC security definer (migration 0006) porque o convidado ainda não
-      // é membro ativo e a RLS de profiles não o deixa ler o nome de quem o convidou.
-      // Por decisão da Fase 4 (ADR 0007) PERMANECE em SQL e roda aqui via Drizzle —
-      // auth.uid() resolve pela claim da transação —, não mais por supabase.rpc.
-      const pendingInvitationRows = await tx.execute<PendingInvitation>(
-        sql`select invitation_id, project_id, project_name, inviter_name, created_at
-            from public.list_my_pending_invitations()`,
-      )
+    return { profileRows, membershipRows, notificationRows }
+  })
 
-      return { profileRows, membershipRows, notificationRows, pendingInvitationRows }
-    },
-  )
+  // HU-019: convites pendentes do PRÓPRIO usuário, já com nome do projeto e do convidante.
+  // Query Drizzle em lib/authz, com escopo explícito (invitee_id = userId).
+  const pendingInvitationRows = await listMyPendingInvitations(userId)
 
   const displayName = profileRows[0]?.name ?? email
 
   // O admin-avaliador tem duas linhas (uma por papel); agregamos por projeto. O
-  // innerJoin garante `project` não-nulo (todo membro enxerga seu projeto pela RLS).
+  // innerJoin garante `project` não-nulo (toda membership tem seu projeto).
   const byProject = new Map<string, ListedProject>()
   let hasArchived = false
   for (const row of membershipRows) {
@@ -135,9 +122,9 @@ export default async function Dashboard({
   }
   const projects = [...byProject.values()]
 
-  // HU-010/011: inbox in-platform. A RLS (notifications_select_own) já limita ao
-  // próprio usuário; formatamos texto/data no servidor e passamos pronto ao sino. O
-  // payload é jsonb (sem forma no schema): casamos no consumo para NotificationPayload.
+  // HU-010/011: inbox in-platform. O SELECT acima já filtrou pelo próprio usuário
+  // (escopo "own" explícito); formatamos texto/data no servidor e passamos pronto ao sino.
+  // O payload é jsonb (sem forma no schema): casamos no consumo para NotificationPayload.
   const inboxItems: InboxItem[] = notificationRows.map((n) => ({
     id: n.id,
     text: notificationText(n.type, (n.payload ?? {}) as NotificationPayload),
@@ -145,14 +132,13 @@ export default async function Dashboard({
     read: n.readAt != null,
   }))
 
-  // Convites pendentes já vieram da transação RLS-aware acima (RowList é um array de
-  // PendingInvitation).
+  // Convites pendentes já vieram da query Drizzle acima (listMyPendingInvitations).
   const pendingInvitations: PendingInvitation[] = pendingInvitationRows
   // Os projetos convidados aparecem na própria listagem (com selo "convite
   // pendente" + Aceitar/Recusar) para o usuário poder agir sobre o convite.
   // Deduplica contra projetos onde já é membro (caso raro de re-convite de
   // ex-membro inativo).
-  const invitedProjects = pendingInvitations.filter((inv) => !byProject.has(inv.project_id))
+  const invitedProjects = pendingInvitations.filter((inv) => !byProject.has(inv.projectId))
   const hasProjects = projects.length > 0 || invitedProjects.length > 0
 
   return (
@@ -241,28 +227,28 @@ export default async function Dashboard({
                 {/* Convites pendentes: aparecem na listagem para o usuário agir
                     (Aceitar materializa o membro em onboarding; Recusar encerra o convite). */}
                 {invitedProjects.map((inv) => (
-                  <li key={inv.invitation_id}>
+                  <li key={inv.invitationId}>
                     <div className="project-card project-card-invited">
                       <Link
-                        href={`/projects/${inv.project_id}`}
+                        href={`/projects/${inv.projectId}`}
                         className="project-card-main project-card-link"
                       >
-                        <span className="project-card-name">{inv.project_name}</span>
+                        <span className="project-card-name">{inv.projectName}</span>
                         <span className="project-card-roles">
-                          Convidado por {inv.inviter_name ?? 'um administrador'} ·{' '}
-                          {formatDate(inv.created_at)}
+                          Convidado por {inv.inviterName ?? 'um administrador'} ·{' '}
+                          {formatDate(inv.createdAt)}
                         </span>
                       </Link>
                       <span className="project-card-badges">
                         <span className="invite-pending-badge">convite pendente</span>
                         <form action={acceptInvitation}>
-                          <input type="hidden" name="project_id" value={inv.project_id} />
+                          <input type="hidden" name="project_id" value={inv.projectId} />
                           <SubmitButton variant="primary" size="sm" pendingText="Aceitando…">
                             Aceitar
                           </SubmitButton>
                         </form>
                         <form action={declineInvitation}>
-                          <input type="hidden" name="invitation_id" value={inv.invitation_id} />
+                          <input type="hidden" name="invitation_id" value={inv.invitationId} />
                           <SubmitButton variant="danger" size="sm" pendingText="Recusando…">
                             Recusar
                           </SubmitButton>

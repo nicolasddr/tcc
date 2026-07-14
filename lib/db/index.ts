@@ -3,11 +3,10 @@
 // ⚠️ SERVER-ONLY: importa o driver `postgres` (TCP). Use só em Server Components e
 // Server Actions; nunca em código que vá para o cliente.
 //
-// Regra de ouro (ver ADR 0007 e ./README.md): toda query comum passa por `withUser`,
-// que roda sob o papel `authenticated` => a RLS do banco vale. O `baseDb` (papel
-// `postgres`, dono das tabelas) FURA a RLS e por isso fica interno (não exportado).
+// NÃO há RLS no banco (issue #22): a autorização vive na app-layer (lib/authz + checagens
+// explícitas nas actions). Existe uma única conexão (papel `postgres`, dono das tabelas);
+// `transaction()` é apenas um wrapper de transação.
 import { drizzle } from 'drizzle-orm/postgres-js'
-import { sql } from 'drizzle-orm'
 import postgres from 'postgres'
 import * as schema from './schema'
 import * as relations from './relations'
@@ -19,45 +18,38 @@ const globalForDb = globalThis as unknown as { __dbClient?: ReturnType<typeof po
 const client = globalForDb.__dbClient ?? postgres(process.env.DATABASE_URL!, { prepare: false })
 if (process.env.NODE_ENV !== 'production') globalForDb.__dbClient = client
 
-// INTERNO. Conecta como `postgres` (dono das tabelas) => BYPASSA a RLS. NÃO exportar
-// para queries comuns; só a Fase 4 (RPCs privilegiadas) deve cogitar usá-lo.
+// Conexão única (papel `postgres`, dono das tabelas). Sem RLS no banco, não há mais
+// distinção entre papel privilegiado e papel do usuário — toda query roda por aqui.
 const baseDb = drizzle(client, { schema: { ...schema, ...relations } })
 
-// Tipo exato da transação que o callback recebe (evita um cast `as`).
-type Transaction = Parameters<Parameters<typeof baseDb.transaction>[0]>[0]
+// Tipo exato da transação que os callbacks recebem (evita um cast `as`).
+export type Transaction = Parameters<Parameters<typeof baseDb.transaction>[0]>[0]
+
+// Executor aceito pelas funções que recebem a conexão base OU uma transação.
+export type DbExecutor = typeof baseDb | Transaction
+
+// Conexão do app. Usada por `lib/authz`, pelas actions e pelos helpers de teste.
+export const ownerDb = baseDb
 
 /**
- * Executa `run` sob a identidade de `userId`, com a RLS ATIVA.
- *
- * Abre uma transação, seta `request.jwt.claims` (com `sub` = userId) e assume o papel
- * `authenticated` — exatamente o mecanismo do `tests.authenticate_as` do seed.sql. Como
- * é `set_config(..., is_local := true)`, tudo se reseta no fim da transação.
- *
- * Pegue o usuário com `supabase.auth.getUser()` (a autenticação continua no
- * @supabase/ssr) e passe `user.id` aqui.
+ * Abre uma transação e executa `run` dentro dela. Sem RLS no banco (flip da Fase 4,
+ * issue #22), é um wrapper de transação simples — não troca de papel nem seta claims. A
+ * autorização é feita na app-layer, ANTES/JUNTO da query (ver lib/authz e as checagens
+ * nas actions).
  *
  * @example
- *   import { withUser, projects } from '@/lib/db'
- *   const rows = await withUser(user.id, (tx) => tx.select().from(projects))
+ *   import { transaction, projects } from '@/lib/db'
+ *   const rows = await transaction((tx) => tx.select().from(projects))
  */
-export async function withUser<T>(
-  userId: string,
+export async function transaction<T>(
   run: (tx: Transaction) => Promise<T>,
 ): Promise<T> {
-  const claims = JSON.stringify({ sub: userId, role: 'authenticated' })
-  return baseDb.transaction(async (tx) => {
-    // `claims` vai parametrizado (mais seguro); 'authenticated' é literal fixo, nunca
-    // input do usuário. set_config(role, ...) equivale a SET LOCAL ROLE.
-    await tx.execute(
-      sql`select set_config('request.jwt.claims', ${claims}, true), set_config('role', 'authenticated', true)`,
-    )
-    return run(tx)
-  })
+  return baseDb.transaction(run)
 }
 
 /**
- * Extrai o SQLSTATE (ex.: '23505' = unique_violation, '42501' = RLS/insufficient
- * privilege) de um erro de escrita. O driver `postgres` lança um `PostgresError`
+ * Extrai o SQLSTATE (ex.: '23505' = unique_violation) de um erro de escrita. O driver
+ * `postgres` lança um `PostgresError`
  * com o código em `.code`, mas o Drizzle o embrulha num `DrizzleQueryError` com o
  * original em `.cause` — então uma action que cheque `err.code` direto erraria.
  * Este helper desembrulha os dois formatos. Devolve `undefined` se não houver código.
@@ -70,5 +62,5 @@ export function pgErrorCode(err: unknown): string | undefined {
   return undefined
 }
 
-// Reexporta o schema p/ consumidores: `import { withUser, projects } from '@/lib/db'`.
+// Reexporta o schema p/ consumidores: `import { transaction, projects } from '@/lib/db'`.
 export * from './schema'
