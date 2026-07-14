@@ -3,9 +3,10 @@
 // Não é um arquivo de teste (não casa `*.int.test.ts`). Reúne o padrão de
 // isolamento por transação-com-rollback e as fixtures da camada de dados,
 // espelhando o que o seed pgTAP (`tests.create_user`, etc.) já faz.
-import { and, eq, sql } from 'drizzle-orm'
+import { and, eq, inArray, sql } from 'drizzle-orm'
 import {
   ownerDb,
+  type DbExecutor,
   type Transaction,
   projects,
   profiles,
@@ -41,7 +42,7 @@ function uniqueEmail(prefix: string): string {
  * Cria um usuário em auth.users via `tests.create_user` (do seed), disparando o
  * trigger `handle_new_user` que materializa o profile. Devolve o id.
  */
-export async function createUser(tx: Transaction, name = 'Usuário de Teste'): Promise<string> {
+export async function createUser(tx: DbExecutor, name = 'Usuário de Teste'): Promise<string> {
   const rows = await tx.execute<{ id: string }>(
     sql`select tests.create_user(${uniqueEmail('user')}, ${name}) as id`,
   )
@@ -50,7 +51,7 @@ export async function createUser(tx: Transaction, name = 'Usuário de Teste'): P
 
 /** Cria um projeto; o trigger `auto_add_creator_as_admin` torna `createdBy` admin ativo. */
 export async function createProject(
-  tx: Transaction,
+  tx: DbExecutor,
   createdBy: string,
   name = 'Projeto de Teste',
 ): Promise<string> {
@@ -60,7 +61,7 @@ export async function createProject(
 
 /** Insere um avaliador ATIVO (satisfaz os CHECKs de consentimento/onboarding). */
 export async function addActiveEvaluator(
-  tx: Transaction,
+  tx: DbExecutor,
   projectId: string,
   userId: string,
 ): Promise<string> {
@@ -82,7 +83,7 @@ export async function addActiveEvaluator(
 
 /** Insere um avaliador ainda em `pending_onboarding` (sem consentimento exigido). */
 export async function addPendingMember(
-  tx: Transaction,
+  tx: DbExecutor,
   projectId: string,
   userId: string,
 ): Promise<string> {
@@ -95,7 +96,7 @@ export async function addPendingMember(
 
 /** Cria um convite PENDENTE para `inviteeId` no projeto. */
 export async function addPendingInvitation(
-  tx: Transaction,
+  tx: DbExecutor,
   projectId: string,
   inviteeId: string,
   invitedBy: string,
@@ -110,13 +111,13 @@ export async function addPendingInvitation(
 }
 
 /** Liga a flag de plataforma `can_create_projects` no profile. */
-export async function grantCreatePermission(tx: Transaction, userId: string): Promise<void> {
+export async function grantCreatePermission(tx: DbExecutor, userId: string): Promise<void> {
   await tx.update(profiles).set({ canCreateProjects: true }).where(eq(profiles.id, userId))
 }
 
 /** id da linha de membership de `userId` no projeto (ex.: o admin criado pelo trigger). */
 export async function memberId(
-  tx: Transaction,
+  tx: DbExecutor,
   projectId: string,
   userId: string,
 ): Promise<string> {
@@ -126,4 +127,21 @@ export async function memberId(
     .where(and(eq(projectMembers.projectId, projectId), eq(projectMembers.userId, userId)))
     .limit(1)
   return row.id
+}
+
+/**
+ * Apaga as fixtures COMMITADAS de um teste. `inRollbackTx` reverte tudo
+ * automaticamente, mas uma Server Action abre a própria transação (`withUser`) e
+ * COMMITA — logo não dá para testá-la sob rollback. Nesses testes as fixtures são
+ * gravadas via `ownerDb` e removidas aqui no fim. Ordem: projetos ANTES dos
+ * usuários (projects.created_by é `on delete restrict`); apagar auth.users cascateia
+ * para profiles/memberships. Idempotente e tolerante a ids repetidos.
+ */
+export async function cleanup(projectIds: string[], userIds: string[]): Promise<void> {
+  if (projectIds.length > 0) {
+    await ownerDb.delete(projects).where(inArray(projects.id, projectIds))
+  }
+  for (const id of userIds) {
+    await ownerDb.execute(sql`delete from auth.users where id = ${id}`)
+  }
 }

@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation'
 import { and, eq, sql } from 'drizzle-orm'
 import { getClaims } from '@/lib/supabase/server'
 import { withUser, pgErrorCode, projects, projectInvitations, projectMembers } from '@/lib/db'
+import { canCreateProjects, isProjectAdmin } from '@/lib/authz'
 import { normalizeTaskType } from './task-types'
 
 export type CreateProjectState = { error: string } | null
@@ -13,12 +14,13 @@ export type InviteEvaluatorState = { error: string } | { ok: string } | null
 
 export type UpdateProjectState = { error: string } | { ok: string } | null
 
-// HU-012/013: cria um projeto via Drizzle sob `withUser` (papel `authenticated`),
-// então a RLS (projects_insert, exige can_create_projects) continua valendo. O
-// INSERT ... RETURNING revalida projects_select; o criador se enxerga por created_by
-// (migration 0005), sem depender do trigger. O trigger auto_add_creator_as_admin
-// (AFTER INSERT, security definer) materializa a linha de Administrador ativo — segue
-// no banco porque movê-lo p/ cá exigiria abrir a policy pm_insert (Fase 5). Ver ADR 0007.
+// HU-012/013: cria um projeto. A checagem de permissão agora é EXPLÍCITA na app
+// (`canCreateProjects`, espelha o predicado da policy projects_insert), feita ANTES
+// da escrita — a RLS segue ligada como backstop enquanto não fazemos o flip (issue #22).
+// O INSERT vai via Drizzle sob `withUser` (papel `authenticated`); o criador se enxerga
+// por created_by (migration 0005). O trigger auto_add_creator_as_admin (AFTER INSERT,
+// security definer) materializa a linha de Administrador ativo — segue no banco porque
+// movê-lo p/ cá exigiria abrir a policy pm_insert (Fase 4). Ver ADR 0007.
 export async function createProject(
   _prev: CreateProjectState,
   formData: FormData,
@@ -33,32 +35,30 @@ export async function createProject(
 
   if (!name) return { error: 'Informe um nome para o projeto.' }
 
-  let projectId: string
-  try {
-    const [created] = await withUser(userId, (tx) =>
-      tx
-        .insert(projects)
-        .values({
-          name,
-          description: description || null,
-          taskType,
-          createdBy: userId,
-        })
-        .returning({ id: projects.id }),
-    )
-    projectId = created.id
-  } catch {
-    // Sem can_create_projects, a RLS barra o INSERT (a fatia 08 entrega o fluxo de
-    // pedir permissão; por ora basta avisar).
+  // Sem a permissão de plataforma, nem tentamos o INSERT (a fatia 08 entrega o fluxo
+  // de pedir permissão; por ora basta avisar).
+  if (!(await canCreateProjects(userId))) {
     return {
       error:
         'Não foi possível criar o projeto. Verifique se você tem permissão para criar projetos.',
     }
   }
 
+  const [created] = await withUser(userId, (tx) =>
+    tx
+      .insert(projects)
+      .values({
+        name,
+        description: description || null,
+        taskType,
+        createdBy: userId,
+      })
+      .returning({ id: projects.id }),
+  )
+
   // redirect lança a exceção de controle do Next — fica FORA do withUser p/ não
   // abortar a transação (e os passos do trigger) por engano.
-  redirect(`/projects/${projectId}`)
+  redirect(`/projects/${created.id}`)
 }
 
 // Regex propositalmente frouxa: só barra digitação obviamente inválida antes de
@@ -71,7 +71,9 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 // PERMANECE em SQL (fronteira anti-enumeração, garantida pelo banco) e é chamada via
 // Drizzle sob `withUser`, com auth.uid() resolvido pela claim da transação.
 //
-// Dois caminhos, os dois passando pela RLS inv_insert (exige is_project_admin):
+// A permissão de admin agora é checada EXPLICITAMENTE na app (`isProjectAdmin`, espelha
+// o predicado de inv_insert) ANTES das queries; a RLS segue como backstop até o flip.
+// Dois caminhos:
 //  - JÁ CADASTRADO: grava invitee_id + invitee_email; pré-check de membro ativo
 //    reimplementa check_invitation_target (mensagem amigável, o trigger segue no banco
 //    como rede); notify_on_invitation cria a notificação in-platform na hora.
@@ -97,6 +99,10 @@ export async function inviteEvaluator(
   if (!projectId) return { error: 'Projeto inválido.' }
   if (!email) return { error: 'Informe o e-mail do avaliador.' }
   if (!EMAIL_RE.test(email)) return { error: 'Informe um e-mail válido.' }
+
+  if (!(await isProjectAdmin(userId, projectId))) {
+    return { error: 'Apenas o administrador do projeto pode convidar avaliadores.' }
+  }
 
   const [invitee] = await withUser(userId, (tx) =>
     tx.execute<{ id: string; name: string }>(
@@ -143,8 +149,8 @@ export async function inviteEvaluator(
     if (pgErrorCode(err) === '23505') {
       return { error: `${target} já tem um convite pendente neste projeto.` }
     }
-    // Demais (P0001 do trigger check_invitation_target como rede, p/ corrida; ou RLS
-    // negando): já é membro ativo ou sem permissão de admin.
+    // Demais (P0001 do trigger check_invitation_target como rede, p/ corrida): a pessoa
+    // virou membro ativo entre o pré-check e a escrita.
     return {
       error: `Não foi possível convidar ${target}. Talvez já seja membro ativo do projeto.`,
     }
@@ -156,11 +162,12 @@ export async function inviteEvaluator(
     : { ok: `Convite enviado para ${email}. A pessoa verá o convite ao entrar com o Google.` }
 }
 
-// HU-014/016: o Administrador edita nome/descrição — só com o projeto `active`. O UPDATE
-// vai via Drizzle sob `withUser`: a RLS projects_update (is_project_admin) é o gate de
-// permissão e o trigger enforce_project_readonly barra a edição em completed/archived como
-// rede. O `where status = 'active'` embutido no UPDATE evita a corrida (o projeto ser
-// concluído entre a checagem e a escrita) — se casar 0 linhas, avisamos que está travado.
+// HU-014/016: o Administrador edita nome/descrição — só com o projeto `active`. A
+// permissão de admin agora é checada EXPLICITAMENTE na app (`isProjectAdmin`, espelha
+// projects_update) ANTES da escrita; a RLS segue como backstop. O `where status = 'active'`
+// embutido no UPDATE evita a corrida (o projeto ser concluído entre a checagem e a
+// escrita) — se casar 0 linhas, avisamos que está travado (enforce_project_readonly segue
+// como rede no banco para completed/archived).
 export async function updateProject(
   _prev: UpdateProjectState,
   formData: FormData,
@@ -176,19 +183,17 @@ export async function updateProject(
   if (!projectId) return { error: 'Projeto inválido.' }
   if (!name) return { error: 'Informe um nome para o projeto.' }
 
-  let updated: { id: string }[]
-  try {
-    updated = await withUser(userId, (tx) =>
-      tx
-        .update(projects)
-        .set({ name, description: description || null })
-        .where(and(eq(projects.id, projectId), eq(projects.status, 'active')))
-        .returning({ id: projects.id }),
-    )
-  } catch {
-    // 42501 (RLS: não é admin) ou P0001 (trigger enforce_project_readonly, na corrida).
+  if (!(await isProjectAdmin(userId, projectId))) {
     return { error: 'Não foi possível salvar. Apenas o administrador edita, e só em projeto ativo.' }
   }
+
+  const updated = await withUser(userId, (tx) =>
+    tx
+      .update(projects)
+      .set({ name, description: description || null })
+      .where(and(eq(projects.id, projectId), eq(projects.status, 'active')))
+      .returning({ id: projects.id }),
+  )
 
   if (updated.length === 0) {
     // Casou 0 linhas: o projeto não está `active` (foi concluído/arquivado) — read-only.
@@ -202,9 +207,10 @@ export async function updateProject(
 // HU-015/016/017: transições do ciclo de vida do projeto pelo Administrador —
 // concluir (active→completed), arquivar (active/completed→archived) e reativar
 // (completed/archived→active). Ação sem estado: os botões da UI confirmam antes de
-// enviar e só aparecem nas transições válidas para o status atual. A RLS projects_update
-// (is_project_admin) é o gate; o `where status = <origem>` embutido torna a transição
-// idempotente e imune à corrida. enforce_project_readonly não barra (só nome/descrição).
+// enviar e só aparecem nas transições válidas para o status atual. A permissão de admin
+// é checada EXPLICITAMENTE (`isProjectAdmin`, espelha projects_update); a RLS segue como
+// backstop. O `where status = <origem>` embutido torna a transição idempotente e imune à
+// corrida. enforce_project_readonly não barra (só nome/descrição).
 const STATUS_TRANSITIONS: Record<string, readonly string[]> = {
   active: ['completed', 'archived'],
   completed: ['active', 'archived'],
@@ -224,6 +230,8 @@ export async function setProjectStatus(formData: FormData): Promise<void> {
   // Transição precisa ser conhecida e permitida a partir do status de origem declarado.
   if (!STATUS_TRANSITIONS[from]?.includes(to)) return
 
+  if (!(await isProjectAdmin(userId, projectId))) return
+
   await withUser(userId, (tx) =>
     tx
       .update(projects)
@@ -237,8 +245,9 @@ export async function setProjectStatus(formData: FormData): Promise<void> {
 
 // HU-021: o Administrador remove um avaliador do projeto. status → 'inactive'
 // (as avaliações são preservadas — nada é apagado), e os convites pendentes daquele
-// avaliador para o projeto são cancelados. Sem notificação ao removido. Numa única
-// transação sob `withUser`, então tudo passa pela RLS:
+// avaliador para o projeto são cancelados. Sem notificação ao removido. A permissão de
+// admin é checada EXPLICITAMENTE (`isProjectAdmin`) antes da escrita; a RLS segue como
+// backstop. Numa única transação sob `withUser`:
 //   • pm_update (is_project_admin) + o trigger enforce_member_status_transition (ramo
 //     admin) autorizam a transição active→inactive de OUTRO membro;
 //   • inv_update (is_project_admin) autoriza cancelar os convites pendentes.
@@ -253,6 +262,8 @@ export async function removeMember(formData: FormData): Promise<void> {
   const projectId = String(formData.get('project_id') ?? '')
   const memberUserId = String(formData.get('member_user_id') ?? '')
   if (!projectId || !memberUserId) return
+
+  if (!(await isProjectAdmin(userId, projectId))) return
 
   await withUser(userId, async (tx) => {
     // `updated_at` NÃO é setado aqui: a coluna não está no grant de UPDATE do papel
