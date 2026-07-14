@@ -36,7 +36,14 @@ import {
   leaveProject,
   inviteEvaluator,
 } from '@/app/projects/actions'
-import { ownerDb, profiles, projects, projectMembers, projectInvitations } from '@/lib/db'
+import {
+  ownerDb,
+  profiles,
+  projects,
+  projectMembers,
+  projectInvitations,
+  notifications,
+} from '@/lib/db'
 import {
   createUser,
   createProject as seedProject,
@@ -94,8 +101,10 @@ describe('app/projects/actions — autorização explícita (RLS como backstop)'
     const newId = redirected.split('/projects/')[1]
     projs.push(newId)
 
-    // O trigger auto_add_creator_as_admin materializa o criador como admin ativo.
-    const [member] = await ownerDb
+    // A app materializa o criador como admin ativo (insert explícito; issue #22, Fase 4).
+    // EXATAMENTE uma linha: prova que o insert explícito + trigger (backstop) não duplicam
+    // (onConflictDoNothing sobre pm_unique_role).
+    const admins = await ownerDb
       .select({ status: projectMembers.status })
       .from(projectMembers)
       .where(
@@ -105,7 +114,8 @@ describe('app/projects/actions — autorização explícita (RLS como backstop)'
           eq(projectMembers.role, 'administrator'),
         ),
       )
-    expect(member?.status).toBe('active')
+    expect(admins).toHaveLength(1)
+    expect(admins[0].status).toBe('active')
   })
 
   it('updateProject: avaliador/estranho → erro e nome inalterado; admin → salva', async () => {
@@ -258,10 +268,26 @@ describe('app/projects/actions — autorização explícita (RLS como backstop)'
     const asInviter = await inviteEvaluator(null, fd({ project_id: project2, email }))
     expect(asInviter).toEqual({ ok: expect.stringContaining('Convidado') })
     const [resolved] = await ownerDb
-      .select({ inviteeId: projectInvitations.inviteeId })
+      .select({ id: projectInvitations.id, inviteeId: projectInvitations.inviteeId })
       .from(projectInvitations)
       .where(eq(projectInvitations.projectId, project2))
     expect(resolved.inviteeId).toBe(invitee)
+
+    // O convidado já-cadastrado recebe EXATAMENTE uma notificação (issue #22, Fase 4):
+    // o insert explícito + o trigger notify_on_invitation (backstop) não duplicam, graças
+    // à guarda not-exists por invitation_id. Payload denormalizado com nome do projeto.
+    const notes = await ownerDb
+      .select({ type: notifications.type, payload: notifications.payload })
+      .from(notifications)
+      .where(eq(notifications.userId, invitee))
+    expect(notes).toHaveLength(1)
+    expect(notes[0].type).toBe('project_invitation')
+    expect(notes[0].payload).toMatchObject({
+      invitation_id: resolved.id,
+      project_id: project2,
+      invited_by: admin,
+      inviter_name: 'Admin',
+    })
   })
 
   // --- Fase 2, commit 13: regras de negócio como guarda PRIMÁRIA na app --------------

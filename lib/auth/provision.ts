@@ -12,14 +12,8 @@
 // trigger roda no insert de `auth.users` (antes do callback) e resolve tudo; esta função
 // então encontra o perfil já criado e nenhum convite pendente por vincular — no-op.
 import { and, eq, isNull, sql } from 'drizzle-orm'
-import {
-  ownerDb,
-  type DbExecutor,
-  profiles,
-  projectInvitations,
-  projects,
-  notifications,
-} from '@/lib/db'
+import { ownerDb, type DbExecutor, profiles, projectInvitations } from '@/lib/db'
+import { emitInvitationNotification } from '@/lib/notifications/invitation'
 
 export type NewUser = {
   id: string
@@ -65,36 +59,13 @@ export async function provisionUserOnFirstLogin(
 
   if (resolved.length === 0) return
 
-  // (3) Uma notificação por convite resolvido (espelha notify_on_invitation_resolved):
-  // payload denormalizado com nome do projeto e de quem convidou (chaves snake_case,
-  // consumidas por app/notifications/labels.ts). `invited_by` é nullable (FK set null).
+  // (3) Uma notificação por convite resolvido (espelha notify_on_invitation_resolved).
   for (const inv of resolved) {
-    const [proj] = await db
-      .select({ name: projects.name })
-      .from(projects)
-      .where(eq(projects.id, inv.projectId))
-      .limit(1)
-
-    let inviterName: string | null = null
-    if (inv.invitedBy) {
-      const [row] = await db
-        .select({ name: profiles.name })
-        .from(profiles)
-        .where(eq(profiles.id, inv.invitedBy))
-        .limit(1)
-      inviterName = row?.name ?? null
-    }
-
-    await db.insert(notifications).values({
+    await emitInvitationNotification(db, {
+      id: inv.id,
       userId: user.id,
-      type: 'project_invitation',
-      payload: {
-        invitation_id: inv.id,
-        project_id: inv.projectId,
-        project_name: proj?.name ?? null,
-        invited_by: inv.invitedBy,
-        inviter_name: inviterName,
-      },
+      projectId: inv.projectId,
+      invitedBy: inv.invitedBy,
     })
   }
 }

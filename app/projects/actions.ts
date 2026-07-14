@@ -2,10 +2,19 @@
 
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
-import { and, eq } from 'drizzle-orm'
+import { and, eq, sql } from 'drizzle-orm'
 import { getClaims } from '@/lib/supabase/server'
-import { withUser, pgErrorCode, projects, projectInvitations, projectMembers } from '@/lib/db'
+import {
+  withUser,
+  ownerDb,
+  pgErrorCode,
+  projects,
+  projectInvitations,
+  projectMembers,
+  notifications,
+} from '@/lib/db'
 import { canCreateProjects, findInviteeByEmail, isProjectAdmin } from '@/lib/authz'
+import { emitInvitationNotification } from '@/lib/notifications/invitation'
 import { normalizeTaskType } from './task-types'
 
 export type CreateProjectState = { error: string } | null
@@ -17,10 +26,10 @@ export type UpdateProjectState = { error: string } | { ok: string } | null
 // HU-012/013: cria um projeto. A checagem de permissão agora é EXPLÍCITA na app
 // (`canCreateProjects`, espelha o predicado da policy projects_insert), feita ANTES
 // da escrita — a RLS segue ligada como backstop enquanto não fazemos o flip (issue #22).
-// O INSERT vai via Drizzle sob `withUser` (papel `authenticated`); o criador se enxerga
-// por created_by (migration 0005). O trigger auto_add_creator_as_admin (AFTER INSERT,
-// security definer) materializa a linha de Administrador ativo — segue no banco porque
-// movê-lo p/ cá exigiria abrir a policy pm_insert (Fase 4). Ver ADR 0007.
+// O INSERT do projeto vai via Drizzle sob `withUser` (papel `authenticated`); o criador se
+// enxerga por created_by (migration 0005). A linha de Administrador ativo passa a ser criada
+// EXPLICITAMENTE aqui (substitui o trigger auto_add_creator_as_admin, que sai no flip —
+// issue #22, Fase 4). Ver ADR 0007.
 export async function createProject(
   _prev: CreateProjectState,
   formData: FormData,
@@ -56,8 +65,20 @@ export async function createProject(
       .returning({ id: projects.id }),
   )
 
+  // HU-012: materializa o criador como Administrador ativo. Via ownerDb: a policy pm_insert
+  // (RLS ainda ligada) exige que o criador JÁ seja admin — chicken/egg que só o dono fura.
+  // onConflictDoNothing torna idempotente e coexistente com o trigger até ele ser removido
+  // no flip: hoje o trigger auto_add_creator_as_admin já criou a linha (no-op aqui); pós-flip
+  // esta passa a ser a criadora. Admin dispensa consentimento/onboarding (CHECKs pm_*).
+  await ownerDb
+    .insert(projectMembers)
+    .values({ projectId: created.id, userId, role: 'administrator', status: 'active' })
+    .onConflictDoNothing({
+      target: [projectMembers.projectId, projectMembers.userId, projectMembers.role],
+    })
+
   // redirect lança a exceção de controle do Next — fica FORA do withUser p/ não
-  // abortar a transação (e os passos do trigger) por engano.
+  // abortar a transação por engano.
   redirect(`/projects/${created.id}`)
 }
 
@@ -76,10 +97,12 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 // Dois caminhos:
 //  - JÁ CADASTRADO: grava invitee_id + invitee_email; pré-check de membro ativo
 //    reimplementa check_invitation_target (mensagem amigável, o trigger segue no banco
-//    como rede); notify_on_invitation cria a notificação in-platform na hora.
+//    como rede); a notificação in-platform é criada EXPLICITAMENTE aqui (substitui
+//    notify_on_invitation, que sai no flip — issue #22, Fase 4).
 //  - SEM CONTA: grava só invitee_email (invitee_id NULL). O convite fica pendente até o
-//    1º login com Google daquele e-mail, quando handle_new_user vincula o invitee_id e
-//    dispara a notificação (fatia 07 / ADR 0006). O admin compartilha o link por fora.
+//    1º login com Google daquele e-mail, quando o provisionamento (lib/auth/provision,
+//    que substitui handle_new_user) vincula o invitee_id e dispara a notificação
+//    (fatia 07 / ADR 0006). O admin compartilha o link por fora.
 //
 // O índice único (inv_one_pending_per_invitee / inv_one_pending_per_email) barra convite
 // pendente duplicado (23505) nos dois caminhos.
@@ -130,16 +153,21 @@ export async function inviteEvaluator(
     }
   }
 
+  let invitationId: string
   try {
-    await withUser(userId, (tx) =>
-      tx.insert(projectInvitations).values({
-        projectId,
-        inviteeId: invitee ? invitee.id : null,
-        inviteeEmail: email,
-        invitedBy: userId,
-        status: 'pending',
-      }),
+    const [row] = await withUser(userId, (tx) =>
+      tx
+        .insert(projectInvitations)
+        .values({
+          projectId,
+          inviteeId: invitee ? invitee.id : null,
+          inviteeEmail: email,
+          invitedBy: userId,
+          status: 'pending',
+        })
+        .returning({ id: projectInvitations.id }),
     )
+    invitationId = row.id
   } catch (err) {
     // 23505: índice único (convite pendente já existe para esse e-mail/usuário).
     if (pgErrorCode(err) === '23505') {
@@ -149,6 +177,32 @@ export async function inviteEvaluator(
     // virou membro ativo entre o pré-check e a escrita.
     return {
       error: `Não foi possível convidar ${target}. Talvez já seja membro ativo do projeto.`,
+    }
+  }
+
+  // Notificação in-platform do convite (só o ramo JÁ-CADASTRADO: quem não tem conta é
+  // notificado na resolução, no 1º login — ver lib/auth/provision). Substitui o trigger
+  // notify_on_invitation, que sai no flip (issue #22, Fase 4). Guarda not-exists p/
+  // coexistir com o trigger sem duplicar: hoje o trigger já inseriu (skip aqui); pós-flip
+  // esta é a fonte. Via ownerDb — notifications não tem grant/policy de INSERT p/ authenticated.
+  if (invitee) {
+    const [dup] = await ownerDb
+      .select({ id: notifications.id })
+      .from(notifications)
+      .where(
+        and(
+          eq(notifications.userId, invitee.id),
+          sql`${notifications.payload}->>'invitation_id' = ${invitationId}`,
+        ),
+      )
+      .limit(1)
+    if (!dup) {
+      await emitInvitationNotification(ownerDb, {
+        id: invitationId,
+        userId: invitee.id,
+        projectId,
+        invitedBy: userId,
+      })
     }
   }
 
