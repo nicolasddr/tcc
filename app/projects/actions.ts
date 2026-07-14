@@ -248,12 +248,15 @@ export async function setProjectStatus(formData: FormData): Promise<void> {
 // avaliador para o projeto são cancelados. Sem notificação ao removido. A permissão de
 // admin é checada EXPLICITAMENTE (`isProjectAdmin`) antes da escrita; a RLS segue como
 // backstop. Numa única transação sob `withUser`:
-//   • pm_update (is_project_admin) + o trigger enforce_member_status_transition (ramo
-//     admin) autorizam a transição active→inactive de OUTRO membro;
+//   • a checagem `isProjectAdmin` + o filtro `role='evaluator' AND status='active'` são a
+//     guarda PRIMÁRIA da transição active→inactive de OUTRO membro (issue #22, Fase 2);
+//     enforce_member_status_transition (ramo admin) segue no banco como backstop até o flip;
 //   • inv_update (is_project_admin) autoriza cancelar os convites pendentes.
 // O filtro `status = 'active'` evita mexer em avaliador ainda em onboarding (cuja
 // linha inactive violaria o CHECK pm_consent_required) e torna a ação idempotente.
-// A trava da fatia 05 impede que o removido reative a própria linha depois.
+// O furo "removido reativa a própria linha (inactive→active)" fica fechado na app pela
+// AUSÊNCIA de qualquer caminho que faça inactive→active (nenhuma action o oferece) —
+// enforce_member_status_transition é só rede enquanto a RLS está ligada.
 export async function removeMember(formData: FormData): Promise<void> {
   const claims = await getClaims()
   if (!claims) redirect('/login')
@@ -297,9 +300,12 @@ export async function removeMember(formData: FormData): Promise<void> {
 }
 
 // HU-022: o Avaliador sai voluntariamente do projeto. status → 'inactive' na PRÓPRIA
-// linha de avaliador ativo; avaliações preservadas. O trigger da fatia 05 permite
-// active→inactive na própria linha (não-admin), e a mesma trava impede reativar-se
-// depois. Redireciona ao dashboard (já não é mais membro ativo aqui).
+// linha de avaliador ativo; avaliações preservadas. A guarda PRIMÁRIA é o próprio filtro
+// `user_id = self AND role='evaluator' AND status='active'` (issue #22, Fase 2): só a
+// própria linha ativa vira inactive, e nunca o contrário. enforce_member_status_transition
+// (ramo do próprio membro: pending→active e active→inactive) segue como backstop até o
+// flip. Reativar-se (inactive→active) não é oferecido por nenhuma action.
+// Redireciona ao dashboard (já não é mais membro ativo aqui).
 export async function leaveProject(formData: FormData): Promise<void> {
   const claims = await getClaims()
   if (!claims) redirect('/login')

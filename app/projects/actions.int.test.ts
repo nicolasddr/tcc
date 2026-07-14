@@ -33,9 +33,10 @@ import {
   updateProject,
   setProjectStatus,
   removeMember,
+  leaveProject,
   inviteEvaluator,
 } from '@/app/projects/actions'
-import { ownerDb, projects, projectMembers, projectInvitations } from '@/lib/db'
+import { ownerDb, profiles, projects, projectMembers, projectInvitations } from '@/lib/db'
 import {
   createUser,
   createProject as seedProject,
@@ -227,5 +228,84 @@ describe('app/projects/actions — autorização explícita (RLS como backstop)'
       .from(projectInvitations)
       .where(eq(projectInvitations.projectId, project))
     expect(created.status).toBe('pending')
+  })
+
+  // --- Fase 2, commit 13: regras de negócio como guarda PRIMÁRIA na app --------------
+  // Cada teste prova, através da action real, o COMPORTAMENTO que hoje um trigger também
+  // garante (backstop enquanto a RLS está ligada). Locka a regra antes do flip da Fase 4.
+
+  // enforce_project_readonly: projeto completed/archived é somente leitura p/ nome/descrição.
+  it('updateProject: projeto concluído é somente leitura (enforce_project_readonly backstop)', async () => {
+    const admin = await newUser()
+    const project = await newProject(admin)
+    // Concluir via fixture direta: o `where status='active'` do UPDATE passa a casar 0 linhas.
+    await ownerDb.update(projects).set({ status: 'completed' }).where(eq(projects.id, project))
+
+    auth.userId = admin
+    expect(await updateProject(null, fd({ project_id: project, name: 'Tentativa' }))).toEqual({
+      error: expect.stringContaining('somente leitura'),
+    })
+    const [after] = await ownerDb
+      .select({ name: projects.name })
+      .from(projects)
+      .where(eq(projects.id, project))
+    expect(after.name).toBe('Projeto de Teste')
+  })
+
+  // check_invitation_target: não convidar quem já é membro ATIVO do projeto.
+  it('inviteEvaluator: recusa convidar quem já é membro ativo (check_invitation_target backstop)', async () => {
+    const admin = await newUser()
+    const evaluator = await newUser('Avaliador Ativo')
+    const project = await newProject(admin)
+    await addActiveEvaluator(ownerDb, project, evaluator)
+    // find_invitee_by_email só resolve o perfil se QUEM convida tem can_create_projects
+    // (guarda anti-enumeração da RPC); sem isso o convite cairia no ramo "sem conta".
+    await grantCreatePermission(ownerDb, admin)
+    const [{ email }] = await ownerDb
+      .select({ email: profiles.email })
+      .from(profiles)
+      .where(eq(profiles.id, evaluator))
+
+    auth.userId = admin
+    const denied = await inviteEvaluator(null, fd({ project_id: project, email }))
+    expect(denied).toEqual({ error: expect.stringContaining('já é membro ativo') })
+    // O pré-check barra ANTES da escrita: nenhum convite é gravado.
+    const invites = await ownerDb
+      .select({ id: projectInvitations.id })
+      .from(projectInvitations)
+      .where(eq(projectInvitations.projectId, project))
+    expect(invites).toHaveLength(0)
+  })
+
+  // enforce_member_status_transition: o avaliador só faz active→inactive na PRÓPRIA linha;
+  // não existe caminho de app para reativar-se (inactive→active).
+  it('leaveProject: sai (active→inactive próprio) e não reativa a própria linha depois', async () => {
+    const admin = await newUser()
+    const evaluator = await newUser()
+    const project = await newProject(admin)
+    const memberRow = await addActiveEvaluator(ownerDb, project, evaluator)
+
+    auth.userId = evaluator
+    let redirected = ''
+    try {
+      await leaveProject(fd({ project_id: project }))
+    } catch (e) {
+      redirected = (e as Error).message
+    }
+    expect(redirected).toBe('NEXT_REDIRECT:/dashboard')
+    const [left] = await ownerDb
+      .select({ status: projectMembers.status })
+      .from(projectMembers)
+      .where(eq(projectMembers.id, memberRow))
+    expect(left.status).toBe('inactive')
+
+    // Chamar de novo (já inactive): o filtro `status='active'` casa 0 linhas → segue inactive.
+    // Nenhuma action oferece inactive→active, então o furo de auto-reativação fica fechado.
+    await leaveProject(fd({ project_id: project })).catch(() => {})
+    const [still] = await ownerDb
+      .select({ status: projectMembers.status })
+      .from(projectMembers)
+      .where(eq(projectMembers.id, memberRow))
+    expect(still.status).toBe('inactive')
   })
 })
