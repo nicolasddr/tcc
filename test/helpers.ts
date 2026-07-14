@@ -12,6 +12,7 @@ import {
   profiles,
   projectMembers,
   projectInvitations,
+  onboardingQuestions,
 } from '@/lib/db'
 
 const ROLLBACK = Symbol('rollback')
@@ -113,6 +114,30 @@ export async function addPendingInvitation(
 /** Liga a flag de plataforma `can_create_projects` no profile. */
 export async function grantCreatePermission(tx: DbExecutor, userId: string): Promise<void> {
   await tx.update(profiles).set({ canCreateProjects: true }).where(eq(profiles.id, userId))
+}
+
+/** Insere uma pergunta de onboarding no projeto e devolve o id. */
+export async function addOnboardingQuestion(
+  tx: DbExecutor,
+  projectId: string,
+  opts: {
+    text?: string
+    type?: 'open' | 'multiple_choice'
+    options?: string[] | null
+    orderIndex?: number
+  } = {},
+): Promise<string> {
+  const [row] = await tx
+    .insert(onboardingQuestions)
+    .values({
+      projectId,
+      questionText: opts.text ?? 'Pergunta de teste',
+      questionType: opts.type ?? 'open',
+      options: opts.options ?? null,
+      orderIndex: opts.orderIndex ?? 0,
+    })
+    .returning({ id: onboardingQuestions.id })
+  return row.id
 }
 
 /** id da linha de membership de `userId` no projeto (ex.: o admin criado pelo trigger). */
