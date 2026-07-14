@@ -97,20 +97,24 @@ export async function addPendingMember(
   return row.id
 }
 
-/** Cria um convite PENDENTE para `inviteeId` no projeto. */
+/** Cria um convite PENDENTE para `inviteeId` no projeto e devolve o id. */
 export async function addPendingInvitation(
   tx: DbExecutor,
   projectId: string,
   inviteeId: string,
   invitedBy: string,
-): Promise<void> {
-  await tx.insert(projectInvitations).values({
-    projectId,
-    inviteeId,
-    inviteeEmail: uniqueEmail('invitee'),
-    invitedBy,
-    status: 'pending',
-  })
+): Promise<string> {
+  const [row] = await tx
+    .insert(projectInvitations)
+    .values({
+      projectId,
+      inviteeId,
+      inviteeEmail: uniqueEmail('invitee'),
+      invitedBy,
+      status: 'pending',
+    })
+    .returning({ id: projectInvitations.id })
+  return row.id
 }
 
 /** Liga a flag de plataforma `can_create_projects` no profile. */
