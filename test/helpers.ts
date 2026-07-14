@@ -43,11 +43,16 @@ function uniqueEmail(prefix: string): string {
 
 /**
  * Cria um usuário em auth.users via `tests.create_user` (do seed), disparando o
- * trigger `handle_new_user` que materializa o profile. Devolve o id.
+ * trigger `handle_new_user` que materializa o profile. Devolve o id. Passe `email`
+ * quando o teste precisar casar um endereço específico (ex.: convite por e-mail).
  */
-export async function createUser(tx: DbExecutor, name = 'Usuário de Teste'): Promise<string> {
+export async function createUser(
+  tx: DbExecutor,
+  name = 'Usuário de Teste',
+  email = uniqueEmail('user'),
+): Promise<string> {
   const rows = await tx.execute<{ id: string }>(
-    sql`select tests.create_user(${uniqueEmail('user')}, ${name}) as id`,
+    sql`select tests.create_user(${email}, ${name}) as id`,
   )
   return rows[0].id
 }
