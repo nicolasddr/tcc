@@ -230,6 +230,40 @@ describe('app/projects/actions — autorização explícita (RLS como backstop)'
     expect(created.status).toBe('pending')
   })
 
+  // Fase 3, commit 14: findInviteeByEmail em TS (guarda anti-enumeração) flui pela action.
+  it('inviteEvaluator: resolve invitee só quando o admin pode criar projetos (anti-enumeração)', async () => {
+    const admin = await newUser('Admin')
+    const invitee = await newUser('Convidado')
+    const project = await newProject(admin)
+    const [{ email }] = await ownerDb
+      .select({ email: profiles.email })
+      .from(profiles)
+      .where(eq(profiles.id, invitee))
+
+    // Admin SEM can_create_projects: findInviteeByEmail devolve null mesmo p/ e-mail que
+    // existe → o convite cai no ramo "sem conta" (invitee_id NULL), sem vazar que há perfil.
+    auth.userId = admin
+    const asStranger = await inviteEvaluator(null, fd({ project_id: project, email }))
+    expect(asStranger).toEqual({ ok: expect.stringContaining('ao entrar com o Google') })
+    const [unresolved] = await ownerDb
+      .select({ inviteeId: projectInvitations.inviteeId })
+      .from(projectInvitations)
+      .where(eq(projectInvitations.projectId, project))
+    expect(unresolved.inviteeId).toBeNull()
+
+    // Com a permissão ligada, um novo convite (outro projeto) resolve o invitee_id e o
+    // sucesso traz o NOME do convidado.
+    await grantCreatePermission(ownerDb, admin)
+    const project2 = await newProject(admin)
+    const asInviter = await inviteEvaluator(null, fd({ project_id: project2, email }))
+    expect(asInviter).toEqual({ ok: expect.stringContaining('Convidado') })
+    const [resolved] = await ownerDb
+      .select({ inviteeId: projectInvitations.inviteeId })
+      .from(projectInvitations)
+      .where(eq(projectInvitations.projectId, project2))
+    expect(resolved.inviteeId).toBe(invitee)
+  })
+
   // --- Fase 2, commit 13: regras de negócio como guarda PRIMÁRIA na app --------------
   // Cada teste prova, através da action real, o COMPORTAMENTO que hoje um trigger também
   // garante (backstop enquanto a RLS está ligada). Locka a regra antes do flip da Fase 4.

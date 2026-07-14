@@ -2,10 +2,10 @@
 
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
-import { and, eq, sql } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 import { getClaims } from '@/lib/supabase/server'
 import { withUser, pgErrorCode, projects, projectInvitations, projectMembers } from '@/lib/db'
-import { canCreateProjects, isProjectAdmin } from '@/lib/authz'
+import { canCreateProjects, findInviteeByEmail, isProjectAdmin } from '@/lib/authz'
 import { normalizeTaskType } from './task-types'
 
 export type CreateProjectState = { error: string } | null
@@ -66,10 +66,10 @@ export async function createProject(
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 // HU-010 / HU-018 / ADR 0006: o Administrador convida um avaliador por e-mail —
-// mesmo que a pessoa AINDA NÃO tenha conta. find_invitee_by_email (RPC security
-// definer) devolve só id+name sem enumerar e-mails; por decisão da Fase 4 (ADR 0007)
-// PERMANECE em SQL (fronteira anti-enumeração, garantida pelo banco) e é chamada via
-// Drizzle sob `withUser`, com auth.uid() resolvido pela claim da transação.
+// mesmo que a pessoa AINDA NÃO tenha conta. findInviteeByEmail (lib/authz) devolve só
+// id+name sem enumerar e-mails; a guarda anti-enumeração (só resolve se quem convida tem
+// can_create_projects) migrou da RPC security definer para TS (issue #22, Fase 3, commit
+// 14). A RPC SQL `find_invitee_by_email` segue no banco até o flip (Fase 4).
 //
 // A permissão de admin agora é checada EXPLICITAMENTE na app (`isProjectAdmin`, espelha
 // o predicado de inv_insert) ANTES das queries; a RLS segue como backstop até o flip.
@@ -104,11 +104,7 @@ export async function inviteEvaluator(
     return { error: 'Apenas o administrador do projeto pode convidar avaliadores.' }
   }
 
-  const [invitee] = await withUser(userId, (tx) =>
-    tx.execute<{ id: string; name: string }>(
-      sql`select id, name from public.find_invitee_by_email(${email})`,
-    ),
-  )
+  const invitee = await findInviteeByEmail(userId, email)
 
   // Alvo do convite: quem se vê no sucesso e na mensagem de duplicado.
   const target = invitee ? invitee.name : email

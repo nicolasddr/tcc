@@ -5,6 +5,7 @@
 // PRÉ-REQUISITO: Supabase LOCAL de pé (`supabase start`), igual ao `npm test`.
 // Rodam sob transação-com-rollback (ver test/helpers.ts): não sujam o banco.
 import { describe, it, expect } from 'vitest'
+import { eq } from 'drizzle-orm'
 import {
   isSuperAdmin,
   isMemberOf,
@@ -15,7 +16,9 @@ import {
   canViewResponse,
   canAnswerOnboarding,
   canCreateProjects,
+  findInviteeByEmail,
 } from '@/lib/authz'
+import { profiles } from '@/lib/db'
 import {
   inRollbackTx,
   createUser,
@@ -140,6 +143,38 @@ describe('lib/authz — predicados de autorização', () => {
     await inRollbackTx(async (tx) => {
       const user = await createUser(tx)
       expect(await isSuperAdmin(user, tx)).toBe(false)
+    })
+  })
+
+  // find_invitee_by_email reimplementada em TS (issue #22, Fase 3, commit 14).
+  it('findInviteeByEmail: resolve {id,name}; anti-enumeração barra quem não pode criar projetos', async () => {
+    await inRollbackTx(async (tx) => {
+      const inviter = await createUser(tx, 'Convidante')
+      const invitee = await createUser(tx, 'Convidado')
+      const [{ email }] = await tx
+        .select({ email: profiles.email })
+        .from(profiles)
+        .where(eq(profiles.id, invitee))
+
+      // GUARDA ANTI-ENUMERAÇÃO: sem can_create_projects, devolve null mesmo p/ e-mail
+      // que EXISTE — indistinguível de "não cadastrado". Quem não pode convidar não sonda.
+      expect(await findInviteeByEmail(inviter, email, tx)).toBeNull()
+
+      // Com a permissão ligada, resolve só id+name (nada além disso vaza).
+      await grantCreatePermission(tx, inviter)
+      expect(await findInviteeByEmail(inviter, email, tx)).toEqual({
+        id: invitee,
+        name: 'Convidado',
+      })
+
+      // Case-insensitive (espelha `lower(email)`).
+      expect(await findInviteeByEmail(inviter, email.toUpperCase(), tx)).toEqual({
+        id: invitee,
+        name: 'Convidado',
+      })
+
+      // E-mail inexistente → null (mesmo com permissão).
+      expect(await findInviteeByEmail(inviter, 'ninguem@test.local', tx)).toBeNull()
     })
   })
 })

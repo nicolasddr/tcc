@@ -191,3 +191,29 @@ export function canCreateProjects(userId: string, db: DbExecutor = ownerDb): Pro
       .limit(1),
   )
 }
+
+/**
+ * Resolve o convidado por e-mail para o fluxo de convite (HU-018) — reimplementa a
+ * RPC `find_invitee_by_email` (0002). Devolve SÓ `{ id, name }` (nunca o e-mail nem
+ * outro dado), ou `null` se não achar.
+ *
+ * ⚠️ GUARDA ANTI-ENUMERAÇÃO: só resolve o perfil se QUEM convida (`callerId`) tem
+ * `can_create_projects`. Sem essa permissão devolve `null` de forma INDISTINGUÍVEL de
+ * "e-mail não cadastrado" — quem não pode convidar não consegue sondar se um e-mail
+ * existe. (No SQL isso era o `exists(... me.id = auth.uid() and me.can_create_projects)`
+ * embutido na mesma query; aqui é a checagem prévia de `canCreateProjects`, mesmo
+ * resultado.) Comparação de e-mail case-insensitive, espelhando `lower(email)`.
+ */
+export async function findInviteeByEmail(
+  callerId: string,
+  email: string,
+  db: DbExecutor = ownerDb,
+): Promise<{ id: string; name: string } | null> {
+  if (!(await canCreateProjects(callerId, db))) return null
+  const [row] = await db
+    .select({ id: profiles.id, name: profiles.name })
+    .from(profiles)
+    .where(eq(sql`lower(${profiles.email})`, email.toLowerCase()))
+    .limit(1)
+  return row ?? null
+}
