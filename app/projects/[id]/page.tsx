@@ -1,6 +1,6 @@
 import Link from '@/app/components/app-link'
 import { notFound, redirect } from 'next/navigation'
-import { and, eq } from 'drizzle-orm'
+import { and, eq, ne, or } from 'drizzle-orm'
 import { getClaims } from '@/lib/supabase/server'
 import { withUser, projects, projectMembers, projectInvitations, profiles } from '@/lib/db'
 import { acceptInvitation } from '@/app/onboarding/actions'
@@ -42,11 +42,10 @@ export default async function ProjectPage({
   if (!claims) redirect('/login')
   const userId = claims.sub
 
-  // Numa transação RLS-aware (papel `authenticated`): o projeto (a RLS só deixa
-  // membro/convidado enxergar; quem não participa recebe 0 linhas e cai no notFound), os
-  // papéis do usuário neste projeto (uma linha por papel — HU-024), um eventual convite
-  // pendente (para oferecer aceitar/recusar) e a lista de membros com nome/e-mail
-  // (HU-025 — a RLS pm_select + profiles_select_shared_members recorta o que cada um vê).
+  // Numa transação `withUser` (RLS ainda ligada como backstop — ver ADR 0007), com o
+  // ESCOPO agora explícito na app (issue #22, Fase 1): o projeto (por id), os papéis do
+  // usuário neste projeto (uma linha por papel — HU-024), um eventual convite pendente
+  // (para oferecer aceitar/recusar) e a lista de membros com nome/e-mail (HU-025).
   const { project, memberships, pendingInvitation, memberRows } = await withUser(
     userId,
     async (tx) => {
@@ -58,6 +57,7 @@ export default async function ProjectPage({
           status: projects.status,
           taskType: projects.taskType,
           createdAt: projects.createdAt,
+          createdBy: projects.createdBy,
         })
         .from(projects)
         .where(eq(projects.id, id))
@@ -80,8 +80,19 @@ export default async function ProjectPage({
         )
         .limit(1)
 
-      // innerJoin com profiles: só entram membros cujo profile a RLS deixa ler (co-membros
-      // de quem é ativo). Um pending_onboarding só é visível ao próprio e ao admin.
+      // Escopo explícito da lista de membros (espelha pm_select): o admin vê todas as
+      // linhas; um membro ativo vê as não-`pending_onboarding` (mais a própria); quem não
+      // é ativo vê só a própria. O innerJoin com profiles reproduz profiles_select_shared_members
+      // (todo profile aqui é de um co-membro do projeto). A RLS segue como backstop.
+      const viewerIsAdmin = memberships.some(
+        (m) => m.role === 'administrator' && m.status === 'active',
+      )
+      const viewerIsActive = memberships.some((m) => m.status === 'active')
+      const memberScope = viewerIsAdmin
+        ? undefined
+        : viewerIsActive
+          ? or(eq(projectMembers.userId, userId), ne(projectMembers.status, 'pending_onboarding'))
+          : eq(projectMembers.userId, userId)
       const memberRows = await tx
         .select({
           userId: projectMembers.userId,
@@ -92,12 +103,21 @@ export default async function ProjectPage({
         })
         .from(projectMembers)
         .innerJoin(profiles, eq(profiles.id, projectMembers.userId))
-        .where(eq(projectMembers.projectId, id))
+        .where(and(eq(projectMembers.projectId, id), memberScope))
 
       return { project, memberships, pendingInvitation, memberRows }
     },
   )
   if (!project) notFound()
+
+  // Escopo explícito de VISIBILIDADE do projeto (espelha projects_select): só o criador,
+  // um membro (qualquer status) ou um convidado pendente enxerga — quem não participa cai
+  // no notFound. Antes isso vinha só da RLS; agora é checado na app, com a RLS de backstop.
+  const canView =
+    project.createdBy === userId ||
+    memberships.length > 0 ||
+    Boolean(pendingInvitation)
+  if (!canView) notFound()
 
   const roles = memberships.map((m) => roleLabel(m.role))
   const onboardingPending = memberships.some(

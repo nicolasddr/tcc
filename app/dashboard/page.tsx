@@ -56,10 +56,10 @@ export default async function Dashboard({
   const email = claims.email ?? ''
   const initial = email.charAt(0)
 
-  // HU-013/010/011/019: numa transação RLS-aware (papel `authenticated`), lemos os
-  // projetos em que o usuário é membro (com o projeto via innerJoin), o inbox de
-  // notificações e os convites pendentes. A RLS do banco continua valendo — ver ADR
-  // 0007 e lib/db.
+  // HU-013/010/011/019: numa transação `withUser`, lemos os projetos em que o usuário é
+  // membro (com o projeto via innerJoin), o inbox de notificações e os convites pendentes.
+  // O ESCOPO ("own") agora é explícito na app (issue #22, Fase 1) — cada SELECT filtra pelo
+  // `userId`; a RLS do banco segue como backstop. Ver ADR 0007 e lib/db.
   const { profileRows, membershipRows, notificationRows, pendingInvitationRows } = await withUser(
     userId,
     async (tx) => {
@@ -71,6 +71,9 @@ export default async function Dashboard({
         .where(eq(profiles.id, userId))
         .limit(1)
 
+      // Escopo explícito: só as linhas de membership do próprio usuário (o innerJoin
+      // traz o projeto de cada uma). Espelha o recorte que a RLS projects_select/pm_select
+      // fazia — quem não é membro simplesmente não aparece aqui.
       const membershipRows = await tx
         .select({
           role: projectMembers.role,
@@ -85,6 +88,7 @@ export default async function Dashboard({
         .innerJoin(projectsTable, eq(projectMembers.projectId, projectsTable.id))
         .where(eq(projectMembers.userId, userId))
 
+      // Escopo explícito "own" (espelha notifications_select_own): só o inbox do usuário.
       const notificationRows = await tx
         .select({
           id: notificationsTable.id,
@@ -94,6 +98,7 @@ export default async function Dashboard({
           createdAt: notificationsTable.createdAt,
         })
         .from(notificationsTable)
+        .where(eq(notificationsTable.userId, userId))
         .orderBy(desc(notificationsTable.createdAt))
         .limit(30)
 
@@ -135,9 +140,9 @@ export default async function Dashboard({
   }
   const projects = [...byProject.values()]
 
-  // HU-010/011: inbox in-platform. A RLS (notifications_select_own) já limita ao
-  // próprio usuário; formatamos texto/data no servidor e passamos pronto ao sino. O
-  // payload é jsonb (sem forma no schema): casamos no consumo para NotificationPayload.
+  // HU-010/011: inbox in-platform. O SELECT acima já filtrou pelo próprio usuário
+  // (escopo "own" explícito); formatamos texto/data no servidor e passamos pronto ao sino.
+  // O payload é jsonb (sem forma no schema): casamos no consumo para NotificationPayload.
   const inboxItems: InboxItem[] = notificationRows.map((n) => ({
     id: n.id,
     text: notificationText(n.type, (n.payload ?? {}) as NotificationPayload),

@@ -10,6 +10,10 @@ export default defineConfig({
     // Espelha o alias `@/*` do tsconfig.json para o Vitest resolver `@/lib/...`.
     alias: { '@': resolve(__dirname, '.') },
   },
+  // Runtime JSX automático (react/jsx-runtime) para que os testes possam importar e
+  // "renderizar" Server Components (ex.: page.tsx) sem um `import React`. Só monta a
+  // árvore de elementos — nenhum componente-cliente é executado.
+  esbuild: { jsx: 'automatic' },
   test: {
     environment: 'node',
     setupFiles: ['./vitest.setup.ts'],

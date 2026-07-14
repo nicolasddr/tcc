@@ -11,9 +11,10 @@ export default async function NewProjectPage() {
   if (!claims) redirect('/login')
   const userId = claims.sub
 
-  // A criação é gated pela RLS (can_create_projects). A fatia 08 entrega o fluxo de
-  // pedir permissão; aqui só avisamos quando o usuário ainda não tem. Leitura
-  // RLS-aware (profiles_select_own só devolve a própria linha) — ver ADR 0007.
+  // A criação exige can_create_projects (checada na app em createProject; ver issue #22).
+  // A fatia 08 entrega o fluxo de pedir permissão; aqui só avisamos quando o usuário ainda
+  // não tem. Leitura com escopo "own" explícito (só a própria linha de profile), com a RLS
+  // profiles_select_own como backstop — ver ADR 0007.
   const [profile] = await withUser(userId, (tx) =>
     tx
       .select({ canCreateProjects: profiles.canCreateProjects })
