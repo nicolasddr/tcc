@@ -3,11 +3,10 @@
 // ⚠️ SERVER-ONLY: importa o driver `postgres` (TCP). Use só em Server Components e
 // Server Actions; nunca em código que vá para o cliente.
 //
-// Regra de ouro (ver ADR 0007 e ./README.md): toda query comum passa por `withUser`,
-// que roda sob o papel `authenticated` => a RLS do banco vale. O `baseDb` (papel
-// `postgres`, dono das tabelas) FURA a RLS e por isso fica interno (não exportado).
+// Desde o flip da Fase 4 (issue #22) NÃO há mais RLS no banco: a autorização vive na
+// app-layer (lib/authz + checagens explícitas nas actions). Existe uma única conexão
+// (papel `postgres`, dono das tabelas); `withUser` virou um wrapper de transação simples.
 import { drizzle } from 'drizzle-orm/postgres-js'
-import { sql } from 'drizzle-orm'
 import postgres from 'postgres'
 import * as schema from './schema'
 import * as relations from './relations'
@@ -19,50 +18,36 @@ const globalForDb = globalThis as unknown as { __dbClient?: ReturnType<typeof po
 const client = globalForDb.__dbClient ?? postgres(process.env.DATABASE_URL!, { prepare: false })
 if (process.env.NODE_ENV !== 'production') globalForDb.__dbClient = client
 
-// INTERNO. Conecta como `postgres` (dono das tabelas) => BYPASSA a RLS. NÃO exportar
-// para queries comuns; só a Fase 4 (RPCs privilegiadas) deve cogitar usá-lo.
+// Conexão única (papel `postgres`, dono das tabelas). Sem RLS no banco, não há mais
+// distinção entre papel privilegiado e papel do usuário — toda query roda por aqui.
 const baseDb = drizzle(client, { schema: { ...schema, ...relations } })
 
-// Tipo exato da transação que o callback recebe (evita um cast `as`).
+// Tipo exato da transação que os callbacks recebem (evita um cast `as`).
 export type Transaction = Parameters<Parameters<typeof baseDb.transaction>[0]>[0]
 
-// Executor aceito pelas funções de autorização: a conexão base OU uma transação.
+// Executor aceito pelas funções que recebem a conexão base OU uma transação.
 export type DbExecutor = typeof baseDb | Transaction
 
-// Conexão DONA (papel `postgres`, BYPASSA a RLS). Exposta APENAS para as
-// funções-predicado de `lib/authz` — o equivalente app-layer das antigas
-// funções `security definer`, que precisam enxergar todas as linhas
-// independentemente de quem pergunta. NÃO usar para queries comuns: essas
-// passam por `withUser` (papel `authenticated`, RLS ativa).
+// Conexão do app. Usada por `lib/authz`, pelas actions e pelos helpers de teste.
 export const ownerDb = baseDb
 
 /**
- * Executa `run` sob a identidade de `userId`, com a RLS ATIVA.
+ * Abre uma transação e executa `run` dentro dela. Desde o flip da Fase 4 (issue #22) NÃO
+ * troca mais de papel nem seta claims (a RLS foi removida; a autorização é feita na app,
+ * ANTES/JUNTO da query — ver lib/authz e as checagens nas actions).
  *
- * Abre uma transação, seta `request.jwt.claims` (com `sub` = userId) e assume o papel
- * `authenticated` — exatamente o mecanismo do `tests.authenticate_as` do seed.sql. Como
- * é `set_config(..., is_local := true)`, tudo se reseta no fim da transação.
- *
- * Pegue o usuário com `supabase.auth.getUser()` (a autenticação continua no
- * @supabase/ssr) e passe `user.id` aqui.
+ * A assinatura mantém `userId` (não usado) só para não tocar os ~58 call sites de uma vez;
+ * a Fase 5 renomeia para `tx(run)` e remove o parâmetro.
  *
  * @example
  *   import { withUser, projects } from '@/lib/db'
  *   const rows = await withUser(user.id, (tx) => tx.select().from(projects))
  */
 export async function withUser<T>(
-  userId: string,
+  _userId: string,
   run: (tx: Transaction) => Promise<T>,
 ): Promise<T> {
-  const claims = JSON.stringify({ sub: userId, role: 'authenticated' })
-  return baseDb.transaction(async (tx) => {
-    // `claims` vai parametrizado (mais seguro); 'authenticated' é literal fixo, nunca
-    // input do usuário. set_config(role, ...) equivale a SET LOCAL ROLE.
-    await tx.execute(
-      sql`select set_config('request.jwt.claims', ${claims}, true), set_config('role', 'authenticated', true)`,
-    )
-    return run(tx)
-  })
+  return baseDb.transaction(run)
 }
 
 /**

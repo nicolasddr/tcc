@@ -57,13 +57,20 @@ export async function createUser(
   return rows[0].id
 }
 
-/** Cria um projeto; o trigger `auto_add_creator_as_admin` torna `createdBy` admin ativo. */
+/**
+ * Cria um projeto e materializa `createdBy` como Administrador ativo. Antes do flip da
+ * Fase 4 (issue #22) a linha de admin vinha do trigger auto_add_creator_as_admin; com ele
+ * removido, o helper a insere explicitamente — igual à action createProject.
+ */
 export async function createProject(
   tx: DbExecutor,
   createdBy: string,
   name = 'Projeto de Teste',
 ): Promise<string> {
   const [row] = await tx.insert(projects).values({ name, createdBy }).returning({ id: projects.id })
+  await tx
+    .insert(projectMembers)
+    .values({ projectId: row.id, userId: createdBy, role: 'administrator', status: 'active' })
   return row.id
 }
 
