@@ -3,7 +3,8 @@ import { redirect } from 'next/navigation'
 import { getClaims } from '@/lib/supabase/server'
 import './home.css'
 import { GoogleSignInButton, LoginButton } from './components/auth-buttons'
-import { ProcessOverview, ProcessPhasesFooter } from './components/process-overview'
+import { ProcessOverview } from './components/process-overview'
+import { ProcessPhasesFooter } from './components/process-phases-footer'
 
 export default async function Home() {
   const claims = await getClaims()

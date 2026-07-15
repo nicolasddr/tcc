@@ -16,7 +16,7 @@ const roboto = Roboto({
 export const metadata: Metadata = {
   title: "Engenharia de Prompt",
   description:
-    "Protótipo para criar e validar prompts de forma sistemática, baseado em Shah (2025).",
+    "Ferramenta para criar e validar prompts de forma sistemática, baseado em Shah (2025).",
 };
 
 export default function RootLayout({

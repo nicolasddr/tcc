@@ -11,18 +11,15 @@
   --font-sans: var(--font-inter);
 }
 
-/* Tokens de design das primitivas de UI (app/components/ui/*). Extraídos dos .css
-   artesanais das telas para que os componentes Tailwind reproduzam a aparência atual
-   com nomes semânticos em vez de hex soltos. As telas ainda usam CSS de layout próprio;
-   aqui ficam só os valores RECORRENTES em formulários e componentes compartilhados. */
+
 @theme {
-  /* Marca (azul das ações primárias e dos focos) */
+  /* Azul das ações primárias e dos focos */
   --color-brand: #1d4ed8;
   --color-brand-hover: #1e40af;
   --color-brand-border: #c7d2fe;
   --color-brand-ring: rgba(29, 78, 216, 0.12);
 
-  /* Tinta e superfícies (escala de cinza dos textos, bordas e fundos) */
+  /* Escala de cinza dos textos, bordas e fundos */
   --color-ink: #111827;
   --color-ink-soft: #1f2937;
   --color-label: #374151;
@@ -34,7 +31,7 @@
   --color-surface-subtle: #f9fafb;
   --color-canvas: #f3f4f6;
 
-  /* Status — cada tom tem fundo/texto (e borda quando o desenho usa caixa) */
+  /* Status e bordas */
   --color-success-bg: #dcfce7;
   --color-success-fg: #166534;
   --color-success-border: #bbf7d0;
@@ -52,7 +49,6 @@
   --color-danger-tint: #fef2f2;
   --color-danger-tint-border: #fca5a5;
 
-  /* Raios recorrentes: controles (8px) e cartões/caixas (12px) */
   --radius-control: 8px;
   --radius-card: 12px;
 }
@@ -70,9 +66,7 @@ body {
   font-family: var(--font-sans), Arial, Helvetica, sans-serif;
 }
 
-/* Feedback padrão enquanto uma ação de form está em andamento. O SubmitButton marca
-   aria-busy no envio; damos cursor de espera e leve opacidade para qualquer botão que
-   ainda não tenha um estilo :disabled próprio. */
+/* Feedback enquanto uma ação de form está em andamento */
 button[aria-busy='true'] {
   cursor: progress;
   opacity: 0.7;
