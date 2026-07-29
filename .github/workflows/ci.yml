@@ -47,6 +47,12 @@ jobs:
       - uses: supabase/setup-cli@v1
         with:
           version: 2.107.0
+      # A chave de assinatura JWT (config.toml: signing_keys_path) é gitignored
+      # por conter uma chave privada. Gera uma descartável aqui — o banco é novo
+      # a cada run, então não precisa casar com nenhuma chave pré-existente. O
+      # `jq -s` embrulha o objeto em lista, formato que o `supabase start` espera.
+      - name: Generate local JWT signing key
+        run: supabase gen signing-key --algorithm ES256 | jq -s '.' > supabase/signing_keys.json
       - name: Start Supabase (Postgres + migrations + seed)
         run: supabase start
       - run: npm ci
