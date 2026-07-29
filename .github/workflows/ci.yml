@@ -47,14 +47,19 @@ jobs:
       - uses: supabase/setup-cli@v1
         with:
           version: 2.107.0
-      # A chave de assinatura JWT (config.toml: signing_keys_path) é gitignored
-      # por conter uma chave privada. Gera uma descartável aqui — o banco é novo
-      # a cada run, então não precisa casar com nenhuma chave pré-existente. O
-      # `jq -s` embrulha o objeto em lista, formato que o `supabase start` espera.
-      - name: Generate local JWT signing key
-        run: supabase gen signing-key --algorithm ES256 | jq -s '.' > supabase/signing_keys.json
-      - name: Start Supabase (Postgres + migrations + seed)
-        run: supabase start
+      # A suíte de integração fala DIRETO com o Postgres (DATABASE_URL) e mocka o
+      # cliente Supabase — não exercita Auth/PostgREST/Storage/etc. Subimos só o
+      # `db`, excluindo todos os outros containers (start em ~20s).
+      #
+      # `config.toml` referencia signing_keys_path -> supabase/signing_keys.json,
+      # que é gitignored (chave privada, consumida só por Auth/PostgREST no
+      # dev/E2E). O `supabase start` lê esse caminho ao carregar a config e aborta
+      # se o arquivo não existe. Como não subimos Auth/PostgREST, comentamos a
+      # linha no runner (checkout efêmero) em vez de fabricar uma chave.
+      - name: Start database (Postgres + migrations + seed)
+        run: |
+          sed -i 's/^signing_keys_path/# signing_keys_path/' supabase/config.toml
+          supabase start -x edge-runtime,gotrue,imgproxy,kong,logflare,mailpit,postgres-meta,postgrest,realtime,storage-api,studio,supavisor,vector
       - run: npm ci
       - run: npm test
       - name: Stop Supabase
