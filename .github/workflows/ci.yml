@@ -1,0 +1,56 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Cancela execuções antigas do mesmo ref quando um novo push chega.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Checagens estáticas: rápidas, sem banco. Rodam os mesmos scripts do dev.
+  static:
+    name: Lint & Typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+
+  # Testes de integração: rodam contra o Supabase LOCAL (Postgres na 54322),
+  # exatamente como `npm test` no dev. `supabase start` sobe o banco e aplica
+  # migrations + seed antes da suíte.
+  test:
+    name: Integration tests
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+      # Valores fictícios: a suíte de integração fala direto com o Postgres via
+      # DATABASE_URL e mocka o cliente Supabase; estas só existem para os módulos
+      # que as leem não receberem `undefined` ao serem importados.
+      NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_ci_dummy
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.107.0
+      - name: Start Supabase (Postgres + migrations + seed)
+        run: supabase start
+      - run: npm ci
+      - run: npm test
+      - name: Stop Supabase
+        if: always()
+        run: supabase stop
