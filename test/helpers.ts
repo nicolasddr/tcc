@@ -15,6 +15,8 @@ import {
   onboardingQuestions,
   onboardingResponses,
   notifications,
+  platformPermissionRequests,
+  superAdmins,
 } from '@/lib/db'
 
 const ROLLBACK = Symbol('rollback')
@@ -133,6 +135,24 @@ export async function grantCreatePermission(tx: DbExecutor, userId: string): Pro
   await tx.update(profiles).set({ canCreateProjects: true }).where(eq(profiles.id, userId))
 }
 
+/** Torna `userId` super-admin da plataforma. */
+export async function makeSuperAdmin(tx: DbExecutor, userId: string): Promise<void> {
+  await tx.insert(superAdmins).values({ userId })
+}
+
+/** Cria uma solicitação de permissão de criar projetos (status default 'pending'). */
+export async function addPermissionRequest(
+  tx: DbExecutor,
+  userId: string,
+  status: 'pending' | 'approved' | 'rejected' = 'pending',
+): Promise<string> {
+  const [row] = await tx
+    .insert(platformPermissionRequests)
+    .values({ userId, status })
+    .returning({ id: platformPermissionRequests.id })
+  return row.id
+}
+
 /** Insere uma pergunta de onboarding no projeto e devolve o id. */
 export async function addOnboardingQuestion(
   tx: DbExecutor,
@@ -205,6 +225,11 @@ export async function memberId(
 export async function cleanup(projectIds: string[], userIds: string[]): Promise<void> {
   if (projectIds.length > 0) {
     await ownerDb.delete(projects).where(inArray(projects.id, projectIds))
+  }
+  // super_admins.user_id é `on delete restrict`: apagar o profile (via cascade de
+  // auth.users) esbarraria nessa FK. Removemos as linhas de super-admin antes.
+  if (userIds.length > 0) {
+    await ownerDb.delete(superAdmins).where(inArray(superAdmins.userId, userIds))
   }
   for (const id of userIds) {
     await ownerDb.execute(sql`delete from auth.users where id = ${id}`)

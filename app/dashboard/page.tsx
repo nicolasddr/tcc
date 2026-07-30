@@ -9,7 +9,7 @@ import {
   projects as projectsTable,
   notifications as notificationsTable,
 } from '@/lib/db'
-import { listMyPendingInvitations, type PendingInvitation } from '@/lib/authz'
+import { isSuperAdmin, listMyPendingInvitations, type PendingInvitation } from '@/lib/authz'
 import { signOut } from '@/app/auth/actions'
 import { declineInvitation } from '@/app/invitations/actions'
 import { acceptInvitation } from '@/app/onboarding/actions'
@@ -50,20 +50,16 @@ export default async function Dashboard({
   const email = claims.email ?? ''
   const initial = email.charAt(0)
 
-  // HU-013/010/011/019: numa única transação, lemos os projetos em que o usuário é membro
-  // (com o projeto via innerJoin), o inbox de notificações e os convites pendentes. O
-  // ESCOPO ("own") é explícito na app — cada SELECT filtra pelo `userId`. Ver ADR 0007.
+
   const { profileRows, membershipRows, notificationRows } = await transaction(async (tx) => {
-    // HU-005: nome do próprio perfil para o cabeçalho — o usuário o edita em /profile e a
-    // alteração reflete aqui de imediato.
+
     const profileRows = await tx
       .select({ name: profiles.name })
       .from(profiles)
       .where(eq(profiles.id, userId))
       .limit(1)
 
-    // Escopo explícito: só as linhas de membership do próprio usuário (o innerJoin
-    // traz o projeto de cada uma) — quem não é membro simplesmente não aparece aqui.
+
     const membershipRows = await tx
       .select({
         role: projectMembers.role,
@@ -78,7 +74,6 @@ export default async function Dashboard({
       .innerJoin(projectsTable, eq(projectMembers.projectId, projectsTable.id))
       .where(eq(projectMembers.userId, userId))
 
-    // Escopo explícito "own": só o inbox do usuário.
     const notificationRows = await tx
       .select({
         id: notificationsTable.id,
@@ -95,21 +90,19 @@ export default async function Dashboard({
     return { profileRows, membershipRows, notificationRows }
   })
 
-  // HU-019: convites pendentes do PRÓPRIO usuário, já com nome do projeto e do convidante.
-  // Query Drizzle em lib/authz, com escopo explícito (invitee_id = userId).
   const pendingInvitationRows = await listMyPendingInvitations(userId)
+
+  const superAdmin = await isSuperAdmin(userId)
 
   const displayName = profileRows[0]?.name ?? email
 
-  // O admin-avaliador tem duas linhas (uma por papel); agregamos por projeto. O
-  // innerJoin garante `project` não-nulo (toda membership tem seu projeto).
   const byProject = new Map<string, ListedProject>()
   let hasArchived = false
   for (const row of membershipRows) {
     const p = row.project
     if (p.status === 'archived') {
       hasArchived = true
-      if (!showArchived) continue // arquivados ocultos por padrão (HU-016)
+      if (!showArchived) continue 
     }
     let entry = byProject.get(p.id)
     if (!entry) {
@@ -123,9 +116,7 @@ export default async function Dashboard({
   }
   const projects = [...byProject.values()]
 
-  // HU-010/011: inbox in-platform. O SELECT acima já filtrou pelo próprio usuário
-  // (escopo "own" explícito); formatamos texto/data no servidor e passamos pronto ao sino.
-  // O payload é jsonb (sem forma no schema): casamos no consumo para NotificationPayload.
+
   const inboxItems: InboxItem[] = notificationRows.map((n) => ({
     id: n.id,
     text: notificationText(n.type, (n.payload ?? {}) as NotificationPayload),
@@ -133,12 +124,8 @@ export default async function Dashboard({
     read: n.readAt != null,
   }))
 
-  // Convites pendentes já vieram da query Drizzle acima (listMyPendingInvitations).
   const pendingInvitations: PendingInvitation[] = pendingInvitationRows
-  // Os projetos convidados aparecem na própria listagem (com selo "convite
-  // pendente" + Aceitar/Recusar) para o usuário poder agir sobre o convite.
-  // Deduplica contra projetos onde já é membro (caso raro de re-convite de
-  // ex-membro inativo).
+
   const invitedProjects = pendingInvitations.filter((inv) => !byProject.has(inv.projectId))
   const hasProjects = projects.length > 0 || invitedProjects.length > 0
 
@@ -184,6 +171,11 @@ export default async function Dashboard({
             <div className="projects-section-head">
               <h1 className="projects-title">Meus projetos</h1>
               <div className="projects-head-actions">
+                {superAdmin ? (
+                  <Link href="/admin/permissions" className="projects-filter-toggle">
+                    Solicitações de permissão
+                  </Link>
+                ) : null}
                 {hasArchived ? (
                   <Link
                     href={showArchived ? '/dashboard' : '/dashboard?arquivados=1'}

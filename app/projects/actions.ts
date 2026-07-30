@@ -11,6 +11,7 @@ import {
   projects,
   projectInvitations,
   projectMembers,
+  platformPermissionRequests,
   notifications,
 } from '@/lib/db'
 import { canCreateProjects, findInviteeByEmail, isProjectAdmin } from '@/lib/authz'
@@ -19,14 +20,13 @@ import { normalizeTaskType } from './task-types'
 
 export type CreateProjectState = { error: string } | null
 
+export type RequestPermissionState = { error: string } | { ok: string } | null
+
 export type InviteEvaluatorState = { error: string } | { ok: string } | null
 
 export type UpdateProjectState = { error: string } | { ok: string } | null
 
-// HU-012/013: cria um projeto. A permissão é checada EXPLICITAMENTE na app-layer
-// (`canCreateProjects`) ANTES da escrita. O INSERT do projeto vai via Drizzle; logo
-// depois, a linha de Administrador ativo é criada EXPLICITAMENTE aqui (na app-layer, não
-// mais por trigger). Ver ADR 0007.
+
 export async function createProject(
   _prev: CreateProjectState,
   formData: FormData,
@@ -41,8 +41,7 @@ export async function createProject(
 
   if (!name) return { error: 'Informe um nome para o projeto.' }
 
-  // Sem a permissão de plataforma, nem tentamos o INSERT (a fatia 08 entrega o fluxo
-  // de pedir permissão; por ora basta avisar).
+
   if (!(await canCreateProjects(userId))) {
     return {
       error:
@@ -62,8 +61,6 @@ export async function createProject(
       .returning({ id: projects.id }),
   )
 
-  // HU-012: materializa o criador como Administrador ativo. onConflictDoNothing mantém a
-  // escrita idempotente (defensivo contra reenvio). Admin nasce já consentido/sem onboarding.
   await ownerDb
     .insert(projectMembers)
     .values({ projectId: created.id, userId, role: 'administrator', status: 'active' })
@@ -71,31 +68,37 @@ export async function createProject(
       target: [projectMembers.projectId, projectMembers.userId, projectMembers.role],
     })
 
-  // redirect lança a exceção de controle do Next — fica FORA do transaction p/ não
-  // abortar a transação por engano.
+
   redirect(`/projects/${created.id}`)
 }
 
-// Regex propositalmente frouxa: só barra digitação obviamente inválida antes de
-// gravar; a validação real do endereço é o próprio login com Google (ADR 0006).
+
+export async function requestCreatePermission(
+  _prev: RequestPermissionState,
+  _formData: FormData,
+): Promise<RequestPermissionState> {
+  const claims = await getClaims()
+  if (!claims) redirect('/login')
+  const userId = claims.sub
+
+  if (await canCreateProjects(userId)) {
+    return { ok: 'Você já tem permissão para criar projetos.' }
+  }
+
+  await transaction((tx) =>
+    tx
+      .insert(platformPermissionRequests)
+      .values({ userId, status: 'pending' })
+      .onConflictDoNothing(),
+  )
+
+  revalidatePath('/projects/new')
+  return { ok: 'Solicitação enviada. Você será avisado quando for analisada.' }
+}
+
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
-// HU-010 / HU-018 / ADR 0006: o Administrador convida um avaliador por e-mail —
-// mesmo que a pessoa AINDA NÃO tenha conta. findInviteeByEmail (lib/authz) devolve só
-// id+name sem enumerar e-mails: a guarda anti-enumeração (só resolve se quem convida tem
-// can_create_projects) vive em TS.
-//
-// A permissão de admin é checada EXPLICITAMENTE na app (`isProjectAdmin`) ANTES das
-// queries. Dois caminhos:
-//  - JÁ CADASTRADO: grava invitee_id + invitee_email; pré-check de membro ativo (mensagem
-//    amigável); a notificação in-platform é criada EXPLICITAMENTE aqui.
-//  - SEM CONTA: grava só invitee_email (invitee_id NULL). O convite fica pendente até o
-//    1º login com Google daquele e-mail, quando o provisionamento (lib/auth/provision)
-//    vincula o invitee_id e dispara a notificação (fatia 07 / ADR 0006). O admin
-//    compartilha o link por fora.
-//
-// O índice único (inv_one_pending_per_invitee / inv_one_pending_per_email) barra convite
-// pendente duplicado (23505) nos dois caminhos.
+
 export async function inviteEvaluator(
   _prev: InviteEvaluatorState,
   formData: FormData,
@@ -119,11 +122,8 @@ export async function inviteEvaluator(
 
   const invitee = await findInviteeByEmail(userId, email)
 
-  // Alvo do convite: quem se vê no sucesso e na mensagem de duplicado.
   const target = invitee ? invitee.name : email
 
-  // Não convidar quem já é membro ativo (mensagem clara). Só faz sentido para quem já
-  // tem conta — sem perfil não há membership.
   if (invitee) {
     const [active] = await transaction((tx) =>
       tx
@@ -159,20 +159,15 @@ export async function inviteEvaluator(
     )
     invitationId = row.id
   } catch (err) {
-    // 23505: índice único (convite pendente já existe para esse e-mail/usuário).
     if (pgErrorCode(err) === '23505') {
       return { error: `${target} já tem um convite pendente neste projeto.` }
     }
-    // Demais: numa corrida, a pessoa pode ter virado membro ativo entre o pré-check e a
-    // escrita.
+
     return {
       error: `Não foi possível convidar ${target}. Talvez já seja membro ativo do projeto.`,
     }
   }
 
-  // Notificação in-platform do convite (só o ramo JÁ-CADASTRADO: quem não tem conta é
-  // notificado na resolução, no 1º login — ver lib/auth/provision). A guarda not-exists
-  // mantém a escrita idempotente (não duplica se a mesma notificação já existe).
   if (invitee) {
     const [dup] = await ownerDb
       .select({ id: notifications.id })
@@ -200,10 +195,7 @@ export async function inviteEvaluator(
     : { ok: `Convite enviado para ${email}. A pessoa verá o convite ao entrar com o Google.` }
 }
 
-// HU-014/016: o Administrador edita nome/descrição — só com o projeto `active`. A
-// permissão de admin é checada EXPLICITAMENTE na app (`isProjectAdmin`) ANTES da escrita.
-// O `where status = 'active'` embutido no UPDATE evita a corrida (o projeto ser concluído
-// entre a checagem e a escrita) — se casar 0 linhas, avisamos que está travado.
+
 export async function updateProject(
   _prev: UpdateProjectState,
   formData: FormData,
@@ -240,12 +232,6 @@ export async function updateProject(
   return { ok: 'Alterações salvas.' }
 }
 
-// HU-015/016/017: transições do ciclo de vida do projeto pelo Administrador —
-// concluir (active→completed), arquivar (active/completed→archived) e reativar
-// (completed/archived→active). Ação sem estado: os botões da UI confirmam antes de
-// enviar e só aparecem nas transições válidas para o status atual. A permissão de admin
-// é checada EXPLICITAMENTE (`isProjectAdmin`). O `where status = <origem>` embutido torna
-// a transição idempotente e imune à corrida.
 const STATUS_TRANSITIONS: Record<string, readonly string[]> = {
   active: ['completed', 'archived'],
   completed: ['active', 'archived'],
@@ -262,7 +248,6 @@ export async function setProjectStatus(formData: FormData): Promise<void> {
   const to = String(formData.get('to') ?? '')
   if (!projectId) return
 
-  // Transição precisa ser conhecida e permitida a partir do status de origem declarado.
   if (!STATUS_TRANSITIONS[from]?.includes(to)) return
 
   if (!(await isProjectAdmin(userId, projectId))) return
@@ -278,15 +263,6 @@ export async function setProjectStatus(formData: FormData): Promise<void> {
   revalidatePath('/dashboard')
 }
 
-// HU-021: o Administrador remove um avaliador do projeto. status → 'inactive'
-// (as avaliações são preservadas — nada é apagado), e os convites pendentes daquele
-// avaliador para o projeto são cancelados. Sem notificação ao removido. A permissão de
-// admin é checada EXPLICITAMENTE (`isProjectAdmin`) antes da escrita. Numa única transação:
-//   • a checagem `isProjectAdmin` + o filtro `role='evaluator' AND status='active'` são a
-//     guarda da transição active→inactive de OUTRO membro;
-//   • cancelar os convites pendentes daquele avaliador.
-// O filtro `status = 'active'` evita mexer em avaliador ainda em onboarding e torna a ação
-// idempotente. Reativar-se (inactive→active) não é oferecido por nenhuma action.
 export async function removeMember(formData: FormData): Promise<void> {
   const claims = await getClaims()
   if (!claims) redirect('/login')
@@ -299,8 +275,7 @@ export async function removeMember(formData: FormData): Promise<void> {
   if (!(await isProjectAdmin(userId, projectId))) return
 
   await transaction(async (tx) => {
-    // `updated_at` não é setado aqui: o `$onUpdate` do schema (lib/db/schema.ts) já o
-    // mantém automaticamente em todo UPDATE.
+
     await tx
       .update(projectMembers)
       .set({ status: 'inactive' })
@@ -328,11 +303,6 @@ export async function removeMember(formData: FormData): Promise<void> {
   revalidatePath(`/projects/${projectId}`)
 }
 
-// HU-022: o Avaliador sai voluntariamente do projeto. status → 'inactive' na PRÓPRIA
-// linha de avaliador ativo; avaliações preservadas. A guarda é o próprio filtro
-// `user_id = self AND role='evaluator' AND status='active'`: só a própria linha ativa
-// vira inactive, e nunca o contrário. Reativar-se (inactive→active) não é oferecido por
-// nenhuma action. Redireciona ao dashboard (já não é mais membro ativo aqui).
 export async function leaveProject(formData: FormData): Promise<void> {
   const claims = await getClaims()
   if (!claims) redirect('/login')
@@ -341,7 +311,7 @@ export async function leaveProject(formData: FormData): Promise<void> {
   const projectId = String(formData.get('project_id') ?? '')
   if (!projectId) return
 
-  // `updated_at` não é setado aqui (ver removeMember): o `$onUpdate` do schema cuida disso.
+
   await transaction((tx) =>
     tx
       .update(projectMembers)
@@ -356,7 +326,7 @@ export async function leaveProject(formData: FormData): Promise<void> {
       ),
   )
 
-  // redirect lança a exceção de controle do Next — fica FORA do transaction.
+
   revalidatePath('/dashboard')
   redirect('/dashboard')
 }

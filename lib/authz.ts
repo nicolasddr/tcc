@@ -1,17 +1,5 @@
-// lib/authz.ts — autorização na camada de aplicação (issue #22).
-//
-// Este módulo é a fonte única da verdade de "quem pode o quê": cada função é um predicado
-// tipado (`isProjectAdmin`, `isProjectMember`, etc.) que recebe o `userId` como ARGUMENTO
-// explícito e responde com uma query Drizzle. As actions/páginas chamam estes predicados
-// ANTES/JUNTO de cada leitura ou escrita.
-//
-// O executor default é `ownerDb` (a única conexão): um predicado precisa enxergar TODAS as
-// linhas para decidir "fulano é admin?", independentemente de quem pergunta. O parâmetro
-// `db` permite injetar uma transação (usado nos testes para rodar sob rollback, e nas
-// actions para reaproveitar a transação já aberta).
-//
-// ⚠️ SERVER-ONLY (importa `lib/db`, que abre conexão TCP). Nunca importar no cliente.
-import { and, desc, eq, sql } from 'drizzle-orm'
+
+import { and, asc, desc, eq, sql } from 'drizzle-orm'
 import { alias } from 'drizzle-orm/pg-core'
 import {
   ownerDb,
@@ -20,6 +8,7 @@ import {
   projects,
   projectMembers,
   projectInvitations,
+  platformPermissionRequests,
   superAdmins,
 } from '@/lib/db'
 
@@ -191,6 +180,61 @@ export function canCreateProjects(userId: string, db: DbExecutor = ownerDb): Pro
       .where(and(eq(profiles.id, userId), eq(profiles.canCreateProjects, true)))
       .limit(1),
   )
+}
+
+/**
+ * Tem uma solicitação de permissão de criação de projetos ainda PENDENTE? (fatia 08)
+ * Usado pela página /projects/new para mostrar "aguardando aprovação" em vez de reoferecer
+ * o botão de solicitar. O índice único parcial `ppr_one_pending_per_user` garante que só
+ * exista uma pendente por usuário.
+ */
+export function hasPendingPermissionRequest(
+  userId: string,
+  db: DbExecutor = ownerDb,
+): Promise<boolean> {
+  return any(
+    db
+      .select({ one: ONE })
+      .from(platformPermissionRequests)
+      .where(
+        and(
+          eq(platformPermissionRequests.userId, userId),
+          eq(platformPermissionRequests.status, 'pending'),
+        ),
+      )
+      .limit(1),
+  )
+}
+
+export type PendingPermissionRequest = {
+  requestId: string
+  userId: string
+  userName: string
+  userEmail: string
+  createdAt: string
+}
+
+/**
+ * Lista as solicitações de permissão de criação de projetos ainda PENDENTES, já com o nome
+ * e o e-mail de quem pediu, para a página de revisão do super-admin (fatia 08 / HU-033).
+ * Só o super-admin chama isto (a página checa `isSuperAdmin` antes). Ordena da mais antiga
+ * para a mais recente (fila: quem esperou mais aparece primeiro).
+ */
+export function listPendingPermissionRequests(
+  db: DbExecutor = ownerDb,
+): Promise<PendingPermissionRequest[]> {
+  return db
+    .select({
+      requestId: platformPermissionRequests.id,
+      userId: platformPermissionRequests.userId,
+      userName: profiles.name,
+      userEmail: profiles.email,
+      createdAt: platformPermissionRequests.createdAt,
+    })
+    .from(platformPermissionRequests)
+    .innerJoin(profiles, eq(profiles.id, platformPermissionRequests.userId))
+    .where(eq(platformPermissionRequests.status, 'pending'))
+    .orderBy(asc(platformPermissionRequests.createdAt))
 }
 
 /**
