@@ -9,7 +9,8 @@
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:int": "vitest run",
+    "test:unit": "vitest run --project unit",
+    "test:int": "vitest run --project int",
     "test:e2e": "playwright test",
     "db:reset": "supabase db reset"
   },

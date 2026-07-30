@@ -7,6 +7,7 @@ import { acceptInvitation } from '@/app/onboarding/actions'
 import { declineInvitation } from '@/app/invitations/actions'
 import { taskTypeLabel } from '../task-types'
 import { projectStatusLabel, roleLabel, memberStatusLabel } from '../labels'
+import { groupMembers } from '../members'
 import { InviteEvaluatorForm } from './invite-evaluator-form'
 import { ManageProject } from './manage-project'
 import { RemoveMemberButton, LeaveProjectButton } from './member-actions'
@@ -15,22 +16,6 @@ import { buttonClass } from '@/app/components/ui/button'
 import { Badge, StatusBadge } from '@/app/components/ui/badge'
 import '../projects.css'
 import '@/app/notifications/notifications.css'
-
-type ListedMember = {
-  userId: string
-  name: string
-  email: string
-  roles: string[]
-  status: string // status agregado do usuário no projeto
-}
-
-// Status agregado quando o usuário tem mais de uma linha (ex.: admin que também é
-// avaliador): ativo se qualquer papel estiver ativo; senão pendente; senão inativo.
-function aggregateStatus(statuses: string[]): string {
-  if (statuses.includes('active')) return 'active'
-  if (statuses.includes('pending_onboarding')) return 'pending_onboarding'
-  return 'inactive'
-}
 
 export default async function ProjectPage({
   params,
@@ -42,10 +27,7 @@ export default async function ProjectPage({
   if (!claims) redirect('/login')
   const userId = claims.sub
 
-  // Numa única transação, com o ESCOPO explícito na app (ver ADR 0007): o projeto (por
-  // id), os papéis do usuário neste projeto (uma linha por papel — HU-024), um eventual
-  // convite pendente (para oferecer aceitar/recusar) e a lista de membros com nome/e-mail
-  // (HU-025).
+
   const { project, memberships, pendingInvitation, memberRows } = await transaction(async (tx) => {
     const [project] = await tx
       .select({
@@ -78,9 +60,6 @@ export default async function ProjectPage({
       )
       .limit(1)
 
-    // Escopo explícito da lista de membros: o admin vê todas as linhas; um membro ativo
-    // vê as não-`pending_onboarding` (mais a própria); quem não é ativo vê só a própria.
-    // O innerJoin com profiles só traz perfis de co-membros do projeto.
     const viewerIsAdmin = memberships.some(
       (m) => m.role === 'administrator' && m.status === 'active',
     )
@@ -106,8 +85,6 @@ export default async function ProjectPage({
   })
   if (!project) notFound()
 
-  // Escopo explícito de VISIBILIDADE do projeto: só o criador, um membro (qualquer status)
-  // ou um convidado pendente enxerga — quem não participa cai no notFound.
   const canView =
     project.createdBy === userId ||
     memberships.length > 0 ||
@@ -124,33 +101,13 @@ export default async function ProjectPage({
   )
   const isActiveMember = memberships.some((m) => m.status === 'active')
   const isMember = memberships.length > 0
-  // Só um avaliador ativo que NÃO é administrador pode sair voluntariamente (HU-022);
-  // o Administrador gere o ciclo do projeto, não "sai" dele.
+
   const canLeave =
     !isAdmin && memberships.some((m) => m.role === 'evaluator' && m.status === 'active')
   const taskType = taskTypeLabel(project.taskType)
 
-  // Agrega os membros por usuário (o admin-avaliador tem duas linhas — HU-024).
-  const byUser = new Map<string, ListedMember & { _statuses: string[] }>()
-  for (const row of memberRows) {
-    let entry = byUser.get(row.userId)
-    if (!entry) {
-      entry = {
-        userId: row.userId,
-        name: row.name,
-        email: row.email,
-        roles: [],
-        status: row.status,
-        _statuses: [],
-      }
-      byUser.set(row.userId, entry)
-    }
-    if (!entry.roles.includes(row.role)) entry.roles.push(row.role)
-    entry._statuses.push(row.status)
-  }
-  const members: ListedMember[] = [...byUser.values()]
-    .map((m) => ({ ...m, status: aggregateStatus(m._statuses) }))
-    .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'))
+
+  const members = groupMembers(memberRows)
 
   return (
     <div className="project-page">

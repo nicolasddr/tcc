@@ -24,6 +24,8 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: npm run typecheck
+      # Testes unitários de lógica pura: sem banco, rodam junto das checagens estáticas.
+      - run: npm run test:unit
 
   # Testes de integração: rodam contra o Supabase LOCAL (Postgres na 54322),
   # exatamente como `npm test` no dev. `supabase start` sobe o banco e aplica
