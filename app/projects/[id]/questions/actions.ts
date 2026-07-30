@@ -1,9 +1,8 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { redirect } from 'next/navigation'
 import { and, desc, eq } from 'drizzle-orm'
-import { getClaims } from '@/lib/supabase/server'
+import { requireUserId } from '@/lib/supabase/server'
 import { transaction, onboardingQuestions } from '@/lib/db'
 import { isProjectAdmin } from '@/lib/authz'
 import { parseOptionsInput, type OnboardingQuestionType } from '@/app/onboarding/questions'
@@ -47,9 +46,7 @@ export async function addQuestion(
   _prev: QuestionState,
   formData: FormData,
 ): Promise<QuestionState> {
-  const claims = await getClaims()
-  if (!claims) redirect('/login')
-  const userId = claims.sub
+  const userId = await requireUserId()
 
   const projectId = String(formData.get('project_id') ?? '')
   if (!projectId) return { error: 'Projeto inválido.' }
@@ -93,9 +90,7 @@ export async function updateQuestion(
   _prev: QuestionState,
   formData: FormData,
 ): Promise<QuestionState> {
-  const claims = await getClaims()
-  if (!claims) redirect('/login')
-  const userId = claims.sub
+  const userId = await requireUserId()
 
   const projectId = String(formData.get('project_id') ?? '')
   const questionId = String(formData.get('question_id') ?? '')
@@ -135,9 +130,7 @@ export async function updateQuestion(
 // onboarding_responses.question_id ON DELETE CASCADE). Admin checado EXPLICITAMENTE
 // (isProjectAdmin). Ação simples (sem estado): o form client confirma antes de enviar.
 export async function removeQuestion(formData: FormData): Promise<void> {
-  const claims = await getClaims()
-  if (!claims) redirect('/login')
-  const userId = claims.sub
+  const userId = await requireUserId()
 
   const projectId = String(formData.get('project_id') ?? '')
   const questionId = String(formData.get('question_id') ?? '')

@@ -1,30 +1,18 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { redirect } from 'next/navigation'
 import { and, eq } from 'drizzle-orm'
-import { getClaims } from '@/lib/supabase/server'
+import { requireUserId } from '@/lib/supabase/server'
 import { transaction, platformPermissionRequests, profiles } from '@/lib/db'
 import { isSuperAdmin } from '@/lib/authz'
 import { emitPermissionDecisionNotification } from '@/lib/notifications/permission'
 
-// Fatia 08 (#33): o super-admin decide uma solicitação de permissão de criar projetos.
-// A permissão é checada EXPLICITAMENTE na app (`isSuperAdmin`) ANTES de qualquer escrita —
-// sem super-admin, a action é um no-op silencioso (mesmo padrão de setProjectStatus/
-// removeMember). Toda a decisão roda numa única transação:
-//   • a linha da solicitação vira 'approved'/'rejected' com `resolved_by`/`resolved_at`,
-//     mas SÓ enquanto ainda está 'pending' (o `where status='pending'` torna a decisão
-//     idempotente e imune à corrida: dois cliques ou dois admins não decidem duas vezes);
-//   • ao aprovar, liga a flag `can_create_projects` no perfil do solicitante;
-//   • emite a notificação in-platform da decisão para o solicitante.
-// O `returning({ userId })` diz a quem pertence a solicitação (destinatário da notificação).
+
 async function resolvePermissionRequest(
   formData: FormData,
   decision: 'approved' | 'rejected',
 ): Promise<void> {
-  const claims = await getClaims()
-  if (!claims) redirect('/login')
-  const adminId = claims.sub
+  const adminId = await requireUserId()
 
   const requestId = String(formData.get('request_id') ?? '')
   if (!requestId) return
@@ -47,7 +35,7 @@ async function resolvePermissionRequest(
       )
       .returning({ userId: platformPermissionRequests.userId })
 
-    // Casou 0 linhas: já foi decidida (ou id inválido) — nada a fazer.
+
     if (resolved.length === 0) return
     const requesterId = resolved[0].userId
 

@@ -1,7 +1,7 @@
 import Link from '@/app/components/app-link'
 import { notFound, redirect } from 'next/navigation'
 import { and, eq } from 'drizzle-orm'
-import { getClaims } from '@/lib/supabase/server'
+import { requireUserId } from '@/lib/supabase/server'
 import { transaction, projects, projectMembers, onboardingQuestions } from '@/lib/db'
 import { coerceOptions, type OnboardingQuestion } from '@/app/onboarding/questions'
 import { QuestionManager } from './question-manager'
@@ -17,9 +17,7 @@ export default async function QuestionsPage({
   params: Promise<{ id: string }>
 }) {
   const { id } = await params
-  const claims = await getClaims()
-  if (!claims) redirect('/login')
-  const userId = claims.sub
+  const userId = await requireUserId()
 
   const { project, isAdmin, questions } = await transaction(async (tx) => {
     const [project] = await tx

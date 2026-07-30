@@ -1,18 +1,15 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { redirect } from 'next/navigation'
 import { and, eq } from 'drizzle-orm'
-import { getClaims } from '@/lib/supabase/server'
+import { requireUserId } from '@/lib/supabase/server'
 import { transaction, projectInvitations } from '@/lib/db'
 
 // HU-019: o convidado recusa um convite pendente (status → declined). O escopo "own" é
 // EXPLÍCITO na app: o WHERE filtra por `invitee_id = userId` (e status pending), então só
 // o próprio convidado recua a própria linha. Aceitar o convite é a fatia 04.
 export async function declineInvitation(formData: FormData): Promise<void> {
-  const claims = await getClaims()
-  if (!claims) redirect('/login')
-  const userId = claims.sub
+  const userId = await requireUserId()
 
   const invitationId = String(formData.get('invitation_id') ?? '')
   if (!invitationId) return

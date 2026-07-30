@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { and, eq } from 'drizzle-orm'
-import { getClaims } from '@/lib/supabase/server'
+import { requireUserId } from '@/lib/supabase/server'
 import {
   transaction,
   projectMembers,
@@ -24,9 +24,7 @@ export type OnboardingState = { error: string } | null
 // `pending`; só depois viramos o convite para `accepted`. O consentimento (promover a
 // active) é o passo seguinte.
 export async function acceptInvitation(formData: FormData): Promise<void> {
-  const claims = await getClaims()
-  if (!claims) redirect('/login')
-  const userId = claims.sub
+  const userId = await requireUserId()
 
   const projectId = String(formData.get('project_id') ?? '')
   if (!projectId) redirect('/dashboard')
@@ -87,9 +85,7 @@ export async function completeOnboarding(
   _prev: OnboardingState,
   formData: FormData,
 ): Promise<OnboardingState> {
-  const claims = await getClaims()
-  if (!claims) redirect('/login')
-  const userId = claims.sub
+  const userId = await requireUserId()
 
   const projectId = String(formData.get('project_id') ?? '')
   const consented = formData.get('consent') === 'on'
@@ -180,9 +176,7 @@ export async function completeOnboarding(
 // escritas têm escopo "own" explícito (WHERE user_id/invitee_id = userId), então mexem só
 // nas linhas do próprio usuário. Deletar primeiro, depois reverter.
 export async function abandonOnboarding(formData: FormData): Promise<void> {
-  const claims = await getClaims()
-  if (!claims) redirect('/login')
-  const userId = claims.sub
+  const userId = await requireUserId()
 
   const projectId = String(formData.get('project_id') ?? '')
   if (!projectId) redirect('/dashboard')

@@ -1,15 +1,12 @@
 import Link from '@/app/components/app-link'
-import { redirect } from 'next/navigation'
 import { eq } from 'drizzle-orm'
-import { getClaims } from '@/lib/supabase/server'
+import { requireUserId } from '@/lib/supabase/server'
 import { transaction, profiles } from '@/lib/db'
 import { ProfileForm } from './profile-form'
 import '../projects/projects.css'
 
 export default async function ProfilePage() {
-  const claims = await getClaims()
-  if (!claims) redirect('/login')
-  const userId = claims.sub
+  const userId = await requireUserId()
 
   // Leitura com escopo "own" explícito: o WHERE filtra pela própria linha (id = userId).
   const [profile] = await transaction((tx) =>

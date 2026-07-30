@@ -1,15 +1,12 @@
 import Link from '@/app/components/app-link'
-import { redirect } from 'next/navigation'
-import { getClaims } from '@/lib/supabase/server'
+import { requireUserId } from '@/lib/supabase/server'
 import { canCreateProjects, hasPendingPermissionRequest } from '@/lib/authz'
 import { NewProjectForm } from './new-project-form'
 import { RequestPermissionForm } from './request-permission-form'
 import '../projects.css'
 
 export default async function NewProjectPage() {
-  const claims = await getClaims()
-  if (!claims) redirect('/login')
-  const userId = claims.sub
+  const userId = await requireUserId()
 
   const allowed = await canCreateProjects(userId)
   const pendingRequest = allowed ? false : await hasPendingPermissionRequest(userId)

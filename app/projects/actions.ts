@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { and, eq, sql } from 'drizzle-orm'
-import { getClaims } from '@/lib/supabase/server'
+import { requireUserId } from '@/lib/supabase/server'
 import {
   transaction,
   ownerDb,
@@ -31,9 +31,7 @@ export async function createProject(
   _prev: CreateProjectState,
   formData: FormData,
 ): Promise<CreateProjectState> {
-  const claims = await getClaims()
-  if (!claims) redirect('/login')
-  const userId = claims.sub
+  const userId = await requireUserId()
 
   const name = String(formData.get('name') ?? '').trim()
   const description = String(formData.get('description') ?? '').trim()
@@ -77,9 +75,7 @@ export async function requestCreatePermission(
   _prev: RequestPermissionState,
   _formData: FormData,
 ): Promise<RequestPermissionState> {
-  const claims = await getClaims()
-  if (!claims) redirect('/login')
-  const userId = claims.sub
+  const userId = await requireUserId()
 
   if (await canCreateProjects(userId)) {
     return { ok: 'Você já tem permissão para criar projetos.' }
@@ -103,9 +99,7 @@ export async function inviteEvaluator(
   _prev: InviteEvaluatorState,
   formData: FormData,
 ): Promise<InviteEvaluatorState> {
-  const claims = await getClaims()
-  if (!claims) redirect('/login')
-  const userId = claims.sub
+  const userId = await requireUserId()
 
   const projectId = String(formData.get('project_id') ?? '')
   const email = String(formData.get('email') ?? '')
@@ -200,9 +194,7 @@ export async function updateProject(
   _prev: UpdateProjectState,
   formData: FormData,
 ): Promise<UpdateProjectState> {
-  const claims = await getClaims()
-  if (!claims) redirect('/login')
-  const userId = claims.sub
+  const userId = await requireUserId()
 
   const projectId = String(formData.get('project_id') ?? '')
   const name = String(formData.get('name') ?? '').trim()
@@ -239,9 +231,7 @@ const STATUS_TRANSITIONS: Record<string, readonly string[]> = {
 }
 
 export async function setProjectStatus(formData: FormData): Promise<void> {
-  const claims = await getClaims()
-  if (!claims) redirect('/login')
-  const userId = claims.sub
+  const userId = await requireUserId()
 
   const projectId = String(formData.get('project_id') ?? '')
   const from = String(formData.get('from') ?? '')
@@ -264,9 +254,7 @@ export async function setProjectStatus(formData: FormData): Promise<void> {
 }
 
 export async function removeMember(formData: FormData): Promise<void> {
-  const claims = await getClaims()
-  if (!claims) redirect('/login')
-  const userId = claims.sub
+  const userId = await requireUserId()
 
   const projectId = String(formData.get('project_id') ?? '')
   const memberUserId = String(formData.get('member_user_id') ?? '')
@@ -304,9 +292,7 @@ export async function removeMember(formData: FormData): Promise<void> {
 }
 
 export async function leaveProject(formData: FormData): Promise<void> {
-  const claims = await getClaims()
-  if (!claims) redirect('/login')
-  const userId = claims.sub
+  const userId = await requireUserId()
 
   const projectId = String(formData.get('project_id') ?? '')
   if (!projectId) return

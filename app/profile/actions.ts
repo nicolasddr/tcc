@@ -1,9 +1,8 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { redirect } from 'next/navigation'
 import { eq } from 'drizzle-orm'
-import { getClaims } from '@/lib/supabase/server'
+import { requireUserId } from '@/lib/supabase/server'
 import { transaction, profiles } from '@/lib/db'
 
 export type UpdateProfileState = { error: string } | { ok: string } | null
@@ -17,9 +16,7 @@ export async function updateProfile(
   _prev: UpdateProfileState,
   formData: FormData,
 ): Promise<UpdateProfileState> {
-  const claims = await getClaims()
-  if (!claims) redirect('/login')
-  const userId = claims.sub
+  const userId = await requireUserId()
 
   const name = String(formData.get('name') ?? '').trim()
 

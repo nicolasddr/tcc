@@ -1,7 +1,7 @@
 import Link from '@/app/components/app-link'
-import { notFound, redirect } from 'next/navigation'
+import { notFound } from 'next/navigation'
 import { and, eq, ne, or } from 'drizzle-orm'
-import { getClaims } from '@/lib/supabase/server'
+import { requireUserId } from '@/lib/supabase/server'
 import { transaction, projects, projectMembers, projectInvitations, profiles } from '@/lib/db'
 import { acceptInvitation } from '@/app/onboarding/actions'
 import { declineInvitation } from '@/app/invitations/actions'
@@ -23,9 +23,7 @@ export default async function ProjectPage({
   params: Promise<{ id: string }>
 }) {
   const { id } = await params
-  const claims = await getClaims()
-  if (!claims) redirect('/login')
-  const userId = claims.sub
+  const userId = await requireUserId()
 
 
   const { project, memberships, pendingInvitation, memberRows } = await transaction(async (tx) => {

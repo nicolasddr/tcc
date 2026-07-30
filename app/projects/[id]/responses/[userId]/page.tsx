@@ -1,7 +1,7 @@
 import Link from '@/app/components/app-link'
 import { notFound, redirect } from 'next/navigation'
 import { and, eq } from 'drizzle-orm'
-import { getClaims } from '@/lib/supabase/server'
+import { requireUserId } from '@/lib/supabase/server'
 import {
   transaction,
   projects,
@@ -13,19 +13,14 @@ import {
 import '../../../projects.css'
 import '@/app/notifications/notifications.css'
 
-// HU-029 (US 33): o Administrador vê as respostas de onboarding de um avaliador (somente
-// leitura). O gate é EXPLÍCITO na app: só um admin ativo do projeto passa (`isAdmin`) — os
-// demais são redirecionados e a leitura das respostas só ocorre para o admin.
-// Um leftJoin lista as perguntas mesmo sem resposta (perguntas criadas após o onboarding).
+
 export default async function MemberResponsesPage({
   params,
 }: {
   params: Promise<{ id: string; userId: string }>
 }) {
   const { id, userId } = await params
-  const claims = await getClaims()
-  if (!claims) redirect('/login')
-  const viewerId = claims.sub
+  const viewerId = await requireUserId()
 
   const { project, isAdmin, target, rows } = await transaction(async (tx) => {
     const [project] = await tx
@@ -42,7 +37,7 @@ export default async function MemberResponsesPage({
       (m) => m.role === 'administrator' && m.status === 'active',
     )
 
-    // A linha de avaliador do usuário-alvo (o consumidor das respostas).
+
     const [member] = await tx
       .select({ id: projectMembers.id })
       .from(projectMembers)
@@ -61,8 +56,7 @@ export default async function MemberResponsesPage({
       .where(eq(profiles.id, userId))
       .limit(1)
 
-    // Escopo can_view_response: só lê as respostas se o viewer é admin do projeto (e o
-    // alvo é avaliador). Para os demais nem consultamos — o redirect abaixo já os barra.
+
     const rows =
       isAdmin && member
         ? await tx

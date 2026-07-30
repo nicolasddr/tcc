@@ -1,20 +1,16 @@
 import Link from '@/app/components/app-link'
 import { redirect } from 'next/navigation'
-import { getClaims } from '@/lib/supabase/server'
+import { requireUserId } from '@/lib/supabase/server'
 import { isSuperAdmin, listPendingPermissionRequests } from '@/lib/authz'
 import { formatDate } from '@/app/notifications/labels'
 import { SubmitButton } from '@/app/components/submit-button'
 import { approvePermissionRequest, rejectPermissionRequest } from '@/app/admin/actions'
 import '../../projects/projects.css'
 
-// Fatia 08 (#33): revisão das solicitações de permissão de criar projetos. Página restrita
-// ao super-admin — a checagem é EXPLÍCITA aqui (`isSuperAdmin`); quem não for é mandado ao
-// dashboard (não revelamos a existência da página). A fila mostra as pendentes (mais antiga
-// primeiro) com Aprovar/Recusar; ambos são Server Actions (ver app/admin/actions.ts).
+
 export default async function AdminPermissionsPage() {
-  const claims = await getClaims()
-  if (!claims) redirect('/login')
-  if (!(await isSuperAdmin(claims.sub))) redirect('/dashboard')
+  const userId = await requireUserId()
+  if (!(await isSuperAdmin(userId))) redirect('/dashboard')
 
   const requests = await listPendingPermissionRequests()
 
