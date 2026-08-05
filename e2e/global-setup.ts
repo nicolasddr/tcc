@@ -2,6 +2,9 @@ import { createClient } from '@supabase/supabase-js'
 import { createServerClient } from '@supabase/ssr'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
+import { checkDevLogin, ensureTestUser } from '../lib/dev/session'
+import { ownerDb } from '../lib/db'
+import { provisionUserOnFirstLogin } from '../lib/auth/provision'
 
 const STORAGE_PATH = path.join(__dirname, '.auth', 'user.json')
 
@@ -16,31 +19,18 @@ const STORAGE_PATH = path.join(__dirname, '.auth', 'user.json')
  *   4. grava o storageState que todas as specs reusam.
  */
 async function globalSetup() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const publishableKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
-  const secretKey = process.env.SUPABASE_SECRET_KEY
-  const email = process.env.E2E_USER_EMAIL
-  const password = process.env.E2E_USER_PASSWORD
-
-  if (!url || !publishableKey || !secretKey || !email || !password) {
-    throw new Error(
-      'Faltam envs de teste (NEXT_PUBLIC_SUPABASE_URL/PUBLISHABLE_KEY, SUPABASE_SECRET_KEY, E2E_USER_*). Ver .env.test.local.'
-    )
+  // 1. Guards + usuário de teste — os mesmos que a rota `/dev/login` usa (lib/dev/session).
+  //    O profile é criado no passo 2.5 (antes do flip da Fase 4 vinha do trigger
+  //    handle_new_user, removido — issue #22).
+  const check = checkDevLogin()
+  if (!check.ok) {
+    throw new Error(`Ambiente de teste inválido: ${check.reason}. Ver .env.test.local.`)
   }
-
-  // 1. Garante o usuário de teste em auth.users. O profile é criado no passo 2.5 (antes do
-  //    flip da Fase 4 vinha do trigger handle_new_user, removido — issue #22).
-  const admin = createClient(url, secretKey, {
-    auth: { autoRefreshToken: false, persistSession: false },
-  })
-  const { error: createErr } = await admin.auth.admin.createUser({
-    email,
-    password,
-    email_confirm: true,
-  })
-  if (createErr && !/already|registered|exists/i.test(createErr.message)) {
-    throw createErr
+  const { url, publishableKey, secretKey, email, password } = check.config
+  if (!secretKey) {
+    throw new Error('SUPABASE_SECRET_KEY (service_role local) é obrigatória no E2E. Ver .env.test.local.')
   }
+  await ensureTestUser(check.config)
 
   // 2. Login por senha → tokens reais (ES256, assinados pela signing key local).
   const anon = createClient(url, publishableKey, {
@@ -56,14 +46,13 @@ async function globalSetup() {
   const { access_token, refresh_token } = signIn.session
 
   // 2.5. Materializa o profile (o trigger handle_new_user saiu no flip da Fase 4). No app
-  //      real isso acontece no auth callback (lib/auth/provision); o E2E injeta a sessão e
-  //      não passa pelo callback, então o profile é criado aqui via service_role. Idempotente.
+  //      real isso acontece no auth callback; o E2E injeta a sessão e não passa por lá,
+  //      então chamamos o MESMO provisionamento aqui. Idempotente.
   const fullName =
     (signIn.user?.user_metadata?.full_name as string | undefined) ?? email
-  const { error: profileErr } = await admin
-    .from('profiles')
-    .upsert({ id: signIn.user!.id, name: fullName, email }, { onConflict: 'id' })
-  if (profileErr) throw profileErr
+  await ownerDb.transaction((tx) =>
+    provisionUserOnFirstLogin({ id: signIn.user!.id, email, name: fullName }, tx),
+  )
 
   // 3. Deixa a @supabase/ssr produzir os cookies (captura via setAll em memória).
   const cookies: { name: string; value: string }[] = []

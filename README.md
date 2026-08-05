@@ -1,36 +1,58 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# tcc
 
-## Getting Started
+Ferramenta de engenharia de prompt — Next.js + Supabase (Auth) + Postgres local via Drizzle.
 
-First, run the development server:
+## Pré-requisitos
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+- Node.js recente (Next 16 exige uma versão atual)
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) instalado e aberto (roda o Postgres local)
+- [Supabase CLI](https://supabase.com/docs/guides/cli) (`brew install supabase/tap/supabase`)
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Setup local
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+1. Clonar e instalar dependências:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+   ```bash
+   git clone https://github.com/nicolasddr/tcc.git
+   cd tcc
+   npm install
+   ```
 
-## Learn More
+2. Criar o `.env.local` a partir do exemplo:
 
-To learn more about Next.js, take a look at the following resources:
+   ```bash
+   cp .env.example .env.local
+   ```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+   Preencher as 3 variáveis:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+   - `NEXT_PUBLIC_SUPABASE_URL` e `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` — peça esses valores pra quem já tem o projeto Supabase hospedado configurado (são chaves publishable/públicas, não precisam ser tratadas como segredo, mas não vão para o git).
+   - `DATABASE_URL` — mesmo valor para qualquer pessoa rodando localmente: `postgresql://postgres:postgres@127.0.0.1:54322/postgres`.
 
-## Deploy on Vercel
+3. Com o Docker aberto, subir o Postgres local (já aplica as migrations versionadas em `supabase/migrations/`):
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+   ```bash
+   supabase start
+   ```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+4. Rodar o servidor de desenvolvimento:
+
+   ```bash
+   npm run dev
+   ```
+
+   Abra [http://localhost:3000](http://localhost:3000).
+
+5. Login com Google: o Auth aponta para o projeto Supabase hospedado, e a URL `http://localhost:3000/auth/callback` já está na allowlist de redirect desse projeto — funciona para qualquer pessoa rodando em `localhost:3000`, sem configuração extra.
+
+**Nota:** o Auth (login) usa o Supabase hospedado, mas o banco de dados (Drizzle) é local — se o Docker/`supabase start` não estiver rodando, o login com Google conclui mas o app quebra ao tentar gravar o usuário no banco local.
+
+## Scripts úteis
+
+- `npm run dev` — servidor de desenvolvimento
+- `npm run build` / `npm run start` — build e start de produção
+- `npm run lint` / `npm run typecheck` — checagens estáticas
+- `npm test` — testes unitários e de integração (Vitest)
+- `npm run test:unit` / `npm run test:int` — só unitários / só integração
+- `npm run test:e2e` — testes end-to-end (Playwright)
+- `npm run db:reset` — reseta o Postgres local (`supabase db reset`)

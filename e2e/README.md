@@ -45,3 +45,27 @@ O assert de "0 round-trips" só é fiel se o Supabase local emitir **JWT assimé
 supabase start          # precisa estar no ar (auth + DB local)
 npm run test:e2e        # sobe o next dev na :3100 e roda a suíte
 ```
+
+## Abrir as telas logadas no navegador (`/dev/login`)
+
+O mesmo problema do E2E — não dá para passar pela tela do Google — vale para quem quer
+só *olhar* as telas autenticadas (inclusive um agente). Para isso existe a rota
+`app/dev/login/route.ts`, que emite uma sessão real com os mesmos cookies do fluxo do
+Google e redireciona (`?next=/alguma/rota`, default `/dashboard`):
+
+```sh
+supabase start
+npm run dev:local       # next dev na :3100 com o ambiente do .env.test.local
+```
+
+Depois é só abrir <http://localhost:3100/dev/login>.
+
+> ⚠️ A rota cria sessão **sem credencial do usuário**. Ela é inerte fora do ambiente
+> local: `lib/dev/session.ts` (`checkDevLogin`) exige Supabase em 127.0.0.1/localhost,
+> `NODE_ENV != production` e `E2E_USER_*` no ambiente — senão responde 404. O guard do
+> host é o que sustenta a garantia: mesmo indo para o deploy, a rota não alcança o
+> Supabase remoto. Coberto por `lib/dev/session.unit.test.ts`.
+
+O `global-setup.ts` compartilha os guards e a criação do usuário com essa rota
+(`lib/dev/session.ts`), e provisiona o perfil com o mesmo `provisionUserOnFirstLogin` do
+callback real.

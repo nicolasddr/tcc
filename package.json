@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "dev:local": "sh -c 'set -a; . ./.env.test.local; set +a; exec next dev -p 3100'",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
