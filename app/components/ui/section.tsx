@@ -7,16 +7,23 @@ import { cx } from './cx'
 export function Section({
   title,
   hint,
+  divider = true,
   className,
   children,
 }: {
   title: React.ReactNode
   hint?: React.ReactNode
+  divider?: boolean
   className?: string
   children: React.ReactNode
 }) {
   return (
-    <section className={cx('mt-8 border-t border-line pt-6', className)}>
+    <section
+      className={cx(
+        divider ? 'mt-8 border-t border-line pt-6' : 'mt-6',
+        className,
+      )}
+    >
       <h2 className="text-[16px] font-bold text-ink">{title}</h2>
       {hint ? <p className="mt-1.5 text-[13px] text-muted">{hint}</p> : null}
       <div className="mt-4">{children}</div>

@@ -9,15 +9,39 @@ import { formatDate } from '@/app/notifications/labels'
 import { projectStatusLabel, roleLabel, memberStatusLabel } from '../labels'
 import { groupMembers } from '../members'
 import { InviteEvaluatorForm } from './invite-evaluator-form'
-import { ManageProject } from './manage-project'
 import { RemoveMemberButton, LeaveProjectButton } from './member-actions'
+import { ProjectTabs } from './project-tabs'
 import { SubmitButton } from '@/app/components/submit-button'
-import { ButtonLink } from '@/app/components/ui/button'
+import { Button, ButtonLink } from '@/app/components/ui/button'
 import { Badge, StatusBadge } from '@/app/components/ui/badge'
-import { Card } from '@/app/components/ui/card'
+import { Avatar } from '@/app/components/ui/avatar'
+import { EmptyState } from '@/app/components/ui/empty-state'
+import { Panel, Callout } from '@/app/components/ui/panel'
+import { InfoTooltip } from '@/app/components/ui/tooltip'
+import { StatCard, ProgressBar } from '@/app/components/ui/stat'
 import { Section } from '@/app/components/ui/section'
 import { PageShell, TopBar, BackLink, PageTitle } from '@/app/components/ui/shell'
-import { cx } from '@/app/components/ui/cx'
+import {
+  UsersIcon,
+  BookIcon,
+  ArrowRightIcon,
+  SlidersIcon,
+} from '@/app/components/ui/icons'
+
+const TOTAL_PHASES = 4
+
+const soonBadge = <Badge tone="neutral">em breve</Badge>
+
+function Meta({ term, value }: { term: string; value: string }) {
+  return (
+    <div className="flex flex-col gap-1">
+      <dt className="text-[11px] font-semibold tracking-[0.06em] text-muted uppercase">
+        {term}
+      </dt>
+      <dd className="m-0 text-[13px] font-medium text-ink">{value}</dd>
+    </div>
+  )
+}
 
 export default async function ProjectPage({
   params,
@@ -108,141 +132,227 @@ export default async function ProjectPage({
 
 
   const members = groupMembers(memberRows)
+  const showMembers = isActiveMember && members.length > 0
+  const activeEvaluators = members.filter(
+    (m) => m.roles.includes('evaluator') && m.status === 'active',
+  ).length
+  const inOnboarding = members.filter((m) => m.status === 'pending_onboarding').length
 
   return (
     <PageShell
+      width="wide"
       header={
         <TopBar>
           <BackLink href="/dashboard" />
         </TopBar>
       }
     >
-      <div className="flex flex-wrap items-center gap-3">
-        <PageTitle>{project.name}</PageTitle>
-        <StatusBadge status={project.status}>
-          {projectStatusLabel(project.status)}
-        </StatusBadge>
-      </div>
-
-      {roles.length > 0 ? (
-        <p className="mt-2 flex items-center gap-2 text-[13px] text-label">
-          Seu papel: {roles.join(' · ')}
-          {onboardingPending ? <Badge tone="warning">onboarding pendente</Badge> : null}
-        </p>
-      ) : null}
-
-      <Card padding="lg" className="mt-5">
-        <p
-          className={cx(
-            'm-0 text-[15px] leading-[1.6] whitespace-pre-wrap',
-            project.description ? 'text-ink-soft' : 'text-faint',
-          )}
-        >
-          {project.description ?? 'Sem descrição.'}
-        </p>
-
-        <dl className="mt-4 flex flex-col gap-2 border-t border-line pt-4">
-          <div className="flex gap-3">
-            <dt className="min-w-[120px] text-[13px] text-muted">Tipo de tarefa</dt>
-            <dd className="m-0 text-[13px] text-ink">{taskType ?? 'Não declarado'}</dd>
+      <header>
+        <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-3">
+            <PageTitle>{project.name}</PageTitle>
+            {project.description ? <InfoTooltip text={project.description} /> : null}
+            <StatusBadge status={project.status}>
+              {projectStatusLabel(project.status)}
+            </StatusBadge>
+            {onboardingPending ? (
+              <Badge tone="warning">onboarding pendente</Badge>
+            ) : null}
           </div>
-          <div className="flex gap-3">
-            <dt className="min-w-[120px] text-[13px] text-muted">Criado em</dt>
-            <dd className="m-0 text-[13px] text-ink">{formatDate(project.createdAt)}</dd>
-          </div>
+
+          {isAdmin ? (
+            <ButtonLink
+              href={`/projects/${project.id}/settings`}
+              variant="secondary"
+              size="sm"
+            >
+              <SlidersIcon />
+              Configurações
+            </ButtonLink>
+          ) : null}
+        </div>
+
+        <dl className="mt-5 flex flex-wrap gap-x-10 gap-y-4">
+          <Meta term="Tipo de tarefa" value={taskType ?? 'Não declarado'} />
+          <Meta term="Criado em" value={formatDate(project.createdAt)} />
+          {roles.length > 0 ? <Meta term="Seu papel" value={roles.join(' · ')} /> : null}
         </dl>
-      </Card>
+      </header>
 
       {/* Convite pendente: o convidado (ainda não-membro) aceita ou recusa aqui. */}
       {pendingInvitation && !isMember ? (
-        <Section
+        <Callout
+          className="mt-6"
+          tone="accent"
           title="Você foi convidado para este projeto"
           hint="Ao aceitar, você passa por um onboarding rápido (consentimento) antes de participar como avaliador."
-        >
-          <div className="flex flex-wrap items-center gap-3">
-            <form action={acceptInvitation}>
-              <input type="hidden" name="project_id" value={project.id} />
-              <SubmitButton variant="primary" pendingText="Aceitando…">
-                Aceitar convite
-              </SubmitButton>
-            </form>
-            <form action={declineInvitation}>
-              <input type="hidden" name="invitation_id" value={pendingInvitation.id} />
-              <SubmitButton variant="danger" pendingText="Recusando…">
-                Recusar
-              </SubmitButton>
-            </form>
-          </div>
-        </Section>
+          action={
+            <>
+              <form action={acceptInvitation}>
+                <input type="hidden" name="project_id" value={project.id} />
+                <SubmitButton variant="primary" pendingText="Aceitando…">
+                  Aceitar convite
+                </SubmitButton>
+              </form>
+              <form action={declineInvitation}>
+                <input type="hidden" name="invitation_id" value={pendingInvitation.id} />
+                <SubmitButton variant="danger" pendingText="Recusando…">
+                  Recusar
+                </SubmitButton>
+              </form>
+            </>
+          }
+        />
       ) : null}
 
       {/* Onboarding a concluir: já aceitou, falta consentir. */}
       {onboardingPending ? (
-        <Section
+        <Callout
+          className="mt-6"
+          tone="accent"
           title="Conclua seu onboarding"
           hint="Você aceitou o convite. Falta registrar o consentimento para ativar sua participação como avaliador."
-        >
-          <ButtonLink href={`/projects/${project.id}/onboarding`}>
-            Concluir onboarding
-          </ButtonLink>
-        </Section>
+          action={
+            <ButtonLink href={`/projects/${project.id}/onboarding`}>
+              Concluir onboarding
+            </ButtonLink>
+          }
+        />
       ) : null}
 
-      {/* Lista de membros (HU-025): visível a quem já participa ativamente. */}
-      {isActiveMember && members.length > 0 ? (
-        <Section title={`Membros (${members.length})`}>
-          <ul className="m-0 flex list-none flex-col gap-2 p-0">
-            {members.map((m) => (
-              <li key={m.userId}>
-                <Card
-                  padding="sm"
-                  className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2"
-                >
-                  <span className="flex min-w-0 flex-col gap-0.5">
-                    <span className="truncate text-sm font-semibold text-ink">
-                      {m.name}
-                    </span>
-                    {m.email !== m.name ? (
-                      <span className="truncate text-xs text-muted">{m.email}</span>
-                    ) : null}
-                  </span>
-                  <span className="flex shrink-0 items-center gap-2.5">
-                    <span className="text-xs text-label">
-                      {m.roles.map(roleLabel).join(' · ')}
-                    </span>
-                    {m.status !== 'active' ? (
-                      <StatusBadge status={m.status}>
-                        {memberStatusLabel(m.status)}
-                      </StatusBadge>
-                    ) : null}
-                    {/* HU-029: só o admin, e só para quem é avaliador. */}
-                    {isAdmin && m.roles.includes('evaluator') ? (
-                      <ButtonLink
-                        href={`/projects/${project.id}/responses/${m.userId}`}
-                        variant="link"
-                      >
-                        Ver respostas
-                      </ButtonLink>
-                    ) : null}
-                    {/* HU-021: o admin remove um avaliador ativo (não a si mesmo,
-                        nem outro administrador). */}
-                    {isAdmin &&
-                    m.roles.includes('evaluator') &&
-                    !m.roles.includes('administrator') &&
-                    m.status === 'active' &&
-                    m.userId !== userId ? (
-                      <RemoveMemberButton
-                        projectId={project.id}
-                        memberUserId={m.userId}
-                        memberName={m.name}
-                      />
-                    ) : null}
-                  </span>
-                </Card>
-              </li>
-            ))}
-          </ul>
-        </Section>
+      {isMember ? (
+        <>
+          <ProjectTabs />
+
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <StatCard
+              label="Fase atual"
+              value="1"
+              suffix={`/ ${TOTAL_PHASES}`}
+              hint="Configuração inicial"
+              badge={soonBadge}
+            >
+              <ProgressBar value={1} max={TOTAL_PHASES} />
+            </StatCard>
+
+            <StatCard
+              label="Avaliadores"
+              value={activeEvaluators}
+              hint={
+                inOnboarding > 0 ? `${inOnboarding} em onboarding` : 'ativos no projeto'
+              }
+            />
+
+            <StatCard
+              label="Concordância"
+              value="—"
+              hint="ICR entre avaliadores"
+              badge={soonBadge}
+            />
+
+            <StatCard
+              label="Avaliações"
+              value="—"
+              hint="Respostas avaliadas"
+              badge={soonBadge}
+            />
+          </div>
+
+          <div className="mt-3 grid items-start gap-3 lg:grid-cols-2">
+            {/* Lista de membros (HU-025): visível a quem já participa ativamente. */}
+            <Panel
+              title="Membros"
+              icon={<UsersIcon />}
+              action={
+                showMembers ? (
+                  <span className="text-[13px] text-muted">{members.length}</span>
+                ) : null
+              }
+            >
+              {showMembers ? (
+                <ul className="m-0 flex list-none flex-col gap-0.5 p-0">
+                  {members.map((m) => (
+                    <li
+                      key={m.userId}
+                      className="flex items-center gap-2.5 rounded-control px-1 py-1.5"
+                    >
+                      <Avatar fallback={m.name.charAt(0)} />
+                      <span className="flex min-w-0 flex-1 flex-col">
+                        <span className="truncate text-[13px] font-semibold text-ink">
+                          {m.name}
+                        </span>
+                        <span className="truncate text-[11px] text-muted">
+                          {m.roles.map(roleLabel).join(' · ')}
+                          {m.email !== m.name ? ` · ${m.email}` : ''}
+                        </span>
+                      </span>
+                      <span className="flex shrink-0 items-center gap-2.5">
+                        {m.status !== 'active' ? (
+                          <StatusBadge status={m.status}>
+                            {memberStatusLabel(m.status)}
+                          </StatusBadge>
+                        ) : null}
+                        {/* HU-029: só o admin, e só para quem é avaliador. */}
+                        {isAdmin && m.roles.includes('evaluator') ? (
+                          <ButtonLink
+                            href={`/projects/${project.id}/responses/${m.userId}`}
+                            variant="link"
+                          >
+                            Ver respostas
+                          </ButtonLink>
+                        ) : null}
+                        {/* HU-021: o admin remove um avaliador ativo (não a si mesmo,
+                            nem outro administrador). */}
+                        {isAdmin &&
+                        m.roles.includes('evaluator') &&
+                        !m.roles.includes('administrator') &&
+                        m.status === 'active' &&
+                        m.userId !== userId ? (
+                          <RemoveMemberButton
+                            projectId={project.id}
+                            memberUserId={m.userId}
+                            memberName={m.name}
+                          />
+                        ) : null}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <EmptyState>
+                  A lista de membros aparece depois que você conclui o onboarding.
+                </EmptyState>
+              )}
+
+              {isAdmin ? (
+                <div className="mt-4 border-t border-line pt-4">
+                  <InviteEvaluatorForm projectId={project.id} />
+                </div>
+              ) : null}
+            </Panel>
+
+            <Panel title="Codebook" icon={<BookIcon />} action={soonBadge}>
+              <EmptyState>
+                Nenhuma versão registrada. As definições e os critérios que orientam a
+                avaliação entram aqui.
+              </EmptyState>
+            </Panel>
+          </div>
+
+          {isAdmin && project.status === 'active' ? (
+            <Callout
+              className="mt-3"
+              title="Pronto para avançar?"
+              hint="Quando o prompt estiver validado, avance para a próxima fase do processo."
+              action={
+                <Button disabled title="Ainda não implementado">
+                  Avançar fase
+                  <ArrowRightIcon />
+                </Button>
+              }
+            />
+          ) : null}
+        </>
       ) : null}
 
       {/* HU-022: um avaliador ativo (não-admin) pode sair voluntariamente. */}
@@ -252,37 +362,6 @@ export default async function ProjectPage({
           hint="Você deixa de participar como avaliador. Suas avaliações são preservadas, mas só o administrador poderá readmiti-lo depois."
         >
           <LeaveProjectButton projectId={project.id} />
-        </Section>
-      ) : null}
-
-      {/* HU-014–017: gerência do ciclo de vida do projeto (editar / concluir /
-          arquivar / reativar), só para o Administrador. */}
-      {isAdmin ? (
-        <ManageProject
-          projectId={project.id}
-          status={project.status}
-          name={project.name}
-          description={project.description}
-        />
-      ) : null}
-
-      {isAdmin ? (
-        <Section
-          title="Onboarding dos avaliadores"
-          hint="Defina as perguntas (abertas ou de múltipla escolha) que os avaliadores respondem ao entrar no projeto."
-        >
-          <ButtonLink href={`/projects/${project.id}/questions`} variant="secondary">
-            Gerenciar perguntas de onboarding
-          </ButtonLink>
-        </Section>
-      ) : null}
-
-      {isAdmin ? (
-        <Section
-          title="Convidar avaliador"
-          hint="Informe o e-mail de quem já tem conta. O convidado recebe uma notificação e pode aceitar ou recusar."
-        >
-          <InviteEvaluatorForm projectId={project.id} />
         </Section>
       ) : null}
     </PageShell>
