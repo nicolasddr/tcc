@@ -71,6 +71,24 @@ describe('checkDevLogin', () => {
     expect(checkDevLogin().ok).toBe(false)
   })
 
+  // A conta da rota tem de ser OUTRA que não a do E2E: a rota promove quem loga a
+  // super-admin, e o fixture das specs precisa seguir sendo um usuário comum.
+  it('usa uma conta separada da do E2E', () => {
+    stubLocalEnv()
+    const check = checkDevLogin()
+    expect(check.ok).toBe(true)
+    if (!check.ok) return
+    expect(check.config.devEmail).toBe('dev@test.local')
+    expect(check.config.devEmail).not.toBe(check.config.email)
+  })
+
+  it('permite trocar a conta da rota por DEV_USER_EMAIL', () => {
+    stubLocalEnv()
+    vi.stubEnv('DEV_USER_EMAIL', 'outro@test.local')
+    const check = checkDevLogin()
+    expect(check.ok === true && check.config.devEmail).toBe('outro@test.local')
+  })
+
   // A service_role só serve para CRIAR o usuário de teste; sem ela o login ainda
   // funciona se o usuário já existir.
   it('libera sem service_role, deixando secretKey indefinida', () => {

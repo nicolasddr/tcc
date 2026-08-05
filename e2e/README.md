@@ -60,6 +60,13 @@ npm run dev:local       # next dev na :3100 com o ambiente do .env.test.local
 
 Depois é só abrir <http://localhost:3100/dev/login>.
 
+A rota loga como **`dev@test.local`** — conta separada da `e2e@test.local` das specs — e a
+promove a `can_create_projects` + super-admin da plataforma. Sem isso a conta local seria
+um beco sem saída: `can_create_projects` nasce `false` e depende da aprovação de um
+super-admin, que não existiria no banco recém-resetado. As contas são separadas de
+propósito: como as duas vivem no mesmo banco local, compartilhá-las deixaria o fixture do
+E2E dependente de alguém ter aberto a rota ou não.
+
 > ⚠️ A rota cria sessão **sem credencial do usuário**. Ela é inerte fora do ambiente
 > local: `lib/dev/session.ts` (`checkDevLogin`) exige Supabase em 127.0.0.1/localhost,
 > `NODE_ENV != production` e `E2E_USER_*` no ambiente — senão responde 404. O guard do

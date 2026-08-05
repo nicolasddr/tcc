@@ -14,10 +14,26 @@
 // O `?next=` segue a mesma regra do callback do OAuth (só caminho relativo), para não
 // virar um open redirect — ver `app/auth/callback/route.ts`.
 import { NextResponse } from 'next/server'
+import { eq } from 'drizzle-orm'
 import { createClient } from '@/lib/supabase/server'
-import { ownerDb } from '@/lib/db'
+import { ownerDb, profiles, superAdmins, type DbExecutor } from '@/lib/db'
 import { provisionUserOnFirstLogin } from '@/lib/auth/provision'
 import { checkDevLogin, ensureTestUser } from '@/lib/dev/session'
+
+/**
+ * Dá ao usuário de desenvolvimento os privilégios que ele não teria no fluxo real:
+ * `can_create_projects` (que nasce `false` e depende de aprovação de um super-admin) e
+ * super-admin da plataforma (para alcançar `/admin/permissions`). Sem isso a conta local
+ * é um beco sem saída — não dá para criar projeto nem para se auto-aprovar.
+ *
+ * Idempotente. Só roda depois de `checkDevLogin()`, ou seja, apenas no banco local, que é
+ * descartável (`supabase db reset`). Atinge só a conta `devEmail`: o fixture do E2E é
+ * outro usuário, justamente para não herdar estes privilégios.
+ */
+async function grantDevPrivileges(userId: string, db: DbExecutor): Promise<void> {
+  await db.update(profiles).set({ canCreateProjects: true }).where(eq(profiles.id, userId))
+  await db.insert(superAdmins).values({ userId }).onConflictDoNothing()
+}
 
 export async function GET(request: Request) {
   const check = checkDevLogin()
@@ -31,13 +47,14 @@ export async function GET(request: Request) {
   const rawNext = searchParams.get('next') ?? '/dashboard'
   const next = rawNext.startsWith('/') && !rawNext.startsWith('//') ? rawNext : '/dashboard'
 
-  await ensureTestUser(config)
+  // Conta própria da rota (`devEmail`), separada da conta do E2E — ver lib/dev/session.ts.
+  await ensureTestUser(config, config.devEmail)
 
   // O client de servidor escreve os cookies de sessão pela própria @supabase/ssr, então o
   // formato/chunking é idêntico ao do fluxo real e o proxy.ts os entende sem gambiarra.
   const supabase = await createClient()
   const { data, error } = await supabase.auth.signInWithPassword({
-    email: config.email,
+    email: config.devEmail,
     password: config.password,
   })
   if (error || !data.user) {
@@ -54,9 +71,10 @@ export async function GET(request: Request) {
     (typeof meta.name === 'string' && meta.name) ||
     u.email ||
     u.id
-  await ownerDb.transaction((tx) =>
-    provisionUserOnFirstLogin({ id: u.id, email: u.email ?? '', name }, tx),
-  )
+  await ownerDb.transaction(async (tx) => {
+    await provisionUserOnFirstLogin({ id: u.id, email: u.email ?? '', name }, tx)
+    await grantDevPrivileges(u.id, tx)
+  })
 
   return NextResponse.redirect(`${origin}${next}`)
 }

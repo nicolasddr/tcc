@@ -9,12 +9,24 @@ import { createClient } from '@supabase/supabase-js'
 // sem ele, o resto é só configuração.
 const LOCAL_HOSTS = new Set(['127.0.0.1', 'localhost', '::1'])
 
+/**
+ * Conta usada pela rota `/dev/login`, SEPARADA da conta do E2E de propósito: a rota
+ * promove quem loga a super-admin (ver `app/dev/login/route.ts`), e o fixture das specs
+ * precisa continuar sendo um usuário comum. Como as duas contas vivem no mesmo banco
+ * local, compartilhá-las deixaria o E2E dependente de alguém ter aberto a rota ou não.
+ */
+const DEFAULT_DEV_USER_EMAIL = 'dev@test.local'
+
 export type DevLoginConfig = {
   url: string
   publishableKey: string
-  /** service_role LOCAL. Opcional: só é usada para criar o usuário de teste. */
+  /** service_role LOCAL. Opcional: só é usada para criar os usuários de teste. */
   secretKey: string | undefined
+  /** Conta do E2E — fixture das specs, sem privilégios. */
   email: string
+  /** Conta da rota `/dev/login` — promovida a super-admin. */
+  devEmail: string
+  /** Compartilhada pelas duas contas locais. */
   password: string
 }
 
@@ -62,25 +74,36 @@ export function checkDevLogin(): DevLoginCheck {
 
   return {
     ok: true,
-    config: { url, publishableKey, secretKey: process.env.SUPABASE_SECRET_KEY, email, password },
+    config: {
+      url,
+      publishableKey,
+      secretKey: process.env.SUPABASE_SECRET_KEY,
+      email,
+      devEmail: process.env.DEV_USER_EMAIL || DEFAULT_DEV_USER_EMAIL,
+      password,
+    },
   }
 }
 
 /**
- * Garante que o usuário de teste existe em `auth.users`. Idempotente.
+ * Garante que `email` existe em `auth.users`, com a senha local compartilhada.
+ * Idempotente. Sem `email`, cria a conta do E2E.
  *
  * Precisa da service_role LOCAL; sem ela vira no-op, e o login só funciona se o usuário
  * já tiver sido criado antes (por exemplo por um `npm run test:e2e` anterior). Só é
  * chamada depois de `checkDevLogin()` — ou seja, apenas contra o Supabase local.
  */
-export async function ensureTestUser(config: DevLoginConfig): Promise<void> {
+export async function ensureTestUser(
+  config: DevLoginConfig,
+  email: string = config.email,
+): Promise<void> {
   if (!config.secretKey) return
 
   const admin = createClient(config.url, config.secretKey, {
     auth: { autoRefreshToken: false, persistSession: false },
   })
   const { error } = await admin.auth.admin.createUser({
-    email: config.email,
+    email,
     password: config.password,
     email_confirm: true,
   })
