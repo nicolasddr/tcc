@@ -4,6 +4,7 @@ import { useActionState, useEffect, useRef } from 'react'
 import { inviteEvaluator, type InviteEvaluatorState } from '@/app/projects/actions'
 import { Button } from '@/app/components/ui/button'
 import { Field, Input } from '@/app/components/ui/field'
+import { Form } from '@/app/components/ui/form'
 import { Alert } from '@/app/components/ui/alert'
 
 const initialState: InviteEvaluatorState = null
@@ -18,10 +19,10 @@ export function InviteEvaluatorForm({ projectId }: { projectId: string }) {
   }, [state])
 
   return (
-    <form ref={formRef} action={action} className="invite-form">
+    <Form ref={formRef} action={action} gap="sm">
       <input type="hidden" name="project_id" value={projectId} />
-      <div className="invite-row">
-        <Field label="E-mail do avaliador" className="invite-field">
+      <div className="flex flex-wrap items-end gap-3">
+        <Field label="E-mail do avaliador" className="min-w-[220px] flex-1">
           <Input
             type="email"
             name="email"
@@ -42,6 +43,6 @@ export function InviteEvaluatorForm({ projectId }: { projectId: string }) {
 
       {state && 'error' in state ? <Alert tone="error">{state.error}</Alert> : null}
       {state && 'ok' in state ? <Alert tone="success">{state.ok}</Alert> : null}
-    </form>
+    </Form>
   )
 }

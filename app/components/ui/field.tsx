@@ -1,13 +1,7 @@
 import { cx } from './cx'
 
-// Campo de formulário: rótulo + controle + (obrigatório / dica / erro). Reproduz o par
-// .field/.field-input que se repetia em criar projeto, perfil, convite e perguntas. O
-// wrapper é um <label> (como no markup atual), então o clique no rótulo foca o controle
-// sem precisar de htmlFor. O controle vem como children — use os <Input>/<Textarea>/<Select>
-// abaixo, que já carregam o estilo do antigo .field-input.
+export const labelClass = 'text-[13px] font-semibold text-label'
 
-// Estilo do controle, compartilhado por input/textarea/select. Isolado para o caso raro de
-// um controle precisar da aparência sem o wrapper <Field> (ex.: o input "Outro:" inline).
 export const controlClass =
   'w-full rounded-control border border-line-strong bg-surface px-[11px] py-[9px] ' +
   'text-sm text-ink outline-none focus:border-brand focus:ring-[3px] focus:ring-brand-ring'
@@ -24,13 +18,12 @@ export function Field({
   required?: boolean
   hint?: React.ReactNode
   error?: React.ReactNode
-  /** Classe extra no wrapper (ex.: layout da linha do convite). */
   className?: string
   children: React.ReactNode
 }) {
   return (
     <label className={cx('flex flex-col gap-1.5', className)}>
-      <span className="text-[13px] font-semibold text-label">
+      <span className={labelClass}>
         {label} {required ? <span className="text-danger-fg-strong">*</span> : null}
       </span>
       {children}
@@ -41,6 +34,23 @@ export function Field({
         </span>
       ) : null}
     </label>
+  )
+}
+
+export function Fieldset({
+  legend,
+  className,
+  children,
+}: {
+  legend: React.ReactNode
+  className?: string
+  children: React.ReactNode
+}) {
+  return (
+    <fieldset className={cx('m-0 border-0 p-0', className)}>
+      <legend className={cx(labelClass, 'mb-2.5 p-0')}>{legend}</legend>
+      {children}
+    </fieldset>
   )
 }
 
@@ -57,7 +67,63 @@ export function Textarea({
 
 export function Select({
   className,
+  children,
   ...rest
 }: React.SelectHTMLAttributes<HTMLSelectElement>) {
-  return <select className={cx(controlClass, className)} {...rest} />
+  return (
+    <span className="relative block">
+      <select
+        className={cx(
+          controlClass,
+          'cursor-pointer appearance-none pr-9',
+          '[-webkit-appearance:none] [-moz-appearance:none]',
+          className,
+        )}
+        {...rest}
+      >
+        {children}
+      </select>
+      <svg
+        className="pointer-events-none absolute top-1/2 right-3 h-4 w-4 -translate-y-1/2 text-muted"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
+        <polyline points="6 9 12 15 18 9" />
+      </svg>
+    </span>
+  )
+}
+
+export function Choice({
+  align = 'center',
+  className,
+  children,
+  ...rest
+}: {
+  align?: 'center' | 'start'
+  children: React.ReactNode
+} & React.InputHTMLAttributes<HTMLInputElement>) {
+  return (
+    <label
+      className={cx(
+        'flex cursor-pointer gap-2.5 text-sm text-label',
+        align === 'center' ? 'items-center' : 'items-start',
+        className,
+      )}
+    >
+      <input
+        className={cx(
+          'h-4 w-4 shrink-0 accent-brand',
+          align === 'start' && 'mt-[2px]',
+        )}
+        {...rest}
+      />
+      {children}
+    </label>
+  )
 }

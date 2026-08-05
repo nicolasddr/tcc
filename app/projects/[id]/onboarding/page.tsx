@@ -1,13 +1,17 @@
-import Link from '@/app/components/app-link'
 import { notFound, redirect } from 'next/navigation'
 import { and, eq } from 'drizzle-orm'
 import { requireUserId } from '@/lib/supabase/server'
 import { transaction, projects, projectMembers, onboardingQuestions } from '@/lib/db'
 import { CONSENT_TEXT } from '@/app/onboarding/consent'
 import { coerceOptions, type OnboardingQuestion } from '@/app/onboarding/questions'
+import {
+  PageShell,
+  TopBar,
+  BackLink,
+  PageTitle,
+  PageSubtitle,
+} from '@/app/components/ui/shell'
 import { ConsentForm } from './consent-form'
-import '../../projects.css'
-import '@/app/notifications/notifications.css'
 
 // HU-028: passo de consentimento do onboarding do avaliador. Só faz sentido quando o
 // usuário tem uma linha de avaliador em pending_onboarding (aceitou o convite mas ainda
@@ -69,23 +73,19 @@ export default async function OnboardingPage({
   }
 
   return (
-    <div className="project-page">
-      <header className="project-topbar">
-        <Link href={`/projects/${id}`} className="project-back">
-          ← Voltar
-        </Link>
-      </header>
-
-      <main className="project-main">
-        <div className="project-narrow">
-          <h1 className="project-page-title">Onboarding — {project.name}</h1>
-          <p className="project-page-subtitle">
-            Antes de participar como avaliador, leia e aceite o termo de consentimento
-            {questions.length > 0 ? ' e responda às perguntas abaixo' : ''}.
-          </p>
-          <ConsentForm projectId={id} consentText={CONSENT_TEXT} questions={questions} />
-        </div>
-      </main>
-    </div>
+    <PageShell
+      header={
+        <TopBar>
+          <BackLink href={`/projects/${id}`} />
+        </TopBar>
+      }
+    >
+      <PageTitle>Onboarding — {project.name}</PageTitle>
+      <PageSubtitle>
+        Antes de participar como avaliador, leia e aceite o termo de consentimento
+        {questions.length > 0 ? ' e responda às perguntas abaixo' : ''}.
+      </PageSubtitle>
+      <ConsentForm projectId={id} consentText={CONSENT_TEXT} questions={questions} />
+    </PageShell>
   )
 }

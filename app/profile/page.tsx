@@ -1,9 +1,15 @@
-import Link from '@/app/components/app-link'
 import { eq } from 'drizzle-orm'
 import { requireUserId } from '@/lib/supabase/server'
 import { transaction, profiles } from '@/lib/db'
+import { Card } from '@/app/components/ui/card'
+import {
+  PageShell,
+  TopBar,
+  BackLink,
+  PageTitle,
+  PageSubtitle,
+} from '@/app/components/ui/shell'
 import { ProfileForm } from './profile-form'
-import '../projects/projects.css'
 
 export default async function ProfilePage() {
   const userId = await requireUserId()
@@ -18,23 +24,21 @@ export default async function ProfilePage() {
   )
 
   return (
-    <div className="project-page">
-      <header className="project-topbar">
-        <Link href="/dashboard" className="project-back">
-          ← Voltar
-        </Link>
-      </header>
+    <PageShell
+      header={
+        <TopBar>
+          <BackLink href="/dashboard" />
+        </TopBar>
+      }
+    >
+      <PageTitle>Meu perfil</PageTitle>
+      <PageSubtitle>
+        {profile?.email} — o nome aparece para os demais membros dos seus projetos.
+      </PageSubtitle>
 
-      <main className="project-main">
-        <div className="project-narrow">
-          <h1 className="project-page-title">Meu perfil</h1>
-          <p className="project-page-subtitle">
-            {profile?.email} — o nome aparece para os demais membros dos seus projetos.
-          </p>
-
-          <ProfileForm initialName={profile?.name ?? ''} />
-        </div>
-      </main>
-    </div>
+      <Card padding="lg">
+        <ProfileForm initialName={profile?.name ?? ''} />
+      </Card>
+    </PageShell>
   )
 }

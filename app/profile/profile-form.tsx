@@ -1,10 +1,10 @@
 'use client'
 
 import { useActionState } from 'react'
-import Link from '@/app/components/app-link'
 import { updateProfile, type UpdateProfileState } from './actions'
-import { Button, buttonClass } from '@/app/components/ui/button'
+import { Button, ButtonLink } from '@/app/components/ui/button'
 import { Field, Input } from '@/app/components/ui/field'
+import { Form, FormActions } from '@/app/components/ui/form'
 import { Alert } from '@/app/components/ui/alert'
 
 const initialState: UpdateProfileState = null
@@ -13,7 +13,7 @@ export function ProfileForm({ initialName }: { initialName: string }) {
   const [state, action, pending] = useActionState(updateProfile, initialState)
 
   return (
-    <form action={action} className="project-form">
+    <Form action={action}>
       <Field label="Nome" required>
         <Input
           type="text"
@@ -28,14 +28,14 @@ export function ProfileForm({ initialName }: { initialName: string }) {
       {state && 'error' in state ? <Alert tone="error">{state.error}</Alert> : null}
       {state && 'ok' in state ? <Alert tone="success">{state.ok}</Alert> : null}
 
-      <div className="form-actions">
-        <Link href="/dashboard" className={buttonClass('secondary')}>
+      <FormActions>
+        <ButtonLink href="/dashboard" variant="secondary">
           Voltar
-        </Link>
+        </ButtonLink>
         <Button type="submit" loading={pending} loadingText="Salvando…">
           Salvar
         </Button>
-      </div>
-    </form>
+      </FormActions>
+    </Form>
   )
 }

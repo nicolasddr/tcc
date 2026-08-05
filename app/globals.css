@@ -9,6 +9,7 @@
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-inter);
+  --font-google: var(--font-roboto), "Roboto", Arial, sans-serif;
 }
 
 
@@ -18,6 +19,7 @@
   --color-brand-hover: #1e40af;
   --color-brand-border: #c7d2fe;
   --color-brand-ring: rgba(29, 78, 216, 0.12);
+  --color-brand-tint: #eff6ff;
 
   /* Escala de cinza dos textos, bordas e fundos */
   --color-ink: #111827;
@@ -26,6 +28,7 @@
   --color-muted: #6b7280;
   --color-faint: #9ca3af;
   --color-line: #e5e7eb;
+  --color-line-soft: #f0f1f3;
   --color-line-strong: #d1d5db;
   --color-surface: #ffffff;
   --color-surface-subtle: #f9fafb;
@@ -42,6 +45,8 @@
   --color-warning-border: #fde68a;
   --color-neutral-bg: #e5e7eb;
   --color-neutral-fg: #4b5563;
+  --color-accent-bg: #e0e7ff;
+  --color-accent-fg: #3730a3;
   --color-danger-bg: #fee2e2;
   --color-danger-fg: #b91c1c;
   --color-danger-fg-strong: #dc2626;

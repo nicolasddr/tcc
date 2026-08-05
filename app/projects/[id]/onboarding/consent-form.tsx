@@ -9,7 +9,9 @@ import {
 import { OTHER_VALUE, type OnboardingQuestion } from '@/app/onboarding/questions'
 import { SubmitButton } from '@/app/components/submit-button'
 import { Button } from '@/app/components/ui/button'
-import { Input, Textarea } from '@/app/components/ui/field'
+import { Choice, Fieldset, Input, Textarea } from '@/app/components/ui/field'
+import { Form, FormActions } from '@/app/components/ui/form'
+import { Card } from '@/app/components/ui/card'
 import { Alert } from '@/app/components/ui/alert'
 
 const initialState: OnboardingState = null
@@ -27,18 +29,21 @@ export function ConsentForm({
 
   return (
     <>
-      <form action={action} className="consent-form">
+      <Form action={action} gap="sm">
         <input type="hidden" name="project_id" value={projectId} />
 
         {/* Perguntas de onboarding (HU-028/032): todas obrigatórias. */}
         {questions.length > 0 ? (
-          <div className="onboarding-questions">
+          <div className="flex flex-col gap-5">
             {questions.map((q, i) => (
-              <fieldset key={q.id} className="onboarding-question">
-                <legend className="field-label">
-                  {i + 1}. {q.questionText}
-                </legend>
-
+              <Fieldset
+                key={q.id}
+                legend={
+                  <>
+                    {i + 1}. {q.questionText}
+                  </>
+                }
+              >
                 {q.questionType === 'open' ? (
                   <Textarea
                     name={`q_${q.id}`}
@@ -47,52 +52,60 @@ export function ConsentForm({
                     placeholder="Sua resposta"
                   />
                 ) : (
-                  <div className="choice-list">
+                  <div className="flex flex-col gap-2">
                     {(q.options ?? []).map((opt, j) => (
-                      <label key={j} className="choice-option">
-                        <input type="radio" name={`q_${q.id}`} value={opt} required />
+                      <Choice
+                        key={j}
+                        type="radio"
+                        name={`q_${q.id}`}
+                        value={opt}
+                        required
+                      >
                         <span>{opt}</span>
-                      </label>
+                      </Choice>
                     ))}
                     {/* "Outro": marca o rádio e escreve o próprio texto. */}
-                    <label className="choice-option choice-other-row">
-                      <input type="radio" name={`q_${q.id}`} value={OTHER_VALUE} />
+                    <Choice
+                      type="radio"
+                      name={`q_${q.id}`}
+                      value={OTHER_VALUE}
+                      className="flex-wrap"
+                    >
                       <span>Outro:</span>
                       <Input
                         type="text"
                         name={`q_${q.id}__other`}
-                        className="choice-other"
+                        className="min-w-0 flex-1 basis-[200px]"
                         placeholder="Escreva sua resposta"
                       />
-                    </label>
+                    </Choice>
                   </div>
                 )}
-              </fieldset>
+              </Fieldset>
             ))}
           </div>
         ) : null}
 
-        <div className="consent-box">
-          <p className="consent-text">{consentText}</p>
-        </div>
+        <Card tone="subtle" padding="lg">
+          <p className="m-0 text-sm leading-[1.7] text-ink-soft">{consentText}</p>
+        </Card>
 
-        <label className="consent-check">
-          <input type="checkbox" name="consent" />
+        <Choice type="checkbox" name="consent" align="start">
           <span>Li e aceito o termo de consentimento acima.</span>
-        </label>
+        </Choice>
 
         {state && 'error' in state ? <Alert tone="error">{state.error}</Alert> : null}
 
-        <div className="consent-actions">
+        <FormActions align="start">
           <Button type="submit" loading={pending} loadingText="Concluindo…">
             Concluir onboarding
           </Button>
-        </div>
-      </form>
+        </FormActions>
+      </Form>
 
       {/* Abandonar: apaga a linha pendente e devolve o convite para pendente. Form
           separado para não arrastar a validação/pending do consentimento. */}
-      <form action={abandonOnboarding} className="consent-abandon">
+      <form action={abandonOnboarding} className="mt-5 border-t border-line pt-4">
         <input type="hidden" name="project_id" value={projectId} />
         <SubmitButton variant="danger" pendingText="Abandonando…">
           Abandonar

@@ -1,11 +1,15 @@
 import { cx } from './cx'
 
-// Pílula de status. Havia três desenhos idênticos em CSS (.status-badge, .onboarding-badge,
-// .member-status) mudando só as cores por classe de estado. Aqui o formato é um só e a cor
-// vem do `tone`. StatusBadge mapeia o status cru (projeto ou membro) para o tom certo, para
-// o chamador não repetir esse de/para.
+// Pílula de status. O formato é um só e a cor vem do `tone`. StatusBadge mapeia o status
+// cru (projeto ou membro) para o tom certo, para o chamador não repetir esse de/para.
 
-export type BadgeTone = 'success' | 'info' | 'neutral' | 'warning' | 'danger'
+export type BadgeTone =
+  | 'success'
+  | 'info'
+  | 'neutral'
+  | 'warning'
+  | 'danger'
+  | 'accent'
 
 const tones: Record<BadgeTone, string> = {
   success: 'bg-success-bg text-success-fg',
@@ -13,6 +17,7 @@ const tones: Record<BadgeTone, string> = {
   neutral: 'bg-neutral-bg text-neutral-fg',
   warning: 'bg-warning-bg text-warning-fg',
   danger: 'bg-danger-bg text-danger-fg',
+  accent: 'bg-accent-bg text-accent-fg',
 }
 
 export function Badge({

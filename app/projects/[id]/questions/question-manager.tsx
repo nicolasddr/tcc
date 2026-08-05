@@ -11,6 +11,9 @@ import type { OnboardingQuestion } from '@/app/onboarding/questions'
 import { SubmitButton } from '@/app/components/submit-button'
 import { Button } from '@/app/components/ui/button'
 import { Field, Input, Textarea, Select } from '@/app/components/ui/field'
+import { Form, FormActions } from '@/app/components/ui/form'
+import { Card } from '@/app/components/ui/card'
+import { EmptyState } from '@/app/components/ui/empty-state'
 import { Alert } from '@/app/components/ui/alert'
 import { Section } from '@/app/components/ui/section'
 
@@ -76,18 +79,18 @@ function AddQuestionForm({ projectId }: { projectId: string }) {
   const fieldsKey = state && 'ok' in state ? state.nonce : 'idle'
 
   return (
-    <form action={action} className="project-form question-form">
+    <Form action={action} gap="sm">
       <input type="hidden" name="project_id" value={projectId} />
       <QuestionFields key={fieldsKey} />
 
       {state && 'error' in state ? <Alert tone="error">{state.error}</Alert> : null}
 
-      <div className="form-actions">
+      <FormActions>
         <Button type="submit" loading={pending} loadingText="Adicionando…">
           Adicionar pergunta
         </Button>
-      </div>
-    </form>
+      </FormActions>
+    </Form>
   )
 }
 
@@ -99,10 +102,11 @@ function EditQuestionForm({
   question: OnboardingQuestion
 }) {
   const [state, action, pending] = useActionState(updateQuestion, initialState)
+  const formId = `question-${question.id}`
 
   return (
-    <div className="question-item">
-      <form action={action} className="project-form question-form">
+    <Card>
+      <Form id={formId} action={action} gap="sm">
         <input type="hidden" name="project_id" value={projectId} />
         <input type="hidden" name="question_id" value={question.id} />
         <QuestionFields
@@ -115,35 +119,36 @@ function EditQuestionForm({
         {state && 'ok' in state ? (
           <Alert tone="success">Pergunta atualizada.</Alert>
         ) : null}
+      </Form>
 
-        <div className="form-actions question-actions">
-          <Button type="submit" loading={pending} loadingText="Salvando…">
-            Salvar alterações
-          </Button>
-        </div>
-      </form>
+      {/* O submit fica fora do <form> (via `form={formId}`) para dividir a mesma linha
+          com o Remover, que precisa do seu próprio <form> — forms não aninham. */}
+      <div className="mt-3.5 flex flex-wrap items-center justify-between gap-3">
+        <Button form={formId} type="submit" loading={pending} loadingText="Salvando…">
+          Salvar alterações
+        </Button>
 
-      {/* Remover cascateia as respostas — confirma antes de enviar. */}
-      <form
-        action={removeQuestion}
-        className="question-remove"
-        onSubmit={(e) => {
-          if (
-            !confirm(
-              'Remover esta pergunta? As respostas já dadas a ela também serão apagadas.',
-            )
-          ) {
-            e.preventDefault()
-          }
-        }}
-      >
-        <input type="hidden" name="project_id" value={projectId} />
-        <input type="hidden" name="question_id" value={question.id} />
-        <SubmitButton variant="danger" pendingText="Removendo…">
-          Remover
-        </SubmitButton>
-      </form>
-    </div>
+        {/* Remover cascateia as respostas — confirma antes de enviar. */}
+        <form
+          action={removeQuestion}
+          onSubmit={(e) => {
+            if (
+              !confirm(
+                'Remover esta pergunta? As respostas já dadas a ela também serão apagadas.',
+              )
+            ) {
+              e.preventDefault()
+            }
+          }}
+        >
+          <input type="hidden" name="project_id" value={projectId} />
+          <input type="hidden" name="question_id" value={question.id} />
+          <SubmitButton variant="danger" pendingText="Removendo…">
+            Remover
+          </SubmitButton>
+        </form>
+      </div>
+    </Card>
   )
 }
 
@@ -155,17 +160,19 @@ export function QuestionManager({
   questions: OnboardingQuestion[]
 }) {
   return (
-    <div className="questions-manager">
+    <div>
       {questions.length === 0 ? (
-        <p className="projects-empty">
+        <EmptyState>
           Nenhuma pergunta ainda. Adicione a primeira abaixo — ou deixe em branco para um
           onboarding só com consentimento.
-        </p>
+        </EmptyState>
       ) : (
-        <ul className="questions-list">
+        <ul className="m-0 flex list-none flex-col gap-4 p-0">
           {questions.map((q, i) => (
             <li key={q.id}>
-              <p className="question-order">Pergunta {i + 1}</p>
+              <p className="m-0 mb-3 text-xs font-semibold text-muted">
+                Pergunta {i + 1}
+              </p>
               <EditQuestionForm projectId={projectId} question={q} />
             </li>
           ))}

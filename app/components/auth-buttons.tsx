@@ -2,7 +2,18 @@
 
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import styles from './google-button.module.css'
+import { Button, type ButtonOptions } from './ui/button'
+
+const googleButtonClass =
+  'inline-flex h-10 cursor-pointer items-center justify-center gap-2.5 rounded-[4px] ' +
+  'border border-[#747775] bg-white px-3 font-google text-sm leading-normal ' +
+  'font-medium tracking-[0.25px] whitespace-nowrap text-[#1f1f1f] ' +
+  'transition-[background-color,box-shadow,border-color] ' +
+  'not-disabled:hover:bg-[#f7f8f8] ' +
+  'not-disabled:hover:shadow-[0_1px_2px_0_rgba(60,64,67,0.30),0_1px_3px_1px_rgba(60,64,67,0.15)] ' +
+  'not-disabled:active:bg-[#f2f3f3] focus-visible:border-[#0b57d0] ' +
+  'focus-visible:shadow-[0_0_0_2px_rgba(11,87,208,0.30)] focus-visible:outline-none ' +
+  'disabled:cursor-default disabled:opacity-50'
 
 async function signInWithGoogle() {
   const supabase = createClient()
@@ -16,7 +27,7 @@ async function signInWithGoogle() {
 function GoogleLogo() {
   return (
     <svg
-      className={styles.icon}
+      className="block h-[18px] w-[18px] shrink-0"
       viewBox="0 0 18 18"
       xmlns="http://www.w3.org/2000/svg"
       aria-hidden="true"
@@ -42,11 +53,7 @@ function GoogleLogo() {
   )
 }
 
-export function GoogleSignInButton({
-  text = 'Continuar com o Google',
-}: {
-  text?: string
-}) {
+function useGoogleSignIn() {
   const [loading, setLoading] = useState(false)
 
   async function handleClick() {
@@ -58,10 +65,20 @@ export function GoogleSignInButton({
     }
   }
 
+  return { loading, handleClick }
+}
+
+export function GoogleSignInButton({
+  text = 'Continuar com o Google',
+}: {
+  text?: string
+}) {
+  const { loading, handleClick } = useGoogleSignIn()
+
   return (
     <button
       type="button"
-      className={styles.button}
+      className={googleButtonClass}
       onClick={handleClick}
       disabled={loading}
       aria-label={text}
@@ -73,31 +90,14 @@ export function GoogleSignInButton({
 }
 
 export function LoginButton({
-  className,
   children,
-}: {
-  className?: string
-  children: React.ReactNode
-}) {
-  const [loading, setLoading] = useState(false)
-
-  async function handleClick() {
-    setLoading(true)
-    const error = await signInWithGoogle()
-    if (error) {
-      console.error('Falha ao entrar com o Google:', error.message)
-      setLoading(false)
-    }
-  }
+  ...options
+}: { children: React.ReactNode } & ButtonOptions) {
+  const { loading, handleClick } = useGoogleSignIn()
 
   return (
-    <button
-      type="button"
-      className={className}
-      onClick={handleClick}
-      disabled={loading}
-    >
+    <Button {...options} onClick={handleClick} disabled={loading}>
       {children}
-    </button>
+    </Button>
   )
 }

@@ -9,10 +9,20 @@ import {
 import { SubmitButton } from '@/app/components/submit-button'
 import { Button, type ButtonVariant } from '@/app/components/ui/button'
 import { Field, Input, Textarea } from '@/app/components/ui/field'
+import { Form, FormActions } from '@/app/components/ui/form'
 import { Alert } from '@/app/components/ui/alert'
 import { Section } from '@/app/components/ui/section'
 
 const initialState: UpdateProjectState = null
+
+const statusHint: Record<string, string> = {
+  active:
+    'Concluir ou arquivar deixa o projeto somente leitura — você pode reativá-lo depois.',
+  completed:
+    'O projeto está concluído e somente leitura. Reative para voltar a editá-lo, ou arquive para tirá-lo da lista padrão.',
+  archived:
+    'O projeto está arquivado e fora da lista padrão do dashboard. Reative para voltar a editá-lo.',
+}
 
 type ManageProjectProps = {
   projectId: string
@@ -35,7 +45,7 @@ function EditProjectForm({
   const [state, action, pending] = useActionState(updateProject, initialState)
 
   return (
-    <form action={action} className="project-form">
+    <Form action={action}>
       <input type="hidden" name="project_id" value={projectId} />
 
       <Field label="Nome" required>
@@ -62,12 +72,12 @@ function EditProjectForm({
       {state && 'error' in state ? <Alert tone="error">{state.error}</Alert> : null}
       {state && 'ok' in state ? <Alert tone="success">{state.ok}</Alert> : null}
 
-      <div className="form-actions">
+      <FormActions align="start">
         <Button type="submit" loading={pending} loadingText="Salvando…">
           Salvar alterações
         </Button>
-      </div>
-    </form>
+      </FormActions>
+    </Form>
   )
 }
 
@@ -110,7 +120,10 @@ function StatusButton({
 export function ManageProject({ projectId, status, name, description }: ManageProjectProps) {
   return (
     <>
-      <Section title="Editar projeto">
+      <Section
+        title="Editar projeto"
+        hint="Nome e descrição ficam visíveis para todos os membros do projeto."
+      >
         {status === 'active' ? (
           <EditProjectForm projectId={projectId} name={name} description={description} />
         ) : (
@@ -122,7 +135,7 @@ export function ManageProject({ projectId, status, name, description }: ManagePr
         )}
       </Section>
 
-      <Section title="Status do projeto">
+      <Section title="Status do projeto" hint={statusHint[status]}>
         <div className="flex flex-wrap gap-3">
           {status === 'active' ? (
             <>

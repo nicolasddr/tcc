@@ -52,38 +52,6 @@
   flex-shrink: 0;
 }
 
-.btn-role-primary {
-  width: 100%;
-  background: #1d4ed8;
-  color: white;
-  border: none;
-  border-radius: 8px;
-  padding: 10px;
-  font-size: 13px;
-  font-weight: 600;
-  font-family: inherit;
-  cursor: pointer;
-  transition: background 0.15s;
-}
-.btn-role-primary:hover { background: #1e40af; }
-.btn-role-primary:disabled { opacity: 0.6; cursor: default; }
-
-.btn-role-outline {
-  width: 100%;
-  background: transparent;
-  color: #111827;
-  border: 1px solid #d1d5db;
-  border-radius: 8px;
-  padding: 10px;
-  font-size: 13px;
-  font-weight: 600;
-  font-family: inherit;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-.btn-role-outline:hover { background: #f3f4f6; }
-.btn-role-outline:disabled { opacity: 0.6; cursor: default; }
-
 .process-section {
   border-top: 1px solid #e5e7eb;
   padding: 52px 0;

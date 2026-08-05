@@ -1,9 +1,16 @@
-import Link from '@/app/components/app-link'
 import { requireUserId } from '@/lib/supabase/server'
 import { canCreateProjects, hasPendingPermissionRequest } from '@/lib/authz'
+import { Alert } from '@/app/components/ui/alert'
+import { Card } from '@/app/components/ui/card'
+import {
+  PageShell,
+  TopBar,
+  BackLink,
+  PageTitle,
+  PageSubtitle,
+} from '@/app/components/ui/shell'
 import { NewProjectForm } from './new-project-form'
 import { RequestPermissionForm } from './request-permission-form'
-import '../projects.css'
 
 export default async function NewProjectPage() {
   const userId = await requireUserId()
@@ -12,29 +19,44 @@ export default async function NewProjectPage() {
   const pendingRequest = allowed ? false : await hasPendingPermissionRequest(userId)
 
   return (
-    <div className="project-page">
-      <header className="project-topbar">
-        <Link href="/dashboard" className="project-back">
-          ← Voltar
-        </Link>
-      </header>
+    <PageShell
+      header={
+        <TopBar>
+          <BackLink href="/dashboard" />
+        </TopBar>
+      }
+    >
+      <PageTitle>Criar novo projeto</PageTitle>
 
-      <main className="project-main">
-        <div className="project-narrow">
-          <h1 className="project-page-title">Criar novo projeto</h1>
-          {allowed ? (
-            <>
-              <p className="project-page-subtitle">
-                Você se torna o Administrador deste projeto e pode convidar avaliadores
-                depois.
-              </p>
-              <NewProjectForm />
-            </>
-          ) : (
-            <RequestPermissionForm alreadyPending={pendingRequest} />
-          )}
-        </div>
-      </main>
-    </div>
+      {allowed ? (
+        <>
+          <PageSubtitle>
+            Você se torna o Administrador deste projeto e pode convidar avaliadores
+            depois.
+          </PageSubtitle>
+          <Card padding="lg">
+            <NewProjectForm />
+          </Card>
+        </>
+      ) : pendingRequest ? (
+        <>
+          <PageSubtitle>
+            Sua conta ainda não tem permissão para criar projetos.
+          </PageSubtitle>
+          <Alert tone="notice">
+            Sua solicitação está em análise. Você receberá uma notificação assim que ela
+            for aprovada ou recusada.
+          </Alert>
+        </>
+      ) : (
+        <>
+          <PageSubtitle>
+            Sua conta ainda não tem permissão para criar projetos. Solicite o acesso e um
+            administrador da plataforma vai analisar o pedido.
+          </PageSubtitle>
+          <RequestPermissionForm />
+        </>
+      )}
+    </PageShell>
   )
 }

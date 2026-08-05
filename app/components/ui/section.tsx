@@ -1,9 +1,8 @@
 import { cx } from './cx'
 
-// Bloco de seção: filete no topo + título + dica opcional. Reproduz o trio
-// .project-section/.project-section-title/.project-section-hint usado nas telas de projeto.
-// O conteúdo entra 16px abaixo do cabeçalho (como faziam as regras de margem originais),
-// então os filhos não precisam carregar margem própria.
+// Bloco de seção: filete no topo + título + dica opcional, usado nas telas de projeto.
+// O conteúdo entra 16px abaixo do cabeçalho, então os filhos não precisam carregar
+// margem própria.
 
 export function Section({
   title,

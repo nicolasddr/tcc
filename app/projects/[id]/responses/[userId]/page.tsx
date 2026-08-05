@@ -1,4 +1,3 @@
-import Link from '@/app/components/app-link'
 import { notFound, redirect } from 'next/navigation'
 import { and, eq } from 'drizzle-orm'
 import { requireUserId } from '@/lib/supabase/server'
@@ -10,8 +9,16 @@ import {
   onboardingQuestions,
   onboardingResponses,
 } from '@/lib/db'
-import '../../../projects.css'
-import '@/app/notifications/notifications.css'
+import { Card } from '@/app/components/ui/card'
+import { EmptyState } from '@/app/components/ui/empty-state'
+import { cx } from '@/app/components/ui/cx'
+import {
+  PageShell,
+  TopBar,
+  BackLink,
+  PageTitle,
+  PageSubtitle,
+} from '@/app/components/ui/shell'
 
 
 export default async function MemberResponsesPage({
@@ -84,42 +91,41 @@ export default async function MemberResponsesPage({
   if (!rows || !target) notFound()
 
   return (
-    <div className="project-page">
-      <header className="project-topbar">
-        <Link href={`/projects/${id}`} className="project-back">
-          ← Voltar ao projeto
-        </Link>
-      </header>
+    <PageShell
+      header={
+        <TopBar>
+          <BackLink href={`/projects/${id}`}>Voltar ao projeto</BackLink>
+        </TopBar>
+      }
+    >
+      <PageTitle>Respostas de onboarding</PageTitle>
+      <PageSubtitle>
+        {target.name} · {target.email}
+      </PageSubtitle>
 
-      <main className="project-main">
-        <div className="project-narrow">
-          <h1 className="project-page-title">Respostas de onboarding</h1>
-          <p className="project-page-subtitle">
-            {target.name} · {target.email}
-          </p>
-
-          {rows.length === 0 ? (
-            <p className="projects-empty">
-              Este projeto não tem perguntas de onboarding.
-            </p>
-          ) : (
-            <ul className="responses-list">
-              {rows.map((r, i) => (
-                <li key={i} className="response-item">
-                  <p className="response-question">
-                    {i + 1}. {r.questionText}
-                  </p>
-                  {r.answer ? (
-                    <p className="response-answer">{r.answer}</p>
-                  ) : (
-                    <p className="response-answer response-answer-empty">Sem resposta</p>
+      {rows.length === 0 ? (
+        <EmptyState>Este projeto não tem perguntas de onboarding.</EmptyState>
+      ) : (
+        <ul className="m-0 flex list-none flex-col gap-4 p-0">
+          {rows.map((r, i) => (
+            <li key={i}>
+              <Card padding="sm">
+                <p className="m-0 mb-1.5 text-[13px] font-semibold text-label">
+                  {i + 1}. {r.questionText}
+                </p>
+                <p
+                  className={cx(
+                    'm-0 text-sm leading-[1.5] whitespace-pre-wrap',
+                    r.answer ? 'text-ink' : 'text-faint italic',
                   )}
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      </main>
-    </div>
+                >
+                  {r.answer ?? 'Sem resposta'}
+                </p>
+              </Card>
+            </li>
+          ))}
+        </ul>
+      )}
+    </PageShell>
   )
 }
