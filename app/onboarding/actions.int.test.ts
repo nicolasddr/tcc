@@ -11,9 +11,10 @@ import { and, eq } from 'drizzle-orm'
 
 const auth = vi.hoisted(() => ({ userId: null as string | null }))
 
-vi.mock('@/lib/supabase/server', () => ({
-  getClaims: async () => (auth.userId ? { sub: auth.userId } : null),
-}))
+vi.mock('@/lib/supabase/server', async () => {
+  const { supabaseServerMock } = await import('@/test/helpers')
+  return supabaseServerMock(auth)
+})
 vi.mock('next/cache', () => ({ revalidatePath: () => {} }))
 vi.mock('next/navigation', () => ({
   redirect: (url: string) => {

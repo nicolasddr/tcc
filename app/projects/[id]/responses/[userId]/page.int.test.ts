@@ -10,9 +10,10 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 
 const auth = vi.hoisted(() => ({ userId: null as string | null }))
 
-vi.mock('@/lib/supabase/server', () => ({
-  getClaims: async () => (auth.userId ? { sub: auth.userId } : null),
-}))
+vi.mock('@/lib/supabase/server', async () => {
+  const { supabaseServerMock } = await import('@/test/helpers')
+  return supabaseServerMock(auth)
+})
 vi.mock('next/navigation', () => ({
   notFound: () => {
     throw new Error('NEXT_NOTFOUND')

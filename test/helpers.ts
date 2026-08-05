@@ -21,6 +21,21 @@ import {
 
 const ROLLBACK = Symbol('rollback')
 
+export type AuthState = { userId: string | null }
+
+export function supabaseServerMock(auth: AuthState) {
+  return {
+    getClaims: async () => (auth.userId ? { sub: auth.userId } : null),
+    requireUserId: async (): Promise<string> => {
+      const { userId } = auth
+      if (userId) return userId
+      const { redirect } = await import('next/navigation')
+      redirect('/login')
+      throw new Error('requireUserId: redirect() não interrompeu o fluxo')
+    },
+  }
+}
+
 /**
  * Roda `run` dentro de uma transação que é SEMPRE revertida ao final — os
  * predicados recebem essa mesma `tx`, então enxergam as fixtures, e nada suja o

@@ -14,9 +14,10 @@ import { and, eq } from 'drizzle-orm'
 // existe antes do factory do mock (que o vitest içar acima dos imports).
 const auth = vi.hoisted(() => ({ userId: null as string | null }))
 
-vi.mock('@/lib/supabase/server', () => ({
-  getClaims: async () => (auth.userId ? { sub: auth.userId } : null),
-}))
+vi.mock('@/lib/supabase/server', async () => {
+  const { supabaseServerMock } = await import('@/test/helpers')
+  return supabaseServerMock(auth)
+})
 vi.mock('next/cache', () => ({ revalidatePath: () => {} }))
 vi.mock('next/navigation', () => ({
   // As actions chamam redirect() no sucesso (createProject) — o Next lança uma
