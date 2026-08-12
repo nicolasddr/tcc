@@ -4,7 +4,8 @@ export const labelClass = 'text-[13px] font-semibold text-label'
 
 export const controlClass =
   'w-full rounded-control border border-line-strong bg-surface px-[11px] py-[9px] ' +
-  'text-sm text-ink outline-none focus:border-brand focus:ring-[3px] focus:ring-brand-ring'
+  'text-sm text-ink outline-none focus:border-brand focus:ring-[3px] focus:ring-brand-ring ' +
+  'disabled:cursor-default disabled:bg-surface-subtle disabled:text-muted'
 
 export function Field({
   label,

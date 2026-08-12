@@ -1,6 +1,6 @@
 'use client'
 
-import { useActionState } from 'react'
+import { useActionState, useState } from 'react'
 import {
   updateProject,
   setProjectStatus,
@@ -17,7 +17,7 @@ const initialState: UpdateProjectState = null
 
 const statusHint: Record<string, string> = {
   active:
-    'Concluir ou arquivar deixa o projeto somente leitura — você pode reativá-lo depois.',
+    'Concluir ou arquivar deixa o projeto somente leitura. Você pode reativá-lo depois.',
   completed:
     'O projeto está concluído e somente leitura. Reative para voltar a editá-lo, ou arquive para tirá-lo da lista padrão.',
   archived:
@@ -33,6 +33,9 @@ type ManageProjectProps = {
 
 // HU-014/016: formulário de edição de nome/descrição — só renderizado com o projeto
 // `active` (concluído/arquivado é somente leitura). Usa updateProject via useActionState.
+//
+// Os campos ficam travados até o usuário clicar em "Editar", e "Salvar alterações" só sai
+// do estado inerte (azul/clicável) quando o conteúdo difere do que está salvo.
 function EditProjectForm({
   projectId,
   name,
@@ -43,6 +46,20 @@ function EditProjectForm({
   description: string | null
 }) {
   const [state, action, pending] = useActionState(updateProject, initialState)
+  const [editing, setEditing] = useState(false)
+  const [saved, setSaved] = useState({ name, description: description ?? '' })
+  const [values, setValues] = useState(saved)
+
+  // Depois de um save bem-sucedido o servidor revalida e as props chegam com os valores
+  // novos: esse é o sinal para sair do modo de edição e rebasear a comparação de "sujo".
+  if (saved.name !== name || saved.description !== (description ?? '')) {
+    const fresh = { name, description: description ?? '' }
+    setSaved(fresh)
+    setValues(fresh)
+    setEditing(false)
+  }
+
+  const dirty = values.name !== saved.name || values.description !== saved.description
 
   return (
     <Form action={action}>
@@ -55,7 +72,9 @@ function EditProjectForm({
           required
           maxLength={200}
           autoComplete="off"
-          defaultValue={name}
+          disabled={!editing || pending}
+          value={values.name}
+          onChange={(e) => setValues((v) => ({ ...v, name: e.target.value }))}
         />
       </Field>
 
@@ -64,7 +83,9 @@ function EditProjectForm({
           name="description"
           rows={4}
           maxLength={2000}
-          defaultValue={description ?? ''}
+          disabled={!editing || pending}
+          value={values.description}
+          onChange={(e) => setValues((v) => ({ ...v, description: e.target.value }))}
           placeholder="Opcional — o objetivo do projeto, o contexto da tarefa…"
         />
       </Field>
@@ -73,9 +94,34 @@ function EditProjectForm({
       {state && 'ok' in state ? <Alert tone="success">{state.ok}</Alert> : null}
 
       <FormActions align="start">
-        <Button type="submit" loading={pending} loadingText="Salvando…">
-          Salvar alterações
-        </Button>
+        {editing ? (
+          <>
+            <Button
+              type="submit"
+              variant={dirty ? 'primary' : 'secondary'}
+              disabled={!dirty}
+              loading={pending}
+              loadingText="Salvando…"
+            >
+              Salvar alterações
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              disabled={pending}
+              onClick={() => {
+                setValues({ name, description: description ?? '' })
+                setEditing(false)
+              }}
+            >
+              Cancelar
+            </Button>
+          </>
+        ) : (
+          <Button type="button" onClick={() => setEditing(true)}>
+            Editar
+          </Button>
+        )}
       </FormActions>
     </Form>
   )
@@ -145,7 +191,7 @@ export function ManageProject({ projectId, status, name, description }: ManagePr
                 to="completed"
                 label="Concluir projeto"
                 pendingText="Concluindo…"
-                variant="secondary"
+                variant="dangerSolid"
                 confirmMessage="Concluir o projeto? Ele fica somente leitura (você pode reativá-lo depois)."
               />
               <StatusButton
@@ -154,7 +200,7 @@ export function ManageProject({ projectId, status, name, description }: ManagePr
                 to="archived"
                 label="Arquivar"
                 pendingText="Arquivando…"
-                variant="secondary"
+                variant="warning"
                 confirmMessage="Arquivar o projeto? Ele sai da lista padrão e fica somente leitura (você pode reativá-lo depois)."
               />
             </>
@@ -176,7 +222,7 @@ export function ManageProject({ projectId, status, name, description }: ManagePr
                 to="archived"
                 label="Arquivar"
                 pendingText="Arquivando…"
-                variant="secondary"
+                variant="warning"
                 confirmMessage="Arquivar o projeto? Ele sai da lista padrão (você pode reativá-lo depois)."
               />
             </>

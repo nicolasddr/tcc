@@ -43,10 +43,15 @@
   --color-warning-bg: #fef3c7;
   --color-warning-fg: #92400e;
   --color-warning-border: #fde68a;
+  --color-warning: #f59e0b;
+  --color-warning-hover: #d97706;
+  --color-warning-on: #422006;
   --color-neutral-bg: #e5e7eb;
   --color-neutral-fg: #4b5563;
   --color-accent-bg: #e0e7ff;
   --color-accent-fg: #3730a3;
+  --color-danger: #dc2626;
+  --color-danger-hover: #b91c1c;
   --color-danger-bg: #fee2e2;
   --color-danger-fg: #b91c1c;
   --color-danger-fg-strong: #dc2626;

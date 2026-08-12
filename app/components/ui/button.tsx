@@ -6,6 +6,8 @@ export type ButtonVariant =
   | 'primary'
   | 'secondary'
   | 'danger'
+  | 'dangerSolid'
+  | 'warning'
   | 'dangerGhost'
   | 'ghost'
   | 'link'
@@ -27,6 +29,10 @@ const variants: Record<ButtonVariant, string> = {
     'border border-line-strong bg-surface text-label ' +
     'not-disabled:hover:bg-danger-tint not-disabled:hover:border-danger-tint-border ' +
     'not-disabled:hover:text-danger-fg',
+  dangerSolid:
+    'border border-transparent bg-danger text-white not-disabled:hover:bg-danger-hover',
+  warning:
+    'border border-transparent bg-warning text-warning-on not-disabled:hover:bg-warning-hover',
   dangerGhost:
     'border-0 bg-transparent p-0 text-xs text-danger-fg not-disabled:hover:underline',
   ghost:
