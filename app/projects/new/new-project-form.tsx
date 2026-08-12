@@ -7,6 +7,7 @@ import { Button, ButtonLink } from '@/app/components/ui/button'
 import { Field, Input, Textarea, Select } from '@/app/components/ui/field'
 import { Form, FormActions } from '@/app/components/ui/form'
 import { Alert } from '@/app/components/ui/alert'
+import { PROJECT_DESCRIPTION_MAX, PROJECT_NAME_MAX } from '@/lib/limits'
 
 const initialState: CreateProjectState = null
 
@@ -20,7 +21,7 @@ export function NewProjectForm() {
           type="text"
           name="name"
           required
-          maxLength={200}
+          maxLength={PROJECT_NAME_MAX}
           autoComplete="off"
           placeholder="Ex.: Classificação de intenção de busca"
         />
@@ -30,7 +31,7 @@ export function NewProjectForm() {
         <Textarea
           name="description"
           rows={4}
-          maxLength={2000}
+          maxLength={PROJECT_DESCRIPTION_MAX}
           placeholder="Opcional — o objetivo do projeto, o contexto da tarefa…"
         />
       </Field>

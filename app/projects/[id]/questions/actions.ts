@@ -6,6 +6,7 @@ import { requireUserId } from '@/lib/supabase/server'
 import { transaction, onboardingQuestions } from '@/lib/db'
 import { isProjectAdmin } from '@/lib/authz'
 import { parseOptionsInput, type OnboardingQuestionType } from '@/app/onboarding/questions'
+import { QUESTION_OPTIONS_COUNT_MAX, QUESTION_OPTION_MAX, QUESTION_TEXT_MAX } from '@/lib/limits'
 
 // `nonce` muda a cada sucesso: o form de adicionar o usa como `key` para remontar os
 // campos (limpar) sem precisar de um efeito que chame setState.
@@ -25,6 +26,9 @@ function parseQuestionForm(
   const typeRaw = String(formData.get('question_type') ?? '')
 
   if (!text) return { error: 'Informe o texto da pergunta.' }
+  if (text.length > QUESTION_TEXT_MAX) {
+    return { error: `A pergunta pode ter no máximo ${QUESTION_TEXT_MAX} caracteres.` }
+  }
   if (!QUESTION_TYPES.includes(typeRaw)) return { error: 'Tipo de pergunta inválido.' }
 
   const type = typeRaw as OnboardingQuestionType
@@ -33,6 +37,12 @@ function parseQuestionForm(
     options = parseOptionsInput(String(formData.get('options') ?? ''))
     if (options.length < 2) {
       return { error: 'Uma pergunta de múltipla escolha precisa de pelo menos 2 opções.' }
+    }
+    if (options.length > QUESTION_OPTIONS_COUNT_MAX) {
+      return { error: `No máximo ${QUESTION_OPTIONS_COUNT_MAX} opções por pergunta.` }
+    }
+    if (options.some((o) => o.length > QUESTION_OPTION_MAX)) {
+      return { error: `Cada opção pode ter no máximo ${QUESTION_OPTION_MAX} caracteres.` }
     }
   }
   return { text, type, options }

@@ -37,8 +37,11 @@ const variants: Record<ButtonVariant, string> = {
     'not-disabled:hover:text-ink not-disabled:hover:underline',
 }
 
+// Alturas deterministas: `text-sm`/`text-xs` do Tailwind já fixam line-height, então
+// somando padding + borda (1px cada lado) fecha em 40px/28px sempre, batendo com a altura
+// do `controlClass` de field.tsx (mesma receita: py-[9px] + text-sm + borda).
 const sizes: Record<ButtonSize, string> = {
-  md: 'px-[18px] py-[10px] text-[13px]',
+  md: 'px-[18px] py-[9px] text-sm',
   sm: 'px-3 py-[5px] text-xs',
 }
 
@@ -122,7 +125,7 @@ export function IconButton({
     <button
       type={type}
       className={cx(
-        'relative inline-flex h-9 w-9 cursor-pointer items-center justify-center',
+        'relative inline-flex h-10 w-10 cursor-pointer items-center justify-center',
         'rounded-control border-0 bg-transparent text-label transition-colors',
         'not-disabled:hover:bg-canvas focus-visible:outline-none',
         'focus-visible:ring-[3px] focus-visible:ring-brand-ring',

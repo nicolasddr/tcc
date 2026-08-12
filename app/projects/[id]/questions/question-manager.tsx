@@ -16,6 +16,7 @@ import { Card } from '@/app/components/ui/card'
 import { EmptyState } from '@/app/components/ui/empty-state'
 import { Alert } from '@/app/components/ui/alert'
 import { Section } from '@/app/components/ui/section'
+import { QUESTION_OPTION_MAX, QUESTION_OPTIONS_COUNT_MAX, QUESTION_TEXT_MAX } from '@/lib/limits'
 
 const initialState: QuestionState = null
 
@@ -39,6 +40,7 @@ function QuestionFields({
           type="text"
           name="question_text"
           required
+          maxLength={QUESTION_TEXT_MAX}
           defaultValue={defaultText}
           placeholder="Ex.: Qual é a sua área de formação?"
         />
@@ -63,6 +65,7 @@ function QuestionFields({
           <Textarea
             name="options"
             rows={3}
+            maxLength={QUESTION_OPTIONS_COUNT_MAX * (QUESTION_OPTION_MAX + 1)}
             defaultValue={defaultOptions?.join('\n')}
             placeholder={'Graduação\nMestrado\nDoutorado'}
           />

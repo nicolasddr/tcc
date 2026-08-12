@@ -17,6 +17,7 @@ import {
 import { canCreateProjects, findInviteeByEmail, isProjectAdmin } from '@/lib/authz'
 import { emitInvitationNotification } from '@/lib/notifications/invitation'
 import { normalizeTaskType } from './task-types'
+import { EMAIL_MAX, PROJECT_DESCRIPTION_MAX, PROJECT_NAME_MAX } from '@/lib/limits'
 
 export type CreateProjectState = { error: string } | null
 
@@ -38,7 +39,12 @@ export async function createProject(
   const taskType = normalizeTaskType(String(formData.get('task_type') ?? ''))
 
   if (!name) return { error: 'Informe um nome para o projeto.' }
-
+  if (name.length > PROJECT_NAME_MAX) {
+    return { error: `O nome pode ter no máximo ${PROJECT_NAME_MAX} caracteres.` }
+  }
+  if (description.length > PROJECT_DESCRIPTION_MAX) {
+    return { error: `A descrição pode ter no máximo ${PROJECT_DESCRIPTION_MAX} caracteres.` }
+  }
 
   if (!(await canCreateProjects(userId))) {
     return {
@@ -108,6 +114,9 @@ export async function inviteEvaluator(
 
   if (!projectId) return { error: 'Projeto inválido.' }
   if (!email) return { error: 'Informe o e-mail do avaliador.' }
+  if (email.length > EMAIL_MAX) {
+    return { error: `O e-mail pode ter no máximo ${EMAIL_MAX} caracteres.` }
+  }
   if (!EMAIL_RE.test(email)) return { error: 'Informe um e-mail válido.' }
 
   if (!(await isProjectAdmin(userId, projectId))) {
@@ -157,6 +166,7 @@ export async function inviteEvaluator(
       return { error: `${target} já tem um convite pendente neste projeto.` }
     }
 
+    console.error('inviteEvaluator falhou:', err)
     return {
       error: `Não foi possível convidar ${target}. Talvez já seja membro ativo do projeto.`,
     }
@@ -202,6 +212,12 @@ export async function updateProject(
 
   if (!projectId) return { error: 'Projeto inválido.' }
   if (!name) return { error: 'Informe um nome para o projeto.' }
+  if (name.length > PROJECT_NAME_MAX) {
+    return { error: `O nome pode ter no máximo ${PROJECT_NAME_MAX} caracteres.` }
+  }
+  if (description.length > PROJECT_DESCRIPTION_MAX) {
+    return { error: `A descrição pode ter no máximo ${PROJECT_DESCRIPTION_MAX} caracteres.` }
+  }
 
   if (!(await isProjectAdmin(userId, projectId))) {
     return { error: 'Não foi possível salvar. Apenas o administrador edita, e só em projeto ativo.' }

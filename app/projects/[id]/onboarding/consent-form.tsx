@@ -13,6 +13,7 @@ import { Choice, Fieldset, Input, Textarea } from '@/app/components/ui/field'
 import { Form, FormActions } from '@/app/components/ui/form'
 import { Card } from '@/app/components/ui/card'
 import { Alert } from '@/app/components/ui/alert'
+import { ANSWER_MAX } from '@/lib/limits'
 
 const initialState: OnboardingState = null
 
@@ -49,6 +50,7 @@ export function ConsentForm({
                     name={`q_${q.id}`}
                     rows={2}
                     required
+                    maxLength={ANSWER_MAX}
                     placeholder="Sua resposta"
                   />
                 ) : (
@@ -75,6 +77,7 @@ export function ConsentForm({
                       <Input
                         type="text"
                         name={`q_${q.id}__other`}
+                        maxLength={ANSWER_MAX}
                         className="min-w-0 flex-1 basis-[200px]"
                         placeholder="Escreva sua resposta"
                       />

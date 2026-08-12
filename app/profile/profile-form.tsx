@@ -6,6 +6,7 @@ import { Button, ButtonLink } from '@/app/components/ui/button'
 import { Field, Input } from '@/app/components/ui/field'
 import { Form, FormActions } from '@/app/components/ui/form'
 import { Alert } from '@/app/components/ui/alert'
+import { PROFILE_NAME_MAX } from '@/lib/limits'
 
 const initialState: UpdateProfileState = null
 
@@ -19,7 +20,7 @@ export function ProfileForm({ initialName }: { initialName: string }) {
           type="text"
           name="name"
           required
-          maxLength={200}
+          maxLength={PROFILE_NAME_MAX}
           autoComplete="name"
           defaultValue={initialName}
         />
