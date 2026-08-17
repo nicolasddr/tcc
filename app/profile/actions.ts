@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { eq } from 'drizzle-orm'
 import { requireUserId } from '@/lib/supabase/server'
 import { transaction, profiles } from '@/lib/db'
+import { PROFILE_NAME_MAX } from '@/lib/limits'
 
 export type UpdateProfileState = { error: string } | { ok: string } | null
 
@@ -21,6 +22,9 @@ export async function updateProfile(
   const name = String(formData.get('name') ?? '').trim()
 
   if (!name) return { error: 'Informe um nome.' }
+  if (name.length > PROFILE_NAME_MAX) {
+    return { error: `O nome pode ter no máximo ${PROFILE_NAME_MAX} caracteres.` }
+  }
 
   const updated = await transaction((tx) =>
     tx

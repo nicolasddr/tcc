@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Gerado localmente pelo `supabase start` (Edge Runtime) — não é código do projeto.
+    "supabase/.temp/**",
   ]),
   // Args/vars prefixados com `_` são descartáveis por convenção (ex.: `_prev`/`_formData`
   // nas Server Actions de useActionState, cuja assinatura exige os parâmetros mesmo quando

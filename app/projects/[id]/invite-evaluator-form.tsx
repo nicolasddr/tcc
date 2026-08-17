@@ -6,6 +6,7 @@ import { Button } from '@/app/components/ui/button'
 import { Field, Input } from '@/app/components/ui/field'
 import { Form } from '@/app/components/ui/form'
 import { Alert } from '@/app/components/ui/alert'
+import { EMAIL_MAX } from '@/lib/limits'
 
 const initialState: InviteEvaluatorState = null
 
@@ -27,6 +28,7 @@ export function InviteEvaluatorForm({ projectId }: { projectId: string }) {
             type="email"
             name="email"
             required
+            maxLength={EMAIL_MAX}
             autoComplete="off"
             placeholder="avaliador@exemplo.com"
           />

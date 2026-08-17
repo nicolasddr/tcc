@@ -12,6 +12,7 @@ import { Field, Input, Textarea } from '@/app/components/ui/field'
 import { Form, FormActions } from '@/app/components/ui/form'
 import { Alert } from '@/app/components/ui/alert'
 import { Section } from '@/app/components/ui/section'
+import { PROJECT_DESCRIPTION_MAX, PROJECT_NAME_MAX } from '@/lib/limits'
 
 const initialState: UpdateProjectState = null
 
@@ -70,7 +71,7 @@ function EditProjectForm({
           type="text"
           name="name"
           required
-          maxLength={200}
+          maxLength={PROJECT_NAME_MAX}
           autoComplete="off"
           disabled={!editing || pending}
           value={values.name}
@@ -82,7 +83,7 @@ function EditProjectForm({
         <Textarea
           name="description"
           rows={4}
-          maxLength={2000}
+          maxLength={PROJECT_DESCRIPTION_MAX}
           disabled={!editing || pending}
           value={values.description}
           onChange={(e) => setValues((v) => ({ ...v, description: e.target.value }))}

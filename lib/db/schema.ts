@@ -28,6 +28,10 @@ export const projects = pgTable("projects", {
 		}).onDelete("restrict"),
 	check("projects_status_check", sql`status = ANY (ARRAY['active'::text, 'completed'::text, 'archived'::text])`),
 	check("projects_task_type_check", sql`task_type = ANY (ARRAY['classification'::text, 'quality_evaluation'::text, 'generation'::text, 'mixed'::text, 'other'::text])`),
+	// Limites de tamanho (defesa em profundidade — ver lib/limits.ts, mesmos valores).
+	// Números literais porque o drizzle-kit precisa deles congelados na migration gerada.
+	check("projects_name_len", sql`char_length(name) <= 200`),
+	check("projects_description_len", sql`description IS NULL OR char_length(description) <= 2000`),
 ]);
 
 export const profiles = pgTable("profiles", {
@@ -41,6 +45,8 @@ export const profiles = pgTable("profiles", {
 	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).$onUpdate(() => sql`now()`),
 }, (table) => [
 	unique("profiles_email_key").on(table.email),
+	// Limite de tamanho (defesa em profundidade — ver lib/limits.ts, mesmo valor).
+	check("profiles_name_len", sql`char_length(name) <= 200`),
 ]);
 
 export const superAdmins = pgTable("super_admins", {
@@ -167,6 +173,8 @@ export const projectInvitations = pgTable("project_invitations", {
 		}).onDelete("set null"),
 	check("project_invitations_status_check", sql`status = ANY (ARRAY['pending'::text, 'accepted'::text, 'declined'::text, 'cancelled'::text])`),
 	check("inv_target_present", sql`(invitee_id IS NOT NULL) OR (invitee_email IS NOT NULL)`),
+	// Limite de tamanho (defesa em profundidade — ver lib/limits.ts, mesmo valor).
+	check("inv_invitee_email_len", sql`invitee_email IS NULL OR char_length(invitee_email) <= 254`),
 ]);
 
 export const onboardingResponses = pgTable("onboarding_responses", {
@@ -188,6 +196,8 @@ export const onboardingResponses = pgTable("onboarding_responses", {
 			name: "onboarding_responses_question_id_fkey"
 		}).onDelete("cascade"),
 	unique("or_unique_member_question").on(table.projectMemberId, table.questionId),
+	// Limite de tamanho (defesa em profundidade — ver lib/limits.ts, mesmo valor).
+	check("or_answer_len", sql`char_length(answer) <= 5000`),
 ]);
 
 export const onboardingQuestions = pgTable("onboarding_questions", {
@@ -206,4 +216,9 @@ export const onboardingQuestions = pgTable("onboarding_questions", {
 			name: "onboarding_questions_project_id_fkey"
 		}).onDelete("cascade"),
 	check("onboarding_questions_question_type_check", sql`question_type = ANY (ARRAY['open'::text, 'multiple_choice'::text])`),
+	// Limites de tamanho (defesa em profundidade — ver lib/limits.ts, mesmos valores).
+	// `options` é jsonb (lista de strings); sem checar item a item no banco (isso já é
+	// validado na action), só um teto pro blob inteiro contra abuso bruto de tamanho.
+	check("oq_question_text_len", sql`char_length(question_text) <= 500`),
+	check("oq_options_size", sql`options IS NULL OR pg_column_size(options) <= 8000`),
 ]);

@@ -14,6 +14,7 @@ import {
 import { hasPendingInvitation } from '@/lib/authz'
 import { CONSENT_TEXT } from './consent'
 import { OTHER_VALUE, coerceOptions } from './questions'
+import { ANSWER_MAX } from '@/lib/limits'
 
 export type OnboardingState = { error: string } | null
 
@@ -138,6 +139,7 @@ export async function completeOnboarding(
         }
       }
       if (!answer) return { invalid: true } as const
+      if (answer.length > ANSWER_MAX) return { invalid: true, tooLong: true } as const
       answers.push({ projectMemberId: member.id, questionId: q.id, answer })
     }
 
@@ -162,7 +164,9 @@ export async function completeOnboarding(
   })
 
   if ('invalid' in result) {
-    return { error: 'Responda todas as perguntas do onboarding para concluir.' }
+    return 'tooLong' in result
+      ? { error: `Uma das respostas passa do limite de ${ANSWER_MAX} caracteres.` }
+      : { error: 'Responda todas as perguntas do onboarding para concluir.' }
   }
 
   // Concluído (ou já estava): revalida e volta para o projeto. redirect fica FORA do
