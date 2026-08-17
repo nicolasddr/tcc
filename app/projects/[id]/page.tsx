@@ -1,20 +1,19 @@
 import { notFound } from 'next/navigation'
-import { and, eq, ne, or } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 import { requireUserId } from '@/lib/supabase/server'
-import { transaction, projects, projectMembers, projectInvitations, profiles } from '@/lib/db'
+import { transaction, projects, projectMembers, projectInvitations } from '@/lib/db'
+import { listProjectMembers } from '@/lib/authz'
 import { acceptInvitation } from '@/app/onboarding/actions'
 import { declineInvitation } from '@/app/invitations/actions'
 import { taskTypeLabel } from '../task-types'
 import { formatDate } from '@/app/notifications/labels'
-import { projectStatusLabel, roleLabel, memberStatusLabel } from '../labels'
+import { projectStatusLabel, roleLabel } from '../labels'
 import { groupMembers } from '../members'
-import { InviteEvaluatorForm } from './invite-evaluator-form'
-import { RemoveMemberButton, LeaveProjectButton } from './member-actions'
+import { LeaveProjectButton } from './member-actions'
 import { ProjectTabs } from './project-tabs'
 import { SubmitButton } from '@/app/components/submit-button'
 import { Button, ButtonLink } from '@/app/components/ui/button'
 import { Badge, StatusBadge } from '@/app/components/ui/badge'
-import { Avatar } from '@/app/components/ui/avatar'
 import { EmptyState } from '@/app/components/ui/empty-state'
 import { Panel, Callout } from '@/app/components/ui/panel'
 import { InfoTooltip } from '@/app/components/ui/tooltip'
@@ -88,22 +87,12 @@ export default async function ProjectPage({
       (m) => m.role === 'administrator' && m.status === 'active',
     )
     const viewerIsActive = memberships.some((m) => m.status === 'active')
-    const memberScope = viewerIsAdmin
-      ? undefined
-      : viewerIsActive
-        ? or(eq(projectMembers.userId, userId), ne(projectMembers.status, 'pending_onboarding'))
-        : eq(projectMembers.userId, userId)
-    const memberRows = await tx
-      .select({
-        userId: projectMembers.userId,
-        role: projectMembers.role,
-        status: projectMembers.status,
-        name: profiles.name,
-        email: profiles.email,
-      })
-      .from(projectMembers)
-      .innerJoin(profiles, eq(profiles.id, projectMembers.userId))
-      .where(and(eq(projectMembers.projectId, id), memberScope))
+    const memberRows = await listProjectMembers(
+      userId,
+      id,
+      { isAdmin: viewerIsAdmin, isActive: viewerIsActive },
+      tx,
+    )
 
     return { project, memberships, pendingInvitation, memberRows }
   })
@@ -132,7 +121,6 @@ export default async function ProjectPage({
 
 
   const members = groupMembers(memberRows)
-  const showMembers = isActiveMember && members.length > 0
   const activeEvaluators = members.filter(
     (m) => m.roles.includes('evaluator') && m.status === 'active',
   ).length
@@ -160,16 +148,29 @@ export default async function ProjectPage({
             ) : null}
           </div>
 
-          {isAdmin ? (
-            <ButtonLink
-              href={`/projects/${project.id}/settings`}
-              variant="secondary"
-              size="sm"
-            >
-              <SlidersIcon />
-              Configurações
-            </ButtonLink>
-          ) : null}
+          <div className="flex shrink-0 flex-wrap items-center gap-2">
+            {isActiveMember ? (
+              <ButtonLink
+                href={`/projects/${project.id}/members`}
+                variant="secondary"
+                size="sm"
+              >
+                <UsersIcon />
+                Membros
+              </ButtonLink>
+            ) : null}
+
+            {isAdmin ? (
+              <ButtonLink
+                href={`/projects/${project.id}/settings`}
+                variant="secondary"
+                size="sm"
+              >
+                <SlidersIcon />
+                Configurações
+              </ButtonLink>
+            ) : null}
+          </div>
         </div>
 
         <dl className="mt-5 flex flex-wrap gap-x-10 gap-y-4">
@@ -258,86 +259,17 @@ export default async function ProjectPage({
             />
           </div>
 
-          <div className="mt-3 grid items-start gap-3 lg:grid-cols-2">
-            {/* Lista de membros (HU-025): visível a quem já participa ativamente. */}
-            <Panel
-              title="Membros"
-              icon={<UsersIcon />}
-              action={
-                showMembers ? (
-                  <span className="text-[13px] text-muted">{members.length}</span>
-                ) : null
-              }
-            >
-              {showMembers ? (
-                <ul className="m-0 flex list-none flex-col gap-0.5 p-0">
-                  {members.map((m) => (
-                    <li
-                      key={m.userId}
-                      className="flex items-center gap-2.5 rounded-control px-1 py-1.5"
-                    >
-                      <Avatar fallback={m.name.charAt(0)} />
-                      <span className="flex min-w-0 flex-1 flex-col">
-                        <span className="truncate text-[13px] font-semibold text-ink">
-                          {m.name}
-                        </span>
-                        <span className="truncate text-[11px] text-muted">
-                          {m.roles.map(roleLabel).join(' · ')}
-                          {m.email !== m.name ? ` · ${m.email}` : ''}
-                        </span>
-                      </span>
-                      <span className="flex shrink-0 items-center gap-2.5">
-                        {m.status !== 'active' ? (
-                          <StatusBadge status={m.status}>
-                            {memberStatusLabel(m.status)}
-                          </StatusBadge>
-                        ) : null}
-                        {/* HU-029: só o admin, e só para quem é avaliador. */}
-                        {isAdmin && m.roles.includes('evaluator') ? (
-                          <ButtonLink
-                            href={`/projects/${project.id}/responses/${m.userId}`}
-                            variant="link"
-                          >
-                            Ver respostas
-                          </ButtonLink>
-                        ) : null}
-                        {/* HU-021: o admin remove um avaliador ativo (não a si mesmo,
-                            nem outro administrador). */}
-                        {isAdmin &&
-                        m.roles.includes('evaluator') &&
-                        !m.roles.includes('administrator') &&
-                        m.status === 'active' &&
-                        m.userId !== userId ? (
-                          <RemoveMemberButton
-                            projectId={project.id}
-                            memberUserId={m.userId}
-                            memberName={m.name}
-                          />
-                        ) : null}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <EmptyState>
-                  A lista de membros aparece depois que você conclui o onboarding.
-                </EmptyState>
-              )}
-
-              {isAdmin ? (
-                <div className="mt-4 border-t border-line pt-4">
-                  <InviteEvaluatorForm projectId={project.id} />
-                </div>
-              ) : null}
-            </Panel>
-
-            <Panel title="Codebook" icon={<BookIcon />} action={soonBadge}>
-              <EmptyState>
-                Nenhuma versão registrada. As definições e os critérios que orientam a
-                avaliação entram aqui.
-              </EmptyState>
-            </Panel>
-          </div>
+          <Panel
+            className="mt-3"
+            title="Codebook"
+            icon={<BookIcon />}
+            action={soonBadge}
+          >
+            <EmptyState>
+              Nenhuma versão registrada. As definições e os critérios que orientam a
+              avaliação entram aqui.
+            </EmptyState>
+          </Panel>
 
           {isAdmin && project.status === 'active' ? (
             <Callout

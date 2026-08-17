@@ -1,5 +1,5 @@
 
-import { and, asc, desc, eq, sql } from 'drizzle-orm'
+import { and, asc, desc, eq, ne, or, sql } from 'drizzle-orm'
 import { alias } from 'drizzle-orm/pg-core'
 import {
   ownerDb,
@@ -204,6 +204,38 @@ export function hasPendingPermissionRequest(
       )
       .limit(1),
   )
+}
+
+export type ProjectMemberRow = {
+  userId: string
+  role: string
+  status: string
+  name: string
+  email: string
+}
+
+export function listProjectMembers(
+  userId: string,
+  projectId: string,
+  viewer: { isAdmin: boolean; isActive: boolean },
+  db: DbExecutor = ownerDb,
+): Promise<ProjectMemberRow[]> {
+  const scope = viewer.isAdmin
+    ? undefined
+    : viewer.isActive
+      ? or(eq(projectMembers.userId, userId), ne(projectMembers.status, 'pending_onboarding'))
+      : eq(projectMembers.userId, userId)
+  return db
+    .select({
+      userId: projectMembers.userId,
+      role: projectMembers.role,
+      status: projectMembers.status,
+      name: profiles.name,
+      email: profiles.email,
+    })
+    .from(projectMembers)
+    .innerJoin(profiles, eq(profiles.id, projectMembers.userId))
+    .where(and(eq(projectMembers.projectId, projectId), scope))
 }
 
 export type PendingPermissionRequest = {
