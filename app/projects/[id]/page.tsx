@@ -11,13 +11,14 @@ import { projectStatusLabel, roleLabel } from '../labels'
 import { groupMembers } from '../members'
 import { LeaveProjectButton } from './member-actions'
 import { ProjectTabs } from './project-tabs'
+import { PhaseBar } from './phase-bar'
 import { SubmitButton } from '@/app/components/submit-button'
 import { Button, ButtonLink } from '@/app/components/ui/button'
 import { Badge, StatusBadge } from '@/app/components/ui/badge'
 import { EmptyState } from '@/app/components/ui/empty-state'
 import { Panel, Callout } from '@/app/components/ui/panel'
 import { InfoTooltip } from '@/app/components/ui/tooltip'
-import { StatCard, ProgressBar } from '@/app/components/ui/stat'
+import { StatCard } from '@/app/components/ui/stat'
 import { Section } from '@/app/components/ui/section'
 import { PageShell, TopBar, BackLink, PageTitle } from '@/app/components/ui/shell'
 import {
@@ -26,8 +27,6 @@ import {
   ArrowRightIcon,
   SlidersIcon,
 } from '@/app/components/ui/icons'
-
-const TOTAL_PHASES = 4
 
 const soonBadge = <Badge tone="neutral">em breve</Badge>
 
@@ -225,17 +224,21 @@ export default async function ProjectPage({
         <>
           <ProjectTabs />
 
-          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <StatCard
-              label="Fase atual"
-              value="1"
-              suffix={`/ ${TOTAL_PHASES}`}
-              hint="Configuração inicial"
-              badge={soonBadge}
-            >
-              <ProgressBar value={1} max={TOTAL_PHASES} />
-            </StatCard>
+          <PhaseBar
+            className="mt-4"
+            current={1}
+            badge={soonBadge}
+            action={
+              isAdmin && project.status === 'active' ? (
+                <Button disabled title="Ainda não implementado">
+                  Avançar fase
+                  <ArrowRightIcon />
+                </Button>
+              ) : null
+            }
+          />
 
+          <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             <StatCard
               label="Avaliadores"
               value={activeEvaluators}
@@ -270,20 +273,6 @@ export default async function ProjectPage({
               avaliação entram aqui.
             </EmptyState>
           </Panel>
-
-          {isAdmin && project.status === 'active' ? (
-            <Callout
-              className="mt-3"
-              title="Pronto para avançar?"
-              hint="Quando o prompt estiver validado, avance para a próxima fase do processo."
-              action={
-                <Button disabled title="Ainda não implementado">
-                  Avançar fase
-                  <ArrowRightIcon />
-                </Button>
-              }
-            />
-          ) : null}
         </>
       ) : null}
 
