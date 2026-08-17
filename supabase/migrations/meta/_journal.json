@@ -8,6 +8,13 @@
       "when": 1783998294504,
       "tag": "0000_baseline",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1786984852506,
+      "tag": "0001_drop_profiles_auth_users_fk",
+      "breakpoints": true
     }
   ]
 }

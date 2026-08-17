@@ -9,8 +9,7 @@ import { defineConfig } from 'drizzle-kit'
 // a autorização vive na app-layer (lib/authz + checagens nas actions).
 //
 // Fluxo para mudar o schema: editar `schema.ts` → `npx drizzle-kit generate` → conferir o
-// SQL gerado (removendo o `CREATE TABLE "auth"."users"` do stub externo, que já existe no
-// schema auth do Supabase) → `supabase db reset`.
+// SQL gerado → `supabase db reset`.
 export default defineConfig({
   dialect: 'postgresql',
   schema: './lib/db/schema.ts',

@@ -1,5 +1,5 @@
 import { relations } from "drizzle-orm/relations";
-import { profiles, projects, usersInAuth, superAdmins, notifications, platformPermissionRequests, projectMembers, projectInvitations, onboardingResponses, onboardingQuestions } from "./schema";
+import { profiles, projects, superAdmins, notifications, platformPermissionRequests, projectMembers, projectInvitations, onboardingResponses, onboardingQuestions } from "./schema";
 
 export const projectsRelations = relations(projects, ({one, many}) => ({
 	profile: one(profiles, {
@@ -11,12 +11,8 @@ export const projectsRelations = relations(projects, ({one, many}) => ({
 	onboardingQuestions: many(onboardingQuestions),
 }));
 
-export const profilesRelations = relations(profiles, ({one, many}) => ({
+export const profilesRelations = relations(profiles, ({many}) => ({
 	projects: many(projects),
-	usersInAuth: one(usersInAuth, {
-		fields: [profiles.id],
-		references: [usersInAuth.id]
-	}),
 	superAdmins_userId: many(superAdmins, {
 		relationName: "superAdmins_userId_profiles_id"
 	}),
@@ -37,10 +33,6 @@ export const profilesRelations = relations(profiles, ({one, many}) => ({
 	projectInvitations_invitedBy: many(projectInvitations, {
 		relationName: "projectInvitations_invitedBy_profiles_id"
 	}),
-}));
-
-export const usersInAuthRelations = relations(usersInAuth, ({many}) => ({
-	profiles: many(profiles),
 }));
 
 export const superAdminsRelations = relations(superAdmins, ({one}) => ({

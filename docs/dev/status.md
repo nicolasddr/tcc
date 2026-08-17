@@ -71,6 +71,11 @@ O núcleo da metodologia de Prompt Science, descrito na landing page e no
   e-mail pendentes; ele substituiu o antigo trigger `handle_new_user` e é
   idempotente. Usuários criados em `auth.users` antes disso precisariam de um
   backfill único de `auth.users` para `profiles`.
+- `profiles.id` não tem FK para `auth.users`. A FK existia no baseline e foi removida
+  em `0001_drop_profiles_auth_users_fk.sql`: ela inviabilizava o setup de
+  desenvolvimento do README (Auth hospedado + Postgres local), onde o usuário nasce
+  no `auth.users` remoto e o perfil é gravado no banco local. O vínculo entre os dois
+  passa a ser só o id, mantido pelo provisionamento.
 - O Drizzle é dono do schema: mudanças saem de `lib/db/schema.ts` mais
   `drizzle-kit generate`, com o baseline em `supabase/migrations/0000_baseline.sql`
   (ver [`lib/db/README.md`](../../lib/db/README.md)). Não há grants por papel, RLS

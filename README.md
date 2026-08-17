@@ -45,7 +45,15 @@ Ferramenta de engenharia de prompt — Next.js + Supabase (Auth) + Postgres loca
 
 5. Login com Google: o Auth aponta para o projeto Supabase hospedado, e a URL `http://localhost:3000/auth/callback` já está na allowlist de redirect desse projeto — funciona para qualquer pessoa rodando em `localhost:3000`, sem configuração extra.
 
-**Nota:** o Auth (login) usa o Supabase hospedado, mas o banco de dados (Drizzle) é local — se o Docker/`supabase start` não estiver rodando, o login com Google conclui mas o app quebra ao tentar gravar o usuário no banco local.
+6. Liberar a própria conta no banco local. O perfil nasce sem permissão de criar projetos, e o banco local está vazio (não há super-admin para aprovar o pedido), então depois do primeiro login rode:
+
+   ```bash
+   psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -c "update profiles set can_create_projects = true; insert into super_admins (user_id) select id from profiles on conflict do nothing;"
+   ```
+
+   Refaça isso depois de cada `npm run db:reset`.
+
+**Nota:** o Auth (login) usa o Supabase hospedado, mas o banco de dados (Drizzle) é local — se o Docker/`supabase start` não estiver rodando, o login com Google conclui mas o app quebra ao tentar gravar o usuário no banco local. Os dois lados são independentes: sua conta existe no Auth hospedado, seus projetos existem só na sua máquina.
 
 ## Setup opcional: rodar sem depender do Google (`/dev/login`)
 

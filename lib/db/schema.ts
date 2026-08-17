@@ -1,20 +1,10 @@
-import { pgTable, pgSchema, index, foreignKey, check, uuid, text, timestamp, unique, boolean, jsonb, uniqueIndex, integer } from "drizzle-orm/pg-core"
+import { pgTable, index, foreignKey, check, uuid, text, timestamp, unique, boolean, jsonb, uniqueIndex, integer } from "drizzle-orm/pg-core"
 import { sql } from "drizzle-orm"
 
 // FONTE DA VERDADE do schema (issue #22, Fase 4 — o flip). Depois de remover RLS/policies/
 // triggers/RPCs, o Drizzle passou a ser DONO do schema: este arquivo é gerado/mantido à mão
 // e `drizzle-kit generate` produz o baseline em supabase/migrations. Não há mais introspecção
 // nem policies aqui — a autorização vive na app-layer (lib/authz, checagens nas actions).
-
-// auth.users pertence ao schema `auth` do Supabase (gerido pelo Supabase Auth), fora do
-// schemaFilter ['public']. Este stub mínimo existe só para tipar a FK profiles.id ->
-// auth.users.id; o baseline NÃO cria essa tabela (ela já existe no schema auth).
-const authSchema = pgSchema("auth")
-export const usersInAuth = authSchema.table("users", {
-	id: uuid().primaryKey().notNull(),
-})
-
-
 
 export const projects = pgTable("projects", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
@@ -50,11 +40,6 @@ export const profiles = pgTable("profiles", {
 	// saíram no flip da Fase 4; antes o $onUpdate esbarraria no grant que só liberava name).
 	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).$onUpdate(() => sql`now()`),
 }, (table) => [
-	foreignKey({
-			columns: [table.id],
-			foreignColumns: [usersInAuth.id],
-			name: "profiles_id_fkey"
-		}).onDelete("cascade"),
 	unique("profiles_email_key").on(table.email),
 ]);
 

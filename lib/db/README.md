@@ -8,10 +8,11 @@ actions/páginas). Ver `docs/adr/0007-migracao-para-drizzle-orm.md`.
 
 ## Arquivos
 
-- **`schema.ts`** — fonte da verdade do schema, **editado à mão**. Exceção documentada: o
-  stub `usersInAuth` (tabela externa `auth.users`, do schema `auth` gerido pelo Supabase
-  Auth) existe só para tipar a FK `profiles.id → auth.users.id`; o baseline **não** cria
-  essa tabela.
+- **`schema.ts`** — fonte da verdade do schema, **editado à mão**. Só descreve o schema
+  `public`: `profiles.id` guarda o id do usuário do Supabase Auth, mas **sem FK** para
+  `auth.users` — esse schema é de outro serviço e, no setup de desenvolvimento, de outro
+  banco (Auth hospedado + Postgres local). Quem materializa o perfil no 1º login é
+  `lib/auth/provision`.
 - **`relations.ts`** — relações do Drizzle para as queries relacionais.
 - **`index.ts`** — conexão. Existe uma única conexão (`ownerDb`, papel `postgres`, dono das
   tabelas). `transaction(run)` abre uma transação e roda `run` dentro dela. `pgErrorCode`
@@ -27,5 +28,5 @@ DATABASE_URL='postgresql://postgres:postgres@127.0.0.1:54322/postgres' npx drizz
 supabase db reset   # aplica o baseline + seed no banco local
 ```
 
-Gotcha do `generate`: ele re-emite um `CREATE TABLE "auth"."users"` (o stub acima).
-Remova esse `CREATE TABLE` da migration gerada à mão — a tabela já existe no schema `auth`.
+Confira sempre o SQL gerado antes de aplicar: o `generate` compara com o snapshot em
+`supabase/migrations/meta` e pode emitir DDL destrutivo que você não pediu.
