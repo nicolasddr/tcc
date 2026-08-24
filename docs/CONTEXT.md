@@ -40,12 +40,34 @@ para validar o codebook e na Fase 3 vai também à LLM, como parte do codebook c
 A instrução enviada à LLM. É uma entidade separada do codebook, e na Fase 3 converge com ele
 no envio ("o codebook é o prompt").
 
+**Versão (de codebook ou de prompt)**
+O conteúdo do codebook ou do prompt num dado momento, numerado em sequência dentro do projeto.
+Codebook e prompt são versionados de forma independente. Toda versão registra quem a criou e
+quando, porque o histórico é dado de pesquisa.
+
+**Versão em aberto**
+A versão vigente enquanto nenhuma rodada a usou: é a área de trabalho do Administrador, e salvar
+altera a própria versão, sem criar número novo. Na Fase 1 a versão vigente está sempre em aberto,
+já que a fase não tem rodadas.
+Evitar: rascunho (não existe rascunho separado da versão; ver ADR 0009).
+
+**Versão congelada**
+A versão que já foi usada por uma rodada, ou que deixou de ser a mais recente. Não muda mais:
+salvar sobre ela cria a versão seguinte. A única exceção são os metadados descritivos do prompt
+(nome, descrição e registro de mudanças), que não vão à LLM e não são versionados.
+
+**Teste de prompt**
+A verificação que fecha a Fase 1: chama a LLM com o prompt, os títulos das definições e um item de
+entrada, e mostra a saída na tela sem gravar nada. Não produz Resposta nem Rodada, e não congela
+versão.
+Evitar: smoke test, que era o nome antigo e sugeria persistência (ver ADR 0001).
+
 **Item de entrada**
 Uma unidade de dado que vira uma resposta: uma pergunta de usuário, um commit, o conteúdo de
 um `.bpmn`. É texto opaco para a ferramenta. Os itens pertencem a um pool do projeto, não a
 uma fase, e as fases seguintes amostram desse pool. O pool não é particionado: cabe ao humano não
 reusar na Fase 4 um item que os avaliadores já viram, e a ferramenta só informa em quais rodadas
-cada item já rodou.
+cada item já foi *usado*, a mesma palavra que marca a versão usada por uma rodada.
 Evitar: dado, registro, e sobretudo *treino* e *teste* como partição, porque nada aqui é
 treinado.
 

@@ -8,14 +8,16 @@
   significado de cada termo (codebook, definição, fase, ICR, papéis).
 - [adr/](./adr): decisões de arquitetura, ou seja, por que foi feito assim.
 - [prd/](./prd): requisitos de produto (Épico 0, Fundação; Épico 1, Configuração do pipeline).
-- [issues/](./issues): fatias verticais do Épico 0 e o status de cada uma.
+- [issues/](./issues): fatias verticais do Épico 0 e o status de cada uma. As
+  fatias do Épico 1 são issues no GitHub (`gh issue list`).
 
 ## Desenvolvimento: [dev/](./dev)
 
 Documentação técnica e operacional, de mão na massa:
 
 - [dev/status.md](./dev/status.md): o que está construído e o que ainda é plano.
-  É a orientação de alto nível; a tabela por fatia mora em [issues/](./issues).
+  É a orientação de alto nível; a tabela por fatia do Épico 0 mora em
+  [issues/](./issues) e as do Épico 1 nas issues do GitHub.
 - [dev/camada-de-dados.md](./dev/camada-de-dados.md): Drizzle-only com
   autorização na camada de aplicação, e as armadilhas não-óbvias que reaparecem
   a cada nova action ou fatia.
