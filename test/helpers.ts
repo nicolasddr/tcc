@@ -82,8 +82,12 @@ export async function createProject(
   tx: DbExecutor,
   createdBy: string,
   name = 'Projeto de Teste',
+  opts: { phase?: number } = {},
 ): Promise<string> {
-  const [row] = await tx.insert(projects).values({ name, createdBy }).returning({ id: projects.id })
+  const [row] = await tx
+    .insert(projects)
+    .values({ name, createdBy, ...(opts.phase === undefined ? {} : { phase: opts.phase }) })
+    .returning({ id: projects.id })
   await tx
     .insert(projectMembers)
     .values({ projectId: row.id, userId: createdBy, role: 'administrator', status: 'active' })

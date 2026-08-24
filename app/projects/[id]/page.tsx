@@ -58,6 +58,7 @@ export default async function ProjectPage({
         description: projects.description,
         status: projects.status,
         taskType: projects.taskType,
+        phase: projects.phase,
         createdAt: projects.createdAt,
         createdBy: projects.createdBy,
       })
@@ -226,8 +227,7 @@ export default async function ProjectPage({
 
           <PhaseBar
             className="mt-4"
-            current={1}
-            badge={soonBadge}
+            current={project.phase}
             action={
               isAdmin && project.status === 'active' ? (
                 <Button disabled title="Ainda não implementado">

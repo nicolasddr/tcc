@@ -18,6 +18,7 @@ export const projects = pgTable("projects", {
 	// nasce com updated_at = now(). Inofensivo: nada no app lê projects.updated_at.
 	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).$onUpdate(() => sql`now()`),
 	taskType: text("task_type"),
+	phase: integer().default(1).notNull(),
 }, (table) => [
 	index("projects_created_by_status").using("btree", table.createdBy.asc().nullsLast(), table.status.asc().nullsLast()),
 	index("projects_status").using("btree", table.status.asc().nullsLast()),
@@ -28,6 +29,7 @@ export const projects = pgTable("projects", {
 		}).onDelete("restrict"),
 	check("projects_status_check", sql`status = ANY (ARRAY['active'::text, 'completed'::text, 'archived'::text])`),
 	check("projects_task_type_check", sql`task_type = ANY (ARRAY['classification'::text, 'quality_evaluation'::text, 'generation'::text, 'mixed'::text, 'other'::text])`),
+	check("projects_phase_check", sql`phase >= 1 AND phase <= 4`),
 	// Limites de tamanho (defesa em profundidade — ver lib/limits.ts, mesmos valores).
 	// Números literais porque o drizzle-kit precisa deles congelados na migration gerada.
 	check("projects_name_len", sql`char_length(name) <= 200`),
