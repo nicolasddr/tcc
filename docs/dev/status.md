@@ -40,11 +40,22 @@ Já construído:
   de 1 a 4 porque a Fase 4 está no escopo), na migration
   `0003_add_project_phase.sql`, lida pela `PhaseBar` em
   `app/projects/[id]/page.tsx`. Coberta por `phase.int.test.ts`.
+- **Fatia 13b, aba de configuração da Fase 1.** Nasceu a rota
+  `app/projects/[id]/pipeline`, visível como aba "Configuração" só para o
+  Administrador ativo, com o checklist das três pré-condições de avanço
+  (definição, texto de prompt e item de entrada) e as três seções ancoradas
+  (`#definicoes`, `#prompt`, `#itens`) onde as fatias 14, 15 e 16 entram. A regra
+  é a função pura `pendingRequirements`/`canAdvanceFromPhase1` em
+  `pipeline/preconditions.ts`, que a fatia 18 reaproveita no avanço de fase. O
+  portão é servidor: não-admin leva `notFound` (o mesmo para projeto inexistente,
+  então a recusa não revela nada) e membro em `pending_onboarding` é redirecionado
+  ao onboarding antes da rota. Coberta por `pipeline/page.int.test.ts` e
+  `pipeline/preconditions.unit.test.ts`.
 
-O que vem a seguir, na ordem em que as issues destravam: a aba de configuração da
-Fase 1 com o checklist de pré-condições (13b), depois definições, prompt e itens
-(14, 15 e 16), o teste de prompt (17) e o avanço para a Fase 2 (18). A fatia 19,
-do Administrador que também avalia, não depende das outras.
+O que vem a seguir, na ordem em que as issues destravam: definições, prompt e
+itens (14, 15 e 16) dentro da aba de configuração, o teste de prompt (17) e o
+avanço para a Fase 2 (18). A fatia 19, do Administrador que também avalia, não
+depende das outras.
 
 ## Épico 0 (Fundação): construído, menos a fatia 08
 

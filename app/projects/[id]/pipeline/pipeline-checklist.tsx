@@ -1,0 +1,78 @@
+import { Card } from '@/app/components/ui/card'
+import { Badge } from '@/app/components/ui/badge'
+import { Panel } from '@/app/components/ui/panel'
+import { CheckCircleIcon, CircleIcon } from '@/app/components/ui/icons'
+import {
+  PIPELINE_REQUIREMENTS,
+  pendingRequirements,
+  type PipelineInputs,
+} from './preconditions'
+
+export function PipelineChecklist({
+  inputs,
+  className,
+}: {
+  inputs: PipelineInputs
+  className?: string
+}) {
+  const pending = pendingRequirements(inputs)
+  const pendingKeys = new Set(pending.map((r) => r.key))
+
+  return (
+    <Panel
+      className={className}
+      title="Para avançar para a Fase 2"
+      icon={<CheckCircleIcon />}
+      action={
+        pending.length === 0 ? (
+          <Badge tone="success">tudo pronto</Badge>
+        ) : (
+          <Badge tone="warning">
+            {pending.length} de {PIPELINE_REQUIREMENTS.length} pendentes
+          </Badge>
+        )
+      }
+    >
+      <ul className="m-0 flex list-none flex-col gap-2 p-0">
+        {PIPELINE_REQUIREMENTS.map((req) => {
+          const done = !pendingKeys.has(req.key)
+
+          return (
+            <li key={req.key}>
+              <Card
+                padding="sm"
+                tone={done ? 'subtle' : 'default'}
+                className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2"
+              >
+                <div className="flex min-w-[240px] flex-1 items-start gap-2.5">
+                  {done ? (
+                    <CheckCircleIcon className="mt-0.5 text-success-fg" />
+                  ) : (
+                    <CircleIcon className="mt-0.5 text-faint" />
+                  )}
+                  <div className="min-w-0">
+                    <p className="m-0 text-[13px] font-semibold text-ink">{req.title}</p>
+                    {done ? null : (
+                      <p className="m-0 mt-0.5 text-[13px] text-muted">{req.pending}</p>
+                    )}
+                  </div>
+                </div>
+
+                {done ? (
+                  <Badge tone="success">pronto</Badge>
+                ) : (
+                  <a
+                    href={`#${req.anchor}`}
+                    className="text-[13px] font-semibold text-brand transition-colors hover:text-brand-hover"
+                  >
+                    Resolver
+                  </a>
+                )}
+              </Card>
+            </li>
+          )
+        })}
+      </ul>
+    </Panel>
+  )
+}

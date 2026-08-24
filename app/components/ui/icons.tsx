@@ -98,6 +98,14 @@ export function SlidersIcon(props: IconProps) {
   )
 }
 
+export function CircleIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <circle cx="12" cy="12" r="9" />
+    </Icon>
+  )
+}
+
 export function ArrowRightIcon(props: IconProps) {
   return (
     <Icon {...props}>

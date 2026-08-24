@@ -223,7 +223,7 @@ export default async function ProjectPage({
 
       {isMember ? (
         <>
-          <ProjectTabs />
+          <ProjectTabs projectId={project.id} isAdmin={isAdmin} />
 
           <PhaseBar
             className="mt-4"
