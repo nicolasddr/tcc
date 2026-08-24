@@ -1,6 +1,6 @@
 # Status do projeto: o que está construído e o que é plano
 
-O que a ferramenta é, em uma frase: um protótipo de TCC que implementa a
+O que a ferramenta é, em uma frase: uma ferramenta de TCC que implementa a
 metodologia de Prompt Science de Shah (2025), um processo com humanos no loop,
 papéis de administrador e avaliador, codebooks e métricas de concordância (ICR).
 O glossário do domínio está em [CONTEXT.md](../CONTEXT.md). A stack é Next.js 16
@@ -46,8 +46,13 @@ O núcleo da metodologia de Prompt Science, descrito na landing page e no
 - Edição de codebook: definições (títulos, descrições e tipo) e critérios.
 - Métricas de ICR e concordância: Krippendorff's Alpha como primária e Cohen's
   Kappa, com Qualidade como dimensão separada.
-- O processo de fases 1, 2 e 3 (configurar pipeline, validar codebook e validar
-  prompt). A Fase 4 está fora do escopo do protótipo, de propósito.
+- O processo das quatro fases: configurar pipeline, validar codebook, validar
+  prompt e testar a replicação. A Fase 4 entrou no escopo (ver
+  [ADR 0004](../adr/0004-thresholds-como-referencia-sem-trava.md)); ela repete a
+  avaliação com itens e avaliadores novos, sobre codebook e prompt congelados.
+- Épico 1, configuração do pipeline: PRD em
+  [`../prd/epico-1-configuracao-do-pipeline.md`](../prd/epico-1-configuracao-do-pipeline.md),
+  com as fatias publicadas como issues no GitHub.
 
 ## Infra e performance
 

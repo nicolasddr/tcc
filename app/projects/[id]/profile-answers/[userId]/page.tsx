@@ -21,7 +21,7 @@ import {
 } from '@/app/components/ui/shell'
 
 
-export default async function MemberResponsesPage({
+export default async function MemberProfileAnswersPage({
   params,
 }: {
   params: Promise<{ id: string; userId: string }>

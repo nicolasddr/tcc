@@ -43,11 +43,16 @@ no envio ("o codebook é o prompt").
 **Item de entrada**
 Uma unidade de dado que vira uma resposta: uma pergunta de usuário, um commit, o conteúdo de
 um `.bpmn`. É texto opaco para a ferramenta. Os itens pertencem a um pool do projeto, não a
-uma fase, e as Fases 2 e 3 amostram desse pool.
-Evitar: dado, registro.
+uma fase, e as fases seguintes amostram desse pool. O pool não é particionado: cabe ao humano não
+reusar na Fase 4 um item que os avaliadores já viram, e a ferramenta só informa em quais rodadas
+cada item já rodou.
+Evitar: dado, registro, e sobretudo *treino* e *teste* como partição, porque nada aqui é
+treinado.
 
 **Resposta**
 A saída da LLM para um item de entrada, produzida pelo pipeline (prompt + definições + item).
+Não confundir com as respostas do questionário de perfil, que um Avaliador dá ao entrar no
+projeto: aquelas são de outro conceito e não devem usar esta palavra.
 
 **Proveniência (da Resposta)**
 O que permite reproduzir e comparar uma resposta: a origem (gerada pela ferramenta ou colada
@@ -86,11 +91,15 @@ Não sei/Misto). Só personaliza tooltips e exemplos, além do tipo pré-selecio
 definições. Não muda o comportamento da ferramenta, que é agnóstica de tarefa.
 
 **Fase**
-Estado explícito do projeto no processo de Shah (1, 2 e 3; a Fase 4 está fora do escopo). O
-avanço é uma ação consciente do Administrador, nunca automático nem travado por métrica.
+Estado explícito do projeto no processo de Shah (1 a 4). O avanço é uma ação consciente do
+Administrador, nunca automático nem travado por métrica. Pré-condição estrutural é coisa
+diferente de métrica: sem prompt, sem definição ou sem item a fase seguinte não tem o que fazer,
+e por isso o avanço fica bloqueado até os insumos existirem. O único retorno possível é da Fase 4
+para a Fase 3.
 
-- *Fase 1, configurar o pipeline*: prompt inicial, itens, LLM e os títulos das definições.
-  Termina com um *smoke test*, isto é, poucas respostas só para ver se o pipeline roda.
+- *Fase 1, configurar o pipeline*: prompt inicial, itens, LLM e os títulos das definições. Não
+  produz resposta persistida. Termina com um *teste de prompt*, que chama a LLM e mostra a saída
+  na tela sem gravar nada, só para verificar que o pipeline roda antes de convidar avaliadores.
 - *Fase 2, validar o codebook*: a LLM gera o lote avaliável ainda só com os títulos (a mesma
   entrada da Fase 1, em escala). Aqui se autoram descrições e critérios, que serão usados
   pelos avaliadores, avalia-se, calcula-se o ICR e refina-se o codebook até a concordância
@@ -98,10 +107,15 @@ avanço é uma ação consciente do Administrador, nunca automático nem travado
 - *Fase 3, validar o prompt*: o codebook completo passa a ir à LLM junto com o prompt ("o
   codebook é o prompt"), e por isso as respostas mudam. Com ICR baixo, refina-se o codebook;
   com ICR alto, refina-se o prompt para empurrar a qualidade.
+- *Fase 4, testar a replicação*: repete a avaliação com itens de entrada novos e avaliadores
+  novos, sobre codebook e prompt congelados. Responde se o codebook generaliza ou se só funcionava
+  com aquelas pessoas e aqueles dados. Se o resultado reprovar, o Administrador pode voltar à
+  Fase 3, o que descongela as versões; a rodada da Fase 4 fica preservada como histórico.
 
 **Rodada**
-Um ciclo de gerar respostas, avaliar e calcular ICR dentro de uma fase. É a unidade contável:
-uma fase é feita de várias rodadas. Entre uma rodada e a próxima, o Administrador refina (o
+Um ciclo de gerar respostas, avaliar e calcular ICR dentro de uma fase. Existe da Fase 2 em
+diante, já que a Fase 1 não persiste resposta nenhuma. É a unidade contável: uma fase é feita de
+várias rodadas. Entre uma rodada e a próxima, o Administrador refina (o
 codebook na Fase 2, o codebook ou o prompt na Fase 3).
 Evitar: iteração como unidade contável ("iterativo" só como adjetivo do processo).
 
@@ -115,6 +129,12 @@ Evitar: Pesquisador (não existe esse papel).
 **Avaliador**
 Avalia respostas da LLM de forma independente, seguindo o codebook. Não autora o codebook.
 
+**Administrador-avaliador**
+Administrador que também assumiu o papel de Avaliador no próprio projeto, ganhando um segundo
+vínculo e passando pelo mesmo consentimento e questionário dos demais. Como ele autora o codebook
+e avalia com ele, é fonte conhecida de viés, e os painéis de concordância precisam conseguir
+separá-lo dos demais avaliadores.
+
 **Super-admin**
 Administrador da plataforma; aprova ou rejeita permissão para criar projetos.
 
@@ -123,3 +143,6 @@ Administrador da plataforma; aprova ou rejeita permissão para criar projetos.
 - LLM como avaliadora (*could-have*): se for construída, decidir se conta no ICR principal ou
   se aparece como lente separada (LLM contra consenso humano). A recomendação em registro é a
   lente separada. Resolver no Épico 3 ou depois.
+- Saída estruturada da Resposta: hoje a saída da LLM é texto livre e opaco. Estruturá-la por
+  definição facilitaria a tela de avaliação, mas prende a ferramenta a um formato e quebra quando
+  a LLM desobedece. Reavaliar quando a tela de avaliação existir.

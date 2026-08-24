@@ -38,7 +38,7 @@ export function MemberList({
             {/* HU-029: só o admin, e só para quem é avaliador. */}
             {canManage && m.roles.includes('evaluator') ? (
               <ButtonLink
-                href={`/projects/${projectId}/responses/${m.userId}`}
+                href={`/projects/${projectId}/profile-answers/${m.userId}`}
                 variant="link"
               >
                 Ver respostas

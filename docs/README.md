@@ -7,7 +7,7 @@
 - [CONTEXT.md](./CONTEXT.md): glossário do domínio (linguagem ubíqua), com o
   significado de cada termo (codebook, definição, fase, ICR, papéis).
 - [adr/](./adr): decisões de arquitetura, ou seja, por que foi feito assim.
-- [prd/](./prd): requisitos de produto (Épico 0, Fundação).
+- [prd/](./prd): requisitos de produto (Épico 0, Fundação; Épico 1, Configuração do pipeline).
 - [issues/](./issues): fatias verticais do Épico 0 e o status de cada uma.
 
 ## Desenvolvimento: [dev/](./dev)

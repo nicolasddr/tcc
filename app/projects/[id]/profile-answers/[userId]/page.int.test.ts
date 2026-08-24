@@ -1,6 +1,7 @@
-// app/projects/[id]/responses/[userId]/page.int.test.ts — teste de integração do ESCOPO
-// da página de respostas de onboarding (issue #22). "Quem não pode ver, não vê": só o
-// admin do projeto enxerga as respostas de um avaliador — os demais são redirecionados.
+// app/projects/[id]/profile-answers/[userId]/page.int.test.ts — teste de integração do
+// ESCOPO da página de respostas do questionário de perfil (issue #22). "Quem não pode ver,
+// não vê": só o admin do projeto enxerga as respostas de um avaliador — os demais são
+// redirecionados.
 // Prova a checagem EXPLÍCITA (`isAdmin`) na app-layer.
 //
 // A página é um Server Component: renderizá-la só monta a árvore. Acessos commitam via
@@ -23,7 +24,7 @@ vi.mock('next/navigation', () => ({
   },
 }))
 
-import MemberResponsesPage from '@/app/projects/[id]/responses/[userId]/page'
+import MemberProfileAnswersPage from '@/app/projects/[id]/profile-answers/[userId]/page'
 import { ownerDb } from '@/lib/db'
 import {
   createUser,
@@ -35,10 +36,10 @@ import {
 } from '@/test/helpers'
 
 function render(id: string, userId: string) {
-  return MemberResponsesPage({ params: Promise.resolve({ id, userId }) })
+  return MemberProfileAnswersPage({ params: Promise.resolve({ id, userId }) })
 }
 
-describe('app/projects/[id]/responses/[userId] — só o admin vê as respostas', () => {
+describe('app/projects/[id]/profile-answers/[userId] — só o admin vê as respostas', () => {
   let users: string[]
   let projs: string[]
 
