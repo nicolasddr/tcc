@@ -29,6 +29,13 @@
       "when": 1787577279843,
       "tag": "0003_add_project_phase",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1787667372582,
+      "tag": "0004_daily_wolfpack",
+      "breakpoints": true
     }
   ]
 }

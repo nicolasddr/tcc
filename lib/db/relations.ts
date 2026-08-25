@@ -1,5 +1,5 @@
 import { relations } from "drizzle-orm/relations";
-import { profiles, projects, superAdmins, notifications, platformPermissionRequests, projectMembers, projectInvitations, onboardingResponses, onboardingQuestions } from "./schema";
+import { profiles, projects, superAdmins, notifications, platformPermissionRequests, projectMembers, projectInvitations, onboardingResponses, onboardingQuestions, codebookVersions, codebookDefinitions } from "./schema";
 
 export const projectsRelations = relations(projects, ({one, many}) => ({
 	profile: one(profiles, {
@@ -9,6 +9,7 @@ export const projectsRelations = relations(projects, ({one, many}) => ({
 	projectMembers: many(projectMembers),
 	projectInvitations: many(projectInvitations),
 	onboardingQuestions: many(onboardingQuestions),
+	codebookVersions: many(codebookVersions),
 }));
 
 export const profilesRelations = relations(profiles, ({many}) => ({
@@ -33,6 +34,7 @@ export const profilesRelations = relations(profiles, ({many}) => ({
 	projectInvitations_invitedBy: many(projectInvitations, {
 		relationName: "projectInvitations_invitedBy_profiles_id"
 	}),
+	codebookVersions: many(codebookVersions),
 }));
 
 export const superAdminsRelations = relations(superAdmins, ({one}) => ({
@@ -113,5 +115,24 @@ export const onboardingQuestionsRelations = relations(onboardingQuestions, ({one
 	project: one(projects, {
 		fields: [onboardingQuestions.projectId],
 		references: [projects.id]
+	}),
+}));
+
+export const codebookVersionsRelations = relations(codebookVersions, ({one, many}) => ({
+	project: one(projects, {
+		fields: [codebookVersions.projectId],
+		references: [projects.id]
+	}),
+	profile: one(profiles, {
+		fields: [codebookVersions.createdBy],
+		references: [profiles.id]
+	}),
+	codebookDefinitions: many(codebookDefinitions),
+}));
+
+export const codebookDefinitionsRelations = relations(codebookDefinitions, ({one}) => ({
+	codebookVersion: one(codebookVersions, {
+		fields: [codebookDefinitions.codebookVersionId],
+		references: [codebookVersions.id]
 	}),
 }));

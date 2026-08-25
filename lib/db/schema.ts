@@ -224,3 +224,47 @@ export const onboardingQuestions = pgTable("onboarding_questions", {
 	check("oq_question_text_len", sql`char_length(question_text) <= 500`),
 	check("oq_options_size", sql`options IS NULL OR pg_column_size(options) <= 8000`),
 ]);
+
+export const codebookVersions = pgTable("codebook_versions", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	projectId: uuid("project_id").notNull(),
+	versionNumber: integer("version_number").notNull(),
+	note: text(),
+	createdBy: uuid("created_by").notNull(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }),
+	usedAt: timestamp("used_at", { withTimezone: true, mode: 'string' }),
+}, (table) => [
+	index("cv_project_version").using("btree", table.projectId.asc().nullsLast(), table.versionNumber.desc().nullsFirst()),
+	foreignKey({
+			columns: [table.projectId],
+			foreignColumns: [projects.id],
+			name: "codebook_versions_project_id_fkey"
+		}).onDelete("cascade"),
+	foreignKey({
+			columns: [table.createdBy],
+			foreignColumns: [profiles.id],
+			name: "codebook_versions_created_by_fkey"
+		}).onDelete("restrict"),
+	unique("cv_unique_project_version").on(table.projectId, table.versionNumber),
+	check("cv_version_number_positive", sql`version_number >= 1`),
+	check("cv_note_len", sql`note IS NULL OR char_length(note) <= 2000`),
+]);
+
+export const codebookDefinitions = pgTable("codebook_definitions", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	codebookVersionId: uuid("codebook_version_id").notNull(),
+	title: text().notNull(),
+	type: text().notNull(),
+	description: text(),
+	orderIndex: integer("order_index").notNull(),
+}, (table) => [
+	index("cd_version_order").using("btree", table.codebookVersionId.asc().nullsLast(), table.orderIndex.asc().nullsLast()),
+	foreignKey({
+			columns: [table.codebookVersionId],
+			foreignColumns: [codebookVersions.id],
+			name: "codebook_definitions_codebook_version_id_fkey"
+		}).onDelete("cascade"),
+	check("codebook_definitions_type_check", sql`type = ANY (ARRAY['category'::text, 'quality_dimension'::text, 'guideline'::text])`),
+	check("cd_title_len", sql`char_length(title) <= 200`),
+]);

@@ -10,3 +10,5 @@ export const QUESTION_TEXT_MAX = 500
 export const QUESTION_OPTION_MAX = 200
 export const QUESTION_OPTIONS_COUNT_MAX = 20
 export const ANSWER_MAX = 5000
+export const DEFINITION_TITLE_MAX = 200
+export const CODEBOOK_NOTE_MAX = 2000

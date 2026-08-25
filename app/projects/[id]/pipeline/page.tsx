@@ -6,6 +6,9 @@ import { ProjectTabs } from '../project-tabs'
 import { PhaseBar } from '../phase-bar'
 import { PipelineChecklist } from './pipeline-checklist'
 import { EMPTY_PIPELINE } from './preconditions'
+import { loadCodebook } from './codebook'
+import { CodebookEditor } from './codebook-editor'
+import { defaultDefinitionType } from '@/app/projects/definition-types'
 import { EmptyState } from '@/app/components/ui/empty-state'
 import { Section } from '@/app/components/ui/section'
 import {
@@ -32,9 +35,14 @@ export default async function ProjectPipelinePage({
   const { id } = await params
   const userId = await requireUserId()
 
-  const { project, memberships } = await transaction(async (tx) => {
+  const { project, memberships, codebook } = await transaction(async (tx) => {
     const [project] = await tx
-      .select({ id: projects.id, name: projects.name, phase: projects.phase })
+      .select({
+        id: projects.id,
+        name: projects.name,
+        phase: projects.phase,
+        taskType: projects.taskType,
+      })
       .from(projects)
       .where(eq(projects.id, id))
       .limit(1)
@@ -44,7 +52,9 @@ export default async function ProjectPipelinePage({
       .from(projectMembers)
       .where(and(eq(projectMembers.projectId, id), eq(projectMembers.userId, userId)))
 
-    return { project, memberships }
+    const codebook = project ? await loadCodebook(project.id, tx) : null
+
+    return { project, memberships, codebook }
   })
 
   const isAdmin = memberships.some(
@@ -52,7 +62,7 @@ export default async function ProjectPipelinePage({
   )
   const onboardingPending = memberships.some((m) => m.status === 'pending_onboarding')
 
-  if (!project) notFound()
+  if (!project || !codebook) notFound()
   if (!isAdmin && onboardingPending) redirect(`/projects/${id}/onboarding`)
   if (!isAdmin) notFound()
 
@@ -72,16 +82,23 @@ export default async function ProjectPipelinePage({
 
       <PhaseBar className="mt-4" current={project.phase} />
 
-      <PipelineChecklist className="mt-3" inputs={EMPTY_PIPELINE} />
+      <PipelineChecklist
+        className="mt-3"
+        inputs={{ ...EMPTY_PIPELINE, definitions: codebook.definitions.length }}
+      />
 
       <Anchored id="definicoes">
         <Section
           title="Definições"
           hint="Os conceitos que estruturam a tarefa da LLM, cada um com título e tipo. A descrição de cada definição é escrita na Fase 2."
         >
-          <EmptyState>
-            Nenhuma definição cadastrada. O formulário de definições entra aqui.
-          </EmptyState>
+          <CodebookEditor
+            projectId={project.id}
+            version={codebook.version}
+            isOpen={codebook.isOpen}
+            definitions={codebook.definitions}
+            defaultType={defaultDefinitionType(project.taskType)}
+          />
         </Section>
       </Anchored>
 

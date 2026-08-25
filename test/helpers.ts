@@ -17,6 +17,8 @@ import {
   notifications,
   platformPermissionRequests,
   superAdmins,
+  codebookVersions,
+  codebookDefinitions,
 } from '@/lib/db'
 
 const ROLLBACK = Symbol('rollback')
@@ -193,6 +195,42 @@ export async function addOnboardingQuestion(
       orderIndex: opts.orderIndex ?? 0,
     })
     .returning({ id: onboardingQuestions.id })
+  return row.id
+}
+
+export async function addCodebookVersion(
+  tx: DbExecutor,
+  projectId: string,
+  createdBy: string,
+  opts: {
+    versionNumber?: number
+    note?: string | null
+    usedAt?: string | null
+    definitions?: { title: string; type: string }[]
+  } = {},
+): Promise<string> {
+  const [row] = await tx
+    .insert(codebookVersions)
+    .values({
+      projectId,
+      versionNumber: opts.versionNumber ?? 1,
+      note: opts.note ?? null,
+      createdBy,
+      usedAt: opts.usedAt ?? null,
+    })
+    .returning({ id: codebookVersions.id })
+
+  const definitions = opts.definitions ?? [{ title: 'Definição de teste', type: 'category' }]
+  if (definitions.length > 0) {
+    await tx.insert(codebookDefinitions).values(
+      definitions.map((definition, index) => ({
+        codebookVersionId: row.id,
+        title: definition.title,
+        type: definition.type,
+        orderIndex: index,
+      })),
+    )
+  }
   return row.id
 }
 
