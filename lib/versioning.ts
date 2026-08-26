@@ -1,14 +1,21 @@
-export type VersionSnapshot = {
+export type UsageSnapshot = {
+  usedAt: string | null
+}
+
+export function isUsed(row: UsageSnapshot): boolean {
+  return row.usedAt !== null
+}
+
+export type VersionSnapshot = UsageSnapshot & {
   id: string
   versionNumber: number
-  usedAt: string | null
 }
 
 export function isVersionOpen(
   version: VersionSnapshot,
   latest: VersionSnapshot | null,
 ): boolean {
-  return version.usedAt === null && latest !== null && version.id === latest.id
+  return !isUsed(version) && latest !== null && version.id === latest.id
 }
 
 export function nextVersionNumber(latest: VersionSnapshot | null): number {

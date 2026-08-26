@@ -20,6 +20,7 @@ import {
   codebookVersions,
   codebookDefinitions,
   promptVersions,
+  inputItems,
 } from '@/lib/db'
 
 const ROLLBACK = Symbol('rollback')
@@ -251,6 +252,25 @@ export async function addPromptVersion(
       usedAt: opts.usedAt ?? null,
     })
     .returning({ id: promptVersions.id })
+  return row.id
+}
+
+export async function addInputItem(
+  tx: DbExecutor,
+  projectId: string,
+  createdBy: string,
+  opts: { name?: string; content?: string; usedAt?: string | null } = {},
+): Promise<string> {
+  const [row] = await tx
+    .insert(inputItems)
+    .values({
+      projectId,
+      name: opts.name ?? 'Item de teste',
+      content: opts.content ?? 'Conteúdo de teste',
+      createdBy,
+      usedAt: opts.usedAt ?? null,
+    })
+    .returning({ id: inputItems.id })
   return row.id
 }
 

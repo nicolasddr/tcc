@@ -15,22 +15,32 @@ vi.mock('next/navigation', () => ({
 }))
 
 import * as actions from '@/app/projects/[id]/pipeline/actions'
-import { saveCodebook, savePrompt } from '@/app/projects/[id]/pipeline/actions'
+import {
+  saveCodebook,
+  savePrompt,
+  createItem,
+  updateItem,
+  deleteItem,
+} from '@/app/projects/[id]/pipeline/actions'
 import { loadCodebook } from '@/app/projects/[id]/pipeline/codebook'
 import { loadPrompt } from '@/app/projects/[id]/pipeline/prompt'
+import { loadItems } from '@/app/projects/[id]/pipeline/items'
 import {
   ownerDb,
+  projects,
   codebookVersions,
   codebookDefinitions,
   promptVersions,
+  inputItems,
 } from '@/lib/db'
-import { PROMPT_TEXT_MAX } from '@/lib/limits'
+import { ITEM_CONTENT_MAX, ITEM_NAME_MAX, PROMPT_TEXT_MAX } from '@/lib/limits'
 import {
   createUser,
   createProject as seedProject,
   addActiveEvaluator,
   addCodebookVersion,
   addPromptVersion,
+  addInputItem,
   cleanup,
 } from '@/test/helpers'
 
@@ -344,7 +354,13 @@ describe('app/projects/[id]/pipeline/actions — definições salvas de forma ve
   })
 
   it('não existe ação de apagar versão', () => {
-    expect(Object.keys(actions)).toEqual(['saveCodebook', 'savePrompt'])
+    expect(Object.keys(actions)).toEqual([
+      'saveCodebook',
+      'savePrompt',
+      'createItem',
+      'updateItem',
+      'deleteItem',
+    ])
   })
 
   it('loadCodebook devolve a versão vigente, suas definições e se está em aberto', async () => {
@@ -666,5 +682,342 @@ describe('app/projects/[id]/pipeline/actions — texto do prompt salvo de forma 
     const frozen = await loadPrompt(project)
     expect(frozen.version?.text).toBe('vigente')
     expect(frozen.isOpen).toBe(false)
+  })
+})
+
+function itemFd(
+  projectId: string,
+  fields: { name?: string; content?: string; itemId?: string } = {},
+): FormData {
+  const form = new FormData()
+  form.set('project_id', projectId)
+  if (fields.name !== undefined) form.set('name', fields.name)
+  if (fields.content !== undefined) form.set('content', fields.content)
+  if (fields.itemId !== undefined) form.set('item_id', fields.itemId)
+  return form
+}
+
+function itemsOf(projectId: string) {
+  return ownerDb
+    .select({
+      id: inputItems.id,
+      name: inputItems.name,
+      content: inputItems.content,
+      createdBy: inputItems.createdBy,
+      createdAt: inputItems.createdAt,
+      updatedAt: inputItems.updatedAt,
+      usedAt: inputItems.usedAt,
+    })
+    .from(inputItems)
+    .where(eq(inputItems.projectId, projectId))
+    .orderBy(asc(inputItems.createdAt))
+}
+
+describe('app/projects/[id]/pipeline/actions — itens de entrada no pool do projeto', () => {
+  let users: string[]
+  let projs: string[]
+
+  async function newUser(name?: string): Promise<string> {
+    const id = await createUser(ownerDb, name)
+    users.push(id)
+    return id
+  }
+  async function newProject(admin: string, opts: { phase?: number } = {}): Promise<string> {
+    const id = await seedProject(ownerDb, admin, 'Projeto de Teste', opts)
+    projs.push(id)
+    return id
+  }
+
+  beforeEach(() => {
+    users = []
+    projs = []
+    auth.userId = null
+  })
+  afterEach(async () => {
+    await cleanup(projs, users)
+  })
+
+  it('cadastra o item com nome, conteúdo e autor, e ele aparece na lista do projeto', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin)
+
+    auth.userId = admin
+    const result = await createItem(
+      null,
+      itemFd(project, { name: 'Consulta 001', content: 'como fazer bolo de cenoura' }),
+    )
+    expect(result).toMatchObject({ ok: true })
+
+    const items = await itemsOf(project)
+    expect(items).toHaveLength(1)
+    expect(items[0]).toMatchObject({
+      name: 'Consulta 001',
+      content: 'como fazer bolo de cenoura',
+      createdBy: admin,
+      updatedAt: null,
+      usedAt: null,
+    })
+
+    const loaded = await loadItems(project)
+    expect(loaded.map((i) => i.name)).toEqual(['Consulta 001'])
+    expect(loaded[0].isEditable).toBe(true)
+  })
+
+  it('grava o conteúdo colado como está, com a formatação preservada', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin)
+    const content = 'linha 1\n\n    linha 3 recuada\n\ttabulada\n'
+
+    auth.userId = admin
+    await createItem(null, itemFd(project, { name: 'Com formatação', content }))
+
+    expect((await itemsOf(project))[0].content).toBe(content)
+  })
+
+  it('normaliza CRLF do navegador para quebra de linha simples', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin)
+
+    auth.userId = admin
+    await createItem(null, itemFd(project, { name: 'Do Windows', content: 'a\r\nb\r\nc' }))
+
+    expect((await itemsOf(project))[0].content).toBe('a\nb\nc')
+  })
+
+  it('aceita muitos itens no mesmo projeto, sem limite artificial de quantidade', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin)
+
+    auth.userId = admin
+    for (let i = 1; i <= 12; i++) {
+      const ok = await createItem(
+        null,
+        itemFd(project, { name: `Item ${i}`, content: `conteúdo ${i}` }),
+      )
+      expect(ok).toMatchObject({ ok: true })
+    }
+
+    expect(await itemsOf(project)).toHaveLength(12)
+  })
+
+  it('o item pertence ao projeto e continua disponível quando a fase muda', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin)
+
+    auth.userId = admin
+    await createItem(null, itemFd(project, { name: 'Sobrevivente', content: 'conteúdo' }))
+    await ownerDb.update(projects).set({ phase: 2 }).where(eq(projects.id, project))
+
+    const loaded = await loadItems(project)
+    expect(loaded.map((i) => i.name)).toEqual(['Sobrevivente'])
+  })
+
+  it('o pool de um projeto não enxerga o item de outro', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin)
+    const other = await newProject(admin)
+
+    auth.userId = admin
+    await createItem(null, itemFd(project, { name: 'Do primeiro', content: 'conteúdo' }))
+
+    expect((await loadItems(project)).map((i) => i.name)).toEqual(['Do primeiro'])
+    expect(await loadItems(other)).toEqual([])
+  })
+
+  it('recusa cadastro sem nome ou sem conteúdo, e nada é gravado', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin)
+
+    auth.userId = admin
+    expect(await createItem(null, itemFd(project, { name: '  ', content: 'conteúdo' }))).toEqual(
+      { error: expect.stringContaining('nome') },
+    )
+    expect(await createItem(null, itemFd(project, { name: 'Item', content: ' \n\t ' }))).toEqual(
+      { error: expect.stringContaining('conteúdo') },
+    )
+    expect(await createItem(null, itemFd(project, { name: 'Item' }))).toEqual({
+      error: expect.stringContaining('conteúdo'),
+    })
+
+    expect(await itemsOf(project)).toHaveLength(0)
+  })
+
+  it('recusa conteúdo acima do limite de caracteres, sem gravar nem parcialmente', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin)
+
+    auth.userId = admin
+    const denied = await createItem(
+      null,
+      itemFd(project, { name: 'Gigante', content: 'a'.repeat(ITEM_CONTENT_MAX + 1) }),
+    )
+    expect(denied).toEqual({ error: expect.stringContaining(String(ITEM_CONTENT_MAX)) })
+    expect(denied).toEqual({ error: expect.stringContaining(String(ITEM_CONTENT_MAX + 1)) })
+    expect(await itemsOf(project)).toHaveLength(0)
+  })
+
+  it('recusa nome acima do limite de caracteres', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin)
+
+    auth.userId = admin
+    const denied = await createItem(
+      null,
+      itemFd(project, { name: 'a'.repeat(ITEM_NAME_MAX + 1), content: 'conteúdo' }),
+    )
+    expect(denied).toEqual({ error: expect.stringContaining('máximo') })
+    expect(await itemsOf(project)).toHaveLength(0)
+  })
+
+  it('edita o item nunca usado, registrando a data da alteração', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin)
+    const item = await addInputItem(ownerDb, project, admin, {
+      name: 'Nome velho',
+      content: 'conteúdo velho',
+    })
+
+    auth.userId = admin
+    const result = await updateItem(
+      null,
+      itemFd(project, { itemId: item, name: 'Nome novo', content: 'conteúdo novo' }),
+    )
+    expect(result).toMatchObject({ ok: true })
+
+    const [saved] = await itemsOf(project)
+    expect(saved).toMatchObject({ name: 'Nome novo', content: 'conteúdo novo' })
+    expect(saved.updatedAt).not.toBeNull()
+  })
+
+  it('remove o item nunca usado', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin)
+    const item = await addInputItem(ownerDb, project, admin, { name: 'Descartável' })
+    await addInputItem(ownerDb, project, admin, { name: 'Fica' })
+
+    auth.userId = admin
+    const result = await deleteItem(null, itemFd(project, { itemId: item }))
+    expect(result).toMatchObject({ ok: true })
+
+    expect((await itemsOf(project)).map((i) => i.name)).toEqual(['Fica'])
+  })
+
+  it('recusa editar e remover item já usado em rodada, e explica o motivo', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin)
+    const item = await addInputItem(ownerDb, project, admin, {
+      name: 'Já usado',
+      content: 'conteúdo original',
+      usedAt: new Date().toISOString(),
+    })
+
+    auth.userId = admin
+    const editDenied = await updateItem(
+      null,
+      itemFd(project, { itemId: item, name: 'Invasão', content: 'outro conteúdo' }),
+    )
+    expect(editDenied).toEqual({ error: expect.stringContaining('rodada') })
+
+    const deleteDenied = await deleteItem(null, itemFd(project, { itemId: item }))
+    expect(deleteDenied).toEqual({ error: expect.stringContaining('rodada') })
+
+    const [intact] = await itemsOf(project)
+    expect(intact).toMatchObject({ name: 'Já usado', content: 'conteúdo original' })
+  })
+
+  it('a checagem de uso do item é a mesma que congela a versão de codebook e de prompt', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin)
+    const usedAt = new Date().toISOString()
+    await addInputItem(ownerDb, project, admin, { name: 'Livre' })
+    await addInputItem(ownerDb, project, admin, { name: 'Usado', usedAt })
+    await addCodebookVersion(ownerDb, project, admin, { versionNumber: 1, usedAt })
+    await addPromptVersion(ownerDb, project, admin, { versionNumber: 1, usedAt })
+
+    const items = await loadItems(project)
+    expect(items.map((i) => [i.name, i.isEditable])).toEqual([
+      ['Livre', true],
+      ['Usado', false],
+    ])
+    expect((await loadCodebook(project)).isOpen).toBe(false)
+    expect((await loadPrompt(project)).isOpen).toBe(false)
+  })
+
+  it('recusa editar e remover item que não é daquele projeto', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin)
+    const other = await newProject(admin)
+    const item = await addInputItem(ownerDb, other, admin, { name: 'De outro projeto' })
+
+    auth.userId = admin
+    expect(await updateItem(null, itemFd(project, { itemId: item, name: 'x', content: 'y' })))
+      .toEqual({ error: expect.stringContaining('não existe') })
+    expect(await deleteItem(null, itemFd(project, { itemId: item }))).toEqual({
+      error: expect.stringContaining('não existe'),
+    })
+
+    expect((await itemsOf(other)).map((i) => i.name)).toEqual(['De outro projeto'])
+  })
+
+  it('o Avaliador é recusado em cadastrar, editar e remover, e nada muda', async () => {
+    const admin = await newUser('Admin')
+    const evaluator = await newUser('Avaliador')
+    const project = await newProject(admin)
+    await addActiveEvaluator(ownerDb, project, evaluator)
+    const item = await addInputItem(ownerDb, project, admin, {
+      name: 'Do admin',
+      content: 'conteúdo do admin',
+    })
+
+    auth.userId = evaluator
+    expect(await createItem(null, itemFd(project, { name: 'Pirata', content: 'x' }))).toEqual({
+      error: expect.stringContaining('administrador'),
+    })
+    expect(
+      await updateItem(null, itemFd(project, { itemId: item, name: 'Pirata', content: 'x' })),
+    ).toEqual({ error: expect.stringContaining('administrador') })
+    expect(await deleteItem(null, itemFd(project, { itemId: item }))).toEqual({
+      error: expect.stringContaining('administrador'),
+    })
+
+    const items = await itemsOf(project)
+    expect(items).toHaveLength(1)
+    expect(items[0]).toMatchObject({ name: 'Do admin', content: 'conteúdo do admin' })
+  })
+
+  it('o administrador de um projeto não age sobre o item de outro', async () => {
+    const admin = await newUser('Admin')
+    const outsiderAdmin = await newUser('Admin de Fora')
+    const project = await newProject(admin)
+    await newProject(outsiderAdmin)
+    const item = await addInputItem(ownerDb, project, admin, { name: 'Alheio' })
+
+    auth.userId = outsiderAdmin
+    expect(await createItem(null, itemFd(project, { name: 'Invasão', content: 'x' }))).toEqual({
+      error: expect.stringContaining('administrador'),
+    })
+    expect(
+      await updateItem(null, itemFd(project, { itemId: item, name: 'Invasão', content: 'x' })),
+    ).toEqual({ error: expect.stringContaining('administrador') })
+    expect(await deleteItem(null, itemFd(project, { itemId: item }))).toEqual({
+      error: expect.stringContaining('administrador'),
+    })
+
+    expect((await itemsOf(project)).map((i) => i.name)).toEqual(['Alheio'])
+  })
+
+  it('loadItems devolve o pool na ordem de cadastro, com o conteúdo inteiro', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin)
+
+    expect(await loadItems(project)).toEqual([])
+
+    auth.userId = admin
+    await createItem(null, itemFd(project, { name: 'Primeiro', content: 'linha 1\nlinha 2' }))
+    await createItem(null, itemFd(project, { name: 'Segundo', content: 'outro' }))
+
+    const items = await loadItems(project)
+    expect(items.map((i) => i.name)).toEqual(['Primeiro', 'Segundo'])
+    expect(items[0].content).toBe('linha 1\nlinha 2')
   })
 })

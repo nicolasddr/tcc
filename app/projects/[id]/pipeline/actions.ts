@@ -1,18 +1,20 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { desc, eq, sql } from 'drizzle-orm'
+import { and, desc, eq, sql } from 'drizzle-orm'
 import { requireUserId } from '@/lib/supabase/server'
 import {
   transaction,
   pgErrorCode,
+  type Transaction,
   projects,
   codebookVersions,
   codebookDefinitions,
   promptVersions,
+  inputItems,
 } from '@/lib/db'
 import { isProjectAdmin } from '@/lib/authz'
-import { decideSave, decideTextSave } from '@/lib/versioning'
+import { decideSave, decideTextSave, isUsed } from '@/lib/versioning'
 import {
   normalizeDefinitionType,
   type DefinitionType,
@@ -20,6 +22,8 @@ import {
 import {
   CODEBOOK_NOTE_MAX,
   DEFINITION_TITLE_MAX,
+  ITEM_CONTENT_MAX,
+  ITEM_NAME_MAX,
   PROMPT_TEXT_MAX,
 } from '@/lib/limits'
 
@@ -241,6 +245,164 @@ export async function savePrompt(
   }
 
   if (stale) return { error: PROMPT_STALE }
+
+  revalidatePath(`/projects/${projectId}/pipeline`)
+  return { ok: true, nonce: Date.now() }
+}
+
+export type ItemState = { error: string } | { ok: true; nonce: number } | null
+
+type ParsedItem = { name: string; content: string }
+
+const ITEM_CREATE_DENIED =
+  'Não foi possível cadastrar o item. Apenas o administrador do projeto pode cadastrá-lo.'
+
+const ITEM_UPDATE_DENIED =
+  'Não foi possível salvar o item. Apenas o administrador do projeto pode editá-lo.'
+
+const ITEM_DELETE_DENIED =
+  'Não foi possível remover o item. Apenas o administrador do projeto pode removê-lo.'
+
+const ITEM_USED =
+  'Este item já foi usado em uma rodada e não pode mais ser editado nem removido, porque isso mudaria o que os avaliadores viram. Cadastre um item novo com o conteúdo corrigido.'
+
+const ITEM_MISSING =
+  'Este item não existe mais neste projeto. Recarregue a página para ver a lista atual.'
+
+function parseItemForm(formData: FormData): { error: string } | ParsedItem {
+  const name = String(formData.get('name') ?? '').trim()
+  if (!name) return { error: 'O nome do item é obrigatório.' }
+  if (name.length > ITEM_NAME_MAX) {
+    return { error: `O nome do item pode ter no máximo ${ITEM_NAME_MAX} caracteres.` }
+  }
+
+  const content = String(formData.get('content') ?? '').replace(/\r\n/g, '\n')
+  if (!content.trim()) return { error: 'O conteúdo do item é obrigatório.' }
+  if (content.length > ITEM_CONTENT_MAX) {
+    return {
+      error: `O conteúdo do item pode ter no máximo ${ITEM_CONTENT_MAX} caracteres, e este tem ${content.length}.`,
+    }
+  }
+
+  return { name, content }
+}
+
+export async function createItem(
+  _prev: ItemState,
+  formData: FormData,
+): Promise<ItemState> {
+  const userId = await requireUserId()
+
+  const projectId = String(formData.get('project_id') ?? '')
+  if (!projectId) return { error: 'Projeto inválido.' }
+
+  const parsed = parseItemForm(formData)
+  if ('error' in parsed) return parsed
+
+  if (!(await isProjectAdmin(userId, projectId))) return { error: ITEM_CREATE_DENIED }
+
+  await transaction((tx) =>
+    tx.insert(inputItems).values({
+      projectId,
+      name: parsed.name,
+      content: parsed.content,
+      createdBy: userId,
+    }),
+  )
+
+  revalidatePath(`/projects/${projectId}/pipeline`)
+  return { ok: true, nonce: Date.now() }
+}
+
+type ItemOutcome = 'ok' | 'missing' | 'used'
+
+async function withEditableItem(
+  projectId: string,
+  itemId: string,
+  run: (tx: Transaction) => Promise<void>,
+): Promise<ItemOutcome> {
+  let outcome: ItemOutcome = 'ok'
+
+  await transaction(async (tx) => {
+    const [item] = await tx
+      .select({ id: inputItems.id, usedAt: inputItems.usedAt })
+      .from(inputItems)
+      .where(and(eq(inputItems.id, itemId), eq(inputItems.projectId, projectId)))
+      .limit(1)
+      .for('update')
+
+    if (!item) {
+      outcome = 'missing'
+      return
+    }
+    if (isUsed(item)) {
+      outcome = 'used'
+      return
+    }
+
+    await run(tx)
+  })
+
+  return outcome
+}
+
+function itemOutcomeError(outcome: ItemOutcome): { error: string } | null {
+  if (outcome === 'missing') return { error: ITEM_MISSING }
+  if (outcome === 'used') return { error: ITEM_USED }
+  return null
+}
+
+export async function updateItem(
+  _prev: ItemState,
+  formData: FormData,
+): Promise<ItemState> {
+  const userId = await requireUserId()
+
+  const projectId = String(formData.get('project_id') ?? '')
+  const itemId = String(formData.get('item_id') ?? '')
+  if (!projectId || !itemId) return { error: 'Item inválido.' }
+
+  const parsed = parseItemForm(formData)
+  if ('error' in parsed) return parsed
+
+  if (!(await isProjectAdmin(userId, projectId))) return { error: ITEM_UPDATE_DENIED }
+
+  const outcome = await withEditableItem(projectId, itemId, (tx) =>
+    tx
+      .update(inputItems)
+      .set({ name: parsed.name, content: parsed.content, updatedAt: sql`now()` })
+      .where(eq(inputItems.id, itemId))
+      .then(() => undefined),
+  )
+
+  const failure = itemOutcomeError(outcome)
+  if (failure) return failure
+
+  revalidatePath(`/projects/${projectId}/pipeline`)
+  return { ok: true, nonce: Date.now() }
+}
+
+export async function deleteItem(
+  _prev: ItemState,
+  formData: FormData,
+): Promise<ItemState> {
+  const userId = await requireUserId()
+
+  const projectId = String(formData.get('project_id') ?? '')
+  const itemId = String(formData.get('item_id') ?? '')
+  if (!projectId || !itemId) return { error: 'Item inválido.' }
+
+  if (!(await isProjectAdmin(userId, projectId))) return { error: ITEM_DELETE_DENIED }
+
+  const outcome = await withEditableItem(projectId, itemId, (tx) =>
+    tx
+      .delete(inputItems)
+      .where(eq(inputItems.id, itemId))
+      .then(() => undefined),
+  )
+
+  const failure = itemOutcomeError(outcome)
+  if (failure) return failure
 
   revalidatePath(`/projects/${projectId}/pipeline`)
   return { ok: true, nonce: Date.now() }

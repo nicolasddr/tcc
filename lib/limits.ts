@@ -13,3 +13,5 @@ export const ANSWER_MAX = 5000
 export const DEFINITION_TITLE_MAX = 200
 export const CODEBOOK_NOTE_MAX = 2000
 export const PROMPT_TEXT_MAX = 20000
+export const ITEM_NAME_MAX = 200
+export const ITEM_CONTENT_MAX = 50000

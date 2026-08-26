@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   decideSave,
   decideTextSave,
+  isUsed,
   isVersionOpen,
   nextVersionNumber,
   type TextVersionSnapshot,
@@ -15,6 +16,21 @@ function version(
 ): VersionSnapshot {
   return { id, versionNumber, usedAt }
 }
+
+describe('isUsed', () => {
+  it('nada foi usado enquanto used_at é nulo', () => {
+    expect(isUsed({ usedAt: null })).toBe(false)
+  })
+
+  it('passa a estar usado assim que a rodada carimba used_at', () => {
+    expect(isUsed({ usedAt: '2026-08-25T12:00:00Z' })).toBe(true)
+  })
+
+  it('é a mesma checagem que a versão e o item de entrada usam', () => {
+    const latest = version(1, '2026-08-25T12:00:00Z')
+    expect(isVersionOpen(latest, latest)).toBe(!isUsed(latest))
+  })
+})
 
 describe('isVersionOpen', () => {
   it('está em aberto quando nunca foi usada e é a mais recente', () => {

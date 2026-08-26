@@ -295,3 +295,30 @@ export const promptVersions = pgTable("prompt_versions", {
 	check("pv_text_len", sql`char_length("text") <= 20000`),
 	check("pv_text_not_blank", sql`btrim("text") <> ''`),
 ]);
+
+export const inputItems = pgTable("input_items", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	projectId: uuid("project_id").notNull(),
+	name: text().notNull(),
+	content: text().notNull(),
+	createdBy: uuid("created_by").notNull(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }),
+	usedAt: timestamp("used_at", { withTimezone: true, mode: 'string' }),
+}, (table) => [
+	index("ii_project_created").using("btree", table.projectId.asc().nullsLast(), table.createdAt.asc().nullsLast()),
+	foreignKey({
+			columns: [table.projectId],
+			foreignColumns: [projects.id],
+			name: "input_items_project_id_fkey"
+		}).onDelete("cascade"),
+	foreignKey({
+			columns: [table.createdBy],
+			foreignColumns: [profiles.id],
+			name: "input_items_created_by_fkey"
+		}).onDelete("restrict"),
+	check("ii_name_len", sql`char_length(name) <= 200`),
+	check("ii_name_not_blank", sql`btrim(name) <> ''`),
+	check("ii_content_len", sql`char_length(content) <= 50000`),
+	check("ii_content_not_blank", sql`btrim(content) <> ''`),
+]);

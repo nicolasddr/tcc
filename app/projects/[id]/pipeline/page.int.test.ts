@@ -29,6 +29,7 @@ import {
   addPendingMember,
   addPendingInvitation,
   addPromptVersion,
+  addInputItem,
   cleanup,
 } from '@/test/helpers'
 
@@ -175,6 +176,21 @@ describe('app/projects/[id]/pipeline — a aba de configuração é do Administr
     expect(pendingRequirements(props.inputs).map((r) => r.key)).toEqual([
       'definition',
       'item',
+    ])
+  })
+
+  it('o item de entrada já cadastrado resolve a pendência do item', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin)
+    await addInputItem(ownerDb, project, admin, { name: 'Consulta 001' })
+
+    auth.userId = admin
+    const checklist = findElement(await render(project), PipelineChecklist)
+    const props = checklist!.props as ChecklistProps
+    expect(props.inputs.items).toBe(1)
+    expect(pendingRequirements(props.inputs).map((r) => r.key)).toEqual([
+      'definition',
+      'prompt',
     ])
   })
 

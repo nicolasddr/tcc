@@ -10,8 +10,9 @@ import { loadCodebook } from './codebook'
 import { CodebookEditor } from './codebook-editor'
 import { loadPrompt } from './prompt'
 import { PromptEditor } from './prompt-editor'
+import { loadItems } from './items'
+import { ItemsEditor } from './items-editor'
 import { defaultDefinitionType } from '@/app/projects/definition-types'
-import { EmptyState } from '@/app/components/ui/empty-state'
 import { Section } from '@/app/components/ui/section'
 import {
   PageShell,
@@ -37,7 +38,7 @@ export default async function ProjectPipelinePage({
   const { id } = await params
   const userId = await requireUserId()
 
-  const { project, memberships, codebook, prompt } = await transaction(async (tx) => {
+  const { project, memberships, codebook, prompt, items } = await transaction(async (tx) => {
     const [project] = await tx
       .select({
         id: projects.id,
@@ -56,8 +57,9 @@ export default async function ProjectPipelinePage({
 
     const codebook = project ? await loadCodebook(project.id, tx) : null
     const prompt = project ? await loadPrompt(project.id, tx) : null
+    const items = project ? await loadItems(project.id, tx) : null
 
-    return { project, memberships, codebook, prompt }
+    return { project, memberships, codebook, prompt, items }
   })
 
   const isAdmin = memberships.some(
@@ -65,7 +67,7 @@ export default async function ProjectPipelinePage({
   )
   const onboardingPending = memberships.some((m) => m.status === 'pending_onboarding')
 
-  if (!project || !codebook || !prompt) notFound()
+  if (!project || !codebook || !prompt || !items) notFound()
   if (!isAdmin && onboardingPending) redirect(`/projects/${id}/onboarding`)
   if (!isAdmin) notFound()
 
@@ -91,6 +93,7 @@ export default async function ProjectPipelinePage({
           ...EMPTY_PIPELINE,
           definitions: codebook.definitions.length,
           promptText: prompt.version?.text ?? null,
+          items: items.length,
         }}
       />
 
@@ -127,9 +130,7 @@ export default async function ProjectPipelinePage({
           title="Itens de entrada"
           hint="O pool de itens do projeto: cada item vira uma resposta da LLM, e as fases seguintes amostram desse pool."
         >
-          <EmptyState>
-            Nenhum item de entrada cadastrado. O cadastro de itens entra aqui.
-          </EmptyState>
+          <ItemsEditor projectId={project.id} items={items} />
         </Section>
       </Anchored>
     </PageShell>
