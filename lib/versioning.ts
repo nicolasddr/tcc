@@ -32,3 +32,18 @@ export function decideSave(
   }
   return { mode: 'create', versionNumber: nextVersionNumber(latest) }
 }
+
+export type TextVersionSnapshot = VersionSnapshot & { text: string }
+
+export type TextSaveDecision = SaveDecision | { mode: 'unchanged' }
+
+export function decideTextSave(
+  latest: TextVersionSnapshot | null,
+  targetVersionId: string | null,
+  text: string,
+): TextSaveDecision {
+  const decision = decideSave(latest, targetVersionId)
+  if (decision.mode === 'stale') return decision
+  if (latest && latest.text === text) return { mode: 'unchanged' }
+  return decision
+}

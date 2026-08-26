@@ -28,6 +28,7 @@ import {
   addActiveEvaluator,
   addPendingMember,
   addPendingInvitation,
+  addPromptVersion,
   cleanup,
 } from '@/test/helpers'
 
@@ -160,6 +161,21 @@ describe('app/projects/[id]/pipeline — a aba de configuração é do Administr
       expect(hasProp(rendered, 'href', `#${req.anchor}`)).toBe(true)
       expect(hasProp(tree, 'id', req.anchor)).toBe(true)
     }
+  })
+
+  it('o texto do prompt já escrito resolve a pendência do prompt', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin)
+    await addPromptVersion(ownerDb, project, admin, { text: 'Classifique a consulta.' })
+
+    auth.userId = admin
+    const checklist = findElement(await render(project), PipelineChecklist)
+    const props = checklist!.props as ChecklistProps
+    expect(props.inputs.promptText).toBe('Classifique a consulta.')
+    expect(pendingRequirements(props.inputs).map((r) => r.key)).toEqual([
+      'definition',
+      'item',
+    ])
   })
 
   it('a aba aparece na navegação do Administrador e não na do Avaliador', async () => {

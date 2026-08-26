@@ -19,6 +19,7 @@ import {
   superAdmins,
   codebookVersions,
   codebookDefinitions,
+  promptVersions,
 } from '@/lib/db'
 
 const ROLLBACK = Symbol('rollback')
@@ -231,6 +232,25 @@ export async function addCodebookVersion(
       })),
     )
   }
+  return row.id
+}
+
+export async function addPromptVersion(
+  tx: DbExecutor,
+  projectId: string,
+  createdBy: string,
+  opts: { versionNumber?: number; text?: string; usedAt?: string | null } = {},
+): Promise<string> {
+  const [row] = await tx
+    .insert(promptVersions)
+    .values({
+      projectId,
+      versionNumber: opts.versionNumber ?? 1,
+      text: opts.text ?? 'Prompt de teste',
+      createdBy,
+      usedAt: opts.usedAt ?? null,
+    })
+    .returning({ id: promptVersions.id })
   return row.id
 }
 

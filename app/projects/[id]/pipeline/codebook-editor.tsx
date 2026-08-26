@@ -14,6 +14,7 @@ import { Form, FormActions } from '@/app/components/ui/form'
 import { Card } from '@/app/components/ui/card'
 import { Badge } from '@/app/components/ui/badge'
 import { Alert } from '@/app/components/ui/alert'
+import { VersionStatus } from './version-status'
 import { EmptyState } from '@/app/components/ui/empty-state'
 import { CODEBOOK_NOTE_MAX, DEFINITION_TITLE_MAX } from '@/lib/limits'
 
@@ -48,45 +49,6 @@ function TypeLegend() {
         ))}
       </dl>
     </Card>
-  )
-}
-
-function VersionStatus({
-  version,
-  isOpen,
-}: {
-  version: CodebookVersion | null
-  isOpen: boolean
-}) {
-  if (!version) {
-    return (
-      <p className="m-0 text-[13px] text-muted">
-        Nenhuma versão salva ainda. O primeiro salvamento cria a versão 1.
-      </p>
-    )
-  }
-
-  return (
-    <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-      <span className="text-[13px] font-semibold text-ink">
-        Versão {version.versionNumber}
-      </span>
-      {isOpen ? (
-        <>
-          <Badge tone="info">em aberto</Badge>
-          <span className="text-[13px] text-muted">
-            {`Enquanto nenhuma rodada usar esta versão, salvar altera a própria versão. Assim que uma rodada a usar, ela congela e o salvamento seguinte cria a versão ${version.versionNumber + 1}.`}
-          </span>
-        </>
-      ) : (
-        <>
-          <Badge tone="neutral">congelada</Badge>
-          <span className="text-[13px] text-muted">
-            Esta versão já foi usada por uma rodada e não muda mais.
-          </span>
-        </>
-      )}
-    </div>
   )
 }
 

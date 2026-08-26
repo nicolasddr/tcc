@@ -1,5 +1,5 @@
 import { relations } from "drizzle-orm/relations";
-import { profiles, projects, superAdmins, notifications, platformPermissionRequests, projectMembers, projectInvitations, onboardingResponses, onboardingQuestions, codebookVersions, codebookDefinitions } from "./schema";
+import { profiles, projects, superAdmins, notifications, platformPermissionRequests, projectMembers, projectInvitations, onboardingResponses, onboardingQuestions, codebookVersions, codebookDefinitions, promptVersions } from "./schema";
 
 export const projectsRelations = relations(projects, ({one, many}) => ({
 	profile: one(profiles, {
@@ -10,6 +10,7 @@ export const projectsRelations = relations(projects, ({one, many}) => ({
 	projectInvitations: many(projectInvitations),
 	onboardingQuestions: many(onboardingQuestions),
 	codebookVersions: many(codebookVersions),
+	promptVersions: many(promptVersions),
 }));
 
 export const profilesRelations = relations(profiles, ({many}) => ({
@@ -35,6 +36,7 @@ export const profilesRelations = relations(profiles, ({many}) => ({
 		relationName: "projectInvitations_invitedBy_profiles_id"
 	}),
 	codebookVersions: many(codebookVersions),
+	promptVersions: many(promptVersions),
 }));
 
 export const superAdminsRelations = relations(superAdmins, ({one}) => ({
@@ -134,5 +136,16 @@ export const codebookDefinitionsRelations = relations(codebookDefinitions, ({one
 	codebookVersion: one(codebookVersions, {
 		fields: [codebookDefinitions.codebookVersionId],
 		references: [codebookVersions.id]
+	}),
+}));
+
+export const promptVersionsRelations = relations(promptVersions, ({one}) => ({
+	project: one(projects, {
+		fields: [promptVersions.projectId],
+		references: [projects.id]
+	}),
+	profile: one(profiles, {
+		fields: [promptVersions.createdBy],
+		references: [profiles.id]
 	}),
 }));

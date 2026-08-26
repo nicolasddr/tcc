@@ -1,8 +1,10 @@
 import { describe, it, expect } from 'vitest'
 import {
   decideSave,
+  decideTextSave,
   isVersionOpen,
   nextVersionNumber,
+  type TextVersionSnapshot,
   type VersionSnapshot,
 } from './versioning'
 
@@ -47,6 +49,14 @@ describe('nextVersionNumber', () => {
   })
 })
 
+function textVersion(
+  versionNumber: number,
+  text: string,
+  usedAt: string | null = null,
+): TextVersionSnapshot {
+  return { id: `v${versionNumber}`, versionNumber, text, usedAt }
+}
+
 describe('decideSave', () => {
   it('sem versão nenhuma, cria a versão 1', () => {
     expect(decideSave(null, null)).toEqual({ mode: 'create', versionNumber: 1 })
@@ -75,5 +85,51 @@ describe('decideSave', () => {
     const frozen = version(4, '2026-08-25T12:00:00Z')
     expect(decideSave(open, null).mode).toBe('update')
     expect(decideSave(frozen, null).mode).toBe('create')
+  })
+})
+
+describe('decideTextSave', () => {
+  it('sem versão nenhuma, o primeiro texto cria a versão 1', () => {
+    expect(decideTextSave(null, null, 'instrução')).toEqual({
+      mode: 'create',
+      versionNumber: 1,
+    })
+  })
+
+  it('texto alterado em versão em aberto atualiza a própria versão', () => {
+    const latest = textVersion(2, 'antigo')
+    expect(decideTextSave(latest, 'v2', 'novo')).toEqual({
+      mode: 'update',
+      versionId: 'v2',
+    })
+  })
+
+  it('texto alterado em versão congelada cria a seguinte', () => {
+    const latest = textVersion(2, 'antigo', '2026-08-25T12:00:00Z')
+    expect(decideTextSave(latest, 'v2', 'novo')).toEqual({
+      mode: 'create',
+      versionNumber: 3,
+    })
+  })
+
+  it('texto igual não cria versão nem registra alteração, aberta ou congelada', () => {
+    expect(decideTextSave(textVersion(2, 'igual'), 'v2', 'igual')).toEqual({
+      mode: 'unchanged',
+    })
+    expect(
+      decideTextSave(textVersion(2, 'igual', '2026-08-25T12:00:00Z'), 'v2', 'igual'),
+    ).toEqual({ mode: 'unchanged' })
+  })
+
+  it('a comparação é literal: espaço e quebra de linha contam como alteração', () => {
+    const latest = textVersion(1, 'linha')
+    expect(decideTextSave(latest, 'v1', 'linha ').mode).toBe('update')
+    expect(decideTextSave(latest, 'v1', 'linha\n').mode).toBe('update')
+  })
+
+  it('alvo que não é a versão vigente é recusado antes de comparar texto', () => {
+    expect(decideTextSave(textVersion(3, 'igual'), 'v1', 'igual')).toEqual({
+      mode: 'stale',
+    })
   })
 })

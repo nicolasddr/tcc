@@ -268,3 +268,30 @@ export const codebookDefinitions = pgTable("codebook_definitions", {
 	check("codebook_definitions_type_check", sql`type = ANY (ARRAY['category'::text, 'quality_dimension'::text, 'guideline'::text])`),
 	check("cd_title_len", sql`char_length(title) <= 200`),
 ]);
+
+export const promptVersions = pgTable("prompt_versions", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	projectId: uuid("project_id").notNull(),
+	versionNumber: integer("version_number").notNull(),
+	text: text().notNull(),
+	createdBy: uuid("created_by").notNull(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }),
+	usedAt: timestamp("used_at", { withTimezone: true, mode: 'string' }),
+}, (table) => [
+	index("pv_project_version").using("btree", table.projectId.asc().nullsLast(), table.versionNumber.desc().nullsFirst()),
+	foreignKey({
+			columns: [table.projectId],
+			foreignColumns: [projects.id],
+			name: "prompt_versions_project_id_fkey"
+		}).onDelete("cascade"),
+	foreignKey({
+			columns: [table.createdBy],
+			foreignColumns: [profiles.id],
+			name: "prompt_versions_created_by_fkey"
+		}).onDelete("restrict"),
+	unique("pv_unique_project_version").on(table.projectId, table.versionNumber),
+	check("pv_version_number_positive", sql`version_number >= 1`),
+	check("pv_text_len", sql`char_length("text") <= 20000`),
+	check("pv_text_not_blank", sql`btrim("text") <> ''`),
+]);

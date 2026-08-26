@@ -9,14 +9,19 @@ import {
   projects,
   codebookVersions,
   codebookDefinitions,
+  promptVersions,
 } from '@/lib/db'
 import { isProjectAdmin } from '@/lib/authz'
-import { decideSave } from '@/lib/versioning'
+import { decideSave, decideTextSave } from '@/lib/versioning'
 import {
   normalizeDefinitionType,
   type DefinitionType,
 } from '@/app/projects/definition-types'
-import { CODEBOOK_NOTE_MAX, DEFINITION_TITLE_MAX } from '@/lib/limits'
+import {
+  CODEBOOK_NOTE_MAX,
+  DEFINITION_TITLE_MAX,
+  PROMPT_TEXT_MAX,
+} from '@/lib/limits'
 
 export type CodebookState = { error: string } | { ok: true; nonce: number } | null
 
@@ -146,6 +151,96 @@ export async function saveCodebook(
   }
 
   if (stale) return { error: STALE }
+
+  revalidatePath(`/projects/${projectId}/pipeline`)
+  return { ok: true, nonce: Date.now() }
+}
+
+export type PromptState = { error: string } | { ok: true; nonce: number } | null
+
+const PROMPT_DENIED =
+  'Não foi possível salvar o prompt. Apenas o administrador do projeto pode editá-lo.'
+
+const PROMPT_STALE =
+  'Esta não é mais a versão vigente do prompt, e versão congelada não é editável. Recarregue a página para continuar da versão atual.'
+
+const PROMPT_RACED =
+  'Outro salvamento criou uma versão ao mesmo tempo. Recarregue a página e salve de novo.'
+
+function parsePromptText(formData: FormData): { error: string } | { text: string } {
+  const text = String(formData.get('text') ?? '').replace(/\r\n/g, '\n')
+  if (!text.trim()) return { error: 'O texto do prompt é obrigatório.' }
+  if (text.length > PROMPT_TEXT_MAX) {
+    return { error: `O texto do prompt pode ter no máximo ${PROMPT_TEXT_MAX} caracteres.` }
+  }
+  return { text }
+}
+
+export async function savePrompt(
+  _prev: PromptState,
+  formData: FormData,
+): Promise<PromptState> {
+  const userId = await requireUserId()
+
+  const projectId = String(formData.get('project_id') ?? '')
+  if (!projectId) return { error: 'Projeto inválido.' }
+
+  const parsed = parsePromptText(formData)
+  if ('error' in parsed) return parsed
+
+  if (!(await isProjectAdmin(userId, projectId))) return { error: PROMPT_DENIED }
+
+  const targetVersionId = String(formData.get('version_id') ?? '') || null
+
+  let stale = false
+  try {
+    await transaction(async (tx) => {
+      await tx
+        .select({ id: projects.id })
+        .from(projects)
+        .where(eq(projects.id, projectId))
+        .for('update')
+
+      const [latest] = await tx
+        .select({
+          id: promptVersions.id,
+          versionNumber: promptVersions.versionNumber,
+          text: promptVersions.text,
+          usedAt: promptVersions.usedAt,
+        })
+        .from(promptVersions)
+        .where(eq(promptVersions.projectId, projectId))
+        .orderBy(desc(promptVersions.versionNumber))
+        .limit(1)
+
+      const decision = decideTextSave(latest ?? null, targetVersionId, parsed.text)
+      if (decision.mode === 'stale') {
+        stale = true
+        return
+      }
+      if (decision.mode === 'unchanged') return
+
+      if (decision.mode === 'update') {
+        await tx
+          .update(promptVersions)
+          .set({ text: parsed.text, updatedAt: sql`now()` })
+          .where(eq(promptVersions.id, decision.versionId))
+        return
+      }
+
+      await tx.insert(promptVersions).values({
+        projectId,
+        versionNumber: decision.versionNumber,
+        text: parsed.text,
+        createdBy: userId,
+      })
+    })
+  } catch (err) {
+    if (pgErrorCode(err) === '23505') return { error: PROMPT_RACED }
+    throw err
+  }
+
+  if (stale) return { error: PROMPT_STALE }
 
   revalidatePath(`/projects/${projectId}/pipeline`)
   return { ok: true, nonce: Date.now() }

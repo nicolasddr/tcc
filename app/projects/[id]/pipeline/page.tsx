@@ -8,6 +8,8 @@ import { PipelineChecklist } from './pipeline-checklist'
 import { EMPTY_PIPELINE } from './preconditions'
 import { loadCodebook } from './codebook'
 import { CodebookEditor } from './codebook-editor'
+import { loadPrompt } from './prompt'
+import { PromptEditor } from './prompt-editor'
 import { defaultDefinitionType } from '@/app/projects/definition-types'
 import { EmptyState } from '@/app/components/ui/empty-state'
 import { Section } from '@/app/components/ui/section'
@@ -35,7 +37,7 @@ export default async function ProjectPipelinePage({
   const { id } = await params
   const userId = await requireUserId()
 
-  const { project, memberships, codebook } = await transaction(async (tx) => {
+  const { project, memberships, codebook, prompt } = await transaction(async (tx) => {
     const [project] = await tx
       .select({
         id: projects.id,
@@ -53,8 +55,9 @@ export default async function ProjectPipelinePage({
       .where(and(eq(projectMembers.projectId, id), eq(projectMembers.userId, userId)))
 
     const codebook = project ? await loadCodebook(project.id, tx) : null
+    const prompt = project ? await loadPrompt(project.id, tx) : null
 
-    return { project, memberships, codebook }
+    return { project, memberships, codebook, prompt }
   })
 
   const isAdmin = memberships.some(
@@ -62,7 +65,7 @@ export default async function ProjectPipelinePage({
   )
   const onboardingPending = memberships.some((m) => m.status === 'pending_onboarding')
 
-  if (!project || !codebook) notFound()
+  if (!project || !codebook || !prompt) notFound()
   if (!isAdmin && onboardingPending) redirect(`/projects/${id}/onboarding`)
   if (!isAdmin) notFound()
 
@@ -84,7 +87,11 @@ export default async function ProjectPipelinePage({
 
       <PipelineChecklist
         className="mt-3"
-        inputs={{ ...EMPTY_PIPELINE, definitions: codebook.definitions.length }}
+        inputs={{
+          ...EMPTY_PIPELINE,
+          definitions: codebook.definitions.length,
+          promptText: prompt.version?.text ?? null,
+        }}
       />
 
       <Anchored id="definicoes">
@@ -107,9 +114,11 @@ export default async function ProjectPipelinePage({
           title="Prompt"
           hint="A instrução enviada à LLM, versionada de forma independente do codebook."
         >
-          <EmptyState>
-            Nenhum texto de prompt escrito. O editor do prompt entra aqui.
-          </EmptyState>
+          <PromptEditor
+            projectId={project.id}
+            version={prompt.version}
+            isOpen={prompt.isOpen}
+          />
         </Section>
       </Anchored>
 
