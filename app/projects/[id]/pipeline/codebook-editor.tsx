@@ -5,17 +5,17 @@ import { saveCodebook, type CodebookState } from './actions'
 import type { CodebookDefinition, CodebookVersion } from './codebook'
 import {
   DEFINITION_TYPE_OPTIONS,
-  definitionTypeLabel,
   type DefinitionType,
 } from '@/app/projects/definition-types'
 import { Button } from '@/app/components/ui/button'
 import { Field, Input, Select, Textarea } from '@/app/components/ui/field'
 import { Form, FormActions } from '@/app/components/ui/form'
 import { Card } from '@/app/components/ui/card'
-import { Badge } from '@/app/components/ui/badge'
 import { Alert } from '@/app/components/ui/alert'
 import { VersionStatus } from './version-status'
+import { DefinitionList } from './definition-list'
 import { EmptyState } from '@/app/components/ui/empty-state'
+import { moveBy } from '@/lib/reorder'
 import { CODEBOOK_NOTE_MAX, DEFINITION_TITLE_MAX } from '@/lib/limits'
 
 const initialState: CodebookState = null
@@ -52,23 +52,6 @@ function TypeLegend() {
   )
 }
 
-function FrozenCodebook({ definitions }: { definitions: CodebookDefinition[] }) {
-  return (
-    <ul className="m-0 flex list-none flex-col gap-2 p-0">
-      {definitions.map((definition) => (
-        <li key={definition.id}>
-          <Card padding="sm" className="flex flex-wrap items-center justify-between gap-3">
-            <span className="text-sm font-semibold text-ink">{definition.title}</span>
-            <Badge tone="accent">
-              {definitionTypeLabel(definition.type) ?? definition.type}
-            </Badge>
-          </Card>
-        </li>
-      ))}
-    </ul>
-  )
-}
-
 function CodebookFields({
   definitions,
   defaultType,
@@ -86,8 +69,17 @@ function CodebookFields({
     )
   }
 
+  function move(index: number, offset: number) {
+    setRows((current) => moveBy(current, index, offset))
+  }
+
   return (
     <>
+      <p className="m-0 text-[13px] text-muted">
+        A ordem desta lista é a ordem em que as definições aparecem para a equipe e são
+        enviadas à LLM. Use as setas para reordenar; a ordem é salva junto com a versão.
+      </p>
+
       {rows.length === 0 ? (
         <EmptyState>
           Nenhuma definição na lista. Adicione ao menos uma para poder salvar.
@@ -132,15 +124,35 @@ function CodebookFields({
                     </Select>
                   </Field>
 
-                  <Button
-                    variant="danger"
-                    size="sm"
-                    onClick={() =>
-                      setRows((current) => current.filter((r) => r.key !== row.key))
-                    }
-                  >
-                    Remover
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      aria-label={`Mover a definição ${index + 1} para cima`}
+                      disabled={index === 0}
+                      onClick={() => move(index, -1)}
+                    >
+                      ↑
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      aria-label={`Mover a definição ${index + 1} para baixo`}
+                      disabled={index === rows.length - 1}
+                      onClick={() => move(index, 1)}
+                    >
+                      ↓
+                    </Button>
+                    <Button
+                      variant="danger"
+                      size="sm"
+                      onClick={() =>
+                        setRows((current) => current.filter((r) => r.key !== row.key))
+                      }
+                    >
+                      Remover
+                    </Button>
+                  </div>
                 </div>
               </Card>
             </li>
@@ -197,7 +209,7 @@ export function CodebookEditor({
         {definitions.length === 0 ? (
           <EmptyState>Esta versão não tem definições.</EmptyState>
         ) : (
-          <FrozenCodebook definitions={definitions} />
+          <DefinitionList definitions={definitions} />
         )}
       </div>
     )

@@ -25,6 +25,7 @@ import {
 import { loadCodebook } from '@/app/projects/[id]/pipeline/codebook'
 import { loadPrompt } from '@/app/projects/[id]/pipeline/prompt'
 import { loadItems } from '@/app/projects/[id]/pipeline/items'
+import { composeLlmInput } from '@/app/projects/[id]/pipeline/llm-input'
 import {
   ownerDb,
   projects,
@@ -1020,5 +1021,199 @@ describe('app/projects/[id]/pipeline/actions — itens de entrada no pool do pro
     const items = await loadItems(project)
     expect(items.map((i) => i.name)).toEqual(['Primeiro', 'Segundo'])
     expect(items[0].content).toBe('linha 1\nlinha 2')
+  })
+})
+
+describe('app/projects/[id]/pipeline/actions — ordenação das definições', () => {
+  let users: string[]
+  let projs: string[]
+
+  async function newUser(name?: string): Promise<string> {
+    const id = await createUser(ownerDb, name)
+    users.push(id)
+    return id
+  }
+  async function newProject(admin: string): Promise<string> {
+    const id = await seedProject(ownerDb, admin)
+    projs.push(id)
+    return id
+  }
+
+  beforeEach(() => {
+    users = []
+    projs = []
+    auth.userId = null
+  })
+  afterEach(async () => {
+    await cleanup(projs, users)
+  })
+
+  it('a ordem enviada é a ordem gravada, numerada a partir de zero', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin)
+
+    auth.userId = admin
+    await saveCodebook(
+      null,
+      fd(project, [
+        { title: 'Terceira', type: 'category' },
+        { title: 'Primeira', type: 'category' },
+        { title: 'Segunda', type: 'category' },
+      ]),
+    )
+
+    const [version] = await versionsOf(project)
+    expect(await definitionsOf(version.id)).toEqual([
+      { title: 'Terceira', type: 'category', description: null, orderIndex: 0 },
+      { title: 'Primeira', type: 'category', description: null, orderIndex: 1 },
+      { title: 'Segunda', type: 'category', description: null, orderIndex: 2 },
+    ])
+  })
+
+  it('reordenar numa versão em aberto não cria versão nova', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin)
+    const versionId = await addCodebookVersion(ownerDb, project, admin, {
+      definitions: [
+        { title: 'A', type: 'category' },
+        { title: 'B', type: 'category' },
+        { title: 'C', type: 'category' },
+      ],
+    })
+
+    auth.userId = admin
+    const result = await saveCodebook(
+      null,
+      fd(
+        project,
+        [
+          { title: 'C', type: 'category' },
+          { title: 'A', type: 'category' },
+          { title: 'B', type: 'category' },
+        ],
+        { versionId },
+      ),
+    )
+    expect(result).toMatchObject({ ok: true })
+
+    const versions = await versionsOf(project)
+    expect(versions).toHaveLength(1)
+    expect(versions[0].id).toBe(versionId)
+    expect((await definitionsOf(versionId)).map((r) => r.title)).toEqual(['C', 'A', 'B'])
+  })
+
+  it('a ordem da versão congelada não é alterada: a nova ordem vai para a versão seguinte', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin)
+    const frozenId = await addCodebookVersion(ownerDb, project, admin, {
+      usedAt: new Date().toISOString(),
+      definitions: [
+        { title: 'A', type: 'category' },
+        { title: 'B', type: 'category' },
+      ],
+    })
+
+    auth.userId = admin
+    await saveCodebook(
+      null,
+      fd(
+        project,
+        [
+          { title: 'B', type: 'category' },
+          { title: 'A', type: 'category' },
+        ],
+        { versionId: frozenId },
+      ),
+    )
+
+    expect((await definitionsOf(frozenId)).map((r) => r.title)).toEqual(['A', 'B'])
+
+    const versions = await versionsOf(project)
+    expect(versions.map((v) => v.versionNumber)).toEqual([2, 1])
+    const created = versions.find((v) => v.id !== frozenId)!
+    expect((await definitionsOf(created.id)).map((r) => r.title)).toEqual(['B', 'A'])
+  })
+
+  it('recusa reordenar uma versão que não é mais a vigente, fora da interface', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin)
+    const oldId = await addCodebookVersion(ownerDb, project, admin, {
+      versionNumber: 1,
+      usedAt: new Date().toISOString(),
+      definitions: [
+        { title: 'A', type: 'category' },
+        { title: 'B', type: 'category' },
+      ],
+    })
+    await addCodebookVersion(ownerDb, project, admin, {
+      versionNumber: 2,
+      definitions: [{ title: 'Vigente', type: 'category' }],
+    })
+
+    auth.userId = admin
+    const result = await saveCodebook(
+      null,
+      fd(
+        project,
+        [
+          { title: 'B', type: 'category' },
+          { title: 'A', type: 'category' },
+        ],
+        { versionId: oldId },
+      ),
+    )
+    expect(result).toMatchObject({ error: expect.stringContaining('versão vigente') })
+
+    expect((await definitionsOf(oldId)).map((r) => r.title)).toEqual(['A', 'B'])
+    expect((await versionsOf(project)).map((v) => v.versionNumber)).toEqual([2, 1])
+  })
+
+  it('cada versão guarda a própria ordem, e loadCodebook devolve a da vigente', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin)
+    const frozenId = await addCodebookVersion(ownerDb, project, admin, {
+      usedAt: new Date().toISOString(),
+      definitions: [
+        { title: 'A', type: 'category' },
+        { title: 'B', type: 'category' },
+      ],
+    })
+
+    auth.userId = admin
+    await saveCodebook(
+      null,
+      fd(project, [
+        { title: 'B', type: 'category' },
+        { title: 'A', type: 'category' },
+      ]),
+    )
+
+    expect((await definitionsOf(frozenId)).map((r) => r.title)).toEqual(['A', 'B'])
+
+    const codebook = await loadCodebook(project)
+    expect(codebook.definitions.map((d) => d.title)).toEqual(['B', 'A'])
+    expect(codebook.definitions.map((d) => d.orderIndex)).toEqual([0, 1])
+  })
+
+  it('a ordem salva é a que vai no envio à LLM', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin)
+
+    auth.userId = admin
+    await saveCodebook(
+      null,
+      fd(project, [
+        { title: 'Transacional', type: 'category' },
+        { title: 'Informacional', type: 'category' },
+      ]),
+    )
+
+    const codebook = await loadCodebook(project)
+    const input = composeLlmInput({
+      promptText: 'Classifique a consulta.',
+      definitionTitles: codebook.definitions.map((d) => d.title),
+      itemContent: 'como trocar pneu',
+    })
+    expect(input.indexOf('Transacional')).toBeLessThan(input.indexOf('Informacional'))
   })
 })

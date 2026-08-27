@@ -1,7 +1,7 @@
-import { notFound, redirect } from 'next/navigation'
-import { and, eq } from 'drizzle-orm'
+import { notFound } from 'next/navigation'
 import { requireUserId } from '@/lib/supabase/server'
-import { transaction, projects, projectMembers } from '@/lib/db'
+import { transaction } from '@/lib/db'
+import { loadPipelineAccess, requirePipelineAdmin } from './access'
 import { ProjectTabs } from '../project-tabs'
 import { PhaseBar } from '../phase-bar'
 import { PipelineChecklist } from './pipeline-checklist'
@@ -15,6 +15,8 @@ import { ItemsEditor } from './items-editor'
 import { PromptTest } from './prompt-test'
 import { llmModel } from '@/lib/ai'
 import { defaultDefinitionType } from '@/app/projects/definition-types'
+import { ButtonLink } from '@/app/components/ui/button'
+import { HistoryIcon } from '@/app/components/ui/icons'
 import { Section } from '@/app/components/ui/section'
 import {
   PageShell,
@@ -40,38 +42,20 @@ export default async function ProjectPipelinePage({
   const { id } = await params
   const userId = await requireUserId()
 
-  const { project, memberships, codebook, prompt, items } = await transaction(async (tx) => {
-    const [project] = await tx
-      .select({
-        id: projects.id,
-        name: projects.name,
-        phase: projects.phase,
-        taskType: projects.taskType,
-      })
-      .from(projects)
-      .where(eq(projects.id, id))
-      .limit(1)
+  const { access, codebook, prompt, items } = await transaction(async (tx) => {
+    const access = await loadPipelineAccess(id, userId, tx)
+    const projectId = access.project?.id
 
-    const memberships = await tx
-      .select({ role: projectMembers.role, status: projectMembers.status })
-      .from(projectMembers)
-      .where(and(eq(projectMembers.projectId, id), eq(projectMembers.userId, userId)))
+    const codebook = projectId ? await loadCodebook(projectId, tx) : null
+    const prompt = projectId ? await loadPrompt(projectId, tx) : null
+    const items = projectId ? await loadItems(projectId, tx) : null
 
-    const codebook = project ? await loadCodebook(project.id, tx) : null
-    const prompt = project ? await loadPrompt(project.id, tx) : null
-    const items = project ? await loadItems(project.id, tx) : null
-
-    return { project, memberships, codebook, prompt, items }
+    return { access, codebook, prompt, items }
   })
 
-  const isAdmin = memberships.some(
-    (m) => m.role === 'administrator' && m.status === 'active',
-  )
-  const onboardingPending = memberships.some((m) => m.status === 'pending_onboarding')
+  const project = requirePipelineAdmin(access, id)
 
-  if (!project || !codebook || !prompt || !items) notFound()
-  if (!isAdmin && onboardingPending) redirect(`/projects/${id}/onboarding`)
-  if (!isAdmin) notFound()
+  if (!codebook || !prompt || !items) notFound()
 
   const inputs = {
     ...EMPTY_PIPELINE,
@@ -92,7 +76,7 @@ export default async function ProjectPipelinePage({
       <PageTitle>Configuração do pipeline</PageTitle>
       <PageSubtitle>{project.name}</PageSubtitle>
 
-      <ProjectTabs projectId={project.id} isAdmin={isAdmin} active="pipeline" />
+      <ProjectTabs projectId={project.id} isAdmin active="pipeline" />
 
       <PhaseBar className="mt-4" current={project.phase} />
 
@@ -110,6 +94,17 @@ export default async function ProjectPipelinePage({
             definitions={codebook.definitions}
             defaultType={defaultDefinitionType(project.taskType)}
           />
+
+          <div className="mt-4">
+            <ButtonLink
+              href={`/projects/${project.id}/pipeline/codebook`}
+              variant="secondary"
+              size="sm"
+            >
+              <HistoryIcon />
+              Histórico de versões
+            </ButtonLink>
+          </div>
         </Section>
       </Anchored>
 
