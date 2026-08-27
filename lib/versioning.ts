@@ -54,3 +54,15 @@ export function decideTextSave(
   if (latest && latest.text === text) return { mode: 'unchanged' }
   return decision
 }
+
+export type MetadataSaveDecision =
+  | { mode: 'update'; versionId: string }
+  | { mode: 'stale' }
+
+export function decideMetadataSave(
+  latest: VersionSnapshot | null,
+  targetVersionId: string | null,
+): MetadataSaveDecision {
+  if (!latest || targetVersionId !== latest.id) return { mode: 'stale' }
+  return { mode: 'update', versionId: latest.id }
+}

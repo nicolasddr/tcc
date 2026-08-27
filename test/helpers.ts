@@ -240,7 +240,14 @@ export async function addPromptVersion(
   tx: DbExecutor,
   projectId: string,
   createdBy: string,
-  opts: { versionNumber?: number; text?: string; usedAt?: string | null } = {},
+  opts: {
+    versionNumber?: number
+    text?: string
+    usedAt?: string | null
+    name?: string | null
+    description?: string | null
+    changeLog?: string | null
+  } = {},
 ): Promise<string> {
   const [row] = await tx
     .insert(promptVersions)
@@ -248,6 +255,9 @@ export async function addPromptVersion(
       projectId,
       versionNumber: opts.versionNumber ?? 1,
       text: opts.text ?? 'Prompt de teste',
+      name: opts.name ?? null,
+      description: opts.description ?? null,
+      changeLog: opts.changeLog ?? null,
       createdBy,
       usedAt: opts.usedAt ?? null,
     })

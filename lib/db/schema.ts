@@ -274,6 +274,9 @@ export const promptVersions = pgTable("prompt_versions", {
 	projectId: uuid("project_id").notNull(),
 	versionNumber: integer("version_number").notNull(),
 	text: text().notNull(),
+	name: text(),
+	description: text(),
+	changeLog: text("change_log"),
 	createdBy: uuid("created_by").notNull(),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }),
@@ -294,6 +297,9 @@ export const promptVersions = pgTable("prompt_versions", {
 	check("pv_version_number_positive", sql`version_number >= 1`),
 	check("pv_text_len", sql`char_length("text") <= 20000`),
 	check("pv_text_not_blank", sql`btrim("text") <> ''`),
+	check("pv_name_len", sql`name IS NULL OR char_length(name) <= 200`),
+	check("pv_description_len", sql`description IS NULL OR char_length(description) <= 2000`),
+	check("pv_change_log_len", sql`change_log IS NULL OR char_length(change_log) <= 2000`),
 ]);
 
 export const inputItems = pgTable("input_items", {

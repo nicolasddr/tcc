@@ -2,20 +2,20 @@ import { ButtonLink } from '@/app/components/ui/button'
 import { Card } from '@/app/components/ui/card'
 import { EmptyState } from '@/app/components/ui/empty-state'
 import { VersionBadges, VersionMeta } from './version-history'
-import type { CodebookVersionSummary } from './codebook'
+import { PromptMetadataList } from './prompt-metadata'
+import { hasPromptMetadata, type PromptVersionSummary } from './prompt'
 
-export function CodebookHistory({
+export function PromptHistory({
   projectId,
   versions,
 }: {
   projectId: string
-  versions: CodebookVersionSummary[]
+  versions: PromptVersionSummary[]
 }) {
   if (versions.length === 0) {
     return (
       <EmptyState>
-        Nenhuma versão do codebook ainda. O primeiro salvamento das definições cria a
-        versão 1.
+        Nenhuma versão do prompt ainda. O primeiro salvamento do texto cria a versão 1.
       </EmptyState>
     )
   }
@@ -34,11 +34,11 @@ export function CodebookHistory({
               </span>
 
               <ButtonLink
-                href={`/projects/${projectId}/pipeline/codebook/${version.id}`}
+                href={`/projects/${projectId}/pipeline/prompt/${version.id}`}
                 variant="secondary"
                 size="sm"
               >
-                Ver definições
+                Ver texto
               </ButtonLink>
             </div>
 
@@ -46,10 +46,10 @@ export function CodebookHistory({
               <VersionMeta version={version} />
             </div>
 
-            {version.note ? (
-              <p className="m-0 mt-2.5 text-[13px] break-words text-ink">
-                {version.note}
-              </p>
+            {hasPromptMetadata(version) ? (
+              <div className="mt-2.5">
+                <PromptMetadataList version={version} />
+              </div>
             ) : null}
           </Card>
         </li>

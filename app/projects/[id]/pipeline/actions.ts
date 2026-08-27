@@ -15,13 +15,13 @@ import {
 } from '@/lib/db'
 import { isProjectAdmin } from '@/lib/authz'
 import { askLlm } from '@/lib/ai'
-import { decideSave, decideTextSave, isUsed } from '@/lib/versioning'
+import { decideMetadataSave, decideSave, decideTextSave, isUsed } from '@/lib/versioning'
 import {
   normalizeDefinitionType,
   type DefinitionType,
 } from '@/app/projects/definition-types'
 import { loadCodebook } from './codebook'
-import { loadPrompt } from './prompt'
+import { loadPrompt, type PromptMetadata } from './prompt'
 import { composeLlmInput } from './llm-input'
 import { canAdvanceFromPhase1 } from './preconditions'
 import {
@@ -29,6 +29,9 @@ import {
   DEFINITION_TITLE_MAX,
   ITEM_CONTENT_MAX,
   ITEM_NAME_MAX,
+  PROMPT_CHANGE_LOG_MAX,
+  PROMPT_DESCRIPTION_MAX,
+  PROMPT_NAME_MAX,
   PROMPT_TEXT_MAX,
 } from '@/lib/limits'
 
@@ -250,6 +253,119 @@ export async function savePrompt(
   }
 
   if (stale) return { error: PROMPT_STALE }
+
+  revalidatePath(`/projects/${projectId}/pipeline`)
+  return { ok: true, nonce: Date.now() }
+}
+
+export type PromptMetadataState =
+  | { error: string }
+  | { ok: true; nonce: number }
+  | null
+
+const METADATA_DENIED =
+  'Não foi possível salvar os dados do prompt. Apenas o administrador do projeto pode editá-los.'
+
+const METADATA_STALE =
+  'Só a versão mais recente do prompt aceita nome, descrição e registro de mudanças. Recarregue a página para continuar da versão atual.'
+
+type MetadataField = {
+  field: keyof PromptMetadata
+  input: string
+  max: number
+  label: string
+}
+
+const METADATA_FIELDS: MetadataField[] = [
+  { field: 'name', input: 'name', max: PROMPT_NAME_MAX, label: 'O nome do prompt' },
+  {
+    field: 'description',
+    input: 'description',
+    max: PROMPT_DESCRIPTION_MAX,
+    label: 'A descrição do prompt',
+  },
+  {
+    field: 'changeLog',
+    input: 'change_log',
+    max: PROMPT_CHANGE_LOG_MAX,
+    label: 'O registro de mudanças',
+  },
+]
+
+function parsePromptMetadata(
+  formData: FormData,
+): { error: string } | { metadata: PromptMetadata } {
+  const metadata: PromptMetadata = { name: null, description: null, changeLog: null }
+
+  for (const { field, input, max, label } of METADATA_FIELDS) {
+    const value = String(formData.get(input) ?? '')
+      .replace(/\r\n/g, '\n')
+      .trim()
+    if (value.length > max) {
+      return { error: `${label} pode ter no máximo ${max} caracteres.` }
+    }
+    metadata[field] = value || null
+  }
+
+  return { metadata }
+}
+
+export async function savePromptMetadata(
+  _prev: PromptMetadataState,
+  formData: FormData,
+): Promise<PromptMetadataState> {
+  const userId = await requireUserId()
+
+  const projectId = String(formData.get('project_id') ?? '')
+  if (!projectId) return { error: 'Projeto inválido.' }
+
+  const parsed = parsePromptMetadata(formData)
+  if ('error' in parsed) return parsed
+
+  if (!(await isProjectAdmin(userId, projectId))) return { error: METADATA_DENIED }
+
+  const targetVersionId = String(formData.get('version_id') ?? '') || null
+
+  let stale = false
+  await transaction(async (tx) => {
+    await tx
+      .select({ id: projects.id })
+      .from(projects)
+      .where(eq(projects.id, projectId))
+      .for('update')
+
+    const [latest] = await tx
+      .select({
+        id: promptVersions.id,
+        versionNumber: promptVersions.versionNumber,
+        usedAt: promptVersions.usedAt,
+        name: promptVersions.name,
+        description: promptVersions.description,
+        changeLog: promptVersions.changeLog,
+      })
+      .from(promptVersions)
+      .where(eq(promptVersions.projectId, projectId))
+      .orderBy(desc(promptVersions.versionNumber))
+      .limit(1)
+
+    const decision = decideMetadataSave(latest ?? null, targetVersionId)
+    if (decision.mode === 'stale') {
+      stale = true
+      return
+    }
+
+    const unchanged = METADATA_FIELDS.every(
+      ({ field }) => latest[field] === parsed.metadata[field],
+    )
+    if (unchanged) return
+
+    await tx
+      .update(promptVersions)
+      .set({ ...parsed.metadata, updatedAt: sql`now()` })
+      .where(eq(promptVersions.id, decision.versionId))
+  })
+
+  if (stale) return { error: METADATA_STALE }
 
   revalidatePath(`/projects/${projectId}/pipeline`)
   return { ok: true, nonce: Date.now() }

@@ -10,6 +10,7 @@ import { loadCodebook } from './codebook'
 import { CodebookEditor } from './codebook-editor'
 import { loadPrompt } from './prompt'
 import { PromptEditor } from './prompt-editor'
+import { PromptMetadataEditor } from './prompt-metadata-editor'
 import { loadItems } from './items'
 import { ItemsEditor } from './items-editor'
 import { PromptTest } from './prompt-test'
@@ -118,6 +119,24 @@ export default async function ProjectPipelinePage({
             version={prompt.version}
             isOpen={prompt.isOpen}
           />
+
+          <div className="mt-4">
+            <ButtonLink
+              href={`/projects/${project.id}/pipeline/prompt`}
+              variant="secondary"
+              size="sm"
+            >
+              <HistoryIcon />
+              Histórico de versões
+            </ButtonLink>
+          </div>
+        </Section>
+
+        <Section
+          title="Dados desta versão do prompt"
+          hint="Nome, descrição e registro de mudanças são opcionais, valem para a versão mais recente e podem ser corrigidos a qualquer momento: como não vão à LLM, editá-los não cria versão nova."
+        >
+          <PromptMetadataEditor projectId={project.id} version={prompt.version} />
         </Section>
       </Anchored>
 

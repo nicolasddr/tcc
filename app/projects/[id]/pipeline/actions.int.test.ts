@@ -18,6 +18,7 @@ import * as actions from '@/app/projects/[id]/pipeline/actions'
 import {
   saveCodebook,
   savePrompt,
+  savePromptMetadata,
   createItem,
   updateItem,
   deleteItem,
@@ -34,7 +35,14 @@ import {
   promptVersions,
   inputItems,
 } from '@/lib/db'
-import { ITEM_CONTENT_MAX, ITEM_NAME_MAX, PROMPT_TEXT_MAX } from '@/lib/limits'
+import {
+  ITEM_CONTENT_MAX,
+  ITEM_NAME_MAX,
+  PROMPT_CHANGE_LOG_MAX,
+  PROMPT_DESCRIPTION_MAX,
+  PROMPT_NAME_MAX,
+  PROMPT_TEXT_MAX,
+} from '@/lib/limits'
 import {
   createUser,
   createProject as seedProject,
@@ -358,6 +366,7 @@ describe('app/projects/[id]/pipeline/actions — definições salvas de forma ve
     expect(Object.keys(actions)).toEqual([
       'saveCodebook',
       'savePrompt',
+      'savePromptMetadata',
       'createItem',
       'updateItem',
       'deleteItem',
@@ -411,6 +420,9 @@ function promptVersionsOf(projectId: string) {
       id: promptVersions.id,
       versionNumber: promptVersions.versionNumber,
       text: promptVersions.text,
+      name: promptVersions.name,
+      description: promptVersions.description,
+      changeLog: promptVersions.changeLog,
       createdBy: promptVersions.createdBy,
       createdAt: promptVersions.createdAt,
       updatedAt: promptVersions.updatedAt,
@@ -684,6 +696,303 @@ describe('app/projects/[id]/pipeline/actions — texto do prompt salvo de forma 
     const frozen = await loadPrompt(project)
     expect(frozen.version?.text).toBe('vigente')
     expect(frozen.isOpen).toBe(false)
+  })
+})
+
+function metadataFd(
+  projectId: string,
+  fields: {
+    name?: string
+    description?: string
+    changeLog?: string
+    versionId?: string
+  } = {},
+): FormData {
+  const form = new FormData()
+  form.set('project_id', projectId)
+  if (fields.name !== undefined) form.set('name', fields.name)
+  if (fields.description !== undefined) form.set('description', fields.description)
+  if (fields.changeLog !== undefined) form.set('change_log', fields.changeLog)
+  if (fields.versionId !== undefined) form.set('version_id', fields.versionId)
+  return form
+}
+
+describe('app/projects/[id]/pipeline/actions — metadados do prompt', () => {
+  let users: string[]
+  let projs: string[]
+
+  async function newUser(name?: string): Promise<string> {
+    const id = await createUser(ownerDb, name)
+    users.push(id)
+    return id
+  }
+  async function newProject(admin: string): Promise<string> {
+    const id = await seedProject(ownerDb, admin)
+    projs.push(id)
+    return id
+  }
+
+  beforeEach(() => {
+    users = []
+    projs = []
+    auth.userId = null
+  })
+  afterEach(async () => {
+    await cleanup(projs, users)
+  })
+
+  it('grava nome, descrição e registro de mudanças sem criar versão nova', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin)
+    const versionId = await addPromptVersion(ownerDb, project, admin, { text: 'texto' })
+
+    auth.userId = admin
+    const result = await savePromptMetadata(
+      null,
+      metadataFd(project, {
+        name: 'instrução direta',
+        description: 'pede a categoria e uma justificativa',
+        changeLog: 'primeira redação',
+        versionId,
+      }),
+    )
+    expect(result).toMatchObject({ ok: true })
+
+    const versions = await promptVersionsOf(project)
+    expect(versions).toHaveLength(1)
+    expect(versions[0]).toMatchObject({
+      id: versionId,
+      versionNumber: 1,
+      text: 'texto',
+      name: 'instrução direta',
+      description: 'pede a categoria e uma justificativa',
+      changeLog: 'primeira redação',
+    })
+  })
+
+  it('os três campos são opcionais, e o campo vazio é gravado como ausente', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin)
+    const versionId = await addPromptVersion(ownerDb, project, admin, {
+      name: 'nome antigo',
+      description: 'descrição antiga',
+      changeLog: 'registro antigo',
+    })
+
+    auth.userId = admin
+    expect(await savePromptMetadata(null, metadataFd(project, { versionId }))).toMatchObject(
+      { ok: true },
+    )
+
+    const [version] = await promptVersionsOf(project)
+    expect(version.name).toBeNull()
+    expect(version.description).toBeNull()
+    expect(version.changeLog).toBeNull()
+  })
+
+  it('campo só com espaços vira ausente, sem gravar texto em branco', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin)
+    const versionId = await addPromptVersion(ownerDb, project, admin)
+
+    auth.userId = admin
+    await savePromptMetadata(
+      null,
+      metadataFd(project, { name: '   ', description: '\n\t ', versionId }),
+    )
+
+    const [version] = await promptVersionsOf(project)
+    expect(version.name).toBeNull()
+    expect(version.description).toBeNull()
+  })
+
+  it('a versão mais recente aceita metadado mesmo já congelada', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin)
+    const frozenId = await addPromptVersion(ownerDb, project, admin, {
+      text: 'congelado',
+      usedAt: new Date().toISOString(),
+    })
+
+    auth.userId = admin
+    const result = await savePromptMetadata(
+      null,
+      metadataFd(project, { name: 'usado na rodada piloto', versionId: frozenId }),
+    )
+    expect(result).toMatchObject({ ok: true })
+
+    const versions = await promptVersionsOf(project)
+    expect(versions).toHaveLength(1)
+    expect(versions[0].name).toBe('usado na rodada piloto')
+    expect(versions[0].text).toBe('congelado')
+    expect(versions[0].usedAt).not.toBeNull()
+  })
+
+  it('recusa a chamada direta em versão que não é a mais recente, e nada muda', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin)
+    const oldId = await addPromptVersion(ownerDb, project, admin, {
+      versionNumber: 1,
+      text: 'velha',
+      name: 'nome da velha',
+      usedAt: new Date().toISOString(),
+    })
+    await addPromptVersion(ownerDb, project, admin, { versionNumber: 2, text: 'vigente' })
+
+    auth.userId = admin
+    const denied = await savePromptMetadata(
+      null,
+      metadataFd(project, { name: 'invasão', versionId: oldId }),
+    )
+    expect(denied).toEqual({ error: expect.stringContaining('mais recente') })
+
+    const versions = await promptVersionsOf(project)
+    expect(versions.find((v) => v.id === oldId)!.name).toBe('nome da velha')
+    expect(versions).toHaveLength(2)
+  })
+
+  it('recusa a chamada sem versão alvo e o projeto sem nenhuma versão', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin)
+    await addPromptVersion(ownerDb, project, admin, { name: 'nome' })
+    const empty = await newProject(admin)
+
+    auth.userId = admin
+    expect(await savePromptMetadata(null, metadataFd(project, { name: 'sem alvo' }))).toEqual(
+      { error: expect.stringContaining('mais recente') },
+    )
+    expect(
+      await savePromptMetadata(null, metadataFd(empty, { name: 'sem versão' })),
+    ).toEqual({ error: expect.stringContaining('mais recente') })
+
+    expect((await promptVersionsOf(project))[0].name).toBe('nome')
+    expect(await promptVersionsOf(empty)).toHaveLength(0)
+  })
+
+  it('salvar sem mudar nada não registra alteração', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin)
+    const versionId = await addPromptVersion(ownerDb, project, admin, { name: 'igual' })
+
+    auth.userId = admin
+    const result = await savePromptMetadata(
+      null,
+      metadataFd(project, { name: 'igual', versionId }),
+    )
+    expect(result).toMatchObject({ ok: true })
+
+    const [version] = await promptVersionsOf(project)
+    expect(version.updatedAt).toBeNull()
+  })
+
+  it('a edição registra a data da última alteração', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin)
+    const versionId = await addPromptVersion(ownerDb, project, admin)
+
+    auth.userId = admin
+    await savePromptMetadata(null, metadataFd(project, { name: 'novo nome', versionId }))
+
+    const [version] = await promptVersionsOf(project)
+    expect(version.updatedAt).not.toBeNull()
+  })
+
+  it('recusa campo acima do limite de caracteres, sem gravar nada', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin)
+    const versionId = await addPromptVersion(ownerDb, project, admin)
+
+    auth.userId = admin
+    const tooLong = [
+      metadataFd(project, { name: 'a'.repeat(PROMPT_NAME_MAX + 1), versionId }),
+      metadataFd(project, {
+        description: 'a'.repeat(PROMPT_DESCRIPTION_MAX + 1),
+        versionId,
+      }),
+      metadataFd(project, {
+        changeLog: 'a'.repeat(PROMPT_CHANGE_LOG_MAX + 1),
+        versionId,
+      }),
+    ]
+    for (const form of tooLong) {
+      expect(await savePromptMetadata(null, form)).toEqual({
+        error: expect.stringContaining('máximo'),
+      })
+    }
+
+    const [version] = await promptVersionsOf(project)
+    expect(version.name).toBeNull()
+    expect(version.description).toBeNull()
+    expect(version.changeLog).toBeNull()
+  })
+
+  it('o Avaliador é recusado, e nada é gravado', async () => {
+    const admin = await newUser('Admin')
+    const evaluator = await newUser('Avaliador')
+    const project = await newProject(admin)
+    await addActiveEvaluator(ownerDb, project, evaluator)
+    const versionId = await addPromptVersion(ownerDb, project, admin)
+
+    auth.userId = evaluator
+    const denied = await savePromptMetadata(
+      null,
+      metadataFd(project, { name: 'pirata', versionId }),
+    )
+    expect(denied).toEqual({ error: expect.stringContaining('administrador') })
+    expect((await promptVersionsOf(project))[0].name).toBeNull()
+  })
+
+  it('o administrador de um projeto não age sobre outro', async () => {
+    const admin = await newUser('Admin')
+    const outsiderAdmin = await newUser('Admin de Fora')
+    const project = await newProject(admin)
+    await newProject(outsiderAdmin)
+    const versionId = await addPromptVersion(ownerDb, project, admin)
+
+    auth.userId = outsiderAdmin
+    const denied = await savePromptMetadata(
+      null,
+      metadataFd(project, { name: 'invasão', versionId }),
+    )
+    expect(denied).toEqual({ error: expect.stringContaining('administrador') })
+    expect((await promptVersionsOf(project))[0].name).toBeNull()
+  })
+
+  it('o texto que cria a versão seguinte não herda os metadados da anterior', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin)
+    await addPromptVersion(ownerDb, project, admin, {
+      text: 'congelado',
+      name: 'nome da versão 1',
+      changeLog: 'registro da versão 1',
+      usedAt: new Date().toISOString(),
+    })
+
+    auth.userId = admin
+    await savePrompt(null, promptFd(project, 'texto novo'))
+
+    const [current, previous] = await promptVersionsOf(project)
+    expect(current.versionNumber).toBe(2)
+    expect(current.name).toBeNull()
+    expect(current.changeLog).toBeNull()
+    expect(previous.name).toBe('nome da versão 1')
+  })
+
+  it('loadPrompt devolve os metadados junto da versão vigente', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin)
+    await addPromptVersion(ownerDb, project, admin, {
+      name: 'instrução direta',
+      description: 'descrição',
+      changeLog: 'registro',
+    })
+
+    const prompt = await loadPrompt(project)
+    expect(prompt.version).toMatchObject({
+      name: 'instrução direta',
+      description: 'descrição',
+      changeLog: 'registro',
+    })
   })
 })
 

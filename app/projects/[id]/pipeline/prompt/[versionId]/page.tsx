@@ -2,11 +2,10 @@ import { notFound } from 'next/navigation'
 import { requireUserId } from '@/lib/supabase/server'
 import { transaction } from '@/lib/db'
 import { loadPipelineAccess, requirePipelineAdmin } from '../../access'
-import { loadCodebookVersion } from '../../codebook'
+import { hasPromptMetadata, loadPromptVersion } from '../../prompt'
 import { VersionBadges, VersionMeta } from '../../version-history'
-import { DefinitionList } from '../../definition-list'
+import { PromptMetadataList } from '../../prompt-metadata'
 import { Card } from '@/app/components/ui/card'
-import { EmptyState } from '@/app/components/ui/empty-state'
 import { Section } from '@/app/components/ui/section'
 import {
   PageShell,
@@ -16,7 +15,7 @@ import {
   PageSubtitle,
 } from '@/app/components/ui/shell'
 
-export default async function CodebookVersionPage({
+export default async function PromptVersionPage({
   params,
 }: {
   params: Promise<{ id: string; versionId: string }>
@@ -24,29 +23,27 @@ export default async function CodebookVersionPage({
   const { id, versionId } = await params
   const userId = await requireUserId()
 
-  const { access, detail } = await transaction(async (tx) => {
+  const { access, version } = await transaction(async (tx) => {
     const access = await loadPipelineAccess(id, userId, tx)
-    const detail = access.project ? await loadCodebookVersion(id, versionId, tx) : null
-    return { access, detail }
+    const version = access.project ? await loadPromptVersion(id, versionId, tx) : null
+    return { access, version }
   })
 
   const project = requirePipelineAdmin(access, id)
-  if (!detail) notFound()
-
-  const { version, definitions } = detail
+  if (!version) notFound()
 
   return (
     <PageShell
       width="wide"
       header={
         <TopBar>
-          <BackLink href={`/projects/${id}/pipeline/codebook`}>
+          <BackLink href={`/projects/${id}/pipeline/prompt`}>
             Voltar ao histórico
           </BackLink>
         </TopBar>
       }
     >
-      <PageTitle>Versão {version.versionNumber} do codebook</PageTitle>
+      <PageTitle>Versão {version.versionNumber} do prompt</PageTitle>
       <PageSubtitle>{project.name}</PageSubtitle>
 
       <div className="flex flex-col gap-2">
@@ -54,21 +51,21 @@ export default async function CodebookVersionPage({
         <VersionMeta version={version} />
       </div>
 
-      {version.note ? (
+      {hasPromptMetadata(version) ? (
         <Card tone="subtle" padding="sm" className="mt-4">
-          <p className="m-0 text-[13px] break-words text-ink">{version.note}</p>
+          <PromptMetadataList version={version} />
         </Card>
       ) : null}
 
       <Section
-        title="Definições desta versão"
-        hint="Em leitura, na ordem em que foram salvas nesta versão."
+        title="Texto desta versão"
+        hint="Em leitura, com a mesma formatação com que foi salvo."
       >
-        {definitions.length === 0 ? (
-          <EmptyState>Esta versão não tem definições.</EmptyState>
-        ) : (
-          <DefinitionList definitions={definitions} />
-        )}
+        <Card padding="sm">
+          <p className="m-0 max-h-[60vh] overflow-auto font-mono text-[13px] leading-[1.6] break-words whitespace-pre-wrap text-ink">
+            {version.text}
+          </p>
+        </Card>
       </Section>
     </PageShell>
   )

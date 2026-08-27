@@ -16,16 +16,17 @@ vi.mock('next/navigation', () => ({
   },
 }))
 
-import CodebookHistoryPage from '@/app/projects/[id]/pipeline/codebook/page'
-import CodebookVersionPage from '@/app/projects/[id]/pipeline/codebook/[versionId]/page'
-import { CodebookHistory } from '@/app/projects/[id]/pipeline/codebook-history'
-import type { CodebookVersionSummary } from '@/app/projects/[id]/pipeline/codebook'
+import PromptHistoryPage from '@/app/projects/[id]/pipeline/prompt/page'
+import PromptVersionPage from '@/app/projects/[id]/pipeline/prompt/[versionId]/page'
+import { PromptHistory } from '@/app/projects/[id]/pipeline/prompt-history'
+import { PromptMetadataList } from '@/app/projects/[id]/pipeline/prompt-metadata'
 import {
   VersionBadges,
   VersionMeta,
 } from '@/app/projects/[id]/pipeline/version-history'
-import { DefinitionList } from '@/app/projects/[id]/pipeline/definition-list'
-import { CodebookEditor } from '@/app/projects/[id]/pipeline/codebook-editor'
+import { PromptEditor } from '@/app/projects/[id]/pipeline/prompt-editor'
+import { PromptMetadataEditor } from '@/app/projects/[id]/pipeline/prompt-metadata-editor'
+import type { PromptVersionSummary } from '@/app/projects/[id]/pipeline/prompt'
 import { Button } from '@/app/components/ui/button'
 import { formatDate } from '@/app/notifications/labels'
 import { ownerDb } from '@/lib/db'
@@ -34,7 +35,7 @@ import {
   createProject as seedProject,
   addActiveEvaluator,
   addPendingMember,
-  addCodebookVersion,
+  addPromptVersion,
   cleanup,
 } from '@/test/helpers'
 
@@ -68,37 +69,37 @@ function textOf(node: unknown): string {
   return collectText(node).replace(/\s+/g, ' ').trim()
 }
 
-type HistoryProps = Parameters<typeof CodebookHistory>[0]
-type DefinitionListProps = Parameters<typeof DefinitionList>[0]
+type HistoryProps = Parameters<typeof PromptHistory>[0]
 
 function renderHistory(id: string) {
-  return CodebookHistoryPage({ params: Promise.resolve({ id }) })
+  return PromptHistoryPage({ params: Promise.resolve({ id }) })
 }
 
 function renderVersion(id: string, versionId: string) {
-  return CodebookVersionPage({ params: Promise.resolve({ id, versionId }) })
+  return PromptVersionPage({ params: Promise.resolve({ id, versionId }) })
+}
+
+function metadataTextOf(tree: unknown): string {
+  const element = findElement(tree, PromptMetadataList)
+  if (!element) return ''
+  return textOf(PromptMetadataList(element.props as Parameters<typeof PromptMetadataList>[0]))
 }
 
 function historyOf(tree: unknown): HistoryProps {
-  const element = findElement(tree, CodebookHistory)
+  const element = findElement(tree, PromptHistory)
   expect(element).toBeTruthy()
   return element!.props as HistoryProps
-}
-
-function definitionsOf(tree: unknown): DefinitionListProps {
-  const element = findElement(tree, DefinitionList)
-  expect(element).toBeTruthy()
-  return element!.props as DefinitionListProps
 }
 
 function expectNoEditing(tree: unknown) {
   expect(findElement(tree, 'form')).toBeNull()
   expect(findElement(tree, 'button')).toBeNull()
   expect(findElement(tree, Button)).toBeNull()
-  expect(findElement(tree, CodebookEditor)).toBeNull()
+  expect(findElement(tree, PromptEditor)).toBeNull()
+  expect(findElement(tree, PromptMetadataEditor)).toBeNull()
 }
 
-describe('app/projects/[id]/pipeline/codebook — histórico de versões do codebook', () => {
+describe('app/projects/[id]/pipeline/prompt — histórico de versões do prompt', () => {
   let users: string[]
   let projs: string[]
 
@@ -126,7 +127,7 @@ describe('app/projects/[id]/pipeline/codebook — histórico de versões do code
     const admin = await newUser('Admin')
     const project = await newProject(admin)
     for (const versionNumber of [1, 2, 3]) {
-      await addCodebookVersion(ownerDb, project, admin, {
+      await addPromptVersion(ownerDb, project, admin, {
         versionNumber,
         usedAt: versionNumber === 3 ? null : new Date().toISOString(),
       })
@@ -137,11 +138,13 @@ describe('app/projects/[id]/pipeline/codebook — histórico de versões do code
     expect(props.versions.map((v) => v.versionNumber)).toEqual([3, 2, 1])
   })
 
-  it('cada linha mostra número, data, autor e a observação, quando houver', async () => {
+  it('cada linha mostra número, data, autor e os metadados preenchidos', async () => {
     const admin = await newUser('Ana Pesquisadora')
     const project = await newProject(admin)
-    await addCodebookVersion(ownerDb, project, admin, {
-      note: 'separei “Transacional” de “Navegacional”',
+    await addPromptVersion(ownerDb, project, admin, {
+      name: 'instrução direta',
+      description: 'pede a categoria e uma justificativa de uma linha',
+      changeLog: 'primeira redação do prompt',
     })
 
     auth.userId = admin
@@ -149,34 +152,58 @@ describe('app/projects/[id]/pipeline/codebook — histórico de versões do code
     const [version] = props.versions
     expect(version.authorName).toBe('Ana Pesquisadora')
 
-    const listText = textOf(CodebookHistory(props))
-    expect(listText).toContain('Versão 1')
-    expect(listText).toContain('separei “Transacional” de “Navegacional”')
+    expect(textOf(PromptHistory(props))).toContain('Versão 1')
+
+    const metadataText = metadataTextOf(PromptHistory(props))
+    expect(metadataText).toContain('instrução direta')
+    expect(metadataText).toContain('pede a categoria e uma justificativa de uma linha')
+    expect(metadataText).toContain('primeira redação do prompt')
 
     const metaText = textOf(VersionMeta({ version }))
     expect(metaText).toContain(formatDate(version.createdAt))
     expect(metaText).toContain('Ana Pesquisadora')
   })
 
-  it('a observação vazia não deixa rótulo órfão na linha', async () => {
+  it('o metadado vazio não deixa rótulo órfão na linha nem na versão', async () => {
     const admin = await newUser('Admin')
     const project = await newProject(admin)
-    await addCodebookVersion(ownerDb, project, admin, { note: null })
+    const versionId = await addPromptVersion(ownerDb, project, admin, {
+      name: 'só o nome',
+    })
 
     auth.userId = admin
-    const props = historyOf(await renderHistory(project))
-    expect(props.versions[0].note).toBeNull()
-    expect(textOf(CodebookHistory(props))).toContain('Versão 1')
+    const listText = metadataTextOf(PromptHistory(historyOf(await renderHistory(project))))
+    expect(listText).toContain('Nome')
+    expect(listText).toContain('só o nome')
+    expect(listText).not.toContain('Descrição')
+    expect(listText).not.toContain('Registro de mudanças')
+
+    const detailText = metadataTextOf(await renderVersion(project, versionId))
+    expect(detailText).toContain('só o nome')
+    expect(detailText).not.toContain('Descrição')
+    expect(detailText).not.toContain('Registro de mudanças')
+  })
+
+  it('a versão sem nenhum metadado não mostra bloco de metadados', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin)
+    const versionId = await addPromptVersion(ownerDb, project, admin)
+
+    auth.userId = admin
+    expect(findElement(await renderVersion(project, versionId), PromptMetadataList)).toBeNull()
+    expect(
+      findElement(PromptHistory(historyOf(await renderHistory(project))), PromptMetadataList),
+    ).toBeNull()
   })
 
   it('fica claro qual é a vigente e se ela está em aberto ou já congelou', async () => {
     const admin = await newUser('Admin')
     const project = await newProject(admin)
-    await addCodebookVersion(ownerDb, project, admin, {
+    await addPromptVersion(ownerDb, project, admin, {
       versionNumber: 1,
       usedAt: new Date().toISOString(),
     })
-    await addCodebookVersion(ownerDb, project, admin, { versionNumber: 2 })
+    await addPromptVersion(ownerDb, project, admin, { versionNumber: 2 })
 
     auth.userId = admin
     const [current, old] = historyOf(await renderHistory(project)).versions
@@ -195,9 +222,7 @@ describe('app/projects/[id]/pipeline/codebook — histórico de versões do code
   it('a versão vigente já usada aparece como congelada', async () => {
     const admin = await newUser('Admin')
     const project = await newProject(admin)
-    await addCodebookVersion(ownerDb, project, admin, {
-      usedAt: new Date().toISOString(),
-    })
+    await addPromptVersion(ownerDb, project, admin, { usedAt: new Date().toISOString() })
 
     auth.userId = admin
     const [version] = historyOf(await renderHistory(project)).versions
@@ -213,54 +238,42 @@ describe('app/projects/[id]/pipeline/codebook — histórico de versões do code
     auth.userId = admin
     const props = historyOf(await renderHistory(project))
     expect(props.versions).toEqual([])
-    expect(textOf(CodebookHistory(props))).toContain('Nenhuma versão do codebook ainda')
+    expect(textOf(PromptHistory(props))).toContain('Nenhuma versão do prompt ainda')
   })
 
-  it('abrir uma versão antiga mostra as definições na ordem daquela versão', async () => {
+  it('abrir uma versão antiga mostra o texto daquela versão, com a formatação preservada', async () => {
     const admin = await newUser('Admin')
     const project = await newProject(admin)
-    const oldId = await addCodebookVersion(ownerDb, project, admin, {
+    const oldId = await addPromptVersion(ownerDb, project, admin, {
       versionNumber: 1,
+      text: 'linha um\n\n  linha recuada',
       usedAt: new Date().toISOString(),
-      definitions: [
-        { title: 'Informacional', type: 'category' },
-        { title: 'Transacional', type: 'category' },
-      ],
     })
-    await addCodebookVersion(ownerDb, project, admin, {
+    await addPromptVersion(ownerDb, project, admin, {
       versionNumber: 2,
-      definitions: [
-        { title: 'Transacional', type: 'category' },
-        { title: 'Informacional', type: 'category' },
-        { title: 'Navegacional', type: 'category' },
-      ],
+      text: 'texto vigente',
     })
 
     auth.userId = admin
-    const props = definitionsOf(await renderVersion(project, oldId))
-    expect(props.definitions.map((d) => d.title)).toEqual([
-      'Informacional',
-      'Transacional',
-    ])
-    expect(props.definitions.map((d) => d.orderIndex)).toEqual([0, 1])
-    expect(textOf(DefinitionList(props))).toContain('Informacional')
+    const tree = await renderVersion(project, oldId)
+    expect(collectText(tree)).toContain('linha um\n\n  linha recuada')
+    expect(collectText(tree)).not.toContain('texto vigente')
   })
 
   it('a tela da versão diz o número e se ela está em aberto ou congelada', async () => {
     const admin = await newUser('Admin')
     const project = await newProject(admin)
-    const frozenId = await addCodebookVersion(ownerDb, project, admin, {
-      versionNumber: 1,
-      usedAt: new Date().toISOString(),
-    })
-    await addCodebookVersion(ownerDb, project, admin, { versionNumber: 2 })
+    const frozenId = await addPromptVersion(ownerDb, project, admin, { versionNumber: 1 })
+    await addPromptVersion(ownerDb, project, admin, { versionNumber: 2 })
 
     auth.userId = admin
     const tree = await renderVersion(project, frozenId)
+    expect(textOf(tree)).toContain('Versão 1 do prompt')
+
     const badges = findElement(tree, VersionBadges)
     expect(badges).toBeTruthy()
 
-    const props = badges!.props as { version: CodebookVersionSummary }
+    const props = badges!.props as { version: PromptVersionSummary }
     expect(props.version.versionNumber).toBe(1)
     expect(textOf(VersionBadges(props))).toContain('congelada')
   })
@@ -268,19 +281,17 @@ describe('app/projects/[id]/pipeline/codebook — histórico de versões do code
   it('nenhuma tela do histórico oferece editar ou apagar', async () => {
     const admin = await newUser('Admin')
     const project = await newProject(admin)
-    const versionId = await addCodebookVersion(ownerDb, project, admin, {
-      note: 'primeira versão',
+    const versionId = await addPromptVersion(ownerDb, project, admin, {
+      name: 'primeira versão',
       usedAt: new Date().toISOString(),
     })
 
     auth.userId = admin
     const list = await renderHistory(project)
     expectNoEditing(list)
-    expectNoEditing(CodebookHistory(historyOf(list)))
+    expectNoEditing(PromptHistory(historyOf(list)))
 
-    const detail = await renderVersion(project, versionId)
-    expectNoEditing(detail)
-    expectNoEditing(DefinitionList(definitionsOf(detail)))
+    expectNoEditing(await renderVersion(project, versionId))
   })
 
   it('o Avaliador não acessa o histórico nem a versão', async () => {
@@ -288,7 +299,7 @@ describe('app/projects/[id]/pipeline/codebook — histórico de versões do code
     const evaluator = await newUser('Avaliador')
     const project = await newProject(admin)
     await addActiveEvaluator(ownerDb, project, evaluator)
-    const versionId = await addCodebookVersion(ownerDb, project, admin)
+    const versionId = await addPromptVersion(ownerDb, project, admin)
 
     auth.userId = evaluator
     await expect(renderHistory(project)).rejects.toThrow('NEXT_NOTFOUND')
@@ -323,7 +334,7 @@ describe('app/projects/[id]/pipeline/codebook — histórico de versões do code
     const admin = await newUser('Admin')
     const project = await newProject(admin)
     const other = await newProject(admin)
-    const otherVersion = await addCodebookVersion(ownerDb, other, admin)
+    const otherVersion = await addPromptVersion(ownerDb, other, admin)
 
     auth.userId = admin
     await expect(renderVersion(project, otherVersion)).rejects.toThrow('NEXT_NOTFOUND')

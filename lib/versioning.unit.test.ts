@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
+  decideMetadataSave,
   decideSave,
   decideTextSave,
   isUsed,
@@ -147,5 +148,37 @@ describe('decideTextSave', () => {
     expect(decideTextSave(textVersion(3, 'igual'), 'v1', 'igual')).toEqual({
       mode: 'stale',
     })
+  })
+})
+
+describe('decideMetadataSave', () => {
+  it('a versão mais recente aceita metadado, esteja em aberto ou congelada', () => {
+    expect(decideMetadataSave(version(2), 'v2')).toEqual({
+      mode: 'update',
+      versionId: 'v2',
+    })
+    expect(decideMetadataSave(version(2, '2026-08-25T12:00:00Z'), 'v2')).toEqual({
+      mode: 'update',
+      versionId: 'v2',
+    })
+  })
+
+  it('recusa quando o alvo não é a versão mais recente', () => {
+    expect(decideMetadataSave(version(3), 'v1')).toEqual({ mode: 'stale' })
+    expect(decideMetadataSave(version(3, '2026-08-25T12:00:00Z'), 'v1')).toEqual({
+      mode: 'stale',
+    })
+  })
+
+  it('recusa sem alvo explícito e sem versão nenhuma, porque metadado precisa de versão', () => {
+    expect(decideMetadataSave(version(1), null)).toEqual({ mode: 'stale' })
+    expect(decideMetadataSave(null, 'v1')).toEqual({ mode: 'stale' })
+    expect(decideMetadataSave(null, null)).toEqual({ mode: 'stale' })
+  })
+
+  it('nunca cria versão: a única saída boa é atualizar a mais recente', () => {
+    expect(decideMetadataSave(version(4, '2026-08-25T12:00:00Z'), 'v4').mode).toBe(
+      'update',
+    )
   })
 })

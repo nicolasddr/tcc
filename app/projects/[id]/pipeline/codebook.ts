@@ -7,9 +7,7 @@ import {
   codebookDefinitions,
 } from '@/lib/db'
 import { isVersionOpen } from '@/lib/versioning'
-
-const UUID =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+import { isUuid, summarize, type Summarized } from './versions'
 
 export type CodebookVersion = {
   id: string
@@ -20,11 +18,7 @@ export type CodebookVersion = {
   usedAt: string | null
 }
 
-export type CodebookVersionSummary = CodebookVersion & {
-  authorName: string
-  isLatest: boolean
-  isOpen: boolean
-}
+export type CodebookVersionSummary = Summarized<CodebookVersion & { authorName: string }>
 
 export type CodebookDefinition = {
   id: string
@@ -83,17 +77,6 @@ function loadDefinitions(
     .orderBy(asc(codebookDefinitions.orderIndex))
 }
 
-function summarize(
-  version: CodebookVersion & { authorName: string },
-  latest: CodebookVersion | null,
-): CodebookVersionSummary {
-  return {
-    ...version,
-    isLatest: latest !== null && version.id === latest.id,
-    isOpen: isVersionOpen(version, latest),
-  }
-}
-
 export async function loadCodebook(
   projectId: string,
   db: DbExecutor = ownerDb,
@@ -129,7 +112,7 @@ export async function loadCodebookVersion(
   versionId: string,
   db: DbExecutor = ownerDb,
 ): Promise<CodebookVersionDetail | null> {
-  if (!UUID.test(versionId)) return null
+  if (!isUuid(versionId)) return null
 
   const [version] = await db
     .select({ ...versionColumns, authorName: profiles.name })
