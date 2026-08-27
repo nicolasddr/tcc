@@ -4,7 +4,10 @@ import { resolve } from 'node:path'
 
 export default defineConfig({
   resolve: {
-    alias: { '@': resolve(__dirname, '.') },
+    alias: {
+      '@': resolve(__dirname, '.'),
+      'server-only': resolve(__dirname, 'node_modules/next/dist/compiled/server-only/empty.js'),
+    },
   },
 
   esbuild: { jsx: 'automatic' },

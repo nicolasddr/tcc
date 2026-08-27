@@ -5,13 +5,15 @@ import { transaction, projects, projectMembers } from '@/lib/db'
 import { ProjectTabs } from '../project-tabs'
 import { PhaseBar } from '../phase-bar'
 import { PipelineChecklist } from './pipeline-checklist'
-import { EMPTY_PIPELINE } from './preconditions'
+import { EMPTY_PIPELINE, canAdvanceFromPhase1 } from './preconditions'
 import { loadCodebook } from './codebook'
 import { CodebookEditor } from './codebook-editor'
 import { loadPrompt } from './prompt'
 import { PromptEditor } from './prompt-editor'
 import { loadItems } from './items'
 import { ItemsEditor } from './items-editor'
+import { PromptTest } from './prompt-test'
+import { llmModel } from '@/lib/ai'
 import { defaultDefinitionType } from '@/app/projects/definition-types'
 import { Section } from '@/app/components/ui/section'
 import {
@@ -71,6 +73,13 @@ export default async function ProjectPipelinePage({
   if (!isAdmin && onboardingPending) redirect(`/projects/${id}/onboarding`)
   if (!isAdmin) notFound()
 
+  const inputs = {
+    ...EMPTY_PIPELINE,
+    definitions: codebook.definitions.length,
+    promptText: prompt.version?.text ?? null,
+    items: items.length,
+  }
+
   return (
     <PageShell
       width="wide"
@@ -87,15 +96,7 @@ export default async function ProjectPipelinePage({
 
       <PhaseBar className="mt-4" current={project.phase} />
 
-      <PipelineChecklist
-        className="mt-3"
-        inputs={{
-          ...EMPTY_PIPELINE,
-          definitions: codebook.definitions.length,
-          promptText: prompt.version?.text ?? null,
-          items: items.length,
-        }}
-      />
+      <PipelineChecklist className="mt-3" inputs={inputs} />
 
       <Anchored id="definicoes">
         <Section
@@ -131,6 +132,20 @@ export default async function ProjectPipelinePage({
           hint="O pool de itens do projeto: cada item vira uma resposta da LLM, e as fases seguintes amostram desse pool."
         >
           <ItemsEditor projectId={project.id} items={items} />
+        </Section>
+      </Anchored>
+
+      <Anchored id="teste">
+        <Section
+          title="Testar o prompt"
+          hint="A verificação que fecha a Fase 1: a saída aparece aqui na tela e não é gravada em lugar nenhum."
+        >
+          <PromptTest
+            projectId={project.id}
+            items={items}
+            model={llmModel()}
+            ready={canAdvanceFromPhase1(inputs)}
+          />
         </Section>
       </Anchored>
     </PageShell>

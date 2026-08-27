@@ -360,6 +360,7 @@ describe('app/projects/[id]/pipeline/actions — definições salvas de forma ve
       'createItem',
       'updateItem',
       'deleteItem',
+      'testPrompt',
     ])
   })
 

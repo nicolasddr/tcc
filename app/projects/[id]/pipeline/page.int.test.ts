@@ -20,7 +20,9 @@ import ProjectPage from '@/app/projects/[id]/page'
 import ProjectPipelinePage from '@/app/projects/[id]/pipeline/page'
 import { ProjectTabs } from '@/app/projects/[id]/project-tabs'
 import { PipelineChecklist } from '@/app/projects/[id]/pipeline/pipeline-checklist'
+import { PromptTest } from '@/app/projects/[id]/pipeline/prompt-test'
 import { pendingRequirements } from '@/app/projects/[id]/pipeline/preconditions'
+import { llmModel } from '@/lib/ai'
 import { ownerDb } from '@/lib/db'
 import {
   createUser,
@@ -28,6 +30,7 @@ import {
   addActiveEvaluator,
   addPendingMember,
   addPendingInvitation,
+  addCodebookVersion,
   addPromptVersion,
   addInputItem,
   cleanup,
@@ -60,6 +63,7 @@ function hasProp(node: unknown, key: string, value: unknown): boolean {
 
 type ChecklistProps = Parameters<typeof PipelineChecklist>[0]
 type TabsProps = Parameters<typeof ProjectTabs>[0]
+type PromptTestProps = Parameters<typeof PromptTest>[0]
 
 function render(id: string) {
   return ProjectPipelinePage({ params: Promise.resolve({ id }) })
@@ -192,6 +196,33 @@ describe('app/projects/[id]/pipeline — a aba de configuração é do Administr
       'definition',
       'prompt',
     ])
+  })
+
+  it('o teste de prompt fica indisponível enquanto faltar definição, prompt ou item', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin)
+    await addPromptVersion(ownerDb, project, admin, { text: 'Classifique a consulta.' })
+    await addInputItem(ownerDb, project, admin, { name: 'Consulta 001' })
+
+    auth.userId = admin
+    const test = findElement(await render(project), PromptTest)
+    expect(test).toBeTruthy()
+    expect((test!.props as PromptTestProps).ready).toBe(false)
+  })
+
+  it('com os três insumos, o teste libera e mostra o modelo e o pool de itens', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin)
+    await addCodebookVersion(ownerDb, project, admin)
+    await addPromptVersion(ownerDb, project, admin, { text: 'Classifique a consulta.' })
+    await addInputItem(ownerDb, project, admin, { name: 'Consulta 001' })
+
+    auth.userId = admin
+    const props = findElement(await render(project), PromptTest)!
+      .props as PromptTestProps
+    expect(props.ready).toBe(true)
+    expect(props.model).toBe(llmModel())
+    expect(props.items.map((item) => item.name)).toEqual(['Consulta 001'])
   })
 
   it('a aba aparece na navegação do Administrador e não na do Avaliador', async () => {

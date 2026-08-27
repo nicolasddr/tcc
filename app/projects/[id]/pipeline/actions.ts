@@ -14,11 +14,16 @@ import {
   inputItems,
 } from '@/lib/db'
 import { isProjectAdmin } from '@/lib/authz'
+import { askLlm } from '@/lib/ai'
 import { decideSave, decideTextSave, isUsed } from '@/lib/versioning'
 import {
   normalizeDefinitionType,
   type DefinitionType,
 } from '@/app/projects/definition-types'
+import { loadCodebook } from './codebook'
+import { loadPrompt } from './prompt'
+import { composeLlmInput } from './llm-input'
+import { canAdvanceFromPhase1 } from './preconditions'
 import {
   CODEBOOK_NOTE_MAX,
   DEFINITION_TITLE_MAX,
@@ -406,4 +411,73 @@ export async function deleteItem(
 
   revalidatePath(`/projects/${projectId}/pipeline`)
   return { ok: true, nonce: Date.now() }
+}
+
+export type PromptTestState =
+  | { error: string }
+  | { ok: true; nonce: number; model: string; output: string }
+  | null
+
+const TEST_DENIED =
+  'Não foi possível testar o prompt. Apenas o administrador do projeto pode testá-lo.'
+
+const TEST_ITEM_MISSING =
+  'Escolha um item de entrada deste projeto para o teste. Recarregue a página se a lista estiver desatualizada.'
+
+const TEST_INCOMPLETE =
+  'O teste precisa de ao menos uma definição, do texto do prompt e de um item de entrada.'
+
+const TEST_FAILED =
+  'Não foi possível obter a resposta da LLM. Tente de novo em alguns instantes.'
+
+export async function testPrompt(
+  _prev: PromptTestState,
+  formData: FormData,
+): Promise<PromptTestState> {
+  const userId = await requireUserId()
+
+  const projectId = String(formData.get('project_id') ?? '')
+  if (!projectId) return { error: 'Projeto inválido.' }
+
+  const itemId = String(formData.get('item_id') ?? '')
+  if (!itemId) return { error: TEST_ITEM_MISSING }
+
+  if (!(await isProjectAdmin(userId, projectId))) return { error: TEST_DENIED }
+
+  const { codebook, prompt, item } = await transaction(async (tx) => {
+    const [item] = await tx
+      .select({ content: inputItems.content })
+      .from(inputItems)
+      .where(and(eq(inputItems.id, itemId), eq(inputItems.projectId, projectId)))
+      .limit(1)
+
+    return {
+      codebook: await loadCodebook(projectId, tx),
+      prompt: await loadPrompt(projectId, tx),
+      item,
+    }
+  })
+
+  if (!item) return { error: TEST_ITEM_MISSING }
+
+  const promptText = prompt.version?.text ?? ''
+  const inputs = {
+    definitions: codebook.definitions.length,
+    promptText,
+    items: 1,
+  }
+  if (!canAdvanceFromPhase1(inputs)) return { error: TEST_INCOMPLETE }
+
+  const input = composeLlmInput({
+    promptText,
+    definitionTitles: codebook.definitions.map((definition) => definition.title),
+    itemContent: item.content,
+  })
+
+  try {
+    const answer = await askLlm(input)
+    return { ok: true, nonce: Date.now(), model: answer.model, output: answer.text }
+  } catch {
+    return { error: TEST_FAILED }
+  }
 }
