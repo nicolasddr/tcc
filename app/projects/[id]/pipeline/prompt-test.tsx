@@ -1,6 +1,6 @@
 'use client'
 
-import { useActionState } from 'react'
+import { useActionState, useEffect, useRef } from 'react'
 import { testPrompt, type PromptTestState } from './actions'
 import type { InputItem } from './items'
 import { Button } from '@/app/components/ui/button'
@@ -27,6 +27,11 @@ export function PromptTest({
   ready: boolean
 }) {
   const [state, action, pending] = useActionState(testPrompt, initialState)
+  const running = useRef(false)
+
+  useEffect(() => {
+    if (!pending) running.current = false
+  }, [pending])
 
   if (!ready) {
     return (
@@ -37,9 +42,22 @@ export function PromptTest({
     )
   }
 
+  const error = state && 'error' in state ? state.error : null
+  const answer = state && 'ok' in state ? state : null
+
   return (
     <div className="flex flex-col gap-4">
-      <Form action={action} gap="sm">
+      <Form
+        action={action}
+        gap="sm"
+        onSubmit={(event) => {
+          if (pending || running.current) {
+            event.preventDefault()
+            return
+          }
+          running.current = true
+        }}
+      >
         <input type="hidden" name="project_id" value={projectId} />
 
         <Field
@@ -56,7 +74,7 @@ export function PromptTest({
           </Select>
         </Field>
 
-        {state && 'error' in state ? <Alert tone="error">{state.error}</Alert> : null}
+        {error && !pending ? <Alert tone="error">{error}</Alert> : null}
 
         <FormActions align="start">
           <Button type="submit" loading={pending} loadingText="Consultando a LLM…">
@@ -64,18 +82,30 @@ export function PromptTest({
           </Button>
           <span className="text-[13px] text-muted">Modelo: {model}</span>
         </FormActions>
+
+        {pending ? (
+          <p role="status" aria-live="polite" className="m-0 text-[13px] text-muted">
+            Consultando a LLM… a resposta pode levar alguns segundos, e a tela continua
+            utilizável enquanto ela não chega.
+          </p>
+        ) : null}
       </Form>
 
-      {state && 'ok' in state ? (
-        <div className="flex flex-col gap-2">
+      {answer ? (
+        <div
+          className={`flex flex-col gap-2 ${pending ? 'opacity-60' : ''}`}
+          aria-busy={pending || undefined}
+        >
           <p className="m-0 text-[13px] font-semibold text-ink">
-            Resposta da LLM ({state.model})
+            {pending
+              ? `Resposta do teste anterior (${answer.model})`
+              : `Resposta da LLM (${answer.model})`}
           </p>
           <Card padding="sm">
             <p
               className={`m-0 ${outputClass} whitespace-pre-wrap break-words text-ink`}
             >
-              {state.output}
+              {answer.output}
             </p>
           </Card>
           <p className="m-0 text-[13px] text-muted">

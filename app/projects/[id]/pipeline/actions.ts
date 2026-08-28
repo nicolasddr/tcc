@@ -14,7 +14,13 @@ import {
   inputItems,
 } from '@/lib/db'
 import { isProjectAdmin } from '@/lib/authz'
-import { askLlm } from '@/lib/ai'
+import { askLlm, type LlmAnswer } from '@/lib/ai'
+import { llmFailureOf, type LlmFailure } from '@/lib/ai/failure'
+import {
+  countProjectResponse,
+  hasProjectResponsesLeft,
+  projectResponsesMax,
+} from '@/lib/ai/quota'
 import { decideMetadataSave, decideSave, decideTextSave, isUsed } from '@/lib/versioning'
 import {
   normalizeDefinitionType,
@@ -543,6 +549,32 @@ const TEST_INCOMPLETE =
 const TEST_FAILED =
   'Não foi possível obter a resposta da LLM. Tente de novo em alguns instantes.'
 
+const TEST_FAILURE_MESSAGES: Record<LlmFailure, string> = {
+  auth:
+    'O provedor não aceitou a chave de acesso configurada no servidor. ' +
+    'Confira a chave com quem cuida da instalação e teste de novo.',
+  model:
+    'O provedor não reconheceu o modelo configurado no servidor. ' +
+    'Confira o identificador do modelo com quem cuida da instalação e teste de novo.',
+  too_large:
+    'O item escolhido é grande demais para o modelo. Escolha um item menor, ' +
+    'ou reduza o conteúdo do item e o texto do prompt.',
+  timeout:
+    'A LLM demorou demais para responder e a chamada foi encerrada. ' +
+    'Teste de novo, ou escolha um item menor.',
+  unavailable:
+    'O provedor da LLM está fora do ar ou sobrecarregado agora. ' +
+    'Teste de novo em alguns instantes.',
+  unknown: TEST_FAILED,
+}
+
+function testCeilingReached(max: number): string {
+  return (
+    `Este projeto atingiu o teto de ${max} respostas de LLM, que existe para o teste ` +
+    'não virar fatura. Fale com quem cuida da instalação para revisar o teto.'
+  )
+}
+
 export async function testPrompt(
   _prev: PromptTestState,
   formData: FormData,
@@ -581,16 +613,23 @@ export async function testPrompt(
   }
   if (!canAdvanceFromPhase1(inputs)) return { error: TEST_INCOMPLETE }
 
+  if (!hasProjectResponsesLeft(projectId)) {
+    return { error: testCeilingReached(projectResponsesMax()) }
+  }
+
   const input = composeLlmInput({
     promptText,
     definitionTitles: codebook.definitions.map((definition) => definition.title),
     itemContent: item.content,
   })
 
+  let answer: LlmAnswer
   try {
-    const answer = await askLlm(input)
-    return { ok: true, nonce: Date.now(), model: answer.model, output: answer.text }
-  } catch {
-    return { error: TEST_FAILED }
+    answer = await askLlm(input)
+  } catch (cause) {
+    return { error: TEST_FAILURE_MESSAGES[llmFailureOf(cause)] }
   }
+
+  countProjectResponse(projectId)
+  return { ok: true, nonce: Date.now(), model: answer.model, output: answer.text }
 }

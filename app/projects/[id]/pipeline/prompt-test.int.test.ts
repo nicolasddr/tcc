@@ -8,6 +8,7 @@ const llm = vi.hoisted(() => ({
   text: 'Categoria: Informacional',
   model: 'modelo-de-teste',
   fails: false,
+  failure: null as LlmFailure | null,
 }))
 
 vi.mock('@/lib/supabase/server', async () => {
@@ -20,19 +21,25 @@ vi.mock('next/navigation', () => ({
     throw new Error(`NEXT_REDIRECT:${url}`)
   },
 }))
-vi.mock('@/lib/ai', () => ({
-  llmModel: () => llm.model,
-  askLlm: async (input: string) => {
-    llm.inputs.push(input)
-    if (llm.fails) throw new Error('provedor indisponível')
-    return { text: llm.text, model: llm.model }
-  },
-}))
+vi.mock('@/lib/ai', async () => {
+  const { LlmError } = await import('@/lib/ai/failure')
+  return {
+    llmModel: () => llm.model,
+    askLlm: async (input: string) => {
+      llm.inputs.push(input)
+      if (llm.failure) throw new LlmError(llm.failure)
+      if (llm.fails) throw new Error('provedor indisponível')
+      return { text: llm.text, model: llm.model }
+    },
+  }
+})
 
 import { testPrompt, savePrompt } from '@/app/projects/[id]/pipeline/actions'
 import { loadCodebook } from '@/app/projects/[id]/pipeline/codebook'
 import { loadPrompt } from '@/app/projects/[id]/pipeline/prompt'
 import { DEFINITIONS_HEADING, ITEM_HEADING } from '@/app/projects/[id]/pipeline/llm-input'
+import type { LlmFailure } from '@/lib/ai/failure'
+import { projectResponsesMax, resetProjectResponses } from '@/lib/ai/quota'
 import { ownerDb } from '@/lib/db'
 import {
   createUser,
@@ -121,10 +128,17 @@ describe('app/projects/[id]/pipeline/actions — testar o prompt sem persistir n
     llm.inputs = []
     llm.text = 'Categoria: Informacional'
     llm.fails = false
+    llm.failure = null
+    resetProjectResponses()
+    delete process.env.LLM_PROJECT_RESPONSES_MAX
+    delete process.env.OPENAI_API_KEY
     fetchSpy = spyOnFetch()
   })
   afterEach(async () => {
     fetchSpy.mockRestore()
+    resetProjectResponses()
+    delete process.env.LLM_PROJECT_RESPONSES_MAX
+    delete process.env.OPENAI_API_KEY
     await cleanup(projs, users)
   })
 
@@ -285,6 +299,143 @@ describe('app/projects/[id]/pipeline/actions — testar o prompt sem persistir n
 
     expect(result).toHaveProperty('error')
     expect(after).toEqual(before)
+  })
+
+
+  it('cada família de falha da LLM vira uma mensagem própria, distinguível das outras', async () => {
+    const admin = await newUser('Admin')
+    const { project, item } = await readyProject(admin)
+    auth.userId = admin
+
+    const families: LlmFailure[] = [
+      'auth',
+      'model',
+      'too_large',
+      'timeout',
+      'unavailable',
+      'unknown',
+    ]
+    const messages: Record<string, string> = {}
+
+    for (const family of families) {
+      llm.failure = family
+      const result = await testPrompt(null, fd(project, item))
+      expect(result).toHaveProperty('error')
+      messages[family] = (result as { error: string }).error
+    }
+
+    expect(new Set(Object.values(messages)).size).toBe(families.length)
+    expect(messages.auth).toMatch(/chave/i)
+    expect(messages.model).toMatch(/modelo/i)
+    expect(messages.too_large).toMatch(/grande demais/i)
+    expect(messages.timeout).toMatch(/demorou/i)
+    expect(messages.unavailable).toMatch(/fora do ar|sobrecarregado/i)
+
+    for (const message of Object.values(messages)) {
+      expect(message).not.toMatch(/llm_failure|Error|fetch|status/)
+    }
+  })
+
+  it('nenhuma mensagem de erro expõe a chave da OpenAI nem trechos dela', async () => {
+    const admin = await newUser('Admin')
+    const { project, item } = await readyProject(admin)
+    process.env.OPENAI_API_KEY = 'sk-teste-CHAVE-SECRETA-1234567890'
+
+    auth.userId = admin
+    llm.failure = 'auth'
+    const result = await testPrompt(null, fd(project, item))
+
+    const message = (result as { error: string }).error
+    expect(message).not.toContain('sk-teste')
+    expect(message).not.toContain(process.env.OPENAI_API_KEY)
+  })
+
+  it('depois do erro, dá para testar de novo sem sair da tela', async () => {
+    const admin = await newUser('Admin')
+    const { project, item } = await readyProject(admin)
+
+    auth.userId = admin
+    llm.failure = 'unavailable'
+    const failed = await testPrompt(null, fd(project, item))
+    expect(failed).toHaveProperty('error')
+
+    llm.failure = null
+    const retried = await testPrompt(failed, fd(project, item))
+    expect(retried).toMatchObject({ ok: true, output: llm.text })
+  })
+
+  it('atingido o teto de respostas do projeto, a ação é recusada e a LLM não é chamada', async () => {
+    const admin = await newUser('Admin')
+    const { project, item } = await readyProject(admin)
+    process.env.LLM_PROJECT_RESPONSES_MAX = '2'
+
+    auth.userId = admin
+    expect(await testPrompt(null, fd(project, item))).toMatchObject({ ok: true })
+    expect(await testPrompt(null, fd(project, item))).toMatchObject({ ok: true })
+
+    const refused = await testPrompt(null, fd(project, item))
+    expect(refused).toHaveProperty('error')
+    expect((refused as { error: string }).error).toContain(String(projectResponsesMax()))
+    expect((refused as { error: string }).error).toMatch(/teto/i)
+    expect(llm.inputs).toHaveLength(2)
+  })
+
+  it('teto zero recusa desde a primeira chamada, sem nada ir à LLM', async () => {
+    const admin = await newUser('Admin')
+    const { project, item } = await readyProject(admin)
+    process.env.LLM_PROJECT_RESPONSES_MAX = '0'
+
+    auth.userId = admin
+    expect(await testPrompt(null, fd(project, item))).toHaveProperty('error')
+    expect(llm.inputs).toEqual([])
+  })
+
+  it('o teto é por projeto: um projeto no limite não trava o outro', async () => {
+    const admin = await newUser('Admin')
+    const primeiro = await readyProject(admin)
+    const segundo = await readyProject(admin)
+    process.env.LLM_PROJECT_RESPONSES_MAX = '1'
+
+    auth.userId = admin
+    expect(await testPrompt(null, fd(primeiro.project, primeiro.item))).toMatchObject({
+      ok: true,
+    })
+    expect(await testPrompt(null, fd(primeiro.project, primeiro.item))).toHaveProperty(
+      'error',
+    )
+    expect(await testPrompt(null, fd(segundo.project, segundo.item))).toMatchObject({
+      ok: true,
+    })
+  })
+
+  it('falha da LLM não consome o teto, porque não veio resposta nenhuma', async () => {
+    const admin = await newUser('Admin')
+    const { project, item } = await readyProject(admin)
+    process.env.LLM_PROJECT_RESPONSES_MAX = '1'
+
+    auth.userId = admin
+    llm.failure = 'unavailable'
+    expect(await testPrompt(null, fd(project, item))).toHaveProperty('error')
+
+    llm.failure = null
+    expect(await testPrompt(null, fd(project, item))).toMatchObject({ ok: true })
+    expect(await testPrompt(null, fd(project, item))).toMatchObject({
+      error: expect.stringMatching(/teto/i),
+    })
+  })
+
+  it('o teto não é consumido por quem é recusado antes da chamada', async () => {
+    const admin = await newUser('Admin')
+    const evaluator = await newUser('Avaliador')
+    const { project, item } = await readyProject(admin)
+    await addActiveEvaluator(ownerDb, project, evaluator)
+    process.env.LLM_PROJECT_RESPONSES_MAX = '1'
+
+    auth.userId = evaluator
+    expect(await testPrompt(null, fd(project, item))).toHaveProperty('error')
+
+    auth.userId = admin
+    expect(await testPrompt(null, fd(project, item))).toMatchObject({ ok: true })
   })
 
   it('nenhum teste chama a OpenAI de verdade', async () => {
