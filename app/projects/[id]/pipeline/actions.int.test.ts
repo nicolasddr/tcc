@@ -28,6 +28,10 @@ import { loadPrompt } from '@/app/projects/[id]/pipeline/prompt'
 import { loadItems } from '@/app/projects/[id]/pipeline/items'
 import { composeLlmInput } from '@/app/projects/[id]/pipeline/llm-input'
 import {
+  readItemFile,
+  ITEM_FILE_LIMIT_LABEL,
+} from '@/app/projects/[id]/pipeline/item-content'
+import {
   ownerDb,
   projects,
   codebookVersions,
@@ -37,6 +41,7 @@ import {
 } from '@/lib/db'
 import {
   ITEM_CONTENT_MAX,
+  ITEM_FILE_BYTES_MAX,
   ITEM_NAME_MAX,
   PROMPT_CHANGE_LOG_MAX,
   PROMPT_DESCRIPTION_MAX,
@@ -1330,6 +1335,205 @@ describe('app/projects/[id]/pipeline/actions — itens de entrada no pool do pro
     const items = await loadItems(project)
     expect(items.map((i) => i.name)).toEqual(['Primeiro', 'Segundo'])
     expect(items[0].content).toBe('linha 1\nlinha 2')
+  })
+})
+
+describe('app/projects/[id]/pipeline/actions — item cadastrado a partir de arquivo', () => {
+  let users: string[]
+  let projs: string[]
+
+  async function newUser(name?: string): Promise<string> {
+    const id = await createUser(ownerDb, name)
+    users.push(id)
+    return id
+  }
+  async function newProject(admin: string): Promise<string> {
+    const id = await seedProject(ownerDb, admin, 'Projeto de Teste')
+    projs.push(id)
+    return id
+  }
+
+  function textFile(name: string, content: string): File {
+    return new File([content], name, { type: 'text/plain' })
+  }
+
+  function binaryFile(name: string, bytes: number[]): File {
+    return new File([new Uint8Array(bytes)], name, { type: 'application/octet-stream' })
+  }
+
+  async function readText(file: File): Promise<string> {
+    const result = await readItemFile(file)
+    if ('error' in result) throw new Error(`esperava texto, veio erro: ${result.error}`)
+    return result.text
+  }
+
+  async function readError(file: File): Promise<string> {
+    const result = await readItemFile(file)
+    if ('text' in result) throw new Error('esperava recusa, veio texto')
+    return result.error
+  }
+
+  beforeEach(() => {
+    users = []
+    projs = []
+    auth.userId = null
+  })
+  afterEach(async () => {
+    await cleanup(projs, users)
+  })
+
+  it('cadastra o item com o texto lido do arquivo, preservando a formatação', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin)
+    const content = '# Consulta\n\n    linha recuada\n\tlinha tabulada\n'
+
+    const text = await readText(textFile('consulta.md', content))
+    expect(text).toBe(content)
+
+    auth.userId = admin
+    const result = await createItem(null, itemFd(project, { name: 'Do arquivo', content: text }))
+    expect(result).toMatchObject({ ok: true })
+
+    const items = await itemsOf(project)
+    expect(items).toHaveLength(1)
+    expect(items[0]).toMatchObject({ name: 'Do arquivo', content, createdBy: admin })
+  })
+
+  it('normaliza CRLF e descarta o BOM do arquivo antes de gravar', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin)
+
+    const text = await readText(textFile('windows.txt', '\uFEFFa\r\nb\r\nc'))
+    expect(text).toBe('a\nb\nc')
+
+    auth.userId = admin
+    await createItem(null, itemFd(project, { name: 'Do Windows', content: text }))
+
+    expect((await itemsOf(project))[0].content).toBe('a\nb\nc')
+  })
+
+  it('aceita os formatos de texto da lista e arquivos de código, não só .txt', async () => {
+    const nomes = [
+      'notas.txt',
+      'leia.md',
+      'planilha.csv',
+      'tabela.tsv',
+      'dados.json',
+      'feed.xml',
+      'pagina.html',
+      'config.yaml',
+      'servidor.log',
+      'script.py',
+      'modulo.ts',
+      'consulta.sql',
+    ]
+
+    for (const nome of nomes) {
+      expect(await readText(textFile(nome, `conteúdo de ${nome}`))).toBe(
+        `conteúdo de ${nome}`,
+      )
+    }
+  })
+
+  it('aceita a extensão sem depender do caixa alto do nome do arquivo', async () => {
+    expect(await readText(textFile('NOTAS.TXT', 'conteúdo'))).toBe('conteúdo')
+  })
+
+  it('recusa formato fora da lista de permissão, mesmo não sendo imagem nem vídeo', async () => {
+    for (const nome of ['foto.png', 'video.mp4', 'audio.mp3', 'pacote.zip', 'app.exe']) {
+      expect(await readError(textFile(nome, 'qualquer coisa'))).toContain('não é aceito')
+    }
+  })
+
+  it('recusa arquivo sem extensão, porque a aceitação é por lista de permissão', async () => {
+    expect(await readError(textFile('README', 'conteúdo'))).toContain('não é aceito')
+    expect(await readError(textFile('.gitignore', 'node_modules'))).toContain('não é aceito')
+  })
+
+  it('recusa PDF e Word com mensagem dizendo para exportar como texto', async () => {
+    for (const nome of ['artigo.pdf', 'carta.doc', 'carta.docx']) {
+      const erro = await readError(textFile(nome, 'conteúdo'))
+      expect(erro).toContain('PDF e Word')
+      expect(erro).toContain('exporte o conteúdo como texto')
+    }
+  })
+
+  it('recusa arquivo com extensão aceita que não decodifica como texto', async () => {
+    const invalido = await readError(binaryFile('disfarcado.txt', [0xff, 0xfe, 0xc3, 0x28]))
+    expect(invalido).toContain('binário')
+
+    const comNulo = await readError(binaryFile('disfarcado.csv', [0x41, 0x00, 0x42]))
+    expect(comNulo).toContain('binário')
+  })
+
+  it('recusa arquivo acima do limite de bytes, com a mensagem do arquivo', async () => {
+    const grande = new File(
+      [new Uint8Array(ITEM_FILE_BYTES_MAX + 1)],
+      'grande.txt',
+      { type: 'text/plain' },
+    )
+    const erro = await readError(grande)
+    expect(erro).toContain('2,1 MB')
+    expect(erro).toContain(`o limite é ${ITEM_FILE_LIMIT_LABEL}`)
+    expect(erro).not.toContain(String(ITEM_CONTENT_MAX))
+  })
+
+  it('recusa arquivo dentro dos bytes que gere texto acima do limite de caracteres, com a mensagem do conteúdo', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin)
+
+    const conteudo = 'a'.repeat(ITEM_CONTENT_MAX + 1)
+    expect(conteudo.length).toBeLessThan(ITEM_FILE_BYTES_MAX)
+
+    const erro = await readError(textFile('longo.txt', conteudo))
+    expect(erro).toContain(String(ITEM_CONTENT_MAX))
+    expect(erro).toContain(String(ITEM_CONTENT_MAX + 1))
+    expect(erro).not.toContain('MB')
+
+    auth.userId = admin
+    expect(await itemsOf(project)).toHaveLength(0)
+  })
+
+  it('aplica o limite de caracteres igual para texto digitado e texto vindo de arquivo', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin)
+    const conteudo = 'a'.repeat(ITEM_CONTENT_MAX + 1)
+
+    const doArquivo = await readError(textFile('longo.txt', conteudo))
+
+    auth.userId = admin
+    const digitado = await createItem(
+      null,
+      itemFd(project, { name: 'Gigante', content: conteudo }),
+    )
+
+    expect(digitado).toEqual({ error: doArquivo })
+    expect(await itemsOf(project)).toHaveLength(0)
+  })
+
+  it('o item recusado no arquivo não é gravado nem parcialmente', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin)
+
+    await readError(binaryFile('disfarcado.txt', [0xff, 0xfe, 0xc3, 0x28]))
+    await readError(textFile('foto.png', 'conteúdo'))
+
+    auth.userId = admin
+    expect(await itemsOf(project)).toHaveLength(0)
+    expect(await loadItems(project)).toEqual([])
+  })
+
+  it('aceita exatamente o limite de caracteres vindo de arquivo', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin)
+
+    const text = await readText(textFile('limite.txt', 'a'.repeat(ITEM_CONTENT_MAX)))
+
+    auth.userId = admin
+    expect(await createItem(null, itemFd(project, { name: 'No limite', content: text }))).toMatchObject({
+      ok: true,
+    })
+    expect((await itemsOf(project))[0].content).toHaveLength(ITEM_CONTENT_MAX)
   })
 })
 

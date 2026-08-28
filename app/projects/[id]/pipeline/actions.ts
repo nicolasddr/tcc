@@ -24,10 +24,10 @@ import { loadCodebook } from './codebook'
 import { loadPrompt, type PromptMetadata } from './prompt'
 import { composeLlmInput } from './llm-input'
 import { canAdvanceFromPhase1 } from './preconditions'
+import { itemContentError, normalizeItemContent } from './item-content'
 import {
   CODEBOOK_NOTE_MAX,
   DEFINITION_TITLE_MAX,
-  ITEM_CONTENT_MAX,
   ITEM_NAME_MAX,
   PROMPT_CHANGE_LOG_MAX,
   PROMPT_DESCRIPTION_MAX,
@@ -397,13 +397,10 @@ function parseItemForm(formData: FormData): { error: string } | ParsedItem {
     return { error: `O nome do item pode ter no máximo ${ITEM_NAME_MAX} caracteres.` }
   }
 
-  const content = String(formData.get('content') ?? '').replace(/\r\n/g, '\n')
+  const content = normalizeItemContent(String(formData.get('content') ?? ''))
   if (!content.trim()) return { error: 'O conteúdo do item é obrigatório.' }
-  if (content.length > ITEM_CONTENT_MAX) {
-    return {
-      error: `O conteúdo do item pode ter no máximo ${ITEM_CONTENT_MAX} caracteres, e este tem ${content.length}.`,
-    }
-  }
+  const tooLong = itemContentError(content)
+  if (tooLong) return { error: tooLong }
 
   return { name, content }
 }

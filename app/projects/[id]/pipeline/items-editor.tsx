@@ -13,13 +13,51 @@ import { Alert } from '@/app/components/ui/alert'
 import { EmptyState } from '@/app/components/ui/empty-state'
 import { Section } from '@/app/components/ui/section'
 import { ITEM_CONTENT_MAX, ITEM_NAME_MAX } from '@/lib/limits'
+import {
+  readItemFile,
+  ITEM_FILE_LIMIT_LABEL,
+  TEXT_FILE_ACCEPT,
+  TEXT_FILE_EXAMPLES,
+} from './item-content'
 
 const initialState: ItemState = null
 
 const contentClass =
   'max-h-[50vh] min-h-[180px] overflow-auto font-mono text-[13px] leading-[1.6]'
 
+const fileInputClass =
+  'w-full cursor-pointer rounded-control border border-line-strong bg-surface px-[11px] py-[9px] ' +
+  'text-sm text-muted outline-none focus:border-brand focus:ring-[3px] focus:ring-brand-ring ' +
+  'disabled:cursor-default disabled:bg-surface-subtle ' +
+  'file:mr-3 file:cursor-pointer file:rounded-control file:border file:border-line-strong ' +
+  'file:bg-canvas file:px-3 file:py-[5px] file:text-xs file:font-semibold file:text-label'
+
+const fileHint =
+  `Formatos de texto (${TEXT_FILE_EXAMPLES}) e arquivos de código, até ${ITEM_FILE_LIMIT_LABEL}. ` +
+  'O conteúdo entra no campo abaixo e continua editável; o arquivo em si não é guardado.'
+
 function ItemFields({ name, content }: { name?: string; content?: string }) {
+  const [text, setText] = useState(content ?? '')
+  const [fileError, setFileError] = useState<string | null>(null)
+  const [reading, setReading] = useState(false)
+
+  async function onFileChange(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file) return
+
+    setFileError(null)
+    setReading(true)
+    const result = await readItemFile(file)
+    setReading(false)
+
+    if ('error' in result) {
+      setFileError(result.error)
+      return
+    }
+    setText(result.text)
+  }
+
   return (
     <>
       <Field label="Nome do item" required>
@@ -34,6 +72,20 @@ function ItemFields({ name, content }: { name?: string; content?: string }) {
       </Field>
 
       <Field
+        label="Carregar de um arquivo"
+        hint={reading ? 'Lendo o arquivo…' : fileHint}
+        error={fileError}
+      >
+        <input
+          type="file"
+          accept={TEXT_FILE_ACCEPT}
+          disabled={reading}
+          onChange={onFileChange}
+          className={fileInputClass}
+        />
+      </Field>
+
+      <Field
         label="Conteúdo"
         required
         hint="O conteúdo vai à LLM exatamente como está escrito aqui: quebras de linha, linhas em branco e recuos são preservados."
@@ -44,8 +96,9 @@ function ItemFields({ name, content }: { name?: string; content?: string }) {
           rows={8}
           maxLength={ITEM_CONTENT_MAX}
           className={contentClass}
-          defaultValue={content}
-          placeholder="Cole aqui o texto que a LLM vai processar."
+          value={text}
+          onChange={(event) => setText(event.target.value)}
+          placeholder="Cole aqui o texto que a LLM vai processar, ou carregue de um arquivo acima."
         />
       </Field>
     </>
