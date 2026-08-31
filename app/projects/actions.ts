@@ -13,10 +13,18 @@ import {
   projectMembers,
   platformPermissionRequests,
   notifications,
+  type DbExecutor,
 } from '@/lib/db'
 import { canCreateProjects, findInviteeByEmail, isProjectAdmin } from '@/lib/authz'
 import { emitInvitationNotification } from '@/lib/notifications/invitation'
 import { normalizeTaskType } from './task-types'
+import {
+  ASSUME_ALREADY_EVALUATOR,
+  assumeEvaluatorRefusal,
+  evaluatorLinkOf,
+  revokeEvaluatorRefusal,
+  type EvaluatorRoleView,
+} from './evaluator-link'
 import { EMAIL_MAX, PROJECT_DESCRIPTION_MAX, PROJECT_NAME_MAX } from '@/lib/limits'
 
 export type CreateProjectState = { error: string } | null
@@ -26,6 +34,8 @@ export type RequestPermissionState = { error: string } | { ok: string } | null
 export type InviteEvaluatorState = { error: string } | { ok: string } | null
 
 export type UpdateProjectState = { error: string } | { ok: string } | null
+
+export type EvaluatorRoleState = { error: string } | { ok: string } | null
 
 
 export async function createProject(
@@ -331,4 +341,93 @@ export async function leaveProject(formData: FormData): Promise<void> {
 
   revalidatePath('/dashboard')
   redirect('/dashboard')
+}
+
+async function evaluatorRoleView(
+  userId: string,
+  projectId: string,
+  db: DbExecutor,
+): Promise<EvaluatorRoleView> {
+  const memberships = await db
+    .select({ role: projectMembers.role, status: projectMembers.status })
+    .from(projectMembers)
+    .where(and(eq(projectMembers.projectId, projectId), eq(projectMembers.userId, userId)))
+
+  return {
+    isAdmin: await isProjectAdmin(userId, projectId, db),
+    link: evaluatorLinkOf(memberships),
+  }
+}
+
+export async function assumeEvaluatorRole(
+  _prev: EvaluatorRoleState,
+  formData: FormData,
+): Promise<EvaluatorRoleState> {
+  const userId = await requireUserId()
+
+  const projectId = String(formData.get('project_id') ?? '')
+  if (!projectId) return { error: 'Projeto inválido.' }
+
+  let refusal: string | null
+  try {
+    refusal = await transaction(async (tx) => {
+      const refused = assumeEvaluatorRefusal(await evaluatorRoleView(userId, projectId, tx))
+      if (refused) return refused
+
+      await tx.insert(projectMembers).values({
+        projectId,
+        userId,
+        role: 'evaluator',
+        status: 'pending_onboarding',
+      })
+      return null
+    })
+  } catch (err) {
+    if (pgErrorCode(err) === '23505') return { error: ASSUME_ALREADY_EVALUATOR }
+
+    console.error('assumeEvaluatorRole falhou:', err)
+    return { error: 'Não foi possível assumir o papel de avaliador. Tente de novo.' }
+  }
+
+  if (refusal) return { error: refusal }
+
+  revalidatePath(`/projects/${projectId}`)
+  revalidatePath(`/projects/${projectId}/members`)
+  revalidatePath('/dashboard')
+  redirect(`/projects/${projectId}/onboarding`)
+}
+
+export async function revokeEvaluatorRole(
+  _prev: EvaluatorRoleState,
+  formData: FormData,
+): Promise<EvaluatorRoleState> {
+  const userId = await requireUserId()
+
+  const projectId = String(formData.get('project_id') ?? '')
+  if (!projectId) return { error: 'Projeto inválido.' }
+
+  const refusal = await transaction(async (tx) => {
+    const refused = revokeEvaluatorRefusal(await evaluatorRoleView(userId, projectId, tx))
+    if (refused) return refused
+
+    await tx
+      .delete(projectMembers)
+      .where(
+        and(
+          eq(projectMembers.projectId, projectId),
+          eq(projectMembers.userId, userId),
+          eq(projectMembers.role, 'evaluator'),
+        ),
+      )
+    return null
+  })
+
+  if (refusal) return { error: refusal }
+
+  revalidatePath(`/projects/${projectId}`)
+  revalidatePath(`/projects/${projectId}/members`)
+  revalidatePath('/dashboard')
+  return {
+    ok: 'Você deixou de participar como avaliador. Seu acesso de administrador continua o mesmo.',
+  }
 }

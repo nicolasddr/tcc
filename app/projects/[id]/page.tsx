@@ -213,7 +213,7 @@ export default async function ProjectPage({
           className="mt-6"
           tone="accent"
           title="Conclua seu onboarding"
-          hint="Você aceitou o convite. Falta registrar o consentimento para ativar sua participação como avaliador."
+          hint="Falta registrar o consentimento e responder o questionário de perfil para ativar sua participação como avaliador."
           action={
             <ButtonLink href={`/projects/${project.id}/onboarding`}>
               Concluir onboarding

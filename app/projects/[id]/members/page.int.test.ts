@@ -8,6 +8,7 @@
 //
 // PRÉ-REQUISITO: Supabase LOCAL de pé (`supabase start`), igual ao `npm test`.
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+import { isValidElement, type ReactElement } from 'react'
 
 const auth = vi.hoisted(() => ({ userId: null as string | null }))
 
@@ -25,6 +26,7 @@ vi.mock('next/navigation', () => ({
 }))
 
 import ProjectMembersPage from '@/app/projects/[id]/members/page'
+import { EvaluatorRolePanel } from '@/app/projects/[id]/evaluator-role'
 import { ownerDb } from '@/lib/db'
 import {
   createUser,
@@ -37,6 +39,30 @@ import {
 
 function render(id: string) {
   return ProjectMembersPage({ params: Promise.resolve({ id }) })
+}
+
+function findElement(node: unknown, type: unknown): ReactElement | null {
+  if (Array.isArray(node)) {
+    for (const child of node) {
+      const found = findElement(child, type)
+      if (found) return found
+    }
+    return null
+  }
+  if (!isValidElement(node)) return null
+  if (node.type === type) return node
+  for (const value of Object.values(node.props as Record<string, unknown>)) {
+    const found = findElement(value, type)
+    if (found) return found
+  }
+  return null
+}
+
+type PanelProps = Parameters<typeof EvaluatorRolePanel>[0]
+
+async function panelOf(id: string): Promise<PanelProps | null> {
+  const found = findElement(await render(id), EvaluatorRolePanel)
+  return found ? (found.props as PanelProps) : null
 }
 
 describe('app/projects/[id]/members — só quem participa ativamente entra', () => {
@@ -96,5 +122,24 @@ describe('app/projects/[id]/members — só quem participa ativamente entra', ()
     await expect(render(project)).rejects.toThrow('NEXT_NOTFOUND')
     auth.userId = outsider
     await expect(render(project)).rejects.toThrow('NEXT_NOTFOUND')
+  })
+
+  it('o painel de assumir o papel de avaliador é só do Administrador, e mostra o vínculo atual', async () => {
+    const admin = await newUser('Admin')
+    const evaluator = await newUser('Avaliador')
+    const project = await newProject(admin)
+    await addActiveEvaluator(ownerDb, project, evaluator)
+
+    auth.userId = evaluator
+    expect(await panelOf(project)).toBeNull()
+
+    auth.userId = admin
+    expect((await panelOf(project))?.view).toEqual({ isAdmin: true, link: null })
+
+    await addPendingMember(ownerDb, project, admin)
+    expect((await panelOf(project))?.view.link).toEqual({
+      status: 'pending_onboarding',
+      submittedEvaluations: 0,
+    })
   })
 })

@@ -4,7 +4,9 @@ import { requireUserId } from '@/lib/supabase/server'
 import { transaction, projects, projectMembers } from '@/lib/db'
 import { listProjectMembers } from '@/lib/authz'
 import { groupMembers } from '../../members'
+import { evaluatorLinkOf } from '../../evaluator-link'
 import { MemberList } from '../member-list'
+import { EvaluatorRolePanel } from '../evaluator-role'
 import { InviteEvaluatorForm } from '../invite-evaluator-form'
 import { EmptyState } from '@/app/components/ui/empty-state'
 import { Section } from '@/app/components/ui/section'
@@ -24,7 +26,7 @@ export default async function ProjectMembersPage({
   const { id } = await params
   const userId = await requireUserId()
 
-  const { project, isAdmin, isActive, memberRows } = await transaction(async (tx) => {
+  const { project, isAdmin, isActive, evaluatorLink, memberRows } = await transaction(async (tx) => {
     const [project] = await tx
       .select({ id: projects.id, name: projects.name })
       .from(projects)
@@ -44,7 +46,7 @@ export default async function ProjectMembersPage({
       ? await listProjectMembers(userId, id, { isAdmin, isActive }, tx)
       : []
 
-    return { project, isAdmin, isActive, memberRows }
+    return { project, isAdmin, isActive, evaluatorLink: evaluatorLinkOf(memberships), memberRows }
   })
 
   if (!project || !isActive) notFound()
@@ -89,6 +91,18 @@ export default async function ProjectMembersPage({
           hint="O convidado recebe uma notificação e entra no projeto depois do onboarding."
         >
           <InviteEvaluatorForm projectId={project.id} />
+        </Section>
+      ) : null}
+
+      {isAdmin ? (
+        <Section
+          title="Avaliar neste projeto"
+          hint="Como Administrador, você pode se dar também o papel de Avaliador. O vínculo novo passa pelo mesmo consentimento e pelo mesmo questionário de perfil dos demais avaliadores, e os painéis de concordância separam o Administrador-avaliador do restante da equipe."
+        >
+          <EvaluatorRolePanel
+            projectId={project.id}
+            view={{ isAdmin, link: evaluatorLink }}
+          />
         </Section>
       ) : null}
     </PageShell>

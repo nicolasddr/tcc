@@ -23,6 +23,7 @@ vi.mock('next/navigation', () => ({
 }))
 
 import { acceptInvitation, completeOnboarding } from '@/app/onboarding/actions'
+import { CONSENT_TEXT } from '@/app/onboarding/consent'
 import { ownerDb, projectMembers, projectInvitations, onboardingResponses } from '@/lib/db'
 import {
   createUser,
@@ -162,5 +163,49 @@ describe('app/onboarding/actions — entrar/responder com checagem explícita', 
       .from(onboardingResponses)
       .where(eq(onboardingResponses.projectMemberId, memberRow))
     expect(responses).toHaveLength(0)
+  })
+
+  it('completeOnboarding: o administrador que assumiu o papel ativa o vínculo de avaliador', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin)
+    const question = await addOnboardingQuestion(ownerDb, project)
+    const evaluatorLink = await addPendingMember(ownerDb, project, admin)
+
+    auth.userId = admin
+    const to = await redirectOf(() =>
+      completeOnboarding(
+        null,
+        fd({
+          project_id: project,
+          consent: 'on',
+          [`q_${question}`]: 'Também avalio neste projeto.',
+        }),
+      ),
+    )
+    expect(to).toBe(`NEXT_REDIRECT:/projects/${project}`)
+
+    const rows = await ownerDb
+      .select({
+        role: projectMembers.role,
+        status: projectMembers.status,
+        consentAcceptedAt: projectMembers.consentAcceptedAt,
+        consentTextSnapshot: projectMembers.consentTextSnapshot,
+      })
+      .from(projectMembers)
+      .where(
+        and(eq(projectMembers.projectId, project), eq(projectMembers.userId, admin)),
+      )
+
+    const evaluator = rows.find((r) => r.role === 'evaluator')!
+    expect(evaluator.status).toBe('active')
+    expect(evaluator.consentAcceptedAt).not.toBeNull()
+    expect(evaluator.consentTextSnapshot).toBe(CONSENT_TEXT)
+    expect(rows.find((r) => r.role === 'administrator')!.status).toBe('active')
+
+    const answers = await ownerDb
+      .select({ projectMemberId: onboardingResponses.projectMemberId })
+      .from(onboardingResponses)
+      .where(eq(onboardingResponses.projectMemberId, evaluatorLink))
+    expect(answers).toHaveLength(1)
   })
 })

@@ -34,7 +34,15 @@ import {
   removeMember,
   leaveProject,
   inviteEvaluator,
+  assumeEvaluatorRole,
+  revokeEvaluatorRole,
 } from '@/app/projects/actions'
+import {
+  ASSUME_ALREADY_EVALUATOR,
+  ASSUME_DENIED,
+  REVOKE_DENIED,
+  REVOKE_NO_LINK,
+} from '@/app/projects/evaluator-link'
 import {
   ownerDb,
   profiles,
@@ -42,12 +50,16 @@ import {
   projectMembers,
   projectInvitations,
   notifications,
+  onboardingResponses,
 } from '@/lib/db'
 import {
   createUser,
   createProject as seedProject,
   addActiveEvaluator,
+  addPendingMember,
   addPendingInvitation,
+  addOnboardingQuestion,
+  addOnboardingResponse,
   grantCreatePermission,
   cleanup,
 } from '@/test/helpers'
@@ -362,5 +374,108 @@ describe('app/projects/actions — autorização explícita', () => {
       .from(projectMembers)
       .where(eq(projectMembers.id, memberRow))
     expect(still.status).toBe('inactive')
+  })
+
+  it('assumeEvaluatorRole: só o admin do projeto assume, e o vínculo novo nasce pendente', async () => {
+    const admin = await newUser('Admin')
+    const evaluator = await newUser('Avaliador')
+    const outsider = await newUser('De Fora')
+    const project = await newProject(admin)
+    await addActiveEvaluator(ownerDb, project, evaluator)
+
+    for (const caller of [evaluator, outsider]) {
+      auth.userId = caller
+      expect(await assumeEvaluatorRole(null, fd({ project_id: project }))).toEqual({
+        error: ASSUME_DENIED,
+      })
+    }
+
+    auth.userId = admin
+    let redirected = ''
+    try {
+      await assumeEvaluatorRole(null, fd({ project_id: project }))
+    } catch (e) {
+      redirected = (e as Error).message
+    }
+    expect(redirected).toBe(`NEXT_REDIRECT:/projects/${project}/onboarding`)
+
+    const rows = await ownerDb
+      .select({
+        role: projectMembers.role,
+        status: projectMembers.status,
+        consentAcceptedAt: projectMembers.consentAcceptedAt,
+        onboardingCompletedAt: projectMembers.onboardingCompletedAt,
+      })
+      .from(projectMembers)
+      .where(
+        and(eq(projectMembers.projectId, project), eq(projectMembers.userId, admin)),
+      )
+    expect(rows).toHaveLength(2)
+
+    const evaluatorLink = rows.find((r) => r.role === 'evaluator')!
+    expect(evaluatorLink.status).toBe('pending_onboarding')
+    expect(evaluatorLink.consentAcceptedAt).toBeNull()
+    expect(evaluatorLink.onboardingCompletedAt).toBeNull()
+    expect(rows.find((r) => r.role === 'administrator')!.status).toBe('active')
+
+    expect(await assumeEvaluatorRole(null, fd({ project_id: project }))).toEqual({
+      error: ASSUME_ALREADY_EVALUATOR,
+    })
+    const again = await ownerDb
+      .select({ id: projectMembers.id })
+      .from(projectMembers)
+      .where(
+        and(eq(projectMembers.projectId, project), eq(projectMembers.userId, admin)),
+      )
+    expect(again).toHaveLength(2)
+  })
+
+  it('revokeEvaluatorRole: desfaz enquanto não há avaliação e preserva o vínculo de administrador', async () => {
+    const admin = await newUser('Admin')
+    const evaluator = await newUser('Avaliador')
+    const project = await newProject(admin)
+    await addActiveEvaluator(ownerDb, project, evaluator)
+    await addPendingMember(ownerDb, project, admin)
+
+    const question = await addOnboardingQuestion(ownerDb, project)
+    const [adminEvaluatorLink] = await ownerDb
+      .select({ id: projectMembers.id })
+      .from(projectMembers)
+      .where(
+        and(
+          eq(projectMembers.projectId, project),
+          eq(projectMembers.userId, admin),
+          eq(projectMembers.role, 'evaluator'),
+        ),
+      )
+    await addOnboardingResponse(ownerDb, adminEvaluatorLink.id, question, 'Resposta do admin.')
+
+    auth.userId = evaluator
+    expect(await revokeEvaluatorRole(null, fd({ project_id: project }))).toEqual({
+      error: REVOKE_DENIED,
+    })
+
+    auth.userId = admin
+    expect(await revokeEvaluatorRole(null, fd({ project_id: project }))).toEqual({
+      ok: expect.stringContaining('administrador'),
+    })
+
+    const rows = await ownerDb
+      .select({ role: projectMembers.role, status: projectMembers.status })
+      .from(projectMembers)
+      .where(
+        and(eq(projectMembers.projectId, project), eq(projectMembers.userId, admin)),
+      )
+    expect(rows).toEqual([{ role: 'administrator', status: 'active' }])
+
+    const answers = await ownerDb
+      .select({ id: onboardingResponses.id })
+      .from(onboardingResponses)
+      .where(eq(onboardingResponses.projectMemberId, adminEvaluatorLink.id))
+    expect(answers).toHaveLength(0)
+
+    expect(await revokeEvaluatorRole(null, fd({ project_id: project }))).toEqual({
+      error: REVOKE_NO_LINK,
+    })
   })
 })
