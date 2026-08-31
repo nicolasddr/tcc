@@ -22,7 +22,15 @@ import {
   createItem,
   updateItem,
   deleteItem,
+  advancePhase,
 } from '@/app/projects/[id]/pipeline/actions'
+import {
+  PHASE_1,
+  PHASE_2,
+  EMPTY_PIPELINE,
+  pendingRequirements,
+} from '@/app/projects/[id]/pipeline/preconditions'
+import { loadPipelineInputs } from '@/app/projects/[id]/pipeline/inputs'
 import { loadCodebook } from '@/app/projects/[id]/pipeline/codebook'
 import { loadPrompt } from '@/app/projects/[id]/pipeline/prompt'
 import { loadItems } from '@/app/projects/[id]/pipeline/items'
@@ -376,6 +384,7 @@ describe('app/projects/[id]/pipeline/actions — definições salvas de forma ve
       'updateItem',
       'deleteItem',
       'testPrompt',
+      'advancePhase',
     ])
   })
 
@@ -1728,5 +1737,214 @@ describe('app/projects/[id]/pipeline/actions — ordenação das definições', 
       itemContent: 'como trocar pneu',
     })
     expect(input.indexOf('Transacional')).toBeLessThan(input.indexOf('Informacional'))
+  })
+})
+
+describe('app/projects/[id]/pipeline/actions — avanço da Fase 1 para a Fase 2', () => {
+  let users: string[]
+  let projs: string[]
+
+  async function newUser(name?: string): Promise<string> {
+    const id = await createUser(ownerDb, name)
+    users.push(id)
+    return id
+  }
+  async function newProject(admin: string, phase?: number): Promise<string> {
+    const id = await seedProject(ownerDb, admin, 'Projeto de Teste', { phase })
+    projs.push(id)
+    return id
+  }
+
+  async function phaseOf(projectId: string): Promise<number> {
+    const [row] = await ownerDb
+      .select({ phase: projects.phase })
+      .from(projects)
+      .where(eq(projects.id, projectId))
+    return row.phase
+  }
+
+  function advanceFd(projectId: string): FormData {
+    const form = new FormData()
+    form.set('project_id', projectId)
+    return form
+  }
+
+  async function seedInputs(
+    projectId: string,
+    admin: string,
+    skip: 'definition' | 'prompt' | 'item' | null = null,
+  ): Promise<void> {
+    if (skip !== 'definition') await addCodebookVersion(ownerDb, projectId, admin)
+    if (skip !== 'prompt') {
+      await addPromptVersion(ownerDb, projectId, admin, { text: 'Classifique a consulta.' })
+    }
+    if (skip !== 'item') await addInputItem(ownerDb, projectId, admin)
+  }
+
+  beforeEach(() => {
+    users = []
+    projs = []
+    auth.userId = null
+  })
+  afterEach(async () => {
+    await cleanup(projs, users)
+  })
+
+  it('com os três insumos, o Administrador avança o projeto para a Fase 2', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin)
+    await seedInputs(project, admin)
+
+    auth.userId = admin
+    expect(await phaseOf(project)).toBe(PHASE_1)
+
+    const result = await advancePhase(null, advanceFd(project))
+    expect(result).toMatchObject({ ok: true, phase: PHASE_2 })
+    expect(await phaseOf(project)).toBe(PHASE_2)
+  })
+
+  it('avançar não congela nenhuma versão de codebook nem de prompt', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin)
+    await seedInputs(project, admin)
+
+    auth.userId = admin
+    await advancePhase(null, advanceFd(project))
+
+    const codebook = await loadCodebook(project)
+    const prompt = await loadPrompt(project)
+    expect(codebook.version?.usedAt).toBeNull()
+    expect(codebook.isOpen).toBe(true)
+    expect(prompt.version?.usedAt).toBeNull()
+    expect(prompt.isOpen).toBe(true)
+
+    const [item] = await loadItems(project)
+    expect(item.usedAt).toBeNull()
+    expect(item.isEditable).toBe(true)
+  })
+
+  it('a configuração continua editável depois do avanço', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin)
+    await seedInputs(project, admin)
+
+    auth.userId = admin
+    await advancePhase(null, advanceFd(project))
+
+    const saved = await savePrompt(null, promptFd(project, 'Classifique de novo.'))
+    expect(saved).toMatchObject({ ok: true })
+  })
+
+  it.each([
+    ['definition', 'definição'],
+    ['prompt', 'texto do prompt'],
+    ['item', 'item de entrada'],
+  ] as const)(
+    'recusa o avanço sem %s, nomeando o insumo que falta, e a fase não muda',
+    async (skip, nome) => {
+      const admin = await newUser('Admin')
+      const project = await newProject(admin)
+      await seedInputs(project, admin, skip)
+
+      auth.userId = admin
+      const denied = await advancePhase(null, advanceFd(project))
+      expect(denied).toEqual({ error: expect.stringContaining(nome) })
+      expect(await phaseOf(project)).toBe(PHASE_1)
+    },
+  )
+
+  it('recusa a chamada direta feita fora da interface, com o motivo, no projeto vazio', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin)
+
+    auth.userId = admin
+    const denied = await advancePhase(null, advanceFd(project))
+    expect(denied).toEqual({
+      error: expect.stringContaining('definição, texto do prompt e item de entrada'),
+    })
+    expect(await phaseOf(project)).toBe(PHASE_1)
+  })
+
+  it('a trava é só por insumo faltando: nenhuma métrica participa da decisão', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin)
+    await seedInputs(project, admin)
+
+    auth.userId = admin
+    const inputs = await loadPipelineInputs(project)
+    expect(Object.keys(inputs).sort()).toEqual(Object.keys(EMPTY_PIPELINE).sort())
+    expect(pendingRequirements(inputs)).toEqual([])
+    expect(await advancePhase(null, advanceFd(project))).toMatchObject({ ok: true })
+  })
+
+  it('o Avaliador é recusado, e a fase não muda', async () => {
+    const admin = await newUser('Admin')
+    const evaluator = await newUser('Avaliador')
+    const project = await newProject(admin)
+    await seedInputs(project, admin)
+    await addActiveEvaluator(ownerDb, project, evaluator)
+
+    auth.userId = evaluator
+    const denied = await advancePhase(null, advanceFd(project))
+    expect(denied).toEqual({ error: expect.stringContaining('administrador') })
+    expect(await phaseOf(project)).toBe(PHASE_1)
+  })
+
+  it('o administrador de um projeto não avança outro', async () => {
+    const admin = await newUser('Admin')
+    const outsiderAdmin = await newUser('Admin de Fora')
+    const project = await newProject(admin)
+    await seedInputs(project, admin)
+    await newProject(outsiderAdmin)
+
+    auth.userId = outsiderAdmin
+    const denied = await advancePhase(null, advanceFd(project))
+    expect(denied).toEqual({ error: expect.stringContaining('administrador') })
+    expect(await phaseOf(project)).toBe(PHASE_1)
+  })
+
+  it('a recusa não distingue projeto existente de inexistente', async () => {
+    const admin = await newUser('Admin')
+    const outsider = await newUser('De Fora')
+    const project = await newProject(admin)
+    await seedInputs(project, admin)
+
+    auth.userId = outsider
+    const existing = await advancePhase(null, advanceFd(project))
+    const missing = await advancePhase(null, advanceFd(crypto.randomUUID()))
+    expect(existing).toEqual(missing)
+  })
+
+  it('recusa avançar um projeto que já saiu da Fase 1, e a fase não muda', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin, PHASE_2)
+    await seedInputs(project, admin)
+
+    auth.userId = admin
+    const denied = await advancePhase(null, advanceFd(project))
+    expect(denied).toEqual({ error: expect.stringContaining('Fase 1') })
+    expect(await phaseOf(project)).toBe(PHASE_2)
+  })
+
+  it('um segundo avanço seguido não empurra o projeto para a Fase 3', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin)
+    await seedInputs(project, admin)
+
+    auth.userId = admin
+    expect(await advancePhase(null, advanceFd(project))).toMatchObject({ ok: true })
+    expect(await advancePhase(null, advanceFd(project))).toEqual({
+      error: expect.any(String),
+    })
+    expect(await phaseOf(project)).toBe(PHASE_2)
+  })
+
+  it('recusa a chamada sem projeto', async () => {
+    const admin = await newUser('Admin')
+
+    auth.userId = admin
+    expect(await advancePhase(null, new FormData())).toEqual({
+      error: expect.any(String),
+    })
   })
 })

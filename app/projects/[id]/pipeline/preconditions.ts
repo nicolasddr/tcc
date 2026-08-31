@@ -58,3 +58,21 @@ export function pendingRequirements(inputs: PipelineInputs): PipelineRequirement
 export function canAdvanceFromPhase1(inputs: PipelineInputs): boolean {
   return pendingRequirements(inputs).length === 0
 }
+
+export const PHASE_1 = 1
+export const PHASE_2 = 2
+
+export function missingInputsList(pending: readonly PipelineRequirement[]): string {
+  const names = pending.map((req) => req.title.toLocaleLowerCase('pt-BR'))
+  if (names.length <= 1) return names[0] ?? ''
+  return `${names.slice(0, -1).join(', ')} e ${names[names.length - 1]}`
+}
+
+export function missingInputsMessage(pending: readonly PipelineRequirement[]): string {
+  if (pending.length === 0) return ''
+
+  return (
+    `Não foi possível avançar para a Fase 2. Ainda falta: ${missingInputsList(pending)}. ` +
+    'Cadastre o que falta na configuração da Fase 1 e tente de novo.'
+  )
+}

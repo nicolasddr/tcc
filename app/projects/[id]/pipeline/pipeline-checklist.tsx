@@ -3,15 +3,21 @@ import { Badge } from '@/app/components/ui/badge'
 import { Panel } from '@/app/components/ui/panel'
 import { CheckCircleIcon, CircleIcon } from '@/app/components/ui/icons'
 import {
+  PHASE_1,
   PIPELINE_REQUIREMENTS,
   pendingRequirements,
   type PipelineInputs,
 } from './preconditions'
+import { AdvancePhase } from './advance-phase'
 
 export function PipelineChecklist({
+  projectId,
+  phase,
   inputs,
   className,
 }: {
+  projectId: string
+  phase: number
   inputs: PipelineInputs
   className?: string
 }) {
@@ -24,7 +30,9 @@ export function PipelineChecklist({
       title="Para avançar para a Fase 2"
       icon={<CheckCircleIcon />}
       action={
-        pending.length === 0 ? (
+        phase !== PHASE_1 ? (
+          <Badge tone="success">Fase 1 concluída</Badge>
+        ) : pending.length === 0 ? (
           <Badge tone="success">tudo pronto</Badge>
         ) : (
           <Badge tone="warning">
@@ -73,6 +81,8 @@ export function PipelineChecklist({
           )
         })}
       </ul>
+
+      <AdvancePhase projectId={projectId} phase={phase} pending={pending} />
     </Panel>
   )
 }

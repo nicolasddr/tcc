@@ -1,8 +1,12 @@
 import { describe, it, expect } from 'vitest'
 import {
   EMPTY_PIPELINE,
+  PHASE_1,
+  PHASE_2,
   PIPELINE_REQUIREMENTS,
   canAdvanceFromPhase1,
+  missingInputsList,
+  missingInputsMessage,
   pendingRequirements,
   type PipelineInputKey,
   type PipelineInputs,
@@ -85,5 +89,76 @@ describe('canAdvanceFromPhase1', () => {
     for (const inputs of combinations) {
       expect(canAdvanceFromPhase1(inputs)).toBe(false)
     }
+  })
+})
+
+describe('missingInputsList', () => {
+  it('não lista nada quando não falta insumo', () => {
+    expect(missingInputsList(pendingRequirements(COMPLETE))).toBe('')
+  })
+
+  it('nomeia o único insumo que falta', () => {
+    expect(missingInputsList(pendingRequirements({ ...COMPLETE, definitions: 0 }))).toBe(
+      'definição',
+    )
+    expect(missingInputsList(pendingRequirements({ ...COMPLETE, promptText: '' }))).toBe(
+      'texto do prompt',
+    )
+    expect(missingInputsList(pendingRequirements({ ...COMPLETE, items: 0 }))).toBe(
+      'item de entrada',
+    )
+  })
+
+  it('junta dois insumos com "e"', () => {
+    expect(
+      missingInputsList(pendingRequirements({ ...COMPLETE, definitions: 0, items: 0 })),
+    ).toBe('definição e item de entrada')
+  })
+
+  it('junta os três com vírgula e "e" no último', () => {
+    expect(missingInputsList(pendingRequirements(EMPTY_PIPELINE))).toBe(
+      'definição, texto do prompt e item de entrada',
+    )
+  })
+})
+
+describe('missingInputsMessage', () => {
+  it('não produz mensagem quando o avanço está liberado', () => {
+    expect(missingInputsMessage(pendingRequirements(COMPLETE))).toBe('')
+  })
+
+  it('nomeia cada insumo que falta, em cada combinação de falta', () => {
+    const combinations: PipelineInputs[] = [
+      EMPTY_PIPELINE,
+      { ...COMPLETE, definitions: 0 },
+      { ...COMPLETE, promptText: null },
+      { ...COMPLETE, items: 0 },
+      { ...COMPLETE, definitions: 0, items: 0 },
+      { ...COMPLETE, promptText: '  ', items: 0 },
+    ]
+
+    for (const inputs of combinations) {
+      const pending = pendingRequirements(inputs)
+      const message = missingInputsMessage(pending)
+      for (const req of pending) {
+        expect(message).toContain(req.title.toLocaleLowerCase('pt-BR'))
+      }
+      for (const req of PIPELINE_REQUIREMENTS.filter((r) => !pending.includes(r))) {
+        expect(message).not.toContain(req.title.toLocaleLowerCase('pt-BR'))
+      }
+    }
+  })
+
+  it('diz o que fazer, em português e sem código técnico', () => {
+    const message = missingInputsMessage(pendingRequirements(EMPTY_PIPELINE))
+    expect(message).toContain('Fase 2')
+    expect(message).toContain('Cadastre o que falta')
+  })
+})
+
+describe('as fases que esta trava conhece', () => {
+  it('a configuração é a Fase 1 e o avanço leva à Fase 2', () => {
+    expect(PHASE_1).toBe(1)
+    expect(PHASE_2).toBe(2)
   })
 })

@@ -1,4 +1,4 @@
-import { asc, eq } from 'drizzle-orm'
+import { asc, count, eq } from 'drizzle-orm'
 import { ownerDb, type DbExecutor, inputItems } from '@/lib/db'
 import { isUsed } from '@/lib/versioning'
 
@@ -30,4 +30,16 @@ export async function loadItems(
     .orderBy(asc(inputItems.createdAt))
 
   return rows.map((row) => ({ ...row, isEditable: !isUsed(row) }))
+}
+
+export async function countItems(
+  projectId: string,
+  db: DbExecutor = ownerDb,
+): Promise<number> {
+  const [row] = await db
+    .select({ value: count() })
+    .from(inputItems)
+    .where(eq(inputItems.projectId, projectId))
+
+  return row?.value ?? 0
 }

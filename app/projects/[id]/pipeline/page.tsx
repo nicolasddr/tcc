@@ -81,7 +81,14 @@ export default async function ProjectPipelinePage({
 
       <PhaseBar className="mt-4" current={project.phase} />
 
-      <PipelineChecklist className="mt-3" inputs={inputs} />
+      <Anchored id="avancar">
+        <PipelineChecklist
+          className="mt-3"
+          projectId={project.id}
+          phase={project.phase}
+          inputs={inputs}
+        />
+      </Anchored>
 
       <Anchored id="definicoes">
         <Section

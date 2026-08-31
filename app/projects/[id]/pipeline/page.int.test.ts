@@ -21,7 +21,12 @@ import ProjectPipelinePage from '@/app/projects/[id]/pipeline/page'
 import { ProjectTabs } from '@/app/projects/[id]/project-tabs'
 import { PipelineChecklist } from '@/app/projects/[id]/pipeline/pipeline-checklist'
 import { PromptTest } from '@/app/projects/[id]/pipeline/prompt-test'
-import { pendingRequirements } from '@/app/projects/[id]/pipeline/preconditions'
+import { AdvancePhase } from '@/app/projects/[id]/pipeline/advance-phase'
+import {
+  PHASE_1,
+  PHASE_2,
+  pendingRequirements,
+} from '@/app/projects/[id]/pipeline/preconditions'
 import { llmModel } from '@/lib/ai'
 import { ownerDb } from '@/lib/db'
 import {
@@ -64,9 +69,16 @@ function hasProp(node: unknown, key: string, value: unknown): boolean {
 type ChecklistProps = Parameters<typeof PipelineChecklist>[0]
 type TabsProps = Parameters<typeof ProjectTabs>[0]
 type PromptTestProps = Parameters<typeof PromptTest>[0]
+type AdvanceProps = Parameters<typeof AdvancePhase>[0]
 
 function render(id: string) {
   return ProjectPipelinePage({ params: Promise.resolve({ id }) })
+}
+
+function advanceOf(tree: unknown): ReactElement | null {
+  const checklist = findElement(tree, PipelineChecklist)
+  if (!checklist) return null
+  return findElement(PipelineChecklist(checklist.props as ChecklistProps), AdvancePhase)
 }
 
 describe('app/projects/[id]/pipeline — a aba de configuração é do Administrador', () => {
@@ -78,8 +90,8 @@ describe('app/projects/[id]/pipeline — a aba de configuração é do Administr
     users.push(id)
     return id
   }
-  async function newProject(admin: string): Promise<string> {
-    const id = await seedProject(ownerDb, admin)
+  async function newProject(admin: string, phase?: number): Promise<string> {
+    const id = await seedProject(ownerDb, admin, 'Projeto de Teste', { phase })
     projs.push(id)
     return id
   }
@@ -223,6 +235,76 @@ describe('app/projects/[id]/pipeline — a aba de configuração é do Administr
     expect(props.ready).toBe(true)
     expect(props.model).toBe(llmModel())
     expect(props.items.map((item) => item.name)).toEqual(['Consulta 001'])
+  })
+
+  it('o avanço fica indisponível e nomeia as pendências enquanto faltar insumo', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin)
+    await addPromptVersion(ownerDb, project, admin, { text: 'Classifique a consulta.' })
+
+    auth.userId = admin
+    const advance = advanceOf(await render(project))
+    expect(advance).toBeTruthy()
+
+    const props = advance!.props as AdvanceProps
+    expect(props.phase).toBe(PHASE_1)
+    expect(props.projectId).toBe(project)
+    expect(props.pending.map((r) => r.key)).toEqual(['definition', 'item'])
+  })
+
+  it('com os três insumos, o avanço fica disponível e sem pendência a listar', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin)
+    await addCodebookVersion(ownerDb, project, admin)
+    await addPromptVersion(ownerDb, project, admin, { text: 'Classifique a consulta.' })
+    await addInputItem(ownerDb, project, admin)
+
+    auth.userId = admin
+    const props = advanceOf(await render(project))!.props as AdvanceProps
+    expect(props.pending).toEqual([])
+  })
+
+  it('depois do avanço a aba continua acessível, e não oferece avançar de novo', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin, PHASE_2)
+    await addCodebookVersion(ownerDb, project, admin)
+    await addPromptVersion(ownerDb, project, admin, { text: 'Classifique a consulta.' })
+    await addInputItem(ownerDb, project, admin)
+
+    auth.userId = admin
+    const tree = await render(project)
+    expect(tree).toBeTruthy()
+
+    const props = advanceOf(tree)!.props as AdvanceProps
+    expect(props.phase).toBe(PHASE_2)
+    expect(props.phase).not.toBe(PHASE_1)
+
+    const checklist = findElement(tree, PipelineChecklist)!
+    const rendered = PipelineChecklist(checklist.props as ChecklistProps)
+    expect(hasProp(rendered, 'children', 'Fase 1 concluída')).toBe(true)
+  })
+
+  it('a barra de fases da visão geral leva o Administrador ao avanço, só na Fase 1', async () => {
+    const admin = await newUser('Admin')
+    const evaluator = await newUser('Avaliador')
+    const phase1 = await newProject(admin)
+    const phase2 = await newProject(admin, PHASE_2)
+    await addActiveEvaluator(ownerDb, phase1, evaluator)
+
+    async function overview(id: string, userId: string) {
+      auth.userId = userId
+      return ProjectPage({ params: Promise.resolve({ id }) })
+    }
+
+    expect(
+      hasProp(await overview(phase1, admin), 'href', `/projects/${phase1}/pipeline#avancar`),
+    ).toBe(true)
+    expect(
+      hasProp(await overview(phase2, admin), 'href', `/projects/${phase2}/pipeline#avancar`),
+    ).toBe(false)
+    expect(
+      hasProp(await overview(phase1, evaluator), 'href', `/projects/${phase1}/pipeline#avancar`),
+    ).toBe(false)
   })
 
   it('a aba aparece na navegação do Administrador e não na do Avaliador', async () => {

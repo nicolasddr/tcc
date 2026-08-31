@@ -12,8 +12,9 @@ import { groupMembers } from '../members'
 import { LeaveProjectButton } from './member-actions'
 import { ProjectTabs } from './project-tabs'
 import { PhaseBar } from './phase-bar'
+import { PHASE_1 } from './pipeline/preconditions'
 import { SubmitButton } from '@/app/components/submit-button'
-import { Button, ButtonLink } from '@/app/components/ui/button'
+import { ButtonLink } from '@/app/components/ui/button'
 import { Badge, StatusBadge } from '@/app/components/ui/badge'
 import { EmptyState } from '@/app/components/ui/empty-state'
 import { Panel, Callout } from '@/app/components/ui/panel'
@@ -229,11 +230,11 @@ export default async function ProjectPage({
             className="mt-4"
             current={project.phase}
             action={
-              isAdmin && project.status === 'active' ? (
-                <Button disabled title="Ainda não implementado">
+              isAdmin && project.status === 'active' && project.phase === PHASE_1 ? (
+                <ButtonLink href={`/projects/${project.id}/pipeline#avancar`}>
                   Avançar fase
                   <ArrowRightIcon />
-                </Button>
+                </ButtonLink>
               ) : null
             }
           />

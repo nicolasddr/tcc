@@ -29,7 +29,14 @@ import {
 import { loadCodebook } from './codebook'
 import { loadPrompt, type PromptMetadata } from './prompt'
 import { composeLlmInput } from './llm-input'
-import { canAdvanceFromPhase1 } from './preconditions'
+import {
+  PHASE_1,
+  PHASE_2,
+  canAdvanceFromPhase1,
+  missingInputsMessage,
+  pendingRequirements,
+} from './preconditions'
+import { loadPipelineInputs } from './inputs'
 import { itemContentError, normalizeItemContent } from './item-content'
 import {
   CODEBOOK_NOTE_MAX,
@@ -632,4 +639,61 @@ export async function testPrompt(
 
   countProjectResponse(projectId)
   return { ok: true, nonce: Date.now(), model: answer.model, output: answer.text }
+}
+
+export type AdvancePhaseState =
+  | { error: string }
+  | { ok: true; nonce: number; phase: number }
+  | null
+
+const ADVANCE_DENIED =
+  'Não foi possível avançar a fase. Apenas o administrador do projeto pode avançá-la.'
+
+const ADVANCE_WRONG_PHASE =
+  'Este projeto não está mais na Fase 1, então não há o que avançar aqui. Recarregue a página para ver a fase atual.'
+
+type AdvanceOutcome =
+  | { status: 'advanced' }
+  | { status: 'denied' }
+  | { status: 'wrong_phase' }
+  | { status: 'incomplete'; message: string }
+
+export async function advancePhase(
+  _prev: AdvancePhaseState,
+  formData: FormData,
+): Promise<AdvancePhaseState> {
+  const userId = await requireUserId()
+
+  const projectId = String(formData.get('project_id') ?? '')
+  if (!projectId) return { error: 'Projeto inválido.' }
+
+  if (!(await isProjectAdmin(userId, projectId))) return { error: ADVANCE_DENIED }
+
+  const outcome = await transaction<AdvanceOutcome>(async (tx) => {
+    const [project] = await tx
+      .select({ id: projects.id, phase: projects.phase })
+      .from(projects)
+      .where(eq(projects.id, projectId))
+      .limit(1)
+      .for('update')
+
+    if (!project) return { status: 'denied' }
+    if (project.phase !== PHASE_1) return { status: 'wrong_phase' }
+
+    const pending = pendingRequirements(await loadPipelineInputs(projectId, tx))
+    if (pending.length > 0) {
+      return { status: 'incomplete', message: missingInputsMessage(pending) }
+    }
+
+    await tx.update(projects).set({ phase: PHASE_2 }).where(eq(projects.id, projectId))
+    return { status: 'advanced' }
+  })
+
+  if (outcome.status === 'denied') return { error: ADVANCE_DENIED }
+  if (outcome.status === 'wrong_phase') return { error: ADVANCE_WRONG_PHASE }
+  if (outcome.status === 'incomplete') return { error: outcome.message }
+
+  revalidatePath(`/projects/${projectId}`)
+  revalidatePath(`/projects/${projectId}/pipeline`)
+  return { ok: true, nonce: Date.now(), phase: PHASE_2 }
 }
