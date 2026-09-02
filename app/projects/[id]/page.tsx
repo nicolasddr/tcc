@@ -18,7 +18,7 @@ import { ButtonLink } from '@/app/components/ui/button'
 import { Badge, StatusBadge } from '@/app/components/ui/badge'
 import { EmptyState } from '@/app/components/ui/empty-state'
 import { Panel, Callout } from '@/app/components/ui/panel'
-import { InfoTooltip } from '@/app/components/ui/tooltip'
+import { Chip, ChipLink } from '@/app/components/ui/chip'
 import { StatCard } from '@/app/components/ui/stat'
 import { Section } from '@/app/components/ui/section'
 import { PageShell, TopBar, BackLink, PageTitle } from '@/app/components/ui/shell'
@@ -27,20 +27,13 @@ import {
   BookIcon,
   ArrowRightIcon,
   SlidersIcon,
+  TagIcon,
+  CalendarIcon,
+  UserIcon,
+  ChevronRightIcon,
 } from '@/app/components/ui/icons'
 
 const soonBadge = <Badge tone="neutral">em breve</Badge>
-
-function Meta({ term, value }: { term: string; value: string }) {
-  return (
-    <div className="flex flex-col gap-1">
-      <dt className="text-[11px] font-semibold tracking-[0.06em] text-muted uppercase">
-        {term}
-      </dt>
-      <dd className="m-0 text-[13px] font-medium text-ink">{value}</dd>
-    </div>
-  )
-}
 
 export default async function ProjectPage({
   params,
@@ -140,7 +133,6 @@ export default async function ProjectPage({
         <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
           <div className="flex min-w-0 flex-1 flex-wrap items-center gap-3">
             <PageTitle>{project.name}</PageTitle>
-            {project.description ? <InfoTooltip text={project.description} /> : null}
             <StatusBadge status={project.status}>
               {projectStatusLabel(project.status)}
             </StatusBadge>
@@ -149,36 +141,43 @@ export default async function ProjectPage({
             ) : null}
           </div>
 
-          <div className="flex shrink-0 flex-wrap items-center gap-2">
-            {isActiveMember ? (
-              <ButtonLink
-                href={`/projects/${project.id}/members`}
-                variant="secondary"
-                size="sm"
-              >
-                <UsersIcon />
-                Membros
-              </ButtonLink>
-            ) : null}
-
-            {isAdmin ? (
-              <ButtonLink
-                href={`/projects/${project.id}/settings`}
-                variant="secondary"
-                size="sm"
-              >
-                <SlidersIcon />
-                Configurações
-              </ButtonLink>
-            ) : null}
-          </div>
+          {isAdmin ? (
+            <ButtonLink
+              href={`/projects/${project.id}/settings`}
+              variant="secondary"
+              size="sm"
+              className="shrink-0"
+            >
+              <SlidersIcon />
+              Configurações
+            </ButtonLink>
+          ) : null}
         </div>
 
-        <dl className="mt-5 flex flex-wrap gap-x-10 gap-y-4">
-          <Meta term="Tipo de tarefa" value={taskType ?? 'Não declarado'} />
-          <Meta term="Criado em" value={formatDate(project.createdAt)} />
-          {roles.length > 0 ? <Meta term="Seu papel" value={roles.join(' · ')} /> : null}
-        </dl>
+        <div className="mt-3 flex flex-wrap gap-1.5">
+          <Chip icon={<TagIcon />}>{taskType ?? 'Não declarado'}</Chip>
+          <Chip icon={<CalendarIcon />}>{formatDate(project.createdAt)}</Chip>
+          {roles.length > 0 ? (
+            <Chip icon={<UserIcon />}>{roles.join(' · ')}</Chip>
+          ) : null}
+          {isActiveMember ? (
+            <ChipLink href={`/projects/${project.id}/members`} icon={<UsersIcon />}>
+              Membros
+            </ChipLink>
+          ) : null}
+        </div>
+
+        {project.description ? (
+          <details className="group mt-3">
+            <summary className="inline-flex cursor-pointer list-none items-center gap-1.5 rounded-control text-[12.5px] font-semibold text-muted focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-brand-ring [&::-webkit-details-marker]:hidden">
+              <ChevronRightIcon className="transition-transform group-open:rotate-90" />
+              Sobre o projeto
+            </summary>
+            <p className="mt-2 max-w-[68ch] text-[13.5px] leading-relaxed text-label">
+              {project.description}
+            </p>
+          </details>
+        ) : null}
       </header>
 
       {/* Convite pendente: o convidado (ainda não-membro) aceita ou recusa aqui. */}

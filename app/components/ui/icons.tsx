@@ -114,3 +114,40 @@ export function ArrowRightIcon(props: IconProps) {
     </Icon>
   )
 }
+
+export function TagIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M20.59 13.41 12 22l-9-9V3h10l7.59 7.59a2 2 0 0 1 0 2.82z" />
+      <circle cx="7.5" cy="7.5" r="1.5" />
+    </Icon>
+  )
+}
+
+export function CalendarIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <rect x="3" y="5" width="18" height="16" rx="2" />
+      <line x1="3" y1="10" x2="21" y2="10" />
+      <line x1="8" y1="3" x2="8" y2="7" />
+      <line x1="16" y1="3" x2="16" y2="7" />
+    </Icon>
+  )
+}
+
+export function UserIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+      <circle cx="12" cy="7" r="4" />
+    </Icon>
+  )
+}
+
+export function ChevronRightIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <polyline points="9 6 15 12 9 18" />
+    </Icon>
+  )
+}
