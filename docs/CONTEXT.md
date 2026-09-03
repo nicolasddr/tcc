@@ -29,10 +29,18 @@ Uma de três naturezas:
 - *Diretriz*: característica que o conteúdo gerado deve ter, em tarefa de geração.
 
 **Critério**
-Regra que define como julgar a *resposta da LLM*, e não o dado em si, com uma escala
-(Alto/Médio/Baixo, por exemplo). Faz parte do codebook: na Fase 2 é usado pelos avaliadores
-para validar o codebook e na Fase 3 vai também à LLM, como parte do codebook completo.
-É autorado na Fase 2.
+Regra que define como julgar a *resposta da LLM*, e não o dado em si, na *escala* da
+ferramenta. Faz parte do codebook: na Fase 2 é usado pelos avaliadores para validar o
+codebook e na Fase 3 vai também à LLM, como parte do codebook completo. É autorado na Fase 2.
+Um critério pode ser *específico*, quando pertence a uma definição, ou *geral*, quando vale
+para todas as definições da versão. O geral é avaliado uma vez por definição, e não uma vez
+por resposta, porque a mesma regra pode ser clara numa definição e ambígua em outra.
+
+**Escala**
+A régua com que o Avaliador julga um critério, ordinal e de três pontos: Alto, Médio e Baixo.
+É fixa na ferramenta e não configurável por projeto, porque o nível de mensuração da métrica
+de concordância, o diff entre versões do codebook e a comparabilidade entre rodadas dependem
+dela ser a mesma sempre.
 
 ## Pipeline e avaliação
 
@@ -93,7 +101,9 @@ Fase 3, primeiro o codebook (até o ICR subir) e depois o prompt (pela qualidade
 
 **Concordância (ICR)**
 Grau em que avaliadores independentes chegam à mesma conclusão. Medida por Krippendorff's
-Alpha (primária) ou Cohen's Kappa.
+Alpha ordinal, calculado **por rodada**, sobre a versão de codebook que aquela rodada fixou,
+e nunca agregado entre versões diferentes. Cohen's Kappa não é usado: o Alpha cobre também o
+caso de dois avaliadores, sem a restrição de ser par a par.
 Evitar: confiabilidade, acurácia.
 
 **Qualidade**
@@ -141,6 +151,35 @@ várias rodadas. Entre uma rodada e a próxima, o Administrador refina (o
 codebook na Fase 2, o codebook ou o prompt na Fase 3).
 Evitar: iteração como unidade contável ("iterativo" só como adjetivo do processo).
 
+**Rodada aberta**
+A rodada que ainda aceita geração de resposta e envio de avaliação. Existe no máximo uma por
+projeto, e a criação dela é o que congela o par de versões que ela usa. Enquanto há rodada
+aberta, o codebook não pode ser editado, porque a versão que os avaliadores estão aplicando não
+pode mudar debaixo deles.
+
+**Rodada fechada**
+A rodada encerrada pelo Administrador. Não aceita mais resposta nem avaliação, libera a revisão
+de discordâncias e destrava a edição do codebook, cuja próxima alteração cria versão nova.
+Fechar é irreversível, e não avança a fase.
+
+**Avaliação**
+O conjunto das notas que um Avaliador enviou sobre uma Resposta, de uma vez só. É a unidade de
+submissão e de imutabilidade: enviou, travou. Aponta para o vínculo de membro, e não para o
+usuário.
+
+**Nota**
+O valor da escala que uma Avaliação atribui a um critério dentro de uma definição, com
+justificativa opcional. Um critério geral rende uma nota em cada definição da versão.
+
+**Outlier**
+Marca que o Administrador aplica a um avaliador **em uma rodada**, retirando as notas dele do
+cálculo daquela rodada. Exige justificativa escrita, é reversível e fica registrada com autor e
+data. O outlier continua avaliando e continua aparecendo na revisão de discordâncias,
+identificado: a marca é sobre o cálculo, não sobre o acesso. O valor com todos e o valor sem
+outliers aparecem sempre juntos, para que a exclusão fique na análise em vez de virar um número
+único mais bonito.
+Evitar: usar desativação de membro como forma de tirar alguém do cálculo; a porta é uma só.
+
 ## Papéis
 
 **Administrador de Projeto**
@@ -165,6 +204,9 @@ Administrador da plataforma; aprova ou rejeita permissão para criar projetos.
 - LLM como avaliadora (*could-have*): se for construída, decidir se conta no ICR principal ou
   se aparece como lente separada (LLM contra consenso humano). A recomendação em registro é a
   lente separada. Resolver no Épico 3 ou depois.
+- Anonimização dos avaliadores na revisão de discordâncias: hoje todos veem os nomes reais.
+  Exibir pseudônimos estáveis ("Avaliador 1") para reduzir pressão de conformidade fica como
+  funcionalidade futura.
 - Saída estruturada da Resposta: hoje a saída da LLM é texto livre e opaco. Estruturá-la por
   definição facilitaria a tela de avaliação, mas prende a ferramenta a um formato e quebra quando
   a LLM desobedece. Reavaliar quando a tela de avaliação existir.
