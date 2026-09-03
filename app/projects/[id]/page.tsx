@@ -130,27 +130,13 @@ export default async function ProjectPage({
       }
     >
       <header>
-        <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
-          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-3">
-            <PageTitle>{project.name}</PageTitle>
-            <StatusBadge status={project.status}>
-              {projectStatusLabel(project.status)}
-            </StatusBadge>
-            {onboardingPending ? (
-              <Badge tone="warning">onboarding pendente</Badge>
-            ) : null}
-          </div>
-
-          {isAdmin ? (
-            <ButtonLink
-              href={`/projects/${project.id}/settings`}
-              variant="secondary"
-              size="sm"
-              className="shrink-0"
-            >
-              <SlidersIcon />
-              Configurações
-            </ButtonLink>
+        <div className="flex min-w-0 flex-wrap items-center gap-3">
+          <PageTitle>{project.name}</PageTitle>
+          <StatusBadge status={project.status}>
+            {projectStatusLabel(project.status)}
+          </StatusBadge>
+          {onboardingPending ? (
+            <Badge tone="warning">onboarding pendente</Badge>
           ) : null}
         </div>
 
@@ -163,6 +149,14 @@ export default async function ProjectPage({
           {isActiveMember ? (
             <ChipLink href={`/projects/${project.id}/members`} icon={<UsersIcon />}>
               Membros
+            </ChipLink>
+          ) : null}
+          {isAdmin ? (
+            <ChipLink
+              href={`/projects/${project.id}/settings`}
+              icon={<SlidersIcon />}
+            >
+              Configurações
             </ChipLink>
           ) : null}
         </div>
