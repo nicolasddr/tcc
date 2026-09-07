@@ -1,0 +1,1 @@
+ALTER TABLE "codebook_definitions" ADD CONSTRAINT "cd_description_len" CHECK (description IS NULL OR char_length(description) <= 2000);

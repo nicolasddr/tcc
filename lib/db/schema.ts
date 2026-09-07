@@ -267,6 +267,7 @@ export const codebookDefinitions = pgTable("codebook_definitions", {
 		}).onDelete("cascade"),
 	check("codebook_definitions_type_check", sql`type = ANY (ARRAY['category'::text, 'quality_dimension'::text, 'guideline'::text])`),
 	check("cd_title_len", sql`char_length(title) <= 200`),
+	check("cd_description_len", sql`description IS NULL OR char_length(description) <= 2000`),
 ]);
 
 export const promptVersions = pgTable("prompt_versions", {

@@ -5,6 +5,7 @@ import { loadPipelineAccess, requirePipelineAdmin } from '../pipeline/access'
 import { loadCodebook, listCodebookVersions } from '../pipeline/codebook'
 import { CodebookEditor } from '../pipeline/codebook-editor'
 import { CodebookHistory } from '../pipeline/codebook-history'
+import { PHASE_2 } from '../pipeline/preconditions'
 import { ProjectTabs } from '../project-tabs'
 import { defaultDefinitionType } from '@/app/projects/definition-types'
 import { Section } from '@/app/components/ui/section'
@@ -53,10 +54,15 @@ export default async function ProjectCodebookPage({
 
       <Section
         title="Definições"
-        hint="Os conceitos que estruturam a tarefa da LLM, cada um com título e tipo. A descrição de cada definição é escrita na Fase 2."
+        hint={
+          project.phase >= PHASE_2
+            ? 'Os conceitos que estruturam a tarefa da LLM, cada um com título, tipo e a descrição que o avaliador lê. Só os títulos vão para a LLM.'
+            : 'Os conceitos que estruturam a tarefa da LLM, cada um com título e tipo. A descrição de cada definição é escrita na Fase 2.'
+        }
       >
         <CodebookEditor
           projectId={project.id}
+          phase={project.phase}
           version={codebook.version}
           isOpen={codebook.isOpen}
           definitions={codebook.definitions}

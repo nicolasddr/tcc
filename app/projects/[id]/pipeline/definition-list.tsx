@@ -12,19 +12,24 @@ export function DefinitionList({
     <ul className="m-0 flex list-none flex-col gap-2 p-0">
       {definitions.map((definition, index) => (
         <li key={definition.id}>
-          <Card
-            padding="sm"
-            className="flex flex-wrap items-center justify-between gap-3"
-          >
-            <span className="flex items-baseline gap-2.5">
-              <span className="text-[13px] font-semibold tabular-nums text-muted">
-                {index + 1}
+          <Card padding="sm">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <span className="flex items-baseline gap-2.5">
+                <span className="text-[13px] font-semibold tabular-nums text-muted">
+                  {index + 1}
+                </span>
+                <span className="text-sm font-semibold text-ink">{definition.title}</span>
               </span>
-              <span className="text-sm font-semibold text-ink">{definition.title}</span>
-            </span>
-            <Badge tone="accent">
-              {definitionTypeLabel(definition.type) ?? definition.type}
-            </Badge>
+              <Badge tone="accent">
+                {definitionTypeLabel(definition.type) ?? definition.type}
+              </Badge>
+            </div>
+
+            {definition.description ? (
+              <p className="m-0 mt-2 text-[13px] break-words whitespace-pre-wrap text-ink">
+                {definition.description}
+              </p>
+            ) : null}
           </Card>
         </li>
       ))}

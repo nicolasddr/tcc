@@ -40,6 +40,7 @@ import { loadPipelineInputs } from './inputs'
 import { itemContentError, normalizeItemContent } from './item-content'
 import {
   CODEBOOK_NOTE_MAX,
+  DEFINITION_DESCRIPTION_MAX,
   DEFINITION_TITLE_MAX,
   ITEM_NAME_MAX,
   PROMPT_CHANGE_LOG_MAX,
@@ -50,7 +51,11 @@ import {
 
 export type CodebookState = { error: string } | { ok: true; nonce: number } | null
 
-type ParsedDefinition = { title: string; type: DefinitionType }
+type ParsedDefinition = {
+  title: string
+  type: DefinitionType
+  description: string | null
+}
 
 type ParsedCodebook = { definitions: ParsedDefinition[]; note: string | null }
 
@@ -63,10 +68,17 @@ const STALE =
 const RACED =
   'Outro salvamento criou uma versão ao mesmo tempo. Recarregue a página e salve de novo.'
 
+const DESCRIPTION_TOO_EARLY =
+  'A descrição das definições é escrita a partir da Fase 2, e este projeto ainda está na Fase 1. Recarregue a página para ver a fase atual.'
+
 function parseCodebookForm(formData: FormData): { error: string } | ParsedCodebook {
   const titles = formData.getAll('definition_title').map(String)
   const types = formData.getAll('definition_type').map(String)
+  const descriptions = formData.getAll('definition_description').map(String)
   if (titles.length !== types.length) {
+    return { error: 'Não foi possível ler as definições enviadas.' }
+  }
+  if (descriptions.length > 0 && descriptions.length !== titles.length) {
     return { error: 'Não foi possível ler as definições enviadas.' }
   }
 
@@ -81,7 +93,15 @@ function parseCodebookForm(formData: FormData): { error: string } | ParsedCodebo
     }
     const type = normalizeDefinitionType(types[i])
     if (!type) return { error: 'Escolha um tipo válido para cada definição.' }
-    definitions.push({ title, type })
+
+    const description = (descriptions[i] ?? '').replace(/\r\n/g, '\n').trim()
+    if (description.length > DEFINITION_DESCRIPTION_MAX) {
+      return {
+        error: `A descrição da definição pode ter no máximo ${DEFINITION_DESCRIPTION_MAX} caracteres.`,
+      }
+    }
+
+    definitions.push({ title, type, description: description || null })
   }
 
   if (definitions.length === 0) {
@@ -112,14 +132,20 @@ export async function saveCodebook(
 
   const targetVersionId = String(formData.get('version_id') ?? '') || null
 
-  let stale = false
+  let failure: string | null = null
   try {
     await transaction(async (tx) => {
-      await tx
-        .select({ id: projects.id })
+      const [project] = await tx
+        .select({ id: projects.id, phase: projects.phase })
         .from(projects)
         .where(eq(projects.id, projectId))
         .for('update')
+
+      const describes = parsed.definitions.some((d) => d.description !== null)
+      if (project && describes && project.phase < PHASE_2) {
+        failure = DESCRIPTION_TOO_EARLY
+        return
+      }
 
       const [latest] = await tx
         .select({
@@ -134,7 +160,7 @@ export async function saveCodebook(
 
       const decision = decideSave(latest ?? null, targetVersionId)
       if (decision.mode === 'stale') {
-        stale = true
+        failure = STALE
         return
       }
 
@@ -166,6 +192,7 @@ export async function saveCodebook(
           codebookVersionId: versionId,
           title: definition.title,
           type: definition.type,
+          description: definition.description,
           orderIndex: index,
         })),
       )
@@ -175,7 +202,7 @@ export async function saveCodebook(
     throw err
   }
 
-  if (stale) return { error: STALE }
+  if (failure) return { error: failure }
 
   revalidatePath(`/projects/${projectId}/codebook`)
   revalidatePath(`/projects/${projectId}`)

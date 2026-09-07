@@ -16,16 +16,26 @@ import { VersionStatus } from './version-status'
 import { DefinitionList } from './definition-list'
 import { EmptyState } from '@/app/components/ui/empty-state'
 import { moveBy } from '@/lib/reorder'
-import { CODEBOOK_NOTE_MAX, DEFINITION_TITLE_MAX } from '@/lib/limits'
+import { PHASE_2 } from './preconditions'
+import {
+  CODEBOOK_NOTE_MAX,
+  DEFINITION_DESCRIPTION_MAX,
+  DEFINITION_TITLE_MAX,
+} from '@/lib/limits'
 
 const initialState: CodebookState = null
 
-type Row = { key: number; title: string; type: DefinitionType | '' }
+type Row = {
+  key: number
+  title: string
+  type: DefinitionType | ''
+  description: string
+}
 
 let nextKey = 0
 
 function newRow(type: DefinitionType | null): Row {
-  return { key: nextKey++, title: '', type: type ?? '' }
+  return { key: nextKey++, title: '', type: type ?? '', description: '' }
 }
 
 function toRows(definitions: CodebookDefinition[], fallback: DefinitionType | null): Row[] {
@@ -34,6 +44,7 @@ function toRows(definitions: CodebookDefinition[], fallback: DefinitionType | nu
     key: nextKey++,
     title: definition.title,
     type: (definition.type as DefinitionType) ?? '',
+    description: definition.description ?? '',
   }))
 }
 
@@ -56,10 +67,12 @@ function CodebookFields({
   definitions,
   defaultType,
   note,
+  withDescription,
 }: {
   definitions: CodebookDefinition[]
   defaultType: DefinitionType | null
   note: string
+  withDescription: boolean
 }) {
   const [rows, setRows] = useState<Row[]>(() => toRows(definitions, defaultType))
 
@@ -154,6 +167,26 @@ function CodebookFields({
                     </Button>
                   </div>
                 </div>
+
+                {withDescription ? (
+                  <div className="mt-3">
+                    <Field
+                      label={`Descrição da definição ${index + 1} (opcional)`}
+                      hint="O texto que o avaliador lê para entender o que o título quis dizer. Salvar sem descrição é permitido."
+                    >
+                      <Textarea
+                        name="definition_description"
+                        rows={3}
+                        maxLength={DEFINITION_DESCRIPTION_MAX}
+                        value={row.description}
+                        onChange={(e) =>
+                          update(row.key, { description: e.target.value })
+                        }
+                        placeholder="Ex.: a resposta busca informação sobre um assunto, sem intenção de compra."
+                      />
+                    </Field>
+                  </div>
+                ) : null}
               </Card>
             </li>
           ))}
@@ -188,17 +221,20 @@ function CodebookFields({
 
 export function CodebookEditor({
   projectId,
+  phase,
   version,
   isOpen,
   definitions,
   defaultType,
 }: {
   projectId: string
+  phase: number
   version: CodebookVersion | null
   isOpen: boolean
   definitions: CodebookDefinition[]
   defaultType: DefinitionType | null
 }) {
+  const withDescription = phase >= PHASE_2
   const [state, submit, pending] = useActionState(saveCodebook, initialState)
 
   if (!isOpen) {
@@ -234,6 +270,7 @@ export function CodebookEditor({
           definitions={definitions}
           defaultType={defaultType}
           note={version?.note ?? ''}
+          withDescription={withDescription}
         />
 
         {state && 'error' in state ? <Alert tone="error">{state.error}</Alert> : null}

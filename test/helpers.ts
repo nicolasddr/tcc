@@ -208,7 +208,7 @@ export async function addCodebookVersion(
     versionNumber?: number
     note?: string | null
     usedAt?: string | null
-    definitions?: { title: string; type: string }[]
+    definitions?: { title: string; type: string; description?: string | null }[]
   } = {},
 ): Promise<string> {
   const [row] = await tx
@@ -229,6 +229,7 @@ export async function addCodebookVersion(
         codebookVersionId: row.id,
         title: definition.title,
         type: definition.type,
+        description: definition.description ?? null,
         orderIndex: index,
       })),
     )

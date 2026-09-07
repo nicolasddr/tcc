@@ -24,6 +24,7 @@ export type CodebookDefinition = {
   id: string
   title: string
   type: string
+  description: string | null
   orderIndex: number
 }
 
@@ -70,6 +71,7 @@ function loadDefinitions(
       id: codebookDefinitions.id,
       title: codebookDefinitions.title,
       type: codebookDefinitions.type,
+      description: codebookDefinitions.description,
       orderIndex: codebookDefinitions.orderIndex,
     })
     .from(codebookDefinitions)

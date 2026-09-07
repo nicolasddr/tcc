@@ -29,6 +29,7 @@ import { CodebookEditor } from '@/app/projects/[id]/pipeline/codebook-editor'
 import { ProjectTabs } from '@/app/projects/[id]/project-tabs'
 import { Button } from '@/app/components/ui/button'
 import { formatDate } from '@/app/notifications/labels'
+import { PHASE_1, PHASE_2 } from '@/app/projects/[id]/pipeline/preconditions'
 import { ownerDb } from '@/lib/db'
 import {
   createUser,
@@ -108,8 +109,8 @@ describe('app/projects/[id]/codebook — a tela do codebook', () => {
     users.push(id)
     return id
   }
-  async function newProject(admin: string): Promise<string> {
-    const id = await seedProject(ownerDb, admin)
+  async function newProject(admin: string, phase?: number): Promise<string> {
+    const id = await seedProject(ownerDb, admin, 'Projeto de Teste', { phase })
     projs.push(id)
     return id
   }
@@ -373,5 +374,41 @@ describe('app/projects/[id]/codebook — a tela do codebook', () => {
       'NEXT_NOTFOUND',
     )
     await expect(renderVersion(project, 'não-é-uuid')).rejects.toThrow('NEXT_NOTFOUND')
+  })
+
+  it('o editor recebe a fase do projeto, que é o que libera o campo de descrição', async () => {
+    const admin = await newUser('Admin')
+    const phase1 = await newProject(admin)
+    const phase2 = await newProject(admin, PHASE_2)
+
+    auth.userId = admin
+    const editorOf = async (project: string) => {
+      const editor = findElement(await renderCodebook(project), CodebookEditor)
+      expect(editor).toBeTruthy()
+      return editor!.props as Parameters<typeof CodebookEditor>[0]
+    }
+
+    expect((await editorOf(phase1)).phase).toBe(PHASE_1)
+    expect((await editorOf(phase2)).phase).toBe(PHASE_2)
+  })
+
+  it('a versão em leitura traz a descrição de cada definição', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin, PHASE_2)
+    const versionId = await addCodebookVersion(ownerDb, project, admin, {
+      usedAt: new Date().toISOString(),
+      definitions: [
+        { title: 'Informacional', type: 'category', description: 'busca informação' },
+        { title: 'Transacional', type: 'category' },
+      ],
+    })
+
+    auth.userId = admin
+    const props = definitionsOf(await renderVersion(project, versionId))
+    expect(props.definitions.map((d) => d.description)).toEqual([
+      'busca informação',
+      null,
+    ])
+    expect(textOf(DefinitionList(props))).toContain('busca informação')
   })
 })

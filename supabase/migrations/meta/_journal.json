@@ -57,6 +57,13 @@
       "when": 1787853817783,
       "tag": "0007_oval_slayback",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1788820060286,
+      "tag": "0008_stormy_scorpion",
+      "breakpoints": true
     }
   ]
 }

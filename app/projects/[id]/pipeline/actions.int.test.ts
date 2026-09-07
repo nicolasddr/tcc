@@ -41,6 +41,7 @@ import {
 } from '@/app/projects/[id]/pipeline/item-content'
 import {
   ownerDb,
+  pgErrorCode,
   projects,
   codebookVersions,
   codebookDefinitions,
@@ -48,6 +49,7 @@ import {
   inputItems,
 } from '@/lib/db'
 import {
+  DEFINITION_DESCRIPTION_MAX,
   ITEM_CONTENT_MAX,
   ITEM_FILE_BYTES_MAX,
   ITEM_NAME_MAX,
@@ -66,7 +68,7 @@ import {
   cleanup,
 } from '@/test/helpers'
 
-type DefinitionInput = { title: string; type: string }
+type DefinitionInput = { title: string; type: string; description?: string }
 
 function fd(
   projectId: string,
@@ -75,9 +77,13 @@ function fd(
 ): FormData {
   const form = new FormData()
   form.set('project_id', projectId)
+  const withDescriptions = definitions.some((d) => d.description !== undefined)
   for (const definition of definitions) {
     form.append('definition_title', definition.title)
     form.append('definition_type', definition.type)
+    if (withDescriptions) {
+      form.append('definition_description', definition.description ?? '')
+    }
   }
   if (extra.note !== undefined) form.set('note', extra.note)
   if (extra.versionId !== undefined) form.set('version_id', extra.versionId)
@@ -1946,5 +1952,370 @@ describe('app/projects/[id]/pipeline/actions — avanço da Fase 1 para a Fase 2
     expect(await advancePhase(null, new FormData())).toEqual({
       error: expect.any(String),
     })
+  })
+})
+
+describe('app/projects/[id]/pipeline/actions — descrição das definições', () => {
+  let users: string[]
+  let projs: string[]
+
+  async function newUser(name?: string): Promise<string> {
+    const id = await createUser(ownerDb, name)
+    users.push(id)
+    return id
+  }
+  async function newProject(admin: string, phase = PHASE_2): Promise<string> {
+    const id = await seedProject(ownerDb, admin, 'Projeto de Teste', { phase })
+    projs.push(id)
+    return id
+  }
+
+  beforeEach(() => {
+    users = []
+    projs = []
+    auth.userId = null
+  })
+  afterEach(async () => {
+    await cleanup(projs, users)
+  })
+
+  it('a descrição é gravada junto da definição a que pertence', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin)
+
+    auth.userId = admin
+    const result = await saveCodebook(
+      null,
+      fd(project, [
+        {
+          title: 'Informacional',
+          type: 'category',
+          description: 'busca informação, sem intenção de compra',
+        },
+        { title: 'Transacional', type: 'category', description: 'quer concluir uma ação' },
+      ]),
+    )
+    expect(result).toMatchObject({ ok: true })
+
+    const [version] = await versionsOf(project)
+    expect(await definitionsOf(version.id)).toEqual([
+      {
+        title: 'Informacional',
+        type: 'category',
+        description: 'busca informação, sem intenção de compra',
+        orderIndex: 0,
+      },
+      {
+        title: 'Transacional',
+        type: 'category',
+        description: 'quer concluir uma ação',
+        orderIndex: 1,
+      },
+    ])
+  })
+
+  it('a descrição é opcional: salvar sem ela é permitido e grava nulo', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin)
+
+    auth.userId = admin
+    const result = await saveCodebook(
+      null,
+      fd(project, [
+        { title: 'Sem descrição', type: 'category', description: '' },
+        { title: 'Só espaços', type: 'category', description: '   ' },
+      ]),
+    )
+    expect(result).toMatchObject({ ok: true })
+
+    const [version] = await versionsOf(project)
+    expect((await definitionsOf(version.id)).map((d) => d.description)).toEqual([
+      null,
+      null,
+    ])
+  })
+
+  it('escrever a descrição numa versão em aberto atualiza no lugar, sem número novo', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin)
+    const versionId = await addCodebookVersion(ownerDb, project, admin, {
+      definitions: [{ title: 'Informacional', type: 'category' }],
+    })
+
+    auth.userId = admin
+    const result = await saveCodebook(
+      null,
+      fd(
+        project,
+        [
+          {
+            title: 'Informacional',
+            type: 'category',
+            description: 'descrição escrita na Fase 2',
+          },
+        ],
+        { versionId },
+      ),
+    )
+    expect(result).toMatchObject({ ok: true })
+
+    const versions = await versionsOf(project)
+    expect(versions).toHaveLength(1)
+    expect(versions[0].id).toBe(versionId)
+    expect(versions[0].versionNumber).toBe(1)
+    expect((await definitionsOf(versionId)).map((d) => d.description)).toEqual([
+      'descrição escrita na Fase 2',
+    ])
+  })
+
+  it('escrever a descrição numa versão congelada cria a seguinte e não altera a anterior', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin)
+    const frozenId = await addCodebookVersion(ownerDb, project, admin, {
+      usedAt: new Date().toISOString(),
+      definitions: [
+        { title: 'Informacional', type: 'category', description: 'descrição antiga' },
+      ],
+    })
+
+    auth.userId = admin
+    const result = await saveCodebook(
+      null,
+      fd(
+        project,
+        [
+          {
+            title: 'Informacional',
+            type: 'category',
+            description: 'descrição refinada depois da rodada',
+          },
+        ],
+        { versionId: frozenId },
+      ),
+    )
+    expect(result).toMatchObject({ ok: true })
+
+    const versions = await versionsOf(project)
+    expect(versions.map((v) => v.versionNumber)).toEqual([2, 1])
+
+    expect(await definitionsOf(frozenId)).toEqual([
+      {
+        title: 'Informacional',
+        type: 'category',
+        description: 'descrição antiga',
+        orderIndex: 0,
+      },
+    ])
+
+    const created = versions.find((v) => v.id !== frozenId)!
+    expect((await definitionsOf(created.id)).map((d) => d.description)).toEqual([
+      'descrição refinada depois da rodada',
+    ])
+  })
+
+  it('recusa a descrição acima do limite, e nada é gravado', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin)
+
+    auth.userId = admin
+    const denied = await saveCodebook(
+      null,
+      fd(project, [
+        {
+          title: 'Informacional',
+          type: 'category',
+          description: 'a'.repeat(DEFINITION_DESCRIPTION_MAX + 1),
+        },
+      ]),
+    )
+    expect(denied).toEqual({ error: expect.stringContaining('descrição') })
+    expect(await versionsOf(project)).toHaveLength(0)
+  })
+
+  it('aceita a descrição no limite exato', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin)
+
+    auth.userId = admin
+    const result = await saveCodebook(
+      null,
+      fd(project, [
+        {
+          title: 'Informacional',
+          type: 'category',
+          description: 'a'.repeat(DEFINITION_DESCRIPTION_MAX),
+        },
+      ]),
+    )
+    expect(result).toMatchObject({ ok: true })
+
+    const [version] = await versionsOf(project)
+    expect((await definitionsOf(version.id))[0].description).toHaveLength(
+      DEFINITION_DESCRIPTION_MAX,
+    )
+  })
+
+  it('o banco recusa a descrição acima do limite, mesmo por escrita direta', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin)
+    const versionId = await addCodebookVersion(ownerDb, project, admin, {
+      definitions: [],
+    })
+
+    const rejected = await ownerDb
+      .insert(codebookDefinitions)
+      .values({
+        codebookVersionId: versionId,
+        title: 'Informacional',
+        type: 'category',
+        description: 'a'.repeat(DEFINITION_DESCRIPTION_MAX + 1),
+        orderIndex: 0,
+      })
+      .catch((err: unknown) => err)
+
+    expect(pgErrorCode(rejected)).toBe('23514')
+  })
+
+  it('o Avaliador é recusado, e nenhuma descrição é gravada', async () => {
+    const admin = await newUser('Admin')
+    const evaluator = await newUser('Avaliador')
+    const project = await newProject(admin)
+    await addActiveEvaluator(ownerDb, project, evaluator)
+    const versionId = await addCodebookVersion(ownerDb, project, admin, {
+      definitions: [{ title: 'Informacional', type: 'category' }],
+    })
+
+    auth.userId = evaluator
+    const denied = await saveCodebook(
+      null,
+      fd(
+        project,
+        [{ title: 'Informacional', type: 'category', description: 'escrita do avaliador' }],
+        { versionId },
+      ),
+    )
+    expect(denied).toEqual({ error: expect.stringContaining('administrador') })
+    expect((await definitionsOf(versionId)).map((d) => d.description)).toEqual([null])
+  })
+
+  it('um formulário sem os campos de descrição salva as definições com descrição nula', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin)
+
+    auth.userId = admin
+    const result = await saveCodebook(
+      null,
+      fd(project, [
+        { title: 'Informacional', type: 'category' },
+        { title: 'Transacional', type: 'category' },
+      ]),
+    )
+    expect(result).toMatchObject({ ok: true })
+
+    const [version] = await versionsOf(project)
+    expect((await definitionsOf(version.id)).map((d) => d.description)).toEqual([
+      null,
+      null,
+    ])
+  })
+
+  it('recusa o envio com um número de descrições diferente do de definições', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin)
+
+    const form = fd(project, [
+      { title: 'Informacional', type: 'category', description: 'uma' },
+      { title: 'Transacional', type: 'category', description: 'duas' },
+    ])
+    form.append('definition_description', 'sobrando')
+
+    auth.userId = admin
+    const denied = await saveCodebook(null, form)
+    expect(denied).toEqual({ error: expect.stringContaining('ler as definições') })
+    expect(await versionsOf(project)).toHaveLength(0)
+  })
+
+  it('loadCodebook devolve a descrição junto de cada definição', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin)
+    await addCodebookVersion(ownerDb, project, admin, {
+      definitions: [
+        { title: 'Informacional', type: 'category', description: 'com descrição' },
+        { title: 'Transacional', type: 'category' },
+      ],
+    })
+
+    const codebook = await loadCodebook(project)
+    expect(codebook.definitions.map((d) => d.description)).toEqual([
+      'com descrição',
+      null,
+    ])
+  })
+
+  it('recusa a descrição enquanto o projeto está na Fase 1, e nada é gravado', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin, PHASE_1)
+
+    auth.userId = admin
+    const denied = await saveCodebook(
+      null,
+      fd(project, [
+        {
+          title: 'Informacional',
+          type: 'category',
+          description: 'descrição escrita cedo demais',
+        },
+      ]),
+    )
+    expect(denied).toEqual({ error: expect.stringContaining('Fase 2') })
+    expect(await versionsOf(project)).toHaveLength(0)
+  })
+
+  it('a recusa na Fase 1 não toca a versão em aberto que já existe', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin, PHASE_1)
+    const versionId = await addCodebookVersion(ownerDb, project, admin, {
+      note: 'antes da tentativa',
+      definitions: [{ title: 'Informacional', type: 'category' }],
+    })
+
+    auth.userId = admin
+    const denied = await saveCodebook(
+      null,
+      fd(
+        project,
+        [{ title: 'Renomeada', type: 'guideline', description: 'cedo demais' }],
+        { note: 'depois da tentativa', versionId },
+      ),
+    )
+    expect(denied).toEqual({ error: expect.stringContaining('Fase 2') })
+
+    const versions = await versionsOf(project)
+    expect(versions).toHaveLength(1)
+    expect(versions[0].note).toBe('antes da tentativa')
+    expect(await definitionsOf(versionId)).toEqual([
+      { title: 'Informacional', type: 'category', description: null, orderIndex: 0 },
+    ])
+  })
+
+  it('na Fase 1, campos de descrição vazios não contam como descrição e o salvamento passa', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin, PHASE_1)
+
+    auth.userId = admin
+    const result = await saveCodebook(
+      null,
+      fd(project, [
+        { title: 'Informacional', type: 'category', description: '' },
+        { title: 'Transacional', type: 'category', description: '   ' },
+      ]),
+    )
+    expect(result).toMatchObject({ ok: true })
+
+    const [version] = await versionsOf(project)
+    expect((await definitionsOf(version.id)).map((d) => d.description)).toEqual([
+      null,
+      null,
+    ])
   })
 })
