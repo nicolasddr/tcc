@@ -16,8 +16,8 @@ vi.mock('next/navigation', () => ({
   },
 }))
 
-import PromptHistoryPage from '@/app/projects/[id]/pipeline/prompt/page'
-import PromptVersionPage from '@/app/projects/[id]/pipeline/prompt/[versionId]/page'
+import ProjectPromptPage from '@/app/projects/[id]/prompt/page'
+import PromptVersionPage from '@/app/projects/[id]/prompt/[versionId]/page'
 import { PromptHistory } from '@/app/projects/[id]/pipeline/prompt-history'
 import { PromptMetadataList } from '@/app/projects/[id]/pipeline/prompt-metadata'
 import {
@@ -26,9 +26,12 @@ import {
 } from '@/app/projects/[id]/pipeline/version-history'
 import { PromptEditor } from '@/app/projects/[id]/pipeline/prompt-editor'
 import { PromptMetadataEditor } from '@/app/projects/[id]/pipeline/prompt-metadata-editor'
+import { PromptTest } from '@/app/projects/[id]/pipeline/prompt-test'
+import { ProjectTabs } from '@/app/projects/[id]/project-tabs'
 import type { PromptVersionSummary } from '@/app/projects/[id]/pipeline/prompt'
 import { Button } from '@/app/components/ui/button'
 import { formatDate } from '@/app/notifications/labels'
+import { llmModel } from '@/lib/ai'
 import { ownerDb } from '@/lib/db'
 import {
   createUser,
@@ -36,6 +39,8 @@ import {
   addActiveEvaluator,
   addPendingMember,
   addPromptVersion,
+  addCodebookVersion,
+  addInputItem,
   cleanup,
 } from '@/test/helpers'
 
@@ -71,8 +76,8 @@ function textOf(node: unknown): string {
 
 type HistoryProps = Parameters<typeof PromptHistory>[0]
 
-function renderHistory(id: string) {
-  return PromptHistoryPage({ params: Promise.resolve({ id }) })
+function renderPrompt(id: string) {
+  return ProjectPromptPage({ params: Promise.resolve({ id }) })
 }
 
 function renderVersion(id: string, versionId: string) {
@@ -99,7 +104,7 @@ function expectNoEditing(tree: unknown) {
   expect(findElement(tree, PromptMetadataEditor)).toBeNull()
 }
 
-describe('app/projects/[id]/pipeline/prompt — histórico de versões do prompt', () => {
+describe('app/projects/[id]/prompt — a tela do prompt', () => {
   let users: string[]
   let projs: string[]
 
@@ -134,7 +139,7 @@ describe('app/projects/[id]/pipeline/prompt — histórico de versões do prompt
     }
 
     auth.userId = admin
-    const props = historyOf(await renderHistory(project))
+    const props = historyOf(await renderPrompt(project))
     expect(props.versions.map((v) => v.versionNumber)).toEqual([3, 2, 1])
   })
 
@@ -148,7 +153,7 @@ describe('app/projects/[id]/pipeline/prompt — histórico de versões do prompt
     })
 
     auth.userId = admin
-    const props = historyOf(await renderHistory(project))
+    const props = historyOf(await renderPrompt(project))
     const [version] = props.versions
     expect(version.authorName).toBe('Ana Pesquisadora')
 
@@ -172,7 +177,7 @@ describe('app/projects/[id]/pipeline/prompt — histórico de versões do prompt
     })
 
     auth.userId = admin
-    const listText = metadataTextOf(PromptHistory(historyOf(await renderHistory(project))))
+    const listText = metadataTextOf(PromptHistory(historyOf(await renderPrompt(project))))
     expect(listText).toContain('Nome')
     expect(listText).toContain('só o nome')
     expect(listText).not.toContain('Descrição')
@@ -192,7 +197,7 @@ describe('app/projects/[id]/pipeline/prompt — histórico de versões do prompt
     auth.userId = admin
     expect(findElement(await renderVersion(project, versionId), PromptMetadataList)).toBeNull()
     expect(
-      findElement(PromptHistory(historyOf(await renderHistory(project))), PromptMetadataList),
+      findElement(PromptHistory(historyOf(await renderPrompt(project))), PromptMetadataList),
     ).toBeNull()
   })
 
@@ -206,7 +211,7 @@ describe('app/projects/[id]/pipeline/prompt — histórico de versões do prompt
     await addPromptVersion(ownerDb, project, admin, { versionNumber: 2 })
 
     auth.userId = admin
-    const [current, old] = historyOf(await renderHistory(project)).versions
+    const [current, old] = historyOf(await renderPrompt(project)).versions
 
     expect(current.isLatest).toBe(true)
     expect(current.isOpen).toBe(true)
@@ -225,7 +230,7 @@ describe('app/projects/[id]/pipeline/prompt — histórico de versões do prompt
     await addPromptVersion(ownerDb, project, admin, { usedAt: new Date().toISOString() })
 
     auth.userId = admin
-    const [version] = historyOf(await renderHistory(project)).versions
+    const [version] = historyOf(await renderPrompt(project)).versions
     expect(version.isLatest).toBe(true)
     expect(version.isOpen).toBe(false)
     expect(textOf(VersionBadges({ version }))).toContain('congelada')
@@ -236,7 +241,7 @@ describe('app/projects/[id]/pipeline/prompt — histórico de versões do prompt
     const project = await newProject(admin)
 
     auth.userId = admin
-    const props = historyOf(await renderHistory(project))
+    const props = historyOf(await renderPrompt(project))
     expect(props.versions).toEqual([])
     expect(textOf(PromptHistory(props))).toContain('Nenhuma versão do prompt ainda')
   })
@@ -278,7 +283,7 @@ describe('app/projects/[id]/pipeline/prompt — histórico de versões do prompt
     expect(textOf(VersionBadges(props))).toContain('congelada')
   })
 
-  it('nenhuma tela do histórico oferece editar ou apagar', async () => {
+  it('o histórico não oferece editar ou apagar nenhuma versão', async () => {
     const admin = await newUser('Admin')
     const project = await newProject(admin)
     const versionId = await addPromptVersion(ownerDb, project, admin, {
@@ -287,14 +292,69 @@ describe('app/projects/[id]/pipeline/prompt — histórico de versões do prompt
     })
 
     auth.userId = admin
-    const list = await renderHistory(project)
-    expectNoEditing(list)
+    const list = await renderPrompt(project)
     expectNoEditing(PromptHistory(historyOf(list)))
 
     expectNoEditing(await renderVersion(project, versionId))
   })
 
-  it('o Avaliador não acessa o histórico nem a versão', async () => {
+  it('a tela traz o editor, os dados da versão e o teste junto com o histórico', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin)
+    await addPromptVersion(ownerDb, project, admin, { text: 'Classifique a consulta.' })
+
+    auth.userId = admin
+    const tree = await renderPrompt(project)
+
+    const editor = findElement(tree, PromptEditor)
+    expect(editor).toBeTruthy()
+    expect(
+      (editor!.props as Parameters<typeof PromptEditor>[0]).version?.text,
+    ).toBe('Classifique a consulta.')
+
+    expect(findElement(tree, PromptMetadataEditor)).toBeTruthy()
+    expect(findElement(tree, PromptTest)).toBeTruthy()
+    expect(historyOf(tree).versions.map((v) => v.versionNumber)).toEqual([1])
+  })
+
+  it('o teste do prompt fica indisponível enquanto faltar definição, prompt ou item', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin)
+    await addPromptVersion(ownerDb, project, admin, { text: 'Classifique a consulta.' })
+    await addInputItem(ownerDb, project, admin, { name: 'Consulta 001' })
+
+    auth.userId = admin
+    const test = findElement(await renderPrompt(project), PromptTest)
+    expect(test).toBeTruthy()
+    expect((test!.props as Parameters<typeof PromptTest>[0]).ready).toBe(false)
+  })
+
+  it('com os três insumos, o teste libera e mostra o modelo e o pool de itens', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin)
+    await addCodebookVersion(ownerDb, project, admin)
+    await addPromptVersion(ownerDb, project, admin, { text: 'Classifique a consulta.' })
+    await addInputItem(ownerDb, project, admin, { name: 'Consulta 001' })
+
+    auth.userId = admin
+    const props = findElement(await renderPrompt(project), PromptTest)!
+      .props as Parameters<typeof PromptTest>[0]
+    expect(props.ready).toBe(true)
+    expect(props.model).toBe(llmModel())
+    expect(props.items.map((item) => item.name)).toEqual(['Consulta 001'])
+  })
+
+  it('a aba do prompt fica marcada como ativa', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin)
+
+    auth.userId = admin
+    const tabs = findElement(await renderPrompt(project), ProjectTabs)
+    expect(tabs).toBeTruthy()
+    expect((tabs!.props as Parameters<typeof ProjectTabs>[0]).active).toBe('prompt')
+  })
+
+  it('o Avaliador não acessa a tela nem a versão', async () => {
     const admin = await newUser('Admin')
     const evaluator = await newUser('Avaliador')
     const project = await newProject(admin)
@@ -302,7 +362,7 @@ describe('app/projects/[id]/pipeline/prompt — histórico de versões do prompt
     const versionId = await addPromptVersion(ownerDb, project, admin)
 
     auth.userId = evaluator
-    await expect(renderHistory(project)).rejects.toThrow('NEXT_NOTFOUND')
+    await expect(renderPrompt(project)).rejects.toThrow('NEXT_NOTFOUND')
     await expect(renderVersion(project, versionId)).rejects.toThrow('NEXT_NOTFOUND')
   })
 
@@ -312,8 +372,8 @@ describe('app/projects/[id]/pipeline/prompt — histórico de versões do prompt
     const project = await newProject(admin)
 
     auth.userId = outsider
-    const existing = await renderHistory(project).catch((e: Error) => e.message)
-    const missing = await renderHistory(crypto.randomUUID()).catch((e: Error) => e.message)
+    const existing = await renderPrompt(project).catch((e: Error) => e.message)
+    const missing = await renderPrompt(crypto.randomUUID()).catch((e: Error) => e.message)
     expect(existing).toBe('NEXT_NOTFOUND')
     expect(missing).toBe(existing)
   })
@@ -325,7 +385,7 @@ describe('app/projects/[id]/pipeline/prompt — histórico de versões do prompt
     await addPendingMember(ownerDb, project, pending)
 
     auth.userId = pending
-    await expect(renderHistory(project)).rejects.toThrow(
+    await expect(renderPrompt(project)).rejects.toThrow(
       `NEXT_REDIRECT:/projects/${project}/onboarding`,
     )
   })

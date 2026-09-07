@@ -177,7 +177,8 @@ export async function saveCodebook(
 
   if (stale) return { error: STALE }
 
-  revalidatePath(`/projects/${projectId}/pipeline`)
+  revalidatePath(`/projects/${projectId}/codebook`)
+  revalidatePath(`/projects/${projectId}`)
   return { ok: true, nonce: Date.now() }
 }
 
@@ -267,7 +268,8 @@ export async function savePrompt(
 
   if (stale) return { error: PROMPT_STALE }
 
-  revalidatePath(`/projects/${projectId}/pipeline`)
+  revalidatePath(`/projects/${projectId}/prompt`)
+  revalidatePath(`/projects/${projectId}`)
   return { ok: true, nonce: Date.now() }
 }
 
@@ -380,7 +382,8 @@ export async function savePromptMetadata(
 
   if (stale) return { error: METADATA_STALE }
 
-  revalidatePath(`/projects/${projectId}/pipeline`)
+  revalidatePath(`/projects/${projectId}/prompt`)
+  revalidatePath(`/projects/${projectId}`)
   return { ok: true, nonce: Date.now() }
 }
 
@@ -441,7 +444,8 @@ export async function createItem(
     }),
   )
 
-  revalidatePath(`/projects/${projectId}/pipeline`)
+  revalidatePath(`/projects/${projectId}/items`)
+  revalidatePath(`/projects/${projectId}`)
   return { ok: true, nonce: Date.now() }
 }
 
@@ -509,7 +513,8 @@ export async function updateItem(
   const failure = itemOutcomeError(outcome)
   if (failure) return failure
 
-  revalidatePath(`/projects/${projectId}/pipeline`)
+  revalidatePath(`/projects/${projectId}/items`)
+  revalidatePath(`/projects/${projectId}`)
   return { ok: true, nonce: Date.now() }
 }
 
@@ -535,7 +540,8 @@ export async function deleteItem(
   const failure = itemOutcomeError(outcome)
   if (failure) return failure
 
-  revalidatePath(`/projects/${projectId}/pipeline`)
+  revalidatePath(`/projects/${projectId}/items`)
+  revalidatePath(`/projects/${projectId}`)
   return { ok: true, nonce: Date.now() }
 }
 
@@ -694,6 +700,5 @@ export async function advancePhase(
   if (outcome.status === 'incomplete') return { error: outcome.message }
 
   revalidatePath(`/projects/${projectId}`)
-  revalidatePath(`/projects/${projectId}/pipeline`)
   return { ok: true, nonce: Date.now(), phase: PHASE_2 }
 }

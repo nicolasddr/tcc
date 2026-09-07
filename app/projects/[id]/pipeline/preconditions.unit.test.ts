@@ -61,12 +61,12 @@ describe('pendingRequirements', () => {
     for (const req of pendingRequirements(EMPTY_PIPELINE)) {
       expect(req.title.trim()).not.toBe('')
       expect(req.pending.trim()).not.toBe('')
-      expect(req.anchor.trim()).not.toBe('')
+      expect(req.route.trim()).not.toBe('')
     }
-    expect(PIPELINE_REQUIREMENTS.map((r) => r.anchor)).toEqual([
-      'definicoes',
+    expect(PIPELINE_REQUIREMENTS.map((r) => r.route)).toEqual([
+      'codebook',
       'prompt',
-      'itens',
+      'items',
     ])
   })
 })

@@ -1,10 +1,10 @@
 import { notFound } from 'next/navigation'
 import { requireUserId } from '@/lib/supabase/server'
 import { transaction } from '@/lib/db'
-import { loadPipelineAccess, requirePipelineAdmin } from '../../access'
-import { hasPromptMetadata, loadPromptVersion } from '../../prompt'
-import { VersionBadges, VersionMeta } from '../../version-history'
-import { PromptMetadataList } from '../../prompt-metadata'
+import { loadPipelineAccess, requirePipelineAdmin } from '../../pipeline/access'
+import { hasPromptMetadata, loadPromptVersion } from '../../pipeline/prompt'
+import { VersionBadges, VersionMeta } from '../../pipeline/version-history'
+import { PromptMetadataList } from '../../pipeline/prompt-metadata'
 import { Card } from '@/app/components/ui/card'
 import { Section } from '@/app/components/ui/section'
 import {
@@ -37,9 +37,7 @@ export default async function PromptVersionPage({
       width="wide"
       header={
         <TopBar>
-          <BackLink href={`/projects/${id}/pipeline/prompt`}>
-            Voltar ao histórico
-          </BackLink>
+          <BackLink href={`/projects/${id}/prompt`}>Voltar ao prompt</BackLink>
         </TopBar>
       }
     >

@@ -3,22 +3,24 @@ import {
   ChartIcon,
   RepeatIcon,
   BookIcon,
-  CheckCircleIcon,
-  HistoryIcon,
-  SlidersIcon,
+  FileTextIcon,
+  ListIcon,
+  UsersIcon,
 } from '@/app/components/ui/icons'
 
 const soon = 'Ainda não implementado'
 
-export type ProjectTab = 'overview' | 'pipeline'
+export type ProjectTab = 'overview' | 'codebook' | 'prompt' | 'items' | 'members'
 
 export function ProjectTabs({
   projectId,
   isAdmin,
+  isActive = isAdmin,
   active = 'overview',
 }: {
   projectId: string
   isAdmin: boolean
+  isActive?: boolean
   active?: ProjectTab
 }) {
   return (
@@ -30,27 +32,50 @@ export function ProjectTabs({
       >
         Visão geral
       </Tab>
+
       {isAdmin ? (
-        <Tab
-          icon={<SlidersIcon />}
-          href={`/projects/${projectId}/pipeline`}
-          active={active === 'pipeline'}
-        >
-          Configuração
-        </Tab>
+        <>
+          <Tab
+            icon={<BookIcon />}
+            href={`/projects/${projectId}/codebook`}
+            active={active === 'codebook'}
+          >
+            Codebook
+          </Tab>
+          <Tab
+            icon={<FileTextIcon />}
+            href={`/projects/${projectId}/prompt`}
+            active={active === 'prompt'}
+          >
+            Prompt
+          </Tab>
+          <Tab
+            icon={<ListIcon />}
+            href={`/projects/${projectId}/items`}
+            active={active === 'items'}
+          >
+            Itens
+          </Tab>
+        </>
       ) : null}
+
       <Tab icon={<RepeatIcon />} hint={soon}>
-        Iterações
+        Rodadas
       </Tab>
-      <Tab icon={<BookIcon />} hint={soon}>
-        Codebook
-      </Tab>
-      <Tab icon={<CheckCircleIcon />} hint={soon}>
-        Avaliações
-      </Tab>
-      <Tab icon={<HistoryIcon />} hint={soon}>
-        Histórico
-      </Tab>
+
+      {isActive ? (
+        <Tab
+          icon={<UsersIcon />}
+          href={`/projects/${projectId}/members`}
+          active={active === 'members'}
+        >
+          Membros
+        </Tab>
+      ) : (
+        <Tab icon={<UsersIcon />} hint="Conclua seu onboarding para ver a equipe">
+          Membros
+        </Tab>
+      )}
     </TabList>
   )
 }

@@ -34,7 +34,7 @@ export function CodebookHistory({
               </span>
 
               <ButtonLink
-                href={`/projects/${projectId}/pipeline/codebook/${version.id}`}
+                href={`/projects/${projectId}/codebook/${version.id}`}
                 variant="secondary"
                 size="sm"
               >

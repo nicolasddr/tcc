@@ -12,19 +12,22 @@ import { groupMembers } from '../members'
 import { LeaveProjectButton } from './member-actions'
 import { ProjectTabs } from './project-tabs'
 import { PhaseBar } from './phase-bar'
-import { PHASE_1 } from './pipeline/preconditions'
+import { PipelineChecklist } from './pipeline/pipeline-checklist'
+import { EMPTY_PIPELINE, PHASE_1 } from './pipeline/preconditions'
+import { loadCodebook } from './pipeline/codebook'
+import { loadPrompt } from './pipeline/prompt'
+import { countItems } from './pipeline/items'
+import Link from '@/app/components/app-link'
 import { SubmitButton } from '@/app/components/submit-button'
 import { ButtonLink } from '@/app/components/ui/button'
 import { Badge, StatusBadge } from '@/app/components/ui/badge'
-import { EmptyState } from '@/app/components/ui/empty-state'
-import { Panel, Callout } from '@/app/components/ui/panel'
+import { Callout } from '@/app/components/ui/panel'
 import { Chip, ChipLink } from '@/app/components/ui/chip'
 import { StatCard } from '@/app/components/ui/stat'
 import { Section } from '@/app/components/ui/section'
 import { PageShell, TopBar, BackLink, PageTitle } from '@/app/components/ui/shell'
 import {
   UsersIcon,
-  BookIcon,
   ArrowRightIcon,
   SlidersIcon,
   TagIcon,
@@ -33,7 +36,13 @@ import {
   ChevronRightIcon,
 } from '@/app/components/ui/icons'
 
-const soonBadge = <Badge tone="neutral">em breve</Badge>
+function OpenLink({ href, children }: { href: string; children: React.ReactNode }) {
+  return (
+    <Link href={href} className="font-semibold text-brand hover:text-brand-hover">
+      {children}
+    </Link>
+  )
+}
 
 export default async function ProjectPage({
   params,
@@ -44,7 +53,7 @@ export default async function ProjectPage({
   const userId = await requireUserId()
 
 
-  const { project, memberships, pendingInvitation, memberRows } = await transaction(async (tx) => {
+  const { project, memberships, pendingInvitation, memberRows, artifacts } = await transaction(async (tx) => {
     const [project] = await tx
       .select({
         id: projects.id,
@@ -88,7 +97,15 @@ export default async function ProjectPage({
       tx,
     )
 
-    return { project, memberships, pendingInvitation, memberRows }
+    const artifacts = viewerIsAdmin
+      ? {
+          codebook: await loadCodebook(id, tx),
+          prompt: await loadPrompt(id, tx),
+          items: await countItems(id, tx),
+        }
+      : null
+
+    return { project, memberships, pendingInvitation, memberRows, artifacts }
   })
   if (!project) notFound()
 
@@ -156,7 +173,7 @@ export default async function ProjectPage({
               href={`/projects/${project.id}/settings`}
               icon={<SlidersIcon />}
             >
-              Configurações
+              Ajustes
             </ChipLink>
           ) : null}
         </div>
@@ -217,14 +234,18 @@ export default async function ProjectPage({
 
       {isMember ? (
         <>
-          <ProjectTabs projectId={project.id} isAdmin={isAdmin} />
+          <ProjectTabs
+            projectId={project.id}
+            isAdmin={isAdmin}
+            isActive={isActiveMember}
+          />
 
           <PhaseBar
             className="mt-4"
             current={project.phase}
             action={
               isAdmin && project.status === 'active' && project.phase === PHASE_1 ? (
-                <ButtonLink href={`/projects/${project.id}/pipeline#avancar`}>
+                <ButtonLink href="#avancar">
                   Avançar fase
                   <ArrowRightIcon />
                 </ButtonLink>
@@ -241,32 +262,79 @@ export default async function ProjectPage({
               }
             />
 
-            <StatCard
-              label="Concordância"
-              value="—"
-              hint="ICR entre avaliadores"
-              badge={soonBadge}
-            />
+            {artifacts ? (
+              <>
+                <StatCard
+                  label="Codebook"
+                  value={artifacts.codebook.definitions.length}
+                  suffix={
+                    artifacts.codebook.definitions.length === 1
+                      ? 'definição'
+                      : 'definições'
+                  }
+                  hint={
+                    <>
+                      {artifacts.codebook.version
+                        ? `Versão ${artifacts.codebook.version.versionNumber} vigente · `
+                        : 'Nenhuma versão ainda · '}
+                      <OpenLink href={`/projects/${project.id}/codebook`}>
+                        Abrir codebook
+                      </OpenLink>
+                    </>
+                  }
+                />
 
-            <StatCard
-              label="Avaliações"
-              value="—"
-              hint="Respostas avaliadas"
-              badge={soonBadge}
-            />
+                <StatCard
+                  label="Prompt"
+                  value={
+                    artifacts.prompt.version
+                      ? `v${artifacts.prompt.version.versionNumber}`
+                      : '—'
+                  }
+                  suffix={artifacts.prompt.version ? 'vigente' : undefined}
+                  hint={
+                    <>
+                      {artifacts.prompt.version?.name
+                        ? `${artifacts.prompt.version.name} · `
+                        : artifacts.prompt.version
+                          ? 'Sem nome · '
+                          : 'Nenhuma versão ainda · '}
+                      <OpenLink href={`/projects/${project.id}/prompt`}>
+                        Abrir prompt
+                      </OpenLink>
+                    </>
+                  }
+                />
+
+                <StatCard
+                  label="Itens de entrada"
+                  value={artifacts.items}
+                  suffix="no pool"
+                  hint={
+                    <OpenLink href={`/projects/${project.id}/items`}>
+                      Abrir itens
+                    </OpenLink>
+                  }
+                />
+              </>
+            ) : null}
           </div>
 
-          <Panel
-            className="mt-3"
-            title="Codebook"
-            icon={<BookIcon />}
-            action={soonBadge}
-          >
-            <EmptyState>
-              Nenhuma versão registrada. As definições e os critérios que orientam a
-              avaliação entram aqui.
-            </EmptyState>
-          </Panel>
+          {artifacts ? (
+            <div id="avancar" className="scroll-mt-6">
+              <PipelineChecklist
+                className="mt-3"
+                projectId={project.id}
+                phase={project.phase}
+                inputs={{
+                  ...EMPTY_PIPELINE,
+                  definitions: artifacts.codebook.definitions.length,
+                  promptText: artifacts.prompt.version?.text ?? null,
+                  items: artifacts.items,
+                }}
+              />
+            </div>
+          ) : null}
         </>
       ) : null}
 

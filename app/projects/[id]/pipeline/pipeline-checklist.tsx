@@ -1,3 +1,4 @@
+import Link from '@/app/components/app-link'
 import { Card } from '@/app/components/ui/card'
 import { Badge } from '@/app/components/ui/badge'
 import { Panel } from '@/app/components/ui/panel'
@@ -69,12 +70,12 @@ export function PipelineChecklist({
                 {done ? (
                   <Badge tone="success">pronto</Badge>
                 ) : (
-                  <a
-                    href={`#${req.anchor}`}
+                  <Link
+                    href={`/projects/${projectId}/${req.route}`}
                     className="text-[13px] font-semibold text-brand transition-colors hover:text-brand-hover"
                   >
                     Resolver
-                  </a>
+                  </Link>
                 )}
               </Card>
             </li>

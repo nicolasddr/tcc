@@ -6,11 +6,13 @@ export type PipelineInputs = {
   items: number
 }
 
+export type PipelineRoute = 'codebook' | 'prompt' | 'items'
+
 export type PipelineRequirement = {
   key: PipelineInputKey
   title: string
   pending: string
-  anchor: string
+  route: PipelineRoute
 }
 
 export const EMPTY_PIPELINE: PipelineInputs = {
@@ -24,19 +26,19 @@ export const PIPELINE_REQUIREMENTS: readonly PipelineRequirement[] = [
     key: 'definition',
     title: 'Definição',
     pending: 'Cadastre ao menos uma definição para estruturar a tarefa da LLM.',
-    anchor: 'definicoes',
+    route: 'codebook',
   },
   {
     key: 'prompt',
     title: 'Texto do prompt',
     pending: 'Escreva o texto do prompt que será enviado à LLM.',
-    anchor: 'prompt',
+    route: 'prompt',
   },
   {
     key: 'item',
     title: 'Item de entrada',
     pending: 'Cadastre ao menos um item de entrada no pool do projeto.',
-    anchor: 'itens',
+    route: 'items',
   },
 ] as const
 
@@ -73,6 +75,7 @@ export function missingInputsMessage(pending: readonly PipelineRequirement[]): s
 
   return (
     `Não foi possível avançar para a Fase 2. Ainda falta: ${missingInputsList(pending)}. ` +
-    'Cadastre o que falta na configuração da Fase 1 e tente de novo.'
+    'Cadastre o que falta na tela do artefato correspondente (Codebook, Prompt ou Itens) ' +
+    'e tente de novo.'
   )
 }

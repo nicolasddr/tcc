@@ -34,7 +34,7 @@ export function PromptHistory({
               </span>
 
               <ButtonLink
-                href={`/projects/${projectId}/pipeline/prompt/${version.id}`}
+                href={`/projects/${projectId}/prompt/${version.id}`}
                 variant="secondary"
                 size="sm"
               >

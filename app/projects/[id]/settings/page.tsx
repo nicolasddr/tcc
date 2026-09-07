@@ -57,7 +57,7 @@ export default async function ProjectSettingsPage({
         </TopBar>
       }
     >
-      <PageTitle>Configurações do projeto</PageTitle>
+      <PageTitle>Ajustes do projeto</PageTitle>
       <PageSubtitle>{project.name}</PageSubtitle>
 
       <Section
@@ -67,6 +67,15 @@ export default async function ProjectSettingsPage({
       >
         <ButtonLink href={`/projects/${id}/questions`} variant="secondary">
           Gerenciar perguntas de onboarding
+        </ButtonLink>
+      </Section>
+
+      <Section
+        title="Equipe do projeto"
+        hint="Convidar avaliadores, acompanhar quem participa e dar a si mesmo o papel de Avaliador acontece na tela de Membros."
+      >
+        <ButtonLink href={`/projects/${id}/members`} variant="secondary">
+          Gerenciar membros
         </ButtonLink>
       </Section>
 

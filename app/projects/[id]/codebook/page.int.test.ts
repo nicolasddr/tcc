@@ -16,8 +16,8 @@ vi.mock('next/navigation', () => ({
   },
 }))
 
-import CodebookHistoryPage from '@/app/projects/[id]/pipeline/codebook/page'
-import CodebookVersionPage from '@/app/projects/[id]/pipeline/codebook/[versionId]/page'
+import ProjectCodebookPage from '@/app/projects/[id]/codebook/page'
+import CodebookVersionPage from '@/app/projects/[id]/codebook/[versionId]/page'
 import { CodebookHistory } from '@/app/projects/[id]/pipeline/codebook-history'
 import type { CodebookVersionSummary } from '@/app/projects/[id]/pipeline/codebook'
 import {
@@ -26,6 +26,7 @@ import {
 } from '@/app/projects/[id]/pipeline/version-history'
 import { DefinitionList } from '@/app/projects/[id]/pipeline/definition-list'
 import { CodebookEditor } from '@/app/projects/[id]/pipeline/codebook-editor'
+import { ProjectTabs } from '@/app/projects/[id]/project-tabs'
 import { Button } from '@/app/components/ui/button'
 import { formatDate } from '@/app/notifications/labels'
 import { ownerDb } from '@/lib/db'
@@ -71,8 +72,8 @@ function textOf(node: unknown): string {
 type HistoryProps = Parameters<typeof CodebookHistory>[0]
 type DefinitionListProps = Parameters<typeof DefinitionList>[0]
 
-function renderHistory(id: string) {
-  return CodebookHistoryPage({ params: Promise.resolve({ id }) })
+function renderCodebook(id: string) {
+  return ProjectCodebookPage({ params: Promise.resolve({ id }) })
 }
 
 function renderVersion(id: string, versionId: string) {
@@ -98,7 +99,7 @@ function expectNoEditing(tree: unknown) {
   expect(findElement(tree, CodebookEditor)).toBeNull()
 }
 
-describe('app/projects/[id]/pipeline/codebook — histórico de versões do codebook', () => {
+describe('app/projects/[id]/codebook — a tela do codebook', () => {
   let users: string[]
   let projs: string[]
 
@@ -133,7 +134,7 @@ describe('app/projects/[id]/pipeline/codebook — histórico de versões do code
     }
 
     auth.userId = admin
-    const props = historyOf(await renderHistory(project))
+    const props = historyOf(await renderCodebook(project))
     expect(props.versions.map((v) => v.versionNumber)).toEqual([3, 2, 1])
   })
 
@@ -145,7 +146,7 @@ describe('app/projects/[id]/pipeline/codebook — histórico de versões do code
     })
 
     auth.userId = admin
-    const props = historyOf(await renderHistory(project))
+    const props = historyOf(await renderCodebook(project))
     const [version] = props.versions
     expect(version.authorName).toBe('Ana Pesquisadora')
 
@@ -164,7 +165,7 @@ describe('app/projects/[id]/pipeline/codebook — histórico de versões do code
     await addCodebookVersion(ownerDb, project, admin, { note: null })
 
     auth.userId = admin
-    const props = historyOf(await renderHistory(project))
+    const props = historyOf(await renderCodebook(project))
     expect(props.versions[0].note).toBeNull()
     expect(textOf(CodebookHistory(props))).toContain('Versão 1')
   })
@@ -179,7 +180,7 @@ describe('app/projects/[id]/pipeline/codebook — histórico de versões do code
     await addCodebookVersion(ownerDb, project, admin, { versionNumber: 2 })
 
     auth.userId = admin
-    const [current, old] = historyOf(await renderHistory(project)).versions
+    const [current, old] = historyOf(await renderCodebook(project)).versions
 
     expect(current.isLatest).toBe(true)
     expect(current.isOpen).toBe(true)
@@ -200,7 +201,7 @@ describe('app/projects/[id]/pipeline/codebook — histórico de versões do code
     })
 
     auth.userId = admin
-    const [version] = historyOf(await renderHistory(project)).versions
+    const [version] = historyOf(await renderCodebook(project)).versions
     expect(version.isLatest).toBe(true)
     expect(version.isOpen).toBe(false)
     expect(textOf(VersionBadges({ version }))).toContain('congelada')
@@ -211,7 +212,7 @@ describe('app/projects/[id]/pipeline/codebook — histórico de versões do code
     const project = await newProject(admin)
 
     auth.userId = admin
-    const props = historyOf(await renderHistory(project))
+    const props = historyOf(await renderCodebook(project))
     expect(props.versions).toEqual([])
     expect(textOf(CodebookHistory(props))).toContain('Nenhuma versão do codebook ainda')
   })
@@ -265,7 +266,7 @@ describe('app/projects/[id]/pipeline/codebook — histórico de versões do code
     expect(textOf(VersionBadges(props))).toContain('congelada')
   })
 
-  it('nenhuma tela do histórico oferece editar ou apagar', async () => {
+  it('o histórico não oferece editar ou apagar nenhuma versão', async () => {
     const admin = await newUser('Admin')
     const project = await newProject(admin)
     const versionId = await addCodebookVersion(ownerDb, project, admin, {
@@ -274,8 +275,7 @@ describe('app/projects/[id]/pipeline/codebook — histórico de versões do code
     })
 
     auth.userId = admin
-    const list = await renderHistory(project)
-    expectNoEditing(list)
+    const list = await renderCodebook(project)
     expectNoEditing(CodebookHistory(historyOf(list)))
 
     const detail = await renderVersion(project, versionId)
@@ -283,7 +283,42 @@ describe('app/projects/[id]/pipeline/codebook — histórico de versões do code
     expectNoEditing(DefinitionList(definitionsOf(detail)))
   })
 
-  it('o Avaliador não acessa o histórico nem a versão', async () => {
+  it('a tela traz o editor das definições vigentes junto com o histórico', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin)
+    await addCodebookVersion(ownerDb, project, admin, {
+      definitions: [
+        { title: 'Informacional', type: 'category' },
+        { title: 'Transacional', type: 'category' },
+      ],
+    })
+
+    auth.userId = admin
+    const tree = await renderCodebook(project)
+
+    const editor = findElement(tree, CodebookEditor)
+    expect(editor).toBeTruthy()
+
+    const props = editor!.props as Parameters<typeof CodebookEditor>[0]
+    expect(props.definitions.map((d) => d.title)).toEqual([
+      'Informacional',
+      'Transacional',
+    ])
+    expect(props.isOpen).toBe(true)
+    expect(historyOf(tree).versions.map((v) => v.versionNumber)).toEqual([1])
+  })
+
+  it('a aba do codebook fica marcada como ativa', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin)
+
+    auth.userId = admin
+    const tabs = findElement(await renderCodebook(project), ProjectTabs)
+    expect(tabs).toBeTruthy()
+    expect((tabs!.props as Parameters<typeof ProjectTabs>[0]).active).toBe('codebook')
+  })
+
+  it('o Avaliador não acessa a tela nem a versão', async () => {
     const admin = await newUser('Admin')
     const evaluator = await newUser('Avaliador')
     const project = await newProject(admin)
@@ -291,7 +326,7 @@ describe('app/projects/[id]/pipeline/codebook — histórico de versões do code
     const versionId = await addCodebookVersion(ownerDb, project, admin)
 
     auth.userId = evaluator
-    await expect(renderHistory(project)).rejects.toThrow('NEXT_NOTFOUND')
+    await expect(renderCodebook(project)).rejects.toThrow('NEXT_NOTFOUND')
     await expect(renderVersion(project, versionId)).rejects.toThrow('NEXT_NOTFOUND')
   })
 
@@ -301,8 +336,8 @@ describe('app/projects/[id]/pipeline/codebook — histórico de versões do code
     const project = await newProject(admin)
 
     auth.userId = outsider
-    const existing = await renderHistory(project).catch((e: Error) => e.message)
-    const missing = await renderHistory(crypto.randomUUID()).catch((e: Error) => e.message)
+    const existing = await renderCodebook(project).catch((e: Error) => e.message)
+    const missing = await renderCodebook(crypto.randomUUID()).catch((e: Error) => e.message)
     expect(existing).toBe('NEXT_NOTFOUND')
     expect(missing).toBe(existing)
   })
@@ -314,7 +349,7 @@ describe('app/projects/[id]/pipeline/codebook — histórico de versões do code
     await addPendingMember(ownerDb, project, pending)
 
     auth.userId = pending
-    await expect(renderHistory(project)).rejects.toThrow(
+    await expect(renderCodebook(project)).rejects.toThrow(
       `NEXT_REDIRECT:/projects/${project}/onboarding`,
     )
   })

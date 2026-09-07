@@ -1,10 +1,10 @@
 import { notFound } from 'next/navigation'
 import { requireUserId } from '@/lib/supabase/server'
 import { transaction } from '@/lib/db'
-import { loadPipelineAccess, requirePipelineAdmin } from '../../access'
-import { loadCodebookVersion } from '../../codebook'
-import { VersionBadges, VersionMeta } from '../../version-history'
-import { DefinitionList } from '../../definition-list'
+import { loadPipelineAccess, requirePipelineAdmin } from '../../pipeline/access'
+import { loadCodebookVersion } from '../../pipeline/codebook'
+import { VersionBadges, VersionMeta } from '../../pipeline/version-history'
+import { DefinitionList } from '../../pipeline/definition-list'
 import { Card } from '@/app/components/ui/card'
 import { EmptyState } from '@/app/components/ui/empty-state'
 import { Section } from '@/app/components/ui/section'
@@ -40,9 +40,7 @@ export default async function CodebookVersionPage({
       width="wide"
       header={
         <TopBar>
-          <BackLink href={`/projects/${id}/pipeline/codebook`}>
-            Voltar ao histórico
-          </BackLink>
+          <BackLink href={`/projects/${id}/codebook`}>Voltar ao codebook</BackLink>
         </TopBar>
       }
     >
