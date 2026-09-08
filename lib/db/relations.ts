@@ -1,5 +1,5 @@
 import { relations } from "drizzle-orm/relations";
-import { profiles, projects, superAdmins, notifications, platformPermissionRequests, projectMembers, projectInvitations, onboardingResponses, onboardingQuestions, codebookVersions, codebookDefinitions, codebookCriteria, promptVersions, inputItems } from "./schema";
+import { profiles, projects, superAdmins, notifications, platformPermissionRequests, projectMembers, projectInvitations, onboardingResponses, onboardingQuestions, codebookVersions, codebookDefinitions, codebookCriteria, promptVersions, inputItems, rounds } from "./schema";
 
 export const projectsRelations = relations(projects, ({one, many}) => ({
 	profile: one(profiles, {
@@ -12,6 +12,7 @@ export const projectsRelations = relations(projects, ({one, many}) => ({
 	codebookVersions: many(codebookVersions),
 	promptVersions: many(promptVersions),
 	inputItems: many(inputItems),
+	rounds: many(rounds),
 }));
 
 export const profilesRelations = relations(profiles, ({many}) => ({
@@ -39,6 +40,7 @@ export const profilesRelations = relations(profiles, ({many}) => ({
 	codebookVersions: many(codebookVersions),
 	promptVersions: many(promptVersions),
 	inputItems: many(inputItems),
+	rounds: many(rounds),
 }));
 
 export const superAdminsRelations = relations(superAdmins, ({one}) => ({
@@ -133,6 +135,7 @@ export const codebookVersionsRelations = relations(codebookVersions, ({one, many
 	}),
 	codebookDefinitions: many(codebookDefinitions),
 	codebookCriteria: many(codebookCriteria),
+	rounds: many(rounds),
 }));
 
 export const codebookDefinitionsRelations = relations(codebookDefinitions, ({one, many}) => ({
@@ -154,7 +157,7 @@ export const codebookCriteriaRelations = relations(codebookCriteria, ({one}) => 
 	}),
 }));
 
-export const promptVersionsRelations = relations(promptVersions, ({one}) => ({
+export const promptVersionsRelations = relations(promptVersions, ({one, many}) => ({
 	project: one(projects, {
 		fields: [promptVersions.projectId],
 		references: [projects.id]
@@ -163,6 +166,7 @@ export const promptVersionsRelations = relations(promptVersions, ({one}) => ({
 		fields: [promptVersions.createdBy],
 		references: [profiles.id]
 	}),
+	rounds: many(rounds),
 }));
 
 export const inputItemsRelations = relations(inputItems, ({one}) => ({
@@ -172,6 +176,25 @@ export const inputItemsRelations = relations(inputItems, ({one}) => ({
 	}),
 	profile: one(profiles, {
 		fields: [inputItems.createdBy],
+		references: [profiles.id]
+	}),
+}));
+
+export const roundsRelations = relations(rounds, ({one}) => ({
+	project: one(projects, {
+		fields: [rounds.projectId],
+		references: [projects.id]
+	}),
+	codebookVersion: one(codebookVersions, {
+		fields: [rounds.codebookVersionId],
+		references: [codebookVersions.id]
+	}),
+	promptVersion: one(promptVersions, {
+		fields: [rounds.promptVersionId],
+		references: [promptVersions.id]
+	}),
+	profile: one(profiles, {
+		fields: [rounds.createdBy],
 		references: [profiles.id]
 	}),
 }));

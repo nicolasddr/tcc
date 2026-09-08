@@ -10,7 +10,13 @@ import {
 
 const soon = 'Ainda não implementado'
 
-export type ProjectTab = 'overview' | 'codebook' | 'prompt' | 'items' | 'members'
+export type ProjectTab =
+  | 'overview'
+  | 'codebook'
+  | 'prompt'
+  | 'items'
+  | 'rounds'
+  | 'members'
 
 export function ProjectTabs({
   projectId,
@@ -59,9 +65,19 @@ export function ProjectTabs({
         </>
       ) : null}
 
-      <Tab icon={<RepeatIcon />} hint={soon}>
-        Rodadas
-      </Tab>
+      {isAdmin ? (
+        <Tab
+          icon={<RepeatIcon />}
+          href={`/projects/${projectId}/rounds`}
+          active={active === 'rounds'}
+        >
+          Rodadas
+        </Tab>
+      ) : (
+        <Tab icon={<RepeatIcon />} hint={soon}>
+          Rodadas
+        </Tab>
+      )}
 
       {isActive ? (
         <Tab

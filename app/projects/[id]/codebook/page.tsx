@@ -6,6 +6,7 @@ import { loadCodebook, listCodebookVersions } from '../pipeline/codebook'
 import { CodebookEditor } from '../pipeline/codebook-editor'
 import { CodebookHistory } from '../pipeline/codebook-history'
 import { PHASE_2 } from '../pipeline/preconditions'
+import { loadOpenRound } from '../rounds/rounds'
 import { ProjectTabs } from '../project-tabs'
 import { defaultDefinitionType } from '@/app/projects/definition-types'
 import { Section } from '@/app/components/ui/section'
@@ -25,14 +26,15 @@ export default async function ProjectCodebookPage({
   const { id } = await params
   const userId = await requireUserId()
 
-  const { access, codebook, versions } = await transaction(async (tx) => {
+  const { access, codebook, versions, openRound } = await transaction(async (tx) => {
     const access = await loadPipelineAccess(id, userId, tx)
     const projectId = access.project?.id
 
     const codebook = projectId ? await loadCodebook(projectId, tx) : null
     const versions = projectId ? await listCodebookVersions(projectId, tx) : []
+    const openRound = projectId ? await loadOpenRound(projectId, tx) : null
 
-    return { access, codebook, versions }
+    return { access, codebook, versions, openRound }
   })
 
   const project = requirePipelineAdmin(access, id)
@@ -65,6 +67,7 @@ export default async function ProjectCodebookPage({
           phase={project.phase}
           version={codebook.version}
           isOpen={codebook.isOpen}
+          openRoundNumber={openRound?.roundNumber ?? null}
           definitions={codebook.definitions}
           criteria={codebook.criteria}
           defaultType={defaultDefinitionType(project.taskType)}

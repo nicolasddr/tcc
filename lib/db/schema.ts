@@ -354,3 +354,42 @@ export const inputItems = pgTable("input_items", {
 	check("ii_content_len", sql`char_length(content) <= 50000`),
 	check("ii_content_not_blank", sql`btrim(content) <> ''`),
 ]);
+
+export const rounds = pgTable("rounds", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	projectId: uuid("project_id").notNull(),
+	roundNumber: integer("round_number").notNull(),
+	status: text().default('open').notNull(),
+	codebookVersionId: uuid("codebook_version_id").notNull(),
+	promptVersionId: uuid("prompt_version_id").notNull(),
+	createdBy: uuid("created_by").notNull(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	closedAt: timestamp("closed_at", { withTimezone: true, mode: 'string' }),
+}, (table) => [
+	index("rd_project_number").using("btree", table.projectId.asc().nullsLast(), table.roundNumber.asc().nullsLast()),
+	uniqueIndex("rd_one_open_per_project").using("btree", table.projectId.asc().nullsLast()).where(sql`(status = 'open'::text)`),
+	foreignKey({
+			columns: [table.projectId],
+			foreignColumns: [projects.id],
+			name: "rounds_project_id_fkey"
+		}).onDelete("cascade"),
+	foreignKey({
+			columns: [table.codebookVersionId],
+			foreignColumns: [codebookVersions.id],
+			name: "rounds_codebook_version_id_fkey"
+		}),
+	foreignKey({
+			columns: [table.promptVersionId],
+			foreignColumns: [promptVersions.id],
+			name: "rounds_prompt_version_id_fkey"
+		}),
+	foreignKey({
+			columns: [table.createdBy],
+			foreignColumns: [profiles.id],
+			name: "rounds_created_by_fkey"
+		}).onDelete("restrict"),
+	unique("rd_unique_project_number").on(table.projectId, table.roundNumber),
+	check("rounds_status_check", sql`status = ANY (ARRAY['open'::text, 'closed'::text])`),
+	check("rd_round_number_positive", sql`round_number >= 1`),
+	check("rd_closed_at_matches_status", sql`(status = 'open'::text AND closed_at IS NULL) OR (status = 'closed'::text AND closed_at IS NOT NULL)`),
+]);

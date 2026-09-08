@@ -58,14 +58,16 @@ export function definitionsWithoutCriteria<D extends DefinitionKey>(
   )
 }
 
+export function quotedList(titles: readonly string[]): string {
+  const named = titles.map((title) => `“${title}”`)
+  if (named.length <= 1) return named[0] ?? ''
+  return `${named.slice(0, -1).join(', ')} e ${named[named.length - 1]}`
+}
+
 export function missingCriteriaMessage(titles: readonly string[]): string {
   if (titles.length === 0) return ''
 
-  const named = titles.map((title) => `“${title}”`)
-  const list =
-    named.length === 1
-      ? named[0]
-      : `${named.slice(0, -1).join(', ')} e ${named[named.length - 1]}`
+  const list = quotedList(titles)
 
   return titles.length === 1
     ? `A definição ${list} está sem nenhum critério. Crie um critério nela, ou um critério geral que valha para todas as definições, e salve de novo.`

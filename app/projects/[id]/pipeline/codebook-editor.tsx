@@ -22,6 +22,7 @@ import { EmptyState } from '@/app/components/ui/empty-state'
 import { moveBy } from '@/lib/reorder'
 import { PHASE_2 } from './preconditions'
 import { definitionsWithoutCriteria, missingCriteriaMessage } from './criteria'
+import { codebookLockedMessage } from '../rounds/preconditions'
 import { NotesPerResponse } from './criteria-summary'
 import {
   CODEBOOK_NOTE_MAX,
@@ -434,11 +435,48 @@ function CodebookFields({
   )
 }
 
+export function CodebookReadOnly({
+  version,
+  isOpen,
+  openRoundNumber,
+  definitions,
+  criteria,
+  inPhase2,
+}: {
+  version: CodebookVersion | null
+  isOpen: boolean
+  openRoundNumber: number | null
+  definitions: CodebookDefinition[]
+  criteria: CodebookCriterion[]
+  inPhase2: boolean
+}) {
+  return (
+    <div className="flex flex-col gap-4">
+      <VersionStatus version={version} isOpen={isOpen} />
+      {openRoundNumber !== null ? (
+        <Alert tone="notice">{codebookLockedMessage(openRoundNumber)}</Alert>
+      ) : null}
+      <TypeLegend />
+      {definitions.length === 0 ? (
+        <EmptyState>Esta versão não tem definições.</EmptyState>
+      ) : (
+        <>
+          <DefinitionList definitions={definitions} criteria={criteria} />
+          {inPhase2 ? (
+            <NotesPerResponse definitions={definitions} criteria={criteria} />
+          ) : null}
+        </>
+      )}
+    </div>
+  )
+}
+
 export function CodebookEditor({
   projectId,
   phase,
   version,
   isOpen,
+  openRoundNumber = null,
   definitions,
   criteria,
   defaultType,
@@ -447,6 +485,7 @@ export function CodebookEditor({
   phase: number
   version: CodebookVersion | null
   isOpen: boolean
+  openRoundNumber?: number | null
   definitions: CodebookDefinition[]
   criteria: CodebookCriterion[]
   defaultType: DefinitionType | null
@@ -454,22 +493,16 @@ export function CodebookEditor({
   const inPhase2 = phase >= PHASE_2
   const [state, submit, pending] = useActionState(saveCodebook, initialState)
 
-  if (!isOpen) {
+  if (openRoundNumber !== null) {
     return (
-      <div className="flex flex-col gap-4">
-        <VersionStatus version={version} isOpen={isOpen} />
-        <TypeLegend />
-        {definitions.length === 0 ? (
-          <EmptyState>Esta versão não tem definições.</EmptyState>
-        ) : (
-          <>
-            <DefinitionList definitions={definitions} criteria={criteria} />
-            {inPhase2 ? (
-              <NotesPerResponse definitions={definitions} criteria={criteria} />
-            ) : null}
-          </>
-        )}
-      </div>
+      <CodebookReadOnly
+        version={version}
+        isOpen={isOpen}
+        openRoundNumber={openRoundNumber}
+        definitions={definitions}
+        criteria={criteria}
+        inPhase2={inPhase2}
+      />
     )
   }
 

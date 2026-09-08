@@ -26,7 +26,11 @@ import {
   VersionMeta,
 } from '@/app/projects/[id]/pipeline/version-history'
 import { DefinitionList } from '@/app/projects/[id]/pipeline/definition-list'
-import { CodebookEditor } from '@/app/projects/[id]/pipeline/codebook-editor'
+import {
+  CodebookEditor,
+  CodebookReadOnly,
+} from '@/app/projects/[id]/pipeline/codebook-editor'
+import { VersionStatus } from '@/app/projects/[id]/pipeline/version-status'
 import { ProjectTabs } from '@/app/projects/[id]/project-tabs'
 import { Button } from '@/app/components/ui/button'
 import { formatDate } from '@/app/notifications/labels'
@@ -38,6 +42,8 @@ import {
   addActiveEvaluator,
   addPendingMember,
   addCodebookVersion,
+  addPromptVersion,
+  addRound,
   cleanup,
 } from '@/test/helpers'
 
@@ -308,6 +314,83 @@ describe('app/projects/[id]/codebook — a tela do codebook', () => {
     ])
     expect(props.isOpen).toBe(true)
     expect(historyOf(tree).versions.map((v) => v.versionNumber)).toEqual([1])
+  })
+
+  it('com rodada aberta, a tela fica em leitura e explica que é preciso fechar a rodada', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin, PHASE_2)
+    const codebookVersion = await addCodebookVersion(ownerDb, project, admin, {
+      definitions: [
+        { title: 'Informacional', type: 'category', criteria: [{ name: 'Clareza' }] },
+      ],
+    })
+    const promptVersion = await addPromptVersion(ownerDb, project, admin)
+    await addRound(ownerDb, project, admin, codebookVersion, promptVersion, {
+      roundNumber: 1,
+    })
+
+    auth.userId = admin
+    const tree = await renderCodebook(project)
+
+    const editor = findElement(tree, CodebookEditor)
+    expect(editor).toBeTruthy()
+
+    const props = editor!.props as Parameters<typeof CodebookEditor>[0]
+    expect(props.openRoundNumber).toBe(1)
+
+    const readOnly = CodebookReadOnly({
+      version: props.version,
+      isOpen: props.isOpen,
+      openRoundNumber: props.openRoundNumber ?? null,
+      definitions: props.definitions,
+      criteria: props.criteria,
+      inPhase2: true,
+    })
+    expect(findElement(readOnly, 'form')).toBeNull()
+    expect(textOf(readOnly)).toContain('rodada 1')
+    expect(textOf(readOnly)).toContain('Feche a rodada')
+  })
+
+  it('com a rodada fechada, a versão congelada volta a ser editável na tela', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin, PHASE_2)
+    const codebookVersion = await addCodebookVersion(ownerDb, project, admin, {
+      usedAt: new Date().toISOString(),
+      definitions: [
+        { title: 'Informacional', type: 'category', criteria: [{ name: 'Clareza' }] },
+      ],
+    })
+    const promptVersion = await addPromptVersion(ownerDb, project, admin)
+    await addRound(ownerDb, project, admin, codebookVersion, promptVersion, {
+      roundNumber: 1,
+      status: 'closed',
+    })
+
+    auth.userId = admin
+    const tree = await renderCodebook(project)
+
+    const editor = findElement(tree, CodebookEditor)
+    expect(editor).toBeTruthy()
+
+    const props = editor!.props as Parameters<typeof CodebookEditor>[0]
+    expect(props.openRoundNumber).toBeNull()
+    expect(props.isOpen).toBe(false)
+
+    const status = textOf(
+      VersionStatus({ version: props.version, isOpen: props.isOpen }),
+    )
+    expect(status).toContain('congelada')
+    expect(status).toContain('cria a versão 2')
+  })
+
+  it('sem rodada aberta, o editor não recebe trava nenhuma', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin, PHASE_2)
+
+    auth.userId = admin
+    const editor = findElement(await renderCodebook(project), CodebookEditor)
+    const props = editor!.props as Parameters<typeof CodebookEditor>[0]
+    expect(props.openRoundNumber).toBeNull()
   })
 
   it('a aba do codebook fica marcada como ativa', async () => {

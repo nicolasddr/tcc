@@ -6,9 +6,7 @@ import type { PromptVersion } from './prompt'
 import { Button } from '@/app/components/ui/button'
 import { Field, Textarea } from '@/app/components/ui/field'
 import { Form, FormActions } from '@/app/components/ui/form'
-import { Card } from '@/app/components/ui/card'
 import { Alert } from '@/app/components/ui/alert'
-import { EmptyState } from '@/app/components/ui/empty-state'
 import { VersionStatus } from './version-status'
 import { PROMPT_TEXT_MAX } from '@/lib/limits'
 
@@ -16,14 +14,6 @@ const initialState: PromptState = null
 
 const textClass =
   'max-h-[60vh] min-h-[220px] overflow-auto font-mono text-[13px] leading-[1.6]'
-
-function FrozenPrompt({ text }: { text: string }) {
-  return (
-    <Card padding="sm">
-      <p className={`m-0 ${textClass} whitespace-pre-wrap break-words text-ink`}>{text}</p>
-    </Card>
-  )
-}
 
 export function PromptEditor({
   projectId,
@@ -36,19 +26,6 @@ export function PromptEditor({
 }) {
   const [state, submit, pending] = useActionState(savePrompt, initialState)
   const [text, setText] = useState(version?.text ?? '')
-
-  if (!isOpen) {
-    return (
-      <div className="flex flex-col gap-4">
-        <VersionStatus version={version} isOpen={isOpen} />
-        {version && version.text ? (
-          <FrozenPrompt text={version.text} />
-        ) : (
-          <EmptyState>Esta versão não tem texto de prompt.</EmptyState>
-        )}
-      </div>
-    )
-  }
 
   function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()

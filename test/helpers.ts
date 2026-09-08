@@ -22,6 +22,7 @@ import {
   codebookCriteria,
   promptVersions,
   inputItems,
+  rounds,
 } from '@/lib/db'
 
 const ROLLBACK = Symbol('rollback')
@@ -324,6 +325,37 @@ export async function addInputItem(
       usedAt: opts.usedAt ?? null,
     })
     .returning({ id: inputItems.id })
+  return row.id
+}
+
+export async function addRound(
+  tx: DbExecutor,
+  projectId: string,
+  createdBy: string,
+  codebookVersionId: string,
+  promptVersionId: string,
+  opts: {
+    roundNumber?: number
+    status?: 'open' | 'closed'
+    closedAt?: string | null
+  } = {},
+): Promise<string> {
+  const status = opts.status ?? 'open'
+  const [row] = await tx
+    .insert(rounds)
+    .values({
+      projectId,
+      roundNumber: opts.roundNumber ?? 1,
+      status,
+      codebookVersionId,
+      promptVersionId,
+      createdBy,
+      closedAt:
+        status === 'closed'
+          ? (opts.closedAt ?? new Date().toISOString())
+          : null,
+    })
+    .returning({ id: rounds.id })
   return row.id
 }
 

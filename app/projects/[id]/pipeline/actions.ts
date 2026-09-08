@@ -40,6 +40,8 @@ import {
 } from './preconditions'
 import { loadPipelineInputs } from './inputs'
 import { itemContentError, normalizeItemContent } from './item-content'
+import { loadOpenRound } from '../rounds/rounds'
+import { codebookLockedMessage } from '../rounds/preconditions'
 import {
   CODEBOOK_NOTE_MAX,
   CRITERION_DESCRIPTION_MAX,
@@ -227,6 +229,13 @@ export async function saveCodebook(
         .for('update')
 
       const phase = project?.phase ?? PHASE_1
+
+      const openRound = await loadOpenRound(projectId, tx)
+      if (openRound) {
+        failure = codebookLockedMessage(openRound.roundNumber)
+        return
+      }
+
       const describes = parsed.definitions.some((d) => d.description !== null)
       if (describes && phase < PHASE_2) {
         failure = DESCRIPTION_TOO_EARLY

@@ -31,7 +31,7 @@ export function VersionStatus({
         <>
           <Badge tone="neutral">congelada</Badge>
           <span className="text-[13px] text-muted">
-            Esta versão já foi usada por uma rodada e não muda mais.
+            {`Esta versão já foi usada por uma rodada e não muda mais. A próxima alteração salva cria a versão ${version.versionNumber + 1}, com o conteúdo copiado desta.`}
           </span>
         </>
       )}
