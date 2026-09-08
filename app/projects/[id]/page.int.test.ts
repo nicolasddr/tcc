@@ -246,7 +246,7 @@ describe('app/projects/[id]/page — escopo de visibilidade', () => {
     }
   })
 
-  it('as abas por artefato são do Administrador; Membros vale para todo membro ativo', async () => {
+  it('as abas por artefato são do Administrador; Membros é um chip fora das abas', async () => {
     const admin = await newUser('Admin')
     const evaluator = await newUser('Avaliador')
     const project = await newProject(admin)
@@ -262,11 +262,14 @@ describe('app/projects/[id]/page — escopo de visibilidade', () => {
     }
 
     const members = `/projects/${project}/members`
-    expect(hasProp(adminTabs, 'href', members)).toBe(true)
-    expect(hasProp(evaluatorTabs, 'href', members)).toBe(true)
-
     for (const tabs of [adminTabs, evaluatorTabs]) {
+      expect(hasProp(tabs, 'href', members)).toBe(false)
       expect(hasProp(tabs, 'href', `/projects/${project}/pipeline`)).toBe(false)
+    }
+
+    for (const userId of [admin, evaluator]) {
+      auth.userId = userId
+      expect(hasProp(await render(project), 'href', members)).toBe(true)
     }
   })
 })

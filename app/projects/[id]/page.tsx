@@ -6,7 +6,6 @@ import { listProjectMembers } from '@/lib/authz'
 import { acceptInvitation } from '@/app/onboarding/actions'
 import { declineInvitation } from '@/app/invitations/actions'
 import { taskTypeLabel } from '../task-types'
-import { formatDate } from '@/app/notifications/labels'
 import { projectStatusLabel, roleLabel } from '../labels'
 import { groupMembers } from '../members'
 import { LeaveProjectButton } from './member-actions'
@@ -31,7 +30,6 @@ import {
   ArrowRightIcon,
   SlidersIcon,
   TagIcon,
-  CalendarIcon,
   UserIcon,
   ChevronRightIcon,
 } from '@/app/components/ui/icons'
@@ -62,7 +60,6 @@ export default async function ProjectPage({
         status: projects.status,
         taskType: projects.taskType,
         phase: projects.phase,
-        createdAt: projects.createdAt,
         createdBy: projects.createdBy,
       })
       .from(projects)
@@ -159,7 +156,6 @@ export default async function ProjectPage({
 
         <div className="mt-3 flex flex-wrap gap-1.5">
           <Chip icon={<TagIcon />}>{taskType ?? 'Não declarado'}</Chip>
-          <Chip icon={<CalendarIcon />}>{formatDate(project.createdAt)}</Chip>
           {roles.length > 0 ? (
             <Chip icon={<UserIcon />}>{roles.join(' · ')}</Chip>
           ) : null}
@@ -234,11 +230,7 @@ export default async function ProjectPage({
 
       {isMember ? (
         <>
-          <ProjectTabs
-            projectId={project.id}
-            isAdmin={isAdmin}
-            isActive={isActiveMember}
-          />
+          <ProjectTabs projectId={project.id} isAdmin={isAdmin} />
 
           <PhaseBar
             className="mt-4"

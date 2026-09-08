@@ -5,28 +5,19 @@ import {
   BookIcon,
   FileTextIcon,
   ListIcon,
-  UsersIcon,
 } from '@/app/components/ui/icons'
 
 const soon = 'Ainda não implementado'
 
-export type ProjectTab =
-  | 'overview'
-  | 'codebook'
-  | 'prompt'
-  | 'items'
-  | 'rounds'
-  | 'members'
+export type ProjectTab = 'overview' | 'codebook' | 'prompt' | 'items' | 'rounds'
 
 export function ProjectTabs({
   projectId,
   isAdmin,
-  isActive = isAdmin,
   active = 'overview',
 }: {
   projectId: string
   isAdmin: boolean
-  isActive?: boolean
   active?: ProjectTab
 }) {
   return (
@@ -76,20 +67,6 @@ export function ProjectTabs({
       ) : (
         <Tab icon={<RepeatIcon />} hint={soon}>
           Rodadas
-        </Tab>
-      )}
-
-      {isActive ? (
-        <Tab
-          icon={<UsersIcon />}
-          href={`/projects/${projectId}/members`}
-          active={active === 'members'}
-        >
-          Membros
-        </Tab>
-      ) : (
-        <Tab icon={<UsersIcon />} hint="Conclua seu onboarding para ver a equipe">
-          Membros
         </Tab>
       )}
     </TabList>

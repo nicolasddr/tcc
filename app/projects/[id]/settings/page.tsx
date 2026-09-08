@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation'
 import { and, eq } from 'drizzle-orm'
 import { requireUserId } from '@/lib/supabase/server'
 import { transaction, projects, projectMembers } from '@/lib/db'
+import { formatDate } from '@/app/notifications/labels'
 import { ManageProject } from '../manage-project'
 import { ButtonLink } from '@/app/components/ui/button'
 import { Section } from '@/app/components/ui/section'
@@ -28,6 +29,7 @@ export default async function ProjectSettingsPage({
         name: projects.name,
         description: projects.description,
         status: projects.status,
+        createdAt: projects.createdAt,
       })
       .from(projects)
       .where(eq(projects.id, id))
@@ -58,7 +60,10 @@ export default async function ProjectSettingsPage({
       }
     >
       <PageTitle>Ajustes do projeto</PageTitle>
-      <PageSubtitle>{project.name}</PageSubtitle>
+      <PageSubtitle className="mb-0">{project.name}</PageSubtitle>
+      <p className="mt-1 mb-6 text-sm text-muted">
+        Data de criação do projeto: {formatDate(project.createdAt)}
+      </p>
 
       <Section
         divider={false}
