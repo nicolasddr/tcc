@@ -400,18 +400,23 @@ export async function memberId(
  * Apaga as fixtures COMMITADAS de um teste. `inRollbackTx` reverte tudo
  * automaticamente, mas uma Server Action abre a própria transação (`transaction`) e
  * COMMITA — logo não dá para testá-la sob rollback. Nesses testes as fixtures são
- * gravadas via `ownerDb` e removidas aqui no fim. Ordem: projetos ANTES dos
- * usuários (projects.created_by é `on delete restrict`); apagar auth.users cascateia
- * para profiles/memberships. Idempotente e tolerante a ids repetidos.
+ * gravadas via `ownerDb` e removidas aqui no fim.
+ *
+ * `profiles` não tem mais FK para `auth.users` (migration 0001), então apagar o
+ * usuário do Auth NÃO cascateia para o schema público: o profile é apagado
+ * explicitamente, e é dele que pendem memberships, convites, notificações e
+ * solicitações de permissão. Ordem: projetos ANTES dos profiles
+ * (projects.created_by é `on delete restrict`), depois super_admins (também
+ * `restrict`), depois os profiles e por fim auth.users. Idempotente e tolerante a
+ * ids repetidos.
  */
 export async function cleanup(projectIds: string[], userIds: string[]): Promise<void> {
   if (projectIds.length > 0) {
     await ownerDb.delete(projects).where(inArray(projects.id, projectIds))
   }
-  // super_admins.user_id é `on delete restrict`: apagar o profile (via cascade de
-  // auth.users) esbarraria nessa FK. Removemos as linhas de super-admin antes.
   if (userIds.length > 0) {
     await ownerDb.delete(superAdmins).where(inArray(superAdmins.userId, userIds))
+    await ownerDb.delete(profiles).where(inArray(profiles.id, userIds))
   }
   for (const id of userIds) {
     await ownerDb.execute(sql`delete from auth.users where id = ${id}`)
