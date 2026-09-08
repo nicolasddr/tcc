@@ -18,6 +18,20 @@ export function VersionBadges({
   )
 }
 
+export function VersionCounts({
+  version,
+}: {
+  version: { definitionCount: number; criterionCount: number }
+}) {
+  return (
+    <p className="m-0 text-[13px] text-muted">
+      {version.definitionCount}{' '}
+      {version.definitionCount === 1 ? 'definição' : 'definições'} ·{' '}
+      {version.criterionCount} {version.criterionCount === 1 ? 'critério' : 'critérios'}
+    </p>
+  )
+}
+
 export function VersionMeta({
   version,
 }: {

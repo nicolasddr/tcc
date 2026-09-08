@@ -10,6 +10,7 @@ import {
   projects,
   codebookVersions,
   codebookDefinitions,
+  codebookCriteria,
   promptVersions,
   inputItems,
 } from '@/lib/db'
@@ -27,6 +28,7 @@ import {
   type DefinitionType,
 } from '@/app/projects/definition-types'
 import { loadCodebook } from './codebook'
+import { definitionsWithoutCriteria, missingCriteriaMessage } from './criteria'
 import { loadPrompt, type PromptMetadata } from './prompt'
 import { composeLlmInput } from './llm-input'
 import {
@@ -40,6 +42,8 @@ import { loadPipelineInputs } from './inputs'
 import { itemContentError, normalizeItemContent } from './item-content'
 import {
   CODEBOOK_NOTE_MAX,
+  CRITERION_DESCRIPTION_MAX,
+  CRITERION_NAME_MAX,
   DEFINITION_DESCRIPTION_MAX,
   DEFINITION_TITLE_MAX,
   ITEM_NAME_MAX,
@@ -57,7 +61,18 @@ type ParsedDefinition = {
   description: string | null
 }
 
-type ParsedCodebook = { definitions: ParsedDefinition[]; note: string | null }
+type ParsedCriterion = {
+  definitionIndex: number | null
+  name: string
+  description: string | null
+  orderIndex: number
+}
+
+type ParsedCodebook = {
+  definitions: ParsedDefinition[]
+  criteria: ParsedCriterion[]
+  note: string | null
+}
 
 const DENIED =
   'Não foi possível salvar as definições. Apenas o administrador do projeto pode editá-las.'
@@ -70,6 +85,73 @@ const RACED =
 
 const DESCRIPTION_TOO_EARLY =
   'A descrição das definições é escrita a partir da Fase 2, e este projeto ainda está na Fase 1. Recarregue a página para ver a fase atual.'
+
+const CRITERIA_TOO_EARLY =
+  'Os critérios do codebook são criados a partir da Fase 2, e este projeto ainda está na Fase 1. Recarregue a página para ver a fase atual.'
+
+const GENERAL_SCOPE = 'general'
+
+function parseCriteria(
+  formData: FormData,
+  definitionCount: number,
+): { error: string } | { criteria: ParsedCriterion[] } {
+  const names = formData.getAll('criterion_name').map(String)
+  const scopes = formData.getAll('criterion_scope').map(String)
+  const descriptions = formData.getAll('criterion_description').map(String)
+
+  if (names.length !== scopes.length) {
+    return { error: 'Não foi possível ler os critérios enviados.' }
+  }
+  if (descriptions.length > 0 && descriptions.length !== names.length) {
+    return { error: 'Não foi possível ler os critérios enviados.' }
+  }
+
+  const criteria: ParsedCriterion[] = []
+  const nextOrder = new Map<string, number>()
+
+  for (let i = 0; i < names.length; i++) {
+    const name = names[i].trim()
+    if (!name) return { error: 'Todo critério precisa de um nome.' }
+    if (name.length > CRITERION_NAME_MAX) {
+      return {
+        error: `O nome do critério pode ter no máximo ${CRITERION_NAME_MAX} caracteres.`,
+      }
+    }
+
+    const scope = scopes[i]
+    let definitionIndex: number | null = null
+    if (scope !== GENERAL_SCOPE) {
+      definitionIndex = Number(scope)
+      if (
+        !Number.isInteger(definitionIndex) ||
+        definitionIndex < 0 ||
+        definitionIndex >= definitionCount
+      ) {
+        return { error: 'Todo critério precisa pertencer a uma definição ou ser geral.' }
+      }
+    }
+
+    const description = (descriptions[i] ?? '').replace(/\r\n/g, '\n').trim()
+    if (description.length > CRITERION_DESCRIPTION_MAX) {
+      return {
+        error: `A descrição do critério pode ter no máximo ${CRITERION_DESCRIPTION_MAX} caracteres.`,
+      }
+    }
+
+    const key = definitionIndex === null ? GENERAL_SCOPE : String(definitionIndex)
+    const orderIndex = nextOrder.get(key) ?? 0
+    nextOrder.set(key, orderIndex + 1)
+
+    criteria.push({
+      definitionIndex,
+      name,
+      description: description || null,
+      orderIndex,
+    })
+  }
+
+  return { criteria }
+}
 
 function parseCodebookForm(formData: FormData): { error: string } | ParsedCodebook {
   const titles = formData.getAll('definition_title').map(String)
@@ -108,12 +190,15 @@ function parseCodebookForm(formData: FormData): { error: string } | ParsedCodebo
     return { error: 'É preciso ao menos uma definição para salvar o codebook.' }
   }
 
+  const criteria = parseCriteria(formData, definitions.length)
+  if ('error' in criteria) return criteria
+
   const note = String(formData.get('note') ?? '').trim()
   if (note.length > CODEBOOK_NOTE_MAX) {
     return { error: `A observação pode ter no máximo ${CODEBOOK_NOTE_MAX} caracteres.` }
   }
 
-  return { definitions, note: note || null }
+  return { definitions, criteria: criteria.criteria, note: note || null }
 }
 
 export async function saveCodebook(
@@ -141,10 +226,33 @@ export async function saveCodebook(
         .where(eq(projects.id, projectId))
         .for('update')
 
+      const phase = project?.phase ?? PHASE_1
       const describes = parsed.definitions.some((d) => d.description !== null)
-      if (project && describes && project.phase < PHASE_2) {
+      if (describes && phase < PHASE_2) {
         failure = DESCRIPTION_TOO_EARLY
         return
+      }
+      if (parsed.criteria.length > 0 && phase < PHASE_2) {
+        failure = CRITERIA_TOO_EARLY
+        return
+      }
+      if (phase >= PHASE_2) {
+        const uncovered = definitionsWithoutCriteria(
+          parsed.definitions.map((definition, index) => ({
+            id: String(index),
+            title: definition.title,
+          })),
+          parsed.criteria.map((criterion) => ({
+            definitionId:
+              criterion.definitionIndex === null
+                ? null
+                : String(criterion.definitionIndex),
+          })),
+        )
+        if (uncovered.length > 0) {
+          failure = missingCriteriaMessage(uncovered.map((d) => d.title))
+          return
+        }
       }
 
       const [latest] = await tx
@@ -172,6 +280,9 @@ export async function saveCodebook(
           .set({ note: parsed.note, updatedAt: sql`now()` })
           .where(eq(codebookVersions.id, versionId))
         await tx
+          .delete(codebookCriteria)
+          .where(eq(codebookCriteria.codebookVersionId, versionId))
+        await tx
           .delete(codebookDefinitions)
           .where(eq(codebookDefinitions.codebookVersionId, versionId))
       } else {
@@ -187,13 +298,38 @@ export async function saveCodebook(
         versionId = created.id
       }
 
-      await tx.insert(codebookDefinitions).values(
-        parsed.definitions.map((definition, index) => ({
+      const inserted = await tx
+        .insert(codebookDefinitions)
+        .values(
+          parsed.definitions.map((definition, index) => ({
+            codebookVersionId: versionId,
+            title: definition.title,
+            type: definition.type,
+            description: definition.description,
+            orderIndex: index,
+          })),
+        )
+        .returning({
+          id: codebookDefinitions.id,
+          orderIndex: codebookDefinitions.orderIndex,
+        })
+
+      if (parsed.criteria.length === 0) return
+
+      const definitionIdByIndex = new Map(
+        inserted.map((definition) => [definition.orderIndex, definition.id]),
+      )
+
+      await tx.insert(codebookCriteria).values(
+        parsed.criteria.map((criterion) => ({
           codebookVersionId: versionId,
-          title: definition.title,
-          type: definition.type,
-          description: definition.description,
-          orderIndex: index,
+          definitionId:
+            criterion.definitionIndex === null
+              ? null
+              : (definitionIdByIndex.get(criterion.definitionIndex) ?? null),
+          name: criterion.name,
+          description: criterion.description,
+          orderIndex: criterion.orderIndex,
         })),
       )
     })

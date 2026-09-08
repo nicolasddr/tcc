@@ -1,7 +1,7 @@
 import { ButtonLink } from '@/app/components/ui/button'
 import { Card } from '@/app/components/ui/card'
 import { EmptyState } from '@/app/components/ui/empty-state'
-import { VersionBadges, VersionMeta } from './version-history'
+import { VersionBadges, VersionCounts, VersionMeta } from './version-history'
 import type { CodebookVersionSummary } from './codebook'
 
 export function CodebookHistory({
@@ -40,6 +40,10 @@ export function CodebookHistory({
               >
                 Ver definições
               </ButtonLink>
+            </div>
+
+            <div className="mt-1.5">
+              <VersionCounts version={version} />
             </div>
 
             <div className="mt-1.5">

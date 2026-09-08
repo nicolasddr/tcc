@@ -2,7 +2,11 @@
 
 import { startTransition, useActionState, useState } from 'react'
 import { saveCodebook, type CodebookState } from './actions'
-import type { CodebookDefinition, CodebookVersion } from './codebook'
+import type {
+  CodebookCriterion,
+  CodebookDefinition,
+  CodebookVersion,
+} from './codebook'
 import {
   DEFINITION_TYPE_OPTIONS,
   type DefinitionType,
@@ -17,34 +21,64 @@ import { DefinitionList } from './definition-list'
 import { EmptyState } from '@/app/components/ui/empty-state'
 import { moveBy } from '@/lib/reorder'
 import { PHASE_2 } from './preconditions'
+import { definitionsWithoutCriteria, missingCriteriaMessage } from './criteria'
+import { NotesPerResponse } from './criteria-summary'
 import {
   CODEBOOK_NOTE_MAX,
+  CRITERION_DESCRIPTION_MAX,
+  CRITERION_NAME_MAX,
   DEFINITION_DESCRIPTION_MAX,
   DEFINITION_TITLE_MAX,
 } from '@/lib/limits'
 
 const initialState: CodebookState = null
 
+type CriterionRow = {
+  key: number
+  name: string
+  description: string
+}
+
 type Row = {
   key: number
   title: string
   type: DefinitionType | ''
   description: string
+  criteria: CriterionRow[]
 }
 
 let nextKey = 0
 
-function newRow(type: DefinitionType | null): Row {
-  return { key: nextKey++, title: '', type: type ?? '', description: '' }
+function newCriterion(): CriterionRow {
+  return { key: nextKey++, name: '', description: '' }
 }
 
-function toRows(definitions: CodebookDefinition[], fallback: DefinitionType | null): Row[] {
+function toCriterionRows(criteria: CodebookCriterion[]): CriterionRow[] {
+  return criteria.map((criterion) => ({
+    key: nextKey++,
+    name: criterion.name,
+    description: criterion.description ?? '',
+  }))
+}
+
+function newRow(type: DefinitionType | null): Row {
+  return { key: nextKey++, title: '', type: type ?? '', description: '', criteria: [] }
+}
+
+function toRows(
+  definitions: CodebookDefinition[],
+  criteria: CodebookCriterion[],
+  fallback: DefinitionType | null,
+): Row[] {
   if (definitions.length === 0) return [newRow(fallback)]
   return definitions.map((definition) => ({
     key: nextKey++,
     title: definition.title,
     type: (definition.type as DefinitionType) ?? '',
     description: definition.description ?? '',
+    criteria: toCriterionRows(
+      criteria.filter((criterion) => criterion.definitionId === definition.id),
+    ),
   }))
 }
 
@@ -63,18 +97,140 @@ function TypeLegend() {
   )
 }
 
+function CriterionFields({
+  scope,
+  criteria,
+  label,
+  addLabel,
+  emptyHint,
+  onChange,
+}: {
+  scope: string
+  criteria: CriterionRow[]
+  label: string
+  addLabel: string
+  emptyHint: string
+  onChange: (next: CriterionRow[]) => void
+}) {
+  function update(key: number, patch: Partial<CriterionRow>) {
+    onChange(
+      criteria.map((criterion) =>
+        criterion.key === key ? { ...criterion, ...patch } : criterion,
+      ),
+    )
+  }
+
+  return (
+    <div className="flex flex-col gap-2">
+      {criteria.length === 0 ? (
+        <p className="m-0 text-[13px] text-muted">{emptyHint}</p>
+      ) : (
+        <ul className="m-0 flex list-none flex-col gap-2.5 p-0">
+          {criteria.map((criterion, index) => (
+            <li key={criterion.key}>
+              <Card tone="subtle" padding="sm">
+                <input type="hidden" name="criterion_scope" value={scope} />
+
+                <div className="flex flex-wrap items-end gap-3">
+                  <Field
+                    label={`${label} ${index + 1}`}
+                    required
+                    className="min-w-[220px] flex-1"
+                  >
+                    <Input
+                      type="text"
+                      name="criterion_name"
+                      required
+                      maxLength={CRITERION_NAME_MAX}
+                      value={criterion.name}
+                      onChange={(e) => update(criterion.key, { name: e.target.value })}
+                      placeholder="Ex.: a resposta cita a fonte"
+                    />
+                  </Field>
+
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      aria-label={`Mover o ${label.toLocaleLowerCase('pt-BR')} ${index + 1} para cima`}
+                      disabled={index === 0}
+                      onClick={() => onChange(moveBy(criteria, index, -1))}
+                    >
+                      ↑
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      aria-label={`Mover o ${label.toLocaleLowerCase('pt-BR')} ${index + 1} para baixo`}
+                      disabled={index === criteria.length - 1}
+                      onClick={() => onChange(moveBy(criteria, index, 1))}
+                    >
+                      ↓
+                    </Button>
+                    <Button
+                      variant="danger"
+                      size="sm"
+                      onClick={() =>
+                        onChange(criteria.filter((c) => c.key !== criterion.key))
+                      }
+                    >
+                      Remover
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="mt-2.5">
+                  <Field label="Descrição do critério (opcional)">
+                    <Textarea
+                      name="criterion_description"
+                      rows={2}
+                      maxLength={CRITERION_DESCRIPTION_MAX}
+                      value={criterion.description}
+                      onChange={(e) =>
+                        update(criterion.key, { description: e.target.value })
+                      }
+                      placeholder="Ex.: vale Alto quando a fonte é citada e verificável."
+                    />
+                  </Field>
+                </div>
+              </Card>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <FormActions align="start">
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={() => onChange([...criteria, newCriterion()])}
+        >
+          {addLabel}
+        </Button>
+      </FormActions>
+    </div>
+  )
+}
+
 function CodebookFields({
   definitions,
+  criteria,
   defaultType,
   note,
-  withDescription,
+  inPhase2,
 }: {
   definitions: CodebookDefinition[]
+  criteria: CodebookCriterion[]
   defaultType: DefinitionType | null
   note: string
-  withDescription: boolean
+  inPhase2: boolean
 }) {
-  const [rows, setRows] = useState<Row[]>(() => toRows(definitions, defaultType))
+  const [rows, setRows] = useState<Row[]>(() =>
+    toRows(definitions, criteria, defaultType),
+  )
+  const [general, setGeneral] = useState<CriterionRow[]>(() =>
+    toCriterionRows(criteria.filter((criterion) => criterion.definitionId === null)),
+  )
 
   function update(key: number, patch: Partial<Row>) {
     setRows((current) =>
@@ -85,6 +241,14 @@ function CodebookFields({
   function move(index: number, offset: number) {
     setRows((current) => moveBy(current, index, offset))
   }
+
+  const uncovered = definitionsWithoutCriteria(
+    rows.map((row) => ({ id: String(row.key), title: row.title })),
+    [
+      ...rows.flatMap((row) => row.criteria.map(() => ({ definitionId: String(row.key) }))),
+      ...general.map(() => ({ definitionId: null })),
+    ],
+  )
 
   return (
     <>
@@ -168,24 +332,37 @@ function CodebookFields({
                   </div>
                 </div>
 
-                {withDescription ? (
-                  <div className="mt-3">
-                    <Field
-                      label={`Descrição da definição ${index + 1} (opcional)`}
-                      hint="O texto que o avaliador lê para entender o que o título quis dizer. Salvar sem descrição é permitido."
-                    >
-                      <Textarea
-                        name="definition_description"
-                        rows={3}
-                        maxLength={DEFINITION_DESCRIPTION_MAX}
-                        value={row.description}
-                        onChange={(e) =>
-                          update(row.key, { description: e.target.value })
-                        }
-                        placeholder="Ex.: a resposta busca informação sobre um assunto, sem intenção de compra."
+                {inPhase2 ? (
+                  <>
+                    <div className="mt-3">
+                      <Field
+                        label={`Descrição da definição ${index + 1} (opcional)`}
+                        hint="O texto que o avaliador lê para entender o que o título quis dizer. Salvar sem descrição é permitido."
+                      >
+                        <Textarea
+                          name="definition_description"
+                          rows={3}
+                          maxLength={DEFINITION_DESCRIPTION_MAX}
+                          value={row.description}
+                          onChange={(e) =>
+                            update(row.key, { description: e.target.value })
+                          }
+                          placeholder="Ex.: a resposta busca informação sobre um assunto, sem intenção de compra."
+                        />
+                      </Field>
+                    </div>
+
+                    <div className="mt-3 border-t border-line pt-3">
+                      <CriterionFields
+                        scope={String(index)}
+                        criteria={row.criteria}
+                        label="Nome do critério"
+                        addLabel="Adicionar critério"
+                        emptyHint="Nenhum critério próprio nesta definição. Ela também recebe os critérios gerais da versão."
+                        onChange={(next) => update(row.key, { criteria: next })}
                       />
-                    </Field>
-                  </div>
+                    </div>
+                  </>
                 ) : null}
               </Card>
             </li>
@@ -202,6 +379,44 @@ function CodebookFields({
           Adicionar definição
         </Button>
       </FormActions>
+
+      {inPhase2 ? (
+        <>
+          <Card padding="sm">
+            <h3 className="m-0 text-sm font-bold text-ink">Critérios gerais</h3>
+            <p className="m-0 mt-1 mb-3 text-[13px] text-muted">
+              Valem para todas as definições da versão de uma vez. Editar ou remover um
+              critério geral vale para todas elas.
+            </p>
+            <CriterionFields
+              scope="general"
+              criteria={general}
+              label="Nome do critério geral"
+              addLabel="Adicionar critério geral"
+              emptyHint="Nenhum critério geral nesta versão."
+              onChange={setGeneral}
+            />
+          </Card>
+
+          <NotesPerResponse
+            definitions={rows.map((row) => ({ id: String(row.key) }))}
+            criteria={[
+              ...rows.flatMap((row) =>
+                row.criteria.map(() => ({ definitionId: String(row.key) })),
+              ),
+              ...general.map(() => ({ definitionId: null })),
+            ]}
+          />
+
+          {uncovered.length > 0 ? (
+            <Alert tone="notice">
+              {missingCriteriaMessage(
+                uncovered.map((row, index) => row.title || `sem título ${index + 1}`),
+              )}
+            </Alert>
+          ) : null}
+        </>
+      ) : null}
 
       <Field
         label="Observação desta versão (opcional)"
@@ -225,6 +440,7 @@ export function CodebookEditor({
   version,
   isOpen,
   definitions,
+  criteria,
   defaultType,
 }: {
   projectId: string
@@ -232,9 +448,10 @@ export function CodebookEditor({
   version: CodebookVersion | null
   isOpen: boolean
   definitions: CodebookDefinition[]
+  criteria: CodebookCriterion[]
   defaultType: DefinitionType | null
 }) {
-  const withDescription = phase >= PHASE_2
+  const inPhase2 = phase >= PHASE_2
   const [state, submit, pending] = useActionState(saveCodebook, initialState)
 
   if (!isOpen) {
@@ -245,7 +462,12 @@ export function CodebookEditor({
         {definitions.length === 0 ? (
           <EmptyState>Esta versão não tem definições.</EmptyState>
         ) : (
-          <DefinitionList definitions={definitions} />
+          <>
+            <DefinitionList definitions={definitions} criteria={criteria} />
+            {inPhase2 ? (
+              <NotesPerResponse definitions={definitions} criteria={criteria} />
+            ) : null}
+          </>
         )}
       </div>
     )
@@ -268,9 +490,10 @@ export function CodebookEditor({
 
         <CodebookFields
           definitions={definitions}
+          criteria={criteria}
           defaultType={defaultType}
           note={version?.note ?? ''}
-          withDescription={withDescription}
+          inPhase2={inPhase2}
         />
 
         {state && 'error' in state ? <Alert tone="error">{state.error}</Alert> : null}

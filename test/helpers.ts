@@ -19,6 +19,7 @@ import {
   superAdmins,
   codebookVersions,
   codebookDefinitions,
+  codebookCriteria,
   promptVersions,
   inputItems,
 } from '@/lib/db'
@@ -200,6 +201,15 @@ export async function addOnboardingQuestion(
   return row.id
 }
 
+export type CriterionFixture = { name: string; description?: string | null }
+
+export type DefinitionFixture = {
+  title: string
+  type: string
+  description?: string | null
+  criteria?: CriterionFixture[]
+}
+
 export async function addCodebookVersion(
   tx: DbExecutor,
   projectId: string,
@@ -208,7 +218,8 @@ export async function addCodebookVersion(
     versionNumber?: number
     note?: string | null
     usedAt?: string | null
-    definitions?: { title: string; type: string; description?: string | null }[]
+    definitions?: DefinitionFixture[]
+    generalCriteria?: CriterionFixture[]
   } = {},
 ): Promise<string> {
   const [row] = await tx
@@ -223,17 +234,48 @@ export async function addCodebookVersion(
     .returning({ id: codebookVersions.id })
 
   const definitions = opts.definitions ?? [{ title: 'Definição de teste', type: 'category' }]
+  const inserted: { id: string; orderIndex: number }[] = []
   if (definitions.length > 0) {
-    await tx.insert(codebookDefinitions).values(
-      definitions.map((definition, index) => ({
-        codebookVersionId: row.id,
-        title: definition.title,
-        type: definition.type,
-        description: definition.description ?? null,
-        orderIndex: index,
-      })),
+    inserted.push(
+      ...(await tx
+        .insert(codebookDefinitions)
+        .values(
+          definitions.map((definition, index) => ({
+            codebookVersionId: row.id,
+            title: definition.title,
+            type: definition.type,
+            description: definition.description ?? null,
+            orderIndex: index,
+          })),
+        )
+        .returning({
+          id: codebookDefinitions.id,
+          orderIndex: codebookDefinitions.orderIndex,
+        })),
     )
   }
+
+  const idByIndex = new Map(inserted.map((d) => [d.orderIndex, d.id]))
+  const criteria = [
+    ...definitions.flatMap((definition, index) =>
+      (definition.criteria ?? []).map((criterion, order) => ({
+        codebookVersionId: row.id,
+        definitionId: idByIndex.get(index)!,
+        name: criterion.name,
+        description: criterion.description ?? null,
+        orderIndex: order,
+      })),
+    ),
+    ...(opts.generalCriteria ?? []).map((criterion, order) => ({
+      codebookVersionId: row.id,
+      definitionId: null,
+      name: criterion.name,
+      description: criterion.description ?? null,
+      orderIndex: order,
+    })),
+  ]
+  if (criteria.length > 0) await tx.insert(codebookCriteria).values(criteria)
+
   return row.id
 }
 

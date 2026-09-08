@@ -64,6 +64,13 @@
       "when": 1788820060286,
       "tag": "0008_stormy_scorpion",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1788872530089,
+      "tag": "0009_deep_senator_kelly",
+      "breakpoints": true
     }
   ]
 }

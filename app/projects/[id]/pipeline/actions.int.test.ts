@@ -31,7 +31,15 @@ import {
   pendingRequirements,
 } from '@/app/projects/[id]/pipeline/preconditions'
 import { loadPipelineInputs } from '@/app/projects/[id]/pipeline/inputs'
-import { loadCodebook } from '@/app/projects/[id]/pipeline/codebook'
+import {
+  listCodebookVersions,
+  loadCodebook,
+} from '@/app/projects/[id]/pipeline/codebook'
+import {
+  criteriaOfDefinition,
+  notesPerResponse,
+  resolveCells,
+} from '@/app/projects/[id]/pipeline/criteria'
 import { loadPrompt } from '@/app/projects/[id]/pipeline/prompt'
 import { loadItems } from '@/app/projects/[id]/pipeline/items'
 import { composeLlmInput } from '@/app/projects/[id]/pipeline/llm-input'
@@ -45,10 +53,13 @@ import {
   projects,
   codebookVersions,
   codebookDefinitions,
+  codebookCriteria,
   promptVersions,
   inputItems,
 } from '@/lib/db'
 import {
+  CRITERION_DESCRIPTION_MAX,
+  CRITERION_NAME_MAX,
   DEFINITION_DESCRIPTION_MAX,
   ITEM_CONTENT_MAX,
   ITEM_FILE_BYTES_MAX,
@@ -70,10 +81,23 @@ import {
 
 type DefinitionInput = { title: string; type: string; description?: string }
 
+type CriterionInput = {
+  name: string
+  scope?: number | 'general'
+  description?: string
+}
+
+const GERAL: CriterionInput[] = [{ name: 'Clareza', scope: 'general' }]
+
 function fd(
   projectId: string,
   definitions: DefinitionInput[],
-  extra: { note?: string; versionId?: string } = {},
+  extra: {
+    note?: string
+    versionId?: string
+    criteria?: CriterionInput[]
+    rawCriteria?: { names?: string[]; scopes?: string[]; descriptions?: string[] }
+  } = {},
 ): FormData {
   const form = new FormData()
   form.set('project_id', projectId)
@@ -85,9 +109,47 @@ function fd(
       form.append('definition_description', definition.description ?? '')
     }
   }
+
+  const criteria = extra.criteria ?? []
+  const withCriterionDescriptions = criteria.some((c) => c.description !== undefined)
+  for (const criterion of criteria) {
+    form.append('criterion_scope', String(criterion.scope ?? 'general'))
+    form.append('criterion_name', criterion.name)
+    if (withCriterionDescriptions) {
+      form.append('criterion_description', criterion.description ?? '')
+    }
+  }
+
+  for (const name of extra.rawCriteria?.names ?? []) {
+    form.append('criterion_name', name)
+  }
+  for (const scope of extra.rawCriteria?.scopes ?? []) {
+    form.append('criterion_scope', scope)
+  }
+  for (const description of extra.rawCriteria?.descriptions ?? []) {
+    form.append('criterion_description', description)
+  }
+
   if (extra.note !== undefined) form.set('note', extra.note)
   if (extra.versionId !== undefined) form.set('version_id', extra.versionId)
   return form
+}
+
+function byName<T extends { name: string }>(rows: T[]): T[] {
+  return [...rows].sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'))
+}
+
+function criteriaOf(versionId: string) {
+  return ownerDb
+    .select({
+      definitionId: codebookCriteria.definitionId,
+      name: codebookCriteria.name,
+      description: codebookCriteria.description,
+      orderIndex: codebookCriteria.orderIndex,
+    })
+    .from(codebookCriteria)
+    .where(eq(codebookCriteria.codebookVersionId, versionId))
+    .orderBy(asc(codebookCriteria.orderIndex))
 }
 
 function versionsOf(projectId: string) {
@@ -401,6 +463,7 @@ describe('app/projects/[id]/pipeline/actions — definições salvas de forma ve
     expect(await loadCodebook(project)).toEqual({
       version: null,
       definitions: [],
+      criteria: [],
       isOpen: true,
     })
 
@@ -1993,7 +2056,7 @@ describe('app/projects/[id]/pipeline/actions — descrição das definições', 
           description: 'busca informação, sem intenção de compra',
         },
         { title: 'Transacional', type: 'category', description: 'quer concluir uma ação' },
-      ]),
+      ], { criteria: GERAL }),
     )
     expect(result).toMatchObject({ ok: true })
 
@@ -2024,7 +2087,7 @@ describe('app/projects/[id]/pipeline/actions — descrição das definições', 
       fd(project, [
         { title: 'Sem descrição', type: 'category', description: '' },
         { title: 'Só espaços', type: 'category', description: '   ' },
-      ]),
+      ], { criteria: GERAL }),
     )
     expect(result).toMatchObject({ ok: true })
 
@@ -2054,7 +2117,7 @@ describe('app/projects/[id]/pipeline/actions — descrição das definições', 
             description: 'descrição escrita na Fase 2',
           },
         ],
-        { versionId },
+        { versionId, criteria: GERAL },
       ),
     )
     expect(result).toMatchObject({ ok: true })
@@ -2090,7 +2153,7 @@ describe('app/projects/[id]/pipeline/actions — descrição das definições', 
             description: 'descrição refinada depois da rodada',
           },
         ],
-        { versionId: frozenId },
+        { versionId: frozenId, criteria: GERAL },
       ),
     )
     expect(result).toMatchObject({ ok: true })
@@ -2145,7 +2208,7 @@ describe('app/projects/[id]/pipeline/actions — descrição das definições', 
           type: 'category',
           description: 'a'.repeat(DEFINITION_DESCRIPTION_MAX),
         },
-      ]),
+      ], { criteria: GERAL }),
     )
     expect(result).toMatchObject({ ok: true })
 
@@ -2208,7 +2271,7 @@ describe('app/projects/[id]/pipeline/actions — descrição das definições', 
       fd(project, [
         { title: 'Informacional', type: 'category' },
         { title: 'Transacional', type: 'category' },
-      ]),
+      ], { criteria: GERAL }),
     )
     expect(result).toMatchObject({ ok: true })
 
@@ -2317,5 +2380,769 @@ describe('app/projects/[id]/pipeline/actions — descrição das definições', 
       null,
       null,
     ])
+  })
+})
+
+describe('app/projects/[id]/pipeline/actions — critérios do codebook', () => {
+  let users: string[]
+  let projs: string[]
+
+  async function newUser(name?: string): Promise<string> {
+    const id = await createUser(ownerDb, name)
+    users.push(id)
+    return id
+  }
+  async function newProject(admin: string, phase = PHASE_2): Promise<string> {
+    const id = await seedProject(ownerDb, admin, 'Projeto de Teste', { phase })
+    projs.push(id)
+    return id
+  }
+
+  beforeEach(() => {
+    users = []
+    projs = []
+    auth.userId = null
+  })
+  afterEach(async () => {
+    await cleanup(projs, users)
+  })
+
+  it('o critério específico nasce ligado à definição a que pertence', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin)
+
+    auth.userId = admin
+    const result = await saveCodebook(
+      null,
+      fd(
+        project,
+        [
+          { title: 'Informacional', type: 'category' },
+          { title: 'Transacional', type: 'category' },
+        ],
+        {
+          criteria: [
+            { name: 'Cita a fonte', scope: 0, description: 'a fonte é verificável' },
+            { name: 'Indica o preço', scope: 1 },
+          ],
+        },
+      ),
+    )
+    expect(result).toMatchObject({ ok: true })
+
+    const [version] = await versionsOf(project)
+    const definitions = await ownerDb
+      .select({ id: codebookDefinitions.id, title: codebookDefinitions.title })
+      .from(codebookDefinitions)
+      .where(eq(codebookDefinitions.codebookVersionId, version.id))
+      .orderBy(asc(codebookDefinitions.orderIndex))
+
+    const criteria = await criteriaOf(version.id)
+    expect(byName(criteria)).toEqual([
+      {
+        definitionId: definitions[0].id,
+        name: 'Cita a fonte',
+        description: 'a fonte é verificável',
+        orderIndex: 0,
+      },
+      {
+        definitionId: definitions[1].id,
+        name: 'Indica o preço',
+        description: null,
+        orderIndex: 0,
+      },
+    ])
+  })
+
+  it('o critério geral nasce sem vínculo com definição nenhuma', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin)
+
+    auth.userId = admin
+    await saveCodebook(
+      null,
+      fd(project, [{ title: 'Informacional', type: 'category' }], {
+        criteria: [{ name: 'Clareza', scope: 'general' }],
+      }),
+    )
+
+    const [version] = await versionsOf(project)
+    expect(await criteriaOf(version.id)).toEqual([
+      { definitionId: null, name: 'Clareza', description: null, orderIndex: 0 },
+    ])
+  })
+
+  it('o critério geral é lido dentro de cada definição, e o específico só na sua', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin)
+
+    auth.userId = admin
+    await saveCodebook(
+      null,
+      fd(
+        project,
+        [
+          { title: 'Informacional', type: 'category' },
+          { title: 'Transacional', type: 'category' },
+        ],
+        {
+          criteria: [
+            { name: 'Cita a fonte', scope: 0 },
+            { name: 'Clareza', scope: 'general' },
+          ],
+        },
+      ),
+    )
+
+    const codebook = await loadCodebook(project)
+    const cells = resolveCells(codebook.definitions, codebook.criteria)
+
+    expect(
+      cells.map((cell) => [cell.definition.title, cell.criterion.name, cell.isGeneral]),
+    ).toEqual([
+      ['Informacional', 'Cita a fonte', false],
+      ['Informacional', 'Clareza', true],
+      ['Transacional', 'Clareza', true],
+    ])
+  })
+
+  it('a ordem dos critérios dentro da definição é a ordem enviada', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin)
+
+    auth.userId = admin
+    await saveCodebook(
+      null,
+      fd(project, [{ title: 'Informacional', type: 'category' }], {
+        criteria: [
+          { name: 'Terceiro', scope: 0 },
+          { name: 'Primeiro', scope: 0 },
+          { name: 'Segundo', scope: 0 },
+        ],
+      }),
+    )
+
+    const [version] = await versionsOf(project)
+    const criteria = await criteriaOf(version.id)
+    expect(criteria.map((c) => [c.name, c.orderIndex])).toEqual([
+      ['Terceiro', 0],
+      ['Primeiro', 1],
+      ['Segundo', 2],
+    ])
+
+    const codebook = await loadCodebook(project)
+    expect(
+      criteriaOfDefinition(codebook.definitions[0].id, codebook.criteria).map(
+        (c) => c.name,
+      ),
+    ).toEqual(['Terceiro', 'Primeiro', 'Segundo'])
+  })
+
+  it('cada definição numera os próprios critérios a partir de zero', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin)
+
+    auth.userId = admin
+    await saveCodebook(
+      null,
+      fd(
+        project,
+        [
+          { title: 'Informacional', type: 'category' },
+          { title: 'Transacional', type: 'category' },
+        ],
+        {
+          criteria: [
+            { name: 'A', scope: 0 },
+            { name: 'B', scope: 0 },
+            { name: 'C', scope: 1 },
+            { name: 'Geral', scope: 'general' },
+          ],
+        },
+      ),
+    )
+
+    const [version] = await versionsOf(project)
+    expect(byName(await criteriaOf(version.id)).map((c) => [c.name, c.orderIndex])).toEqual([
+      ['A', 0],
+      ['B', 1],
+      ['C', 0],
+      ['Geral', 0],
+    ])
+  })
+
+  it('editar o critério geral numa versão em aberto vale para todas as definições de uma vez', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin)
+    const versionId = await addCodebookVersion(ownerDb, project, admin, {
+      definitions: [
+        { title: 'Informacional', type: 'category' },
+        { title: 'Transacional', type: 'category' },
+      ],
+      generalCriteria: [{ name: 'Clareza' }],
+    })
+
+    auth.userId = admin
+    const result = await saveCodebook(
+      null,
+      fd(
+        project,
+        [
+          { title: 'Informacional', type: 'category' },
+          { title: 'Transacional', type: 'category' },
+        ],
+        { versionId, criteria: [{ name: 'Clareza da regra', scope: 'general' }] },
+      ),
+    )
+    expect(result).toMatchObject({ ok: true })
+
+    expect(await versionsOf(project)).toHaveLength(1)
+    const codebook = await loadCodebook(project)
+    expect(codebook.criteria.map((c) => c.name)).toEqual(['Clareza da regra'])
+    expect(
+      codebook.definitions.map(
+        (definition) =>
+          criteriaOfDefinition(definition.id, codebook.criteria).map((c) => c.name),
+      ),
+    ).toEqual([['Clareza da regra'], ['Clareza da regra']])
+  })
+
+  it('remover o critério geral remove de todas as definições de uma vez', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin)
+    const versionId = await addCodebookVersion(ownerDb, project, admin, {
+      definitions: [
+        { title: 'Informacional', type: 'category', criteria: [{ name: 'Cita a fonte' }] },
+        { title: 'Transacional', type: 'category', criteria: [{ name: 'Indica o preço' }] },
+      ],
+      generalCriteria: [{ name: 'Clareza' }],
+    })
+
+    auth.userId = admin
+    const result = await saveCodebook(
+      null,
+      fd(
+        project,
+        [
+          { title: 'Informacional', type: 'category' },
+          { title: 'Transacional', type: 'category' },
+        ],
+        {
+          versionId,
+          criteria: [
+            { name: 'Cita a fonte', scope: 0 },
+            { name: 'Indica o preço', scope: 1 },
+          ],
+        },
+      ),
+    )
+    expect(result).toMatchObject({ ok: true })
+
+    const codebook = await loadCodebook(project)
+    expect(byName(codebook.criteria).map((c) => c.name)).toEqual([
+      'Cita a fonte',
+      'Indica o preço',
+    ])
+    expect(codebook.criteria.every((c) => c.definitionId !== null)).toBe(true)
+  })
+
+  it('reordenar critérios numa versão em aberto não cria versão nova', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin)
+    const versionId = await addCodebookVersion(ownerDb, project, admin, {
+      definitions: [
+        {
+          title: 'Informacional',
+          type: 'category',
+          criteria: [{ name: 'A' }, { name: 'B' }, { name: 'C' }],
+        },
+      ],
+    })
+
+    auth.userId = admin
+    const result = await saveCodebook(
+      null,
+      fd(project, [{ title: 'Informacional', type: 'category' }], {
+        versionId,
+        criteria: [
+          { name: 'C', scope: 0 },
+          { name: 'A', scope: 0 },
+          { name: 'B', scope: 0 },
+        ],
+      }),
+    )
+    expect(result).toMatchObject({ ok: true })
+
+    const versions = await versionsOf(project)
+    expect(versions).toHaveLength(1)
+    expect(versions[0].id).toBe(versionId)
+    expect((await criteriaOf(versionId)).map((c) => c.name)).toEqual(['C', 'A', 'B'])
+  })
+
+  it('alterar critério em versão congelada cria a seguinte, copiando definições e critérios', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin)
+    const frozenId = await addCodebookVersion(ownerDb, project, admin, {
+      usedAt: new Date().toISOString(),
+      definitions: [
+        {
+          title: 'Informacional',
+          type: 'category',
+          description: 'busca informação',
+          criteria: [{ name: 'Cita a fonte' }],
+        },
+        { title: 'Transacional', type: 'category' },
+      ],
+      generalCriteria: [{ name: 'Clareza' }],
+    })
+
+    auth.userId = admin
+    const result = await saveCodebook(
+      null,
+      fd(
+        project,
+        [
+          { title: 'Informacional', type: 'category', description: 'busca informação' },
+          { title: 'Transacional', type: 'category', description: '' },
+        ],
+        {
+          versionId: frozenId,
+          criteria: [
+            { name: 'Cita a fonte', scope: 0 },
+            { name: 'Verifica a data', scope: 0 },
+            { name: 'Clareza', scope: 'general' },
+          ],
+        },
+      ),
+    )
+    expect(result).toMatchObject({ ok: true })
+
+    expect(byName(await criteriaOf(frozenId)).map((c) => c.name)).toEqual([
+      'Cita a fonte',
+      'Clareza',
+    ])
+    expect((await definitionsOf(frozenId)).map((d) => d.title)).toEqual([
+      'Informacional',
+      'Transacional',
+    ])
+
+    const versions = await versionsOf(project)
+    expect(versions.map((v) => v.versionNumber)).toEqual([2, 1])
+
+    const created = versions.find((v) => v.id !== frozenId)!
+    expect((await definitionsOf(created.id)).map((d) => d.title)).toEqual([
+      'Informacional',
+      'Transacional',
+    ])
+    expect(byName(await criteriaOf(created.id)).map((c) => c.name)).toEqual([
+      'Cita a fonte',
+      'Clareza',
+      'Verifica a data',
+    ])
+
+    const codebook = await loadCodebook(project)
+    expect(
+      criteriaOfDefinition(codebook.definitions[0].id, codebook.criteria).map(
+        (c) => c.name,
+      ),
+    ).toEqual(['Cita a fonte', 'Verifica a data', 'Clareza'])
+  })
+
+  it('o critério da versão nova aponta para a definição da versão nova, não a da anterior', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin)
+    const frozenId = await addCodebookVersion(ownerDb, project, admin, {
+      usedAt: new Date().toISOString(),
+      definitions: [
+        { title: 'Informacional', type: 'category', criteria: [{ name: 'Cita a fonte' }] },
+      ],
+    })
+
+    auth.userId = admin
+    await saveCodebook(
+      null,
+      fd(project, [{ title: 'Informacional', type: 'category' }], {
+        versionId: frozenId,
+        criteria: [{ name: 'Cita a fonte', scope: 0 }],
+      }),
+    )
+
+    const created = (await versionsOf(project)).find((v) => v.id !== frozenId)!
+    const [definition] = await ownerDb
+      .select({ id: codebookDefinitions.id })
+      .from(codebookDefinitions)
+      .where(eq(codebookDefinitions.codebookVersionId, created.id))
+
+    const [criterion] = await criteriaOf(created.id)
+    expect(criterion.definitionId).toBe(definition.id)
+  })
+
+  it('recusa salvar com uma definição sem nenhum critério, nomeando a definição', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin)
+
+    auth.userId = admin
+    const denied = await saveCodebook(
+      null,
+      fd(
+        project,
+        [
+          { title: 'Informacional', type: 'category' },
+          { title: 'Transacional', type: 'category' },
+        ],
+        { criteria: [{ name: 'Cita a fonte', scope: 0 }] },
+      ),
+    )
+
+    expect(denied).toEqual({ error: expect.stringContaining('“Transacional”') })
+    expect(await versionsOf(project)).toHaveLength(0)
+  })
+
+  it('a recusa nomeia todas as definições sem critério e não toca a versão em aberto', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin)
+    const versionId = await addCodebookVersion(ownerDb, project, admin, {
+      note: 'antes da tentativa',
+      definitions: [{ title: 'Informacional', type: 'category' }],
+      generalCriteria: [{ name: 'Clareza' }],
+    })
+
+    auth.userId = admin
+    const denied = await saveCodebook(
+      null,
+      fd(
+        project,
+        [
+          { title: 'Informacional', type: 'category' },
+          { title: 'Transacional', type: 'category' },
+        ],
+        { versionId, note: 'depois da tentativa' },
+      ),
+    )
+
+    expect(denied).toEqual({
+      error: expect.stringContaining('“Informacional” e “Transacional”'),
+    })
+
+    const versions = await versionsOf(project)
+    expect(versions).toHaveLength(1)
+    expect(versions[0].note).toBe('antes da tentativa')
+    expect((await criteriaOf(versionId)).map((c) => c.name)).toEqual(['Clareza'])
+  })
+
+  it('um único critério geral cobre todas as definições e o salvamento passa', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin)
+
+    auth.userId = admin
+    const result = await saveCodebook(
+      null,
+      fd(
+        project,
+        [
+          { title: 'Informacional', type: 'category' },
+          { title: 'Transacional', type: 'category' },
+          { title: 'Navegacional', type: 'category' },
+        ],
+        { criteria: [{ name: 'Clareza', scope: 'general' }] },
+      ),
+    )
+    expect(result).toMatchObject({ ok: true })
+
+    const [version] = await versionsOf(project)
+    expect(await criteriaOf(version.id)).toHaveLength(1)
+  })
+
+  it('recusa critério sem nome, e nada é gravado', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin)
+
+    auth.userId = admin
+    const denied = await saveCodebook(
+      null,
+      fd(project, [{ title: 'Informacional', type: 'category' }], {
+        criteria: [{ name: '   ', scope: 0 }],
+      }),
+    )
+
+    expect(denied).toEqual({ error: expect.stringContaining('nome') })
+    expect(await versionsOf(project)).toHaveLength(0)
+  })
+
+  it('recusa nome de critério acima do limite, sem gravar nada', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin)
+
+    auth.userId = admin
+    const denied = await saveCodebook(
+      null,
+      fd(project, [{ title: 'Informacional', type: 'category' }], {
+        criteria: [{ name: 'a'.repeat(CRITERION_NAME_MAX + 1), scope: 0 }],
+      }),
+    )
+
+    expect(denied).toEqual({
+      error: expect.stringContaining(String(CRITERION_NAME_MAX)),
+    })
+    expect(await versionsOf(project)).toHaveLength(0)
+  })
+
+  it('recusa descrição de critério acima do limite, e aceita o limite exato', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin)
+
+    auth.userId = admin
+    const denied = await saveCodebook(
+      null,
+      fd(project, [{ title: 'Informacional', type: 'category' }], {
+        criteria: [
+          {
+            name: 'Cita a fonte',
+            scope: 0,
+            description: 'a'.repeat(CRITERION_DESCRIPTION_MAX + 1),
+          },
+        ],
+      }),
+    )
+    expect(denied).toEqual({
+      error: expect.stringContaining(String(CRITERION_DESCRIPTION_MAX)),
+    })
+    expect(await versionsOf(project)).toHaveLength(0)
+
+    const result = await saveCodebook(
+      null,
+      fd(project, [{ title: 'Informacional', type: 'category' }], {
+        criteria: [
+          {
+            name: 'Cita a fonte',
+            scope: 0,
+            description: 'a'.repeat(CRITERION_DESCRIPTION_MAX),
+          },
+        ],
+      }),
+    )
+    expect(result).toMatchObject({ ok: true })
+  })
+
+  it('o banco recusa o nome de critério acima do limite, mesmo por escrita direta', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin)
+    const versionId = await addCodebookVersion(ownerDb, project, admin)
+
+    const write = ownerDb.insert(codebookCriteria).values({
+      codebookVersionId: versionId,
+      definitionId: null,
+      name: 'a'.repeat(CRITERION_NAME_MAX + 1),
+      orderIndex: 0,
+    })
+
+    await expect(write).rejects.toSatisfy(
+      (err: unknown) => pgErrorCode(err) === '23514',
+    )
+  })
+
+  it('recusa a chamada direta com critério fora das definições enviadas', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin)
+
+    auth.userId = admin
+    const denied = await saveCodebook(
+      null,
+      fd(project, [{ title: 'Informacional', type: 'category' }], {
+        criteria: [{ name: 'Cita a fonte', scope: 7 }],
+      }),
+    )
+
+    expect(denied).toEqual({ error: expect.stringContaining('definição') })
+    expect(await versionsOf(project)).toHaveLength(0)
+  })
+
+  it('recusa o envio com número de nomes e de vínculos diferentes', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin)
+
+    auth.userId = admin
+    const denied = await saveCodebook(
+      null,
+      fd(project, [{ title: 'Informacional', type: 'category' }], {
+        rawCriteria: { names: ['Cita a fonte', 'Clareza'], scopes: ['0'] },
+      }),
+    )
+
+    expect(denied).toEqual({ error: expect.stringContaining('ler os critérios') })
+    expect(await versionsOf(project)).toHaveLength(0)
+  })
+
+  it('recusa criar critério enquanto o projeto está na Fase 1, e nada é gravado', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin, PHASE_1)
+
+    auth.userId = admin
+    const denied = await saveCodebook(
+      null,
+      fd(project, [{ title: 'Informacional', type: 'category' }], {
+        criteria: [{ name: 'Cita a fonte', scope: 0 }],
+      }),
+    )
+
+    expect(denied).toEqual({ error: expect.stringContaining('Fase 2') })
+    expect(await versionsOf(project)).toHaveLength(0)
+  })
+
+  it('na Fase 1, salvar definição sem critério continua permitido', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin, PHASE_1)
+
+    auth.userId = admin
+    const result = await saveCodebook(
+      null,
+      fd(project, [{ title: 'Informacional', type: 'category' }]),
+    )
+
+    expect(result).toMatchObject({ ok: true })
+    const [version] = await versionsOf(project)
+    expect(await criteriaOf(version.id)).toEqual([])
+  })
+
+  it('o Avaliador é recusado, e nenhum critério é gravado', async () => {
+    const admin = await newUser('Admin')
+    const evaluator = await newUser('Avaliador')
+    const project = await newProject(admin)
+    await addActiveEvaluator(ownerDb, project, evaluator)
+
+    auth.userId = evaluator
+    const denied = await saveCodebook(
+      null,
+      fd(project, [{ title: 'Informacional', type: 'category' }], {
+        criteria: [{ name: 'Cita a fonte', scope: 0 }],
+      }),
+    )
+
+    expect(denied).toEqual({ error: expect.stringContaining('administrador') })
+    expect(await versionsOf(project)).toHaveLength(0)
+  })
+
+  it('o administrador de um projeto não cria critério em outro', async () => {
+    const admin = await newUser('Admin')
+    const outsider = await newUser('Admin de Outro')
+    const project = await newProject(admin)
+    await newProject(outsider)
+
+    auth.userId = outsider
+    const denied = await saveCodebook(
+      null,
+      fd(project, [{ title: 'Informacional', type: 'category' }], {
+        criteria: [{ name: 'Cita a fonte', scope: 0 }],
+      }),
+    )
+
+    expect(denied).toEqual({ error: expect.stringContaining('administrador') })
+    expect(await versionsOf(project)).toHaveLength(0)
+  })
+
+  it('a conta de notas por resposta acompanha os critérios criados e removidos', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin)
+
+    auth.userId = admin
+    await saveCodebook(
+      null,
+      fd(
+        project,
+        [
+          { title: 'Informacional', type: 'category' },
+          { title: 'Transacional', type: 'category' },
+        ],
+        {
+          criteria: [
+            { name: 'Cita a fonte', scope: 0 },
+            { name: 'Clareza', scope: 'general' },
+          ],
+        },
+      ),
+    )
+
+    const before = await loadCodebook(project)
+    expect(notesPerResponse(before.definitions, before.criteria)).toBe(3)
+
+    await saveCodebook(
+      null,
+      fd(
+        project,
+        [
+          { title: 'Informacional', type: 'category' },
+          { title: 'Transacional', type: 'category' },
+        ],
+        {
+          versionId: before.version!.id,
+          criteria: [{ name: 'Clareza', scope: 'general' }],
+        },
+      ),
+    )
+
+    const after = await loadCodebook(project)
+    expect(notesPerResponse(after.definitions, after.criteria)).toBe(2)
+  })
+
+  it('o histórico traz a contagem de definições e de critérios de cada versão', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin)
+    await addCodebookVersion(ownerDb, project, admin, {
+      versionNumber: 1,
+      usedAt: new Date().toISOString(),
+      definitions: [{ title: 'Informacional', type: 'category' }],
+      generalCriteria: [{ name: 'Clareza' }],
+    })
+    await addCodebookVersion(ownerDb, project, admin, {
+      versionNumber: 2,
+      definitions: [
+        { title: 'Informacional', type: 'category', criteria: [{ name: 'Cita a fonte' }] },
+        { title: 'Transacional', type: 'category' },
+      ],
+      generalCriteria: [{ name: 'Clareza' }, { name: 'Objetividade' }],
+    })
+
+    const versions = await listCodebookVersions(project)
+    expect(
+      versions.map((v) => [v.versionNumber, v.definitionCount, v.criterionCount]),
+    ).toEqual([
+      [2, 2, 3],
+      [1, 1, 1],
+    ])
+  })
+
+  it('a versão sem definição nenhuma aparece no histórico com contagem zero', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin)
+    await addCodebookVersion(ownerDb, project, admin, { definitions: [] })
+
+    const [version] = await listCodebookVersions(project)
+    expect([version.definitionCount, version.criterionCount]).toEqual([0, 0])
+  })
+
+  it('nenhum critério vai no envio à LLM, que continua só com prompt e títulos', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin)
+
+    auth.userId = admin
+    await saveCodebook(
+      null,
+      fd(project, [{ title: 'Informacional', type: 'category' }], {
+        criteria: [
+          { name: 'Cita a fonte', scope: 0, description: 'a fonte é verificável' },
+        ],
+      }),
+    )
+
+    const codebook = await loadCodebook(project)
+    const input = composeLlmInput({
+      promptText: 'Classifique a consulta.',
+      definitionTitles: codebook.definitions.map((d) => d.title),
+      itemContent: 'como trocar pneu',
+    })
+
+    expect(input).toContain('Informacional')
+    expect(input).not.toContain('Cita a fonte')
+    expect(input).not.toContain('a fonte é verificável')
   })
 })

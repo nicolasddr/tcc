@@ -22,6 +22,7 @@ import { CodebookHistory } from '@/app/projects/[id]/pipeline/codebook-history'
 import type { CodebookVersionSummary } from '@/app/projects/[id]/pipeline/codebook'
 import {
   VersionBadges,
+  VersionCounts,
   VersionMeta,
 } from '@/app/projects/[id]/pipeline/version-history'
 import { DefinitionList } from '@/app/projects/[id]/pipeline/definition-list'
@@ -410,5 +411,98 @@ describe('app/projects/[id]/codebook — a tela do codebook', () => {
       null,
     ])
     expect(textOf(DefinitionList(props))).toContain('busca informação')
+  })
+  it('o editor recebe os critérios da versão vigente, específicos e gerais', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin, PHASE_2)
+    await addCodebookVersion(ownerDb, project, admin, {
+      definitions: [
+        {
+          title: 'Informacional',
+          type: 'category',
+          criteria: [{ name: 'Cita a fonte' }],
+        },
+        { title: 'Transacional', type: 'category' },
+      ],
+      generalCriteria: [{ name: 'Clareza' }],
+    })
+
+    auth.userId = admin
+    const editor = findElement(await renderCodebook(project), CodebookEditor)
+    expect(editor).toBeTruthy()
+
+    const props = editor!.props as Parameters<typeof CodebookEditor>[0]
+    expect(props.criteria.map((c) => c.name).sort()).toEqual(['Cita a fonte', 'Clareza'])
+    expect(props.criteria.filter((c) => c.definitionId === null)).toHaveLength(1)
+  })
+
+  it('a versão em leitura traz o critério geral dentro de cada definição', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin, PHASE_2)
+    const versionId = await addCodebookVersion(ownerDb, project, admin, {
+      usedAt: new Date().toISOString(),
+      definitions: [
+        {
+          title: 'Informacional',
+          type: 'category',
+          criteria: [{ name: 'Cita a fonte', description: 'a fonte é verificável' }],
+        },
+        { title: 'Transacional', type: 'category' },
+      ],
+      generalCriteria: [{ name: 'Clareza' }],
+    })
+
+    auth.userId = admin
+    const props = definitionsOf(await renderVersion(project, versionId))
+    expect(props.criteria?.map((c) => c.name).sort()).toEqual([
+      'Cita a fonte',
+      'Clareza',
+    ])
+
+    const text = textOf(DefinitionList(props))
+    expect(text).toContain('Cita a fonte')
+    expect(text).toContain('a fonte é verificável')
+    expect(text.match(/Clareza/g)).toHaveLength(2)
+    expect(text).toContain('geral')
+  })
+
+  it('cada linha do histórico traz a contagem de definições e de critérios', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin, PHASE_2)
+    await addCodebookVersion(ownerDb, project, admin, {
+      definitions: [
+        {
+          title: 'Informacional',
+          type: 'category',
+          criteria: [{ name: 'Cita a fonte' }],
+        },
+        { title: 'Transacional', type: 'category' },
+      ],
+      generalCriteria: [{ name: 'Clareza' }, { name: 'Objetividade' }],
+    })
+
+    auth.userId = admin
+    const props = historyOf(await renderCodebook(project))
+    expect(props.versions[0].definitionCount).toBe(2)
+    expect(props.versions[0].criterionCount).toBe(3)
+
+    const text = textOf(VersionCounts({ version: props.versions[0] }))
+    expect(text).toContain('2 definições')
+    expect(text).toContain('3 critérios')
+  })
+
+  it('a versão sem critério nenhum aparece no histórico com a contagem zerada', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin)
+    await addCodebookVersion(ownerDb, project, admin, {
+      definitions: [{ title: 'Informacional', type: 'category' }],
+    })
+
+    auth.userId = admin
+    const props = historyOf(await renderCodebook(project))
+    expect(props.versions[0].criterionCount).toBe(0)
+    expect(textOf(VersionCounts({ version: props.versions[0] }))).toBe(
+      '1 definição · 0 critérios',
+    )
   })
 })

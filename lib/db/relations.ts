@@ -1,5 +1,5 @@
 import { relations } from "drizzle-orm/relations";
-import { profiles, projects, superAdmins, notifications, platformPermissionRequests, projectMembers, projectInvitations, onboardingResponses, onboardingQuestions, codebookVersions, codebookDefinitions, promptVersions, inputItems } from "./schema";
+import { profiles, projects, superAdmins, notifications, platformPermissionRequests, projectMembers, projectInvitations, onboardingResponses, onboardingQuestions, codebookVersions, codebookDefinitions, codebookCriteria, promptVersions, inputItems } from "./schema";
 
 export const projectsRelations = relations(projects, ({one, many}) => ({
 	profile: one(profiles, {
@@ -132,12 +132,25 @@ export const codebookVersionsRelations = relations(codebookVersions, ({one, many
 		references: [profiles.id]
 	}),
 	codebookDefinitions: many(codebookDefinitions),
+	codebookCriteria: many(codebookCriteria),
 }));
 
-export const codebookDefinitionsRelations = relations(codebookDefinitions, ({one}) => ({
+export const codebookDefinitionsRelations = relations(codebookDefinitions, ({one, many}) => ({
 	codebookVersion: one(codebookVersions, {
 		fields: [codebookDefinitions.codebookVersionId],
 		references: [codebookVersions.id]
+	}),
+	codebookCriteria: many(codebookCriteria),
+}));
+
+export const codebookCriteriaRelations = relations(codebookCriteria, ({one}) => ({
+	codebookVersion: one(codebookVersions, {
+		fields: [codebookCriteria.codebookVersionId],
+		references: [codebookVersions.id]
+	}),
+	codebookDefinition: one(codebookDefinitions, {
+		fields: [codebookCriteria.definitionId],
+		references: [codebookDefinitions.id]
 	}),
 }));
 

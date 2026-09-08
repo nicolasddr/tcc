@@ -56,8 +56,8 @@ export default async function ProjectCodebookPage({
         title="Definições"
         hint={
           project.phase >= PHASE_2
-            ? 'Os conceitos que estruturam a tarefa da LLM, cada um com título, tipo e a descrição que o avaliador lê. Só os títulos vão para a LLM.'
-            : 'Os conceitos que estruturam a tarefa da LLM, cada um com título e tipo. A descrição de cada definição é escrita na Fase 2.'
+            ? 'Os conceitos que estruturam a tarefa da LLM, cada um com título, tipo, a descrição que o avaliador lê e os critérios com que ele julga. Só os títulos vão para a LLM.'
+            : 'Os conceitos que estruturam a tarefa da LLM, cada um com título e tipo. A descrição e os critérios de cada definição são escritos na Fase 2.'
         }
       >
         <CodebookEditor
@@ -66,13 +66,14 @@ export default async function ProjectCodebookPage({
           version={codebook.version}
           isOpen={codebook.isOpen}
           definitions={codebook.definitions}
+          criteria={codebook.criteria}
           defaultType={defaultDefinitionType(project.taskType)}
         />
       </Section>
 
       <Section
         title="Histórico de versões"
-        hint="Da mais recente para a mais antiga. Abrir uma versão mostra as definições e a ordem como estavam nela, em leitura: versão congelada não é editável nem apagável."
+        hint="Da mais recente para a mais antiga, com a contagem de definições e de critérios de cada uma. Abrir uma versão mostra as definições e a ordem como estavam nela, em leitura: versão congelada não é editável nem apagável."
       >
         <CodebookHistory projectId={project.id} versions={versions} />
       </Section>

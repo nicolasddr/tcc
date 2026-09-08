@@ -33,7 +33,7 @@ export default async function CodebookVersionPage({
   const project = requirePipelineAdmin(access, id)
   if (!detail) notFound()
 
-  const { version, definitions } = detail
+  const { version, definitions, criteria } = detail
 
   return (
     <PageShell
@@ -60,12 +60,12 @@ export default async function CodebookVersionPage({
 
       <Section
         title="Definições desta versão"
-        hint="Em leitura, na ordem em que foram salvas nesta versão."
+        hint="Em leitura, na ordem em que foram salvas nesta versão, com os critérios que valiam para cada uma."
       >
         {definitions.length === 0 ? (
           <EmptyState>Esta versão não tem definições.</EmptyState>
         ) : (
-          <DefinitionList definitions={definitions} />
+          <DefinitionList definitions={definitions} criteria={criteria} />
         )}
       </Section>
     </PageShell>

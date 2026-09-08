@@ -270,6 +270,31 @@ export const codebookDefinitions = pgTable("codebook_definitions", {
 	check("cd_description_len", sql`description IS NULL OR char_length(description) <= 2000`),
 ]);
 
+export const codebookCriteria = pgTable("codebook_criteria", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	codebookVersionId: uuid("codebook_version_id").notNull(),
+	definitionId: uuid("definition_id"),
+	name: text().notNull(),
+	description: text(),
+	orderIndex: integer("order_index").notNull(),
+}, (table) => [
+	index("cc_version_order").using("btree", table.codebookVersionId.asc().nullsLast(), table.orderIndex.asc().nullsLast()),
+	index("cc_definition_order").using("btree", table.definitionId.asc().nullsLast(), table.orderIndex.asc().nullsLast()),
+	foreignKey({
+			columns: [table.codebookVersionId],
+			foreignColumns: [codebookVersions.id],
+			name: "codebook_criteria_codebook_version_id_fkey"
+		}).onDelete("cascade"),
+	foreignKey({
+			columns: [table.definitionId],
+			foreignColumns: [codebookDefinitions.id],
+			name: "codebook_criteria_definition_id_fkey"
+		}).onDelete("cascade"),
+	check("cc_name_len", sql`char_length(name) <= 200`),
+	check("cc_name_not_blank", sql`btrim(name) <> ''`),
+	check("cc_description_len", sql`description IS NULL OR char_length(description) <= 2000`),
+]);
+
 export const promptVersions = pgTable("prompt_versions", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	projectId: uuid("project_id").notNull(),
