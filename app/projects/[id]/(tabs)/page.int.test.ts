@@ -1,4 +1,4 @@
-// app/projects/[id]/page.int.test.ts — teste de integração do ESCOPO de visibilidade
+// app/projects/[id]/(tabs)/page.int.test.ts — teste de integração do ESCOPO de visibilidade
 // da página do projeto (issue #22). "Quem não participa não enxerga o projeto": prova a
 // checagem EXPLÍCITA (`canView` → notFound) que a página faz na app-layer.
 //
@@ -23,9 +23,11 @@ vi.mock('next/navigation', () => ({
   redirect: (url: string) => {
     throw new Error(`NEXT_REDIRECT:${url}`)
   },
+  usePathname: () => '/',
 }))
 
-import ProjectPage from '@/app/projects/[id]/page'
+import ProjectPage from '@/app/projects/[id]/(tabs)/page'
+import ProjectTabsLayout from '@/app/projects/[id]/(tabs)/layout'
 import { ProjectTabs } from '@/app/projects/[id]/project-tabs'
 import { PipelineChecklist } from '@/app/projects/[id]/pipeline/pipeline-checklist'
 import { AdvancePhase } from '@/app/projects/[id]/pipeline/advance-phase'
@@ -79,6 +81,10 @@ function render(id: string) {
   return ProjectPage({ params: Promise.resolve({ id }) })
 }
 
+function renderLayout(id: string) {
+  return ProjectTabsLayout({ params: Promise.resolve({ id }), children: null })
+}
+
 function checklistOf(tree: unknown): ChecklistProps | null {
   const element = findElement(tree, PipelineChecklist)
   return element ? (element.props as ChecklistProps) : null
@@ -107,7 +113,7 @@ describe('app/projects/[id]/page — escopo de visibilidade', () => {
 
   async function tabsOf(projectId: string, userId: string) {
     auth.userId = userId
-    const tabs = findElement(await render(projectId), ProjectTabs)
+    const tabs = findElement(await renderLayout(projectId), ProjectTabs)
     expect(tabs).toBeTruthy()
     return ProjectTabs(tabs!.props as TabsProps)
   }
@@ -128,6 +134,7 @@ describe('app/projects/[id]/page — escopo de visibilidade', () => {
 
     auth.userId = outsider
     await expect(render(project)).rejects.toThrow('NEXT_NOTFOUND')
+    await expect(renderLayout(project)).rejects.toThrow('NEXT_NOTFOUND')
   })
 
   it('o criador/admin, um membro e um convidado pendente enxergam', async () => {
@@ -138,12 +145,11 @@ describe('app/projects/[id]/page — escopo de visibilidade', () => {
     await addActiveEvaluator(ownerDb, project, evaluator)
     await addPendingInvitation(ownerDb, project, invited, admin)
 
-    auth.userId = admin
-    await expect(render(project)).resolves.toBeTruthy()
-    auth.userId = evaluator
-    await expect(render(project)).resolves.toBeTruthy()
-    auth.userId = invited
-    await expect(render(project)).resolves.toBeTruthy()
+    for (const userId of [admin, evaluator, invited]) {
+      auth.userId = userId
+      await expect(render(project)).resolves.toBeTruthy()
+      await expect(renderLayout(project)).resolves.toBeTruthy()
+    }
   })
 
   it('o Administrador vê o checklist de avanço, e cada pendência aponta a tela do artefato', async () => {
@@ -269,7 +275,7 @@ describe('app/projects/[id]/page — escopo de visibilidade', () => {
 
     for (const userId of [admin, evaluator]) {
       auth.userId = userId
-      expect(hasProp(await render(project), 'href', members)).toBe(true)
+      expect(hasProp(await renderLayout(project), 'href', members)).toBe(true)
     }
   })
 })

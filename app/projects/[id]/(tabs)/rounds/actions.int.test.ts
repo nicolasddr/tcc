@@ -14,8 +14,8 @@ vi.mock('next/navigation', () => ({
   },
 }))
 
-import { createRound, closeRound } from '@/app/projects/[id]/rounds/actions'
-import { listRounds, loadOpenRound } from '@/app/projects/[id]/rounds/rounds'
+import { createRound, closeRound } from '@/app/projects/[id]/(tabs)/rounds/actions'
+import { listRounds, loadOpenRound } from '@/app/projects/[id]/(tabs)/rounds/rounds'
 import { saveCodebook } from '@/app/projects/[id]/pipeline/actions'
 import { loadCodebook } from '@/app/projects/[id]/pipeline/codebook'
 import { PHASE_1, PHASE_2 } from '@/app/projects/[id]/pipeline/preconditions'

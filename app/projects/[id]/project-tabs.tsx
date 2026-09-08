@@ -1,3 +1,6 @@
+'use client'
+
+import { usePathname } from 'next/navigation'
 import { TabList, Tab } from '@/app/components/ui/tabs'
 import {
   ChartIcon,
@@ -11,15 +14,31 @@ const soon = 'Ainda não implementado'
 
 export type ProjectTab = 'overview' | 'codebook' | 'prompt' | 'items' | 'rounds'
 
+export function activeTab(pathname: string, projectId: string): ProjectTab {
+  const rest = pathname.slice(`/projects/${projectId}`.length).split('/')[1]
+  switch (rest) {
+    case 'codebook':
+      return 'codebook'
+    case 'prompt':
+      return 'prompt'
+    case 'items':
+      return 'items'
+    case 'rounds':
+      return 'rounds'
+    default:
+      return 'overview'
+  }
+}
+
 export function ProjectTabs({
   projectId,
   isAdmin,
-  active = 'overview',
 }: {
   projectId: string
   isAdmin: boolean
-  active?: ProjectTab
 }) {
+  const active = activeTab(usePathname() ?? '', projectId)
+
   return (
     <TabList className="mt-6">
       <Tab

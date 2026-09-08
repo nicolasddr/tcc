@@ -5,34 +5,21 @@ import { transaction, projects, projectMembers, projectInvitations } from '@/lib
 import { listProjectMembers } from '@/lib/authz'
 import { acceptInvitation } from '@/app/onboarding/actions'
 import { declineInvitation } from '@/app/invitations/actions'
-import { taskTypeLabel } from '../task-types'
-import { projectStatusLabel, roleLabel } from '../labels'
-import { groupMembers } from '../members'
-import { LeaveProjectButton } from './member-actions'
-import { ProjectTabs } from './project-tabs'
-import { PhaseBar } from './phase-bar'
-import { PipelineChecklist } from './pipeline/pipeline-checklist'
-import { EMPTY_PIPELINE, PHASE_1 } from './pipeline/preconditions'
-import { loadCodebook } from './pipeline/codebook'
-import { loadPrompt } from './pipeline/prompt'
-import { countItems } from './pipeline/items'
+import { groupMembers } from '../../members'
+import { LeaveProjectButton } from '../member-actions'
+import { PhaseBar } from '../phase-bar'
+import { PipelineChecklist } from '../pipeline/pipeline-checklist'
+import { EMPTY_PIPELINE, PHASE_1 } from '../pipeline/preconditions'
+import { loadCodebook } from '../pipeline/codebook'
+import { loadPrompt } from '../pipeline/prompt'
+import { countItems } from '../pipeline/items'
 import Link from '@/app/components/app-link'
 import { SubmitButton } from '@/app/components/submit-button'
 import { ButtonLink } from '@/app/components/ui/button'
-import { Badge, StatusBadge } from '@/app/components/ui/badge'
 import { Callout } from '@/app/components/ui/panel'
-import { Chip, ChipLink } from '@/app/components/ui/chip'
 import { StatCard } from '@/app/components/ui/stat'
 import { Section } from '@/app/components/ui/section'
-import { PageShell, TopBar, BackLink, PageTitle } from '@/app/components/ui/shell'
-import {
-  UsersIcon,
-  ArrowRightIcon,
-  SlidersIcon,
-  TagIcon,
-  UserIcon,
-  ChevronRightIcon,
-} from '@/app/components/ui/icons'
+import { ArrowRightIcon } from '@/app/components/ui/icons'
 
 function OpenLink({ href, children }: { href: string; children: React.ReactNode }) {
   return (
@@ -56,9 +43,7 @@ export default async function ProjectPage({
       .select({
         id: projects.id,
         name: projects.name,
-        description: projects.description,
         status: projects.status,
-        taskType: projects.taskType,
         phase: projects.phase,
         createdBy: projects.createdBy,
       })
@@ -112,7 +97,6 @@ export default async function ProjectPage({
     Boolean(pendingInvitation)
   if (!canView) notFound()
 
-  const roles = memberships.map((m) => roleLabel(m.role))
   const onboardingPending = memberships.some(
     (m) => m.role === 'evaluator' && m.status === 'pending_onboarding',
   )
@@ -120,13 +104,10 @@ export default async function ProjectPage({
   const isAdmin = memberships.some(
     (m) => m.role === 'administrator' && m.status === 'active',
   )
-  const isActiveMember = memberships.some((m) => m.status === 'active')
   const isMember = memberships.length > 0
 
   const canLeave =
     !isAdmin && memberships.some((m) => m.role === 'evaluator' && m.status === 'active')
-  const taskType = taskTypeLabel(project.taskType)
-
 
   const members = groupMembers(memberRows)
   const activeEvaluators = members.filter(
@@ -135,58 +116,7 @@ export default async function ProjectPage({
   const inOnboarding = members.filter((m) => m.status === 'pending_onboarding').length
 
   return (
-    <PageShell
-      width="wide"
-      header={
-        <TopBar>
-          <BackLink href="/dashboard" />
-        </TopBar>
-      }
-    >
-      <header>
-        <div className="flex min-w-0 flex-wrap items-center gap-3">
-          <PageTitle>{project.name}</PageTitle>
-          <StatusBadge status={project.status}>
-            {projectStatusLabel(project.status)}
-          </StatusBadge>
-          {onboardingPending ? (
-            <Badge tone="warning">onboarding pendente</Badge>
-          ) : null}
-        </div>
-
-        <div className="mt-3 flex flex-wrap gap-1.5">
-          <Chip icon={<TagIcon />}>{taskType ?? 'Não declarado'}</Chip>
-          {roles.length > 0 ? (
-            <Chip icon={<UserIcon />}>{roles.join(' · ')}</Chip>
-          ) : null}
-          {isActiveMember ? (
-            <ChipLink href={`/projects/${project.id}/members`} icon={<UsersIcon />}>
-              Membros
-            </ChipLink>
-          ) : null}
-          {isAdmin ? (
-            <ChipLink
-              href={`/projects/${project.id}/settings`}
-              icon={<SlidersIcon />}
-            >
-              Ajustes
-            </ChipLink>
-          ) : null}
-        </div>
-
-        {project.description ? (
-          <details className="group mt-3">
-            <summary className="inline-flex cursor-pointer list-none items-center gap-1.5 rounded-control text-[12.5px] font-semibold text-muted focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-brand-ring [&::-webkit-details-marker]:hidden">
-              <ChevronRightIcon className="transition-transform group-open:rotate-90" />
-              Sobre o projeto
-            </summary>
-            <p className="mt-2 max-w-[68ch] text-[13.5px] leading-relaxed text-label">
-              {project.description}
-            </p>
-          </details>
-        ) : null}
-      </header>
-
+    <>
       {/* Convite pendente: o convidado (ainda não-membro) aceita ou recusa aqui. */}
       {pendingInvitation && !isMember ? (
         <Callout
@@ -230,8 +160,6 @@ export default async function ProjectPage({
 
       {isMember ? (
         <>
-          <ProjectTabs projectId={project.id} isAdmin={isAdmin} />
-
           <PhaseBar
             className="mt-4"
             current={project.phase}
@@ -339,6 +267,6 @@ export default async function ProjectPage({
           <LeaveProjectButton projectId={project.id} />
         </Section>
       ) : null}
-    </PageShell>
+    </>
   )
 }

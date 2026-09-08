@@ -1,25 +1,17 @@
 import { notFound } from 'next/navigation'
 import { requireUserId } from '@/lib/supabase/server'
 import { transaction } from '@/lib/db'
-import { loadPipelineAccess, requirePipelineAdmin } from '../pipeline/access'
-import { loadPrompt, listPromptVersions } from '../pipeline/prompt'
-import { PromptEditor } from '../pipeline/prompt-editor'
-import { PromptMetadataEditor } from '../pipeline/prompt-metadata-editor'
-import { PromptHistory } from '../pipeline/prompt-history'
-import { PromptTest } from '../pipeline/prompt-test'
-import { loadItems } from '../pipeline/items'
-import { loadCodebook } from '../pipeline/codebook'
-import { EMPTY_PIPELINE, canAdvanceFromPhase1 } from '../pipeline/preconditions'
-import { ProjectTabs } from '../project-tabs'
+import { loadPipelineAccess, requirePipelineAdmin } from '../../pipeline/access'
+import { loadPrompt, listPromptVersions } from '../../pipeline/prompt'
+import { PromptEditor } from '../../pipeline/prompt-editor'
+import { PromptMetadataEditor } from '../../pipeline/prompt-metadata-editor'
+import { PromptHistory } from '../../pipeline/prompt-history'
+import { PromptTest } from '../../pipeline/prompt-test'
+import { loadItems } from '../../pipeline/items'
+import { loadCodebook } from '../../pipeline/codebook'
+import { EMPTY_PIPELINE, canAdvanceFromPhase1 } from '../../pipeline/preconditions'
 import { llmModel } from '@/lib/ai'
 import { Section } from '@/app/components/ui/section'
-import {
-  PageShell,
-  TopBar,
-  BackLink,
-  PageTitle,
-  PageSubtitle,
-} from '@/app/components/ui/shell'
 
 export default async function ProjectPromptPage({
   params,
@@ -52,19 +44,7 @@ export default async function ProjectPromptPage({
   }
 
   return (
-    <PageShell
-      width="wide"
-      header={
-        <TopBar>
-          <BackLink href={`/projects/${id}`}>Voltar ao projeto</BackLink>
-        </TopBar>
-      }
-    >
-      <PageTitle>Prompt</PageTitle>
-      <PageSubtitle>{project.name}</PageSubtitle>
-
-      <ProjectTabs projectId={project.id} isAdmin active="prompt" />
-
+    <>
       <Section
         title="Texto do prompt"
         hint="A instrução enviada à LLM, versionada de forma independente do codebook."
@@ -101,6 +81,6 @@ export default async function ProjectPromptPage({
       >
         <PromptHistory projectId={project.id} versions={versions} />
       </Section>
-    </PageShell>
+    </>
   )
 }

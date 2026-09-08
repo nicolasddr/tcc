@@ -6,7 +6,7 @@ import {
   roundBlockerMessage,
   roundBlockers,
   type RoundInputs,
-} from '@/app/projects/[id]/rounds/preconditions'
+} from '@/app/projects/[id]/(tabs)/rounds/preconditions'
 import { PHASE_1, PHASE_2 } from '@/app/projects/[id]/pipeline/preconditions'
 
 function inputs(patch: Partial<RoundInputs> = {}): RoundInputs {

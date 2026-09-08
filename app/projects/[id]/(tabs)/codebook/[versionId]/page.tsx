@@ -1,20 +1,14 @@
 import { notFound } from 'next/navigation'
 import { requireUserId } from '@/lib/supabase/server'
 import { transaction } from '@/lib/db'
-import { loadPipelineAccess, requirePipelineAdmin } from '../../pipeline/access'
-import { loadCodebookVersion } from '../../pipeline/codebook'
-import { VersionBadges, VersionMeta } from '../../pipeline/version-history'
-import { DefinitionList } from '../../pipeline/definition-list'
+import { loadPipelineAccess, requirePipelineAdmin } from '../../../pipeline/access'
+import { loadCodebookVersion } from '../../../pipeline/codebook'
+import { VersionBadges, VersionMeta } from '../../../pipeline/version-history'
+import { DefinitionList } from '../../../pipeline/definition-list'
 import { Card } from '@/app/components/ui/card'
 import { EmptyState } from '@/app/components/ui/empty-state'
 import { Section } from '@/app/components/ui/section'
-import {
-  PageShell,
-  TopBar,
-  BackLink,
-  PageTitle,
-  PageSubtitle,
-} from '@/app/components/ui/shell'
+import { BackLink } from '@/app/components/ui/shell'
 
 export default async function CodebookVersionPage({
   params,
@@ -30,24 +24,21 @@ export default async function CodebookVersionPage({
     return { access, detail }
   })
 
-  const project = requirePipelineAdmin(access, id)
+  requirePipelineAdmin(access, id)
   if (!detail) notFound()
 
   const { version, definitions, criteria } = detail
 
   return (
-    <PageShell
-      width="wide"
-      header={
-        <TopBar>
-          <BackLink href={`/projects/${id}/codebook`}>Voltar ao codebook</BackLink>
-        </TopBar>
-      }
-    >
-      <PageTitle>Versão {version.versionNumber} do codebook</PageTitle>
-      <PageSubtitle>{project.name}</PageSubtitle>
+    <>
+      <div className="mt-6">
+        <BackLink href={`/projects/${id}/codebook`}>Voltar ao codebook</BackLink>
+      </div>
 
-      <div className="flex flex-col gap-2">
+      <div className="mt-4 flex flex-col gap-2">
+        <h2 className="m-0 text-[18px] font-bold text-ink">
+          Versão {version.versionNumber} do codebook
+        </h2>
         <VersionBadges version={version} />
         <VersionMeta version={version} />
       </div>
@@ -68,6 +59,6 @@ export default async function CodebookVersionPage({
           <DefinitionList definitions={definitions} criteria={criteria} />
         )}
       </Section>
-    </PageShell>
+    </>
   )
 }

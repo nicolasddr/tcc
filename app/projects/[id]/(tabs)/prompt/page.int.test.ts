@@ -16,8 +16,8 @@ vi.mock('next/navigation', () => ({
   },
 }))
 
-import ProjectPromptPage from '@/app/projects/[id]/prompt/page'
-import PromptVersionPage from '@/app/projects/[id]/prompt/[versionId]/page'
+import ProjectPromptPage from '@/app/projects/[id]/(tabs)/prompt/page'
+import PromptVersionPage from '@/app/projects/[id]/(tabs)/prompt/[versionId]/page'
 import { PromptHistory } from '@/app/projects/[id]/pipeline/prompt-history'
 import { PromptMetadataList } from '@/app/projects/[id]/pipeline/prompt-metadata'
 import {
@@ -27,7 +27,6 @@ import {
 import { PromptEditor } from '@/app/projects/[id]/pipeline/prompt-editor'
 import { PromptMetadataEditor } from '@/app/projects/[id]/pipeline/prompt-metadata-editor'
 import { PromptTest } from '@/app/projects/[id]/pipeline/prompt-test'
-import { ProjectTabs } from '@/app/projects/[id]/project-tabs'
 import type { PromptVersionSummary } from '@/app/projects/[id]/pipeline/prompt'
 import { Button } from '@/app/components/ui/button'
 import { formatDate } from '@/app/notifications/labels'
@@ -342,16 +341,6 @@ describe('app/projects/[id]/prompt — a tela do prompt', () => {
     expect(props.ready).toBe(true)
     expect(props.model).toBe(llmModel())
     expect(props.items.map((item) => item.name)).toEqual(['Consulta 001'])
-  })
-
-  it('a aba do prompt fica marcada como ativa', async () => {
-    const admin = await newUser('Admin')
-    const project = await newProject(admin)
-
-    auth.userId = admin
-    const tabs = findElement(await renderPrompt(project), ProjectTabs)
-    expect(tabs).toBeTruthy()
-    expect((tabs!.props as Parameters<typeof ProjectTabs>[0]).active).toBe('prompt')
   })
 
   it('o Avaliador não acessa a tela nem a versão', async () => {

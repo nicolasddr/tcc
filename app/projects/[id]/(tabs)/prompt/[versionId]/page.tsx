@@ -1,19 +1,13 @@
 import { notFound } from 'next/navigation'
 import { requireUserId } from '@/lib/supabase/server'
 import { transaction } from '@/lib/db'
-import { loadPipelineAccess, requirePipelineAdmin } from '../../pipeline/access'
-import { hasPromptMetadata, loadPromptVersion } from '../../pipeline/prompt'
-import { VersionBadges, VersionMeta } from '../../pipeline/version-history'
-import { PromptMetadataList } from '../../pipeline/prompt-metadata'
+import { loadPipelineAccess, requirePipelineAdmin } from '../../../pipeline/access'
+import { hasPromptMetadata, loadPromptVersion } from '../../../pipeline/prompt'
+import { VersionBadges, VersionMeta } from '../../../pipeline/version-history'
+import { PromptMetadataList } from '../../../pipeline/prompt-metadata'
 import { Card } from '@/app/components/ui/card'
 import { Section } from '@/app/components/ui/section'
-import {
-  PageShell,
-  TopBar,
-  BackLink,
-  PageTitle,
-  PageSubtitle,
-} from '@/app/components/ui/shell'
+import { BackLink } from '@/app/components/ui/shell'
 
 export default async function PromptVersionPage({
   params,
@@ -29,22 +23,19 @@ export default async function PromptVersionPage({
     return { access, version }
   })
 
-  const project = requirePipelineAdmin(access, id)
+  requirePipelineAdmin(access, id)
   if (!version) notFound()
 
   return (
-    <PageShell
-      width="wide"
-      header={
-        <TopBar>
-          <BackLink href={`/projects/${id}/prompt`}>Voltar ao prompt</BackLink>
-        </TopBar>
-      }
-    >
-      <PageTitle>Versão {version.versionNumber} do prompt</PageTitle>
-      <PageSubtitle>{project.name}</PageSubtitle>
+    <>
+      <div className="mt-6">
+        <BackLink href={`/projects/${id}/prompt`}>Voltar ao prompt</BackLink>
+      </div>
 
-      <div className="flex flex-col gap-2">
+      <div className="mt-4 flex flex-col gap-2">
+        <h2 className="m-0 text-[18px] font-bold text-ink">
+          Versão {version.versionNumber} do prompt
+        </h2>
         <VersionBadges version={version} />
         <VersionMeta version={version} />
       </div>
@@ -65,6 +56,6 @@ export default async function PromptVersionPage({
           </p>
         </Card>
       </Section>
-    </PageShell>
+    </>
   )
 }

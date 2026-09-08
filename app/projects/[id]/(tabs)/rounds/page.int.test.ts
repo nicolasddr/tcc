@@ -16,17 +16,16 @@ vi.mock('next/navigation', () => ({
   },
 }))
 
-import ProjectRoundsPage from '@/app/projects/[id]/rounds/page'
-import { RoundList } from '@/app/projects/[id]/rounds/round-list'
-import { NewRound } from '@/app/projects/[id]/rounds/new-round'
-import { CloseRound } from '@/app/projects/[id]/rounds/close-round'
-import { ProjectTabs } from '@/app/projects/[id]/project-tabs'
+import ProjectRoundsPage from '@/app/projects/[id]/(tabs)/rounds/page'
+import { RoundList } from '@/app/projects/[id]/(tabs)/rounds/round-list'
+import { NewRound } from '@/app/projects/[id]/(tabs)/rounds/new-round'
+import { CloseRound } from '@/app/projects/[id]/(tabs)/rounds/close-round'
 import { formatDate } from '@/app/notifications/labels'
 import { PHASE_1, PHASE_2 } from '@/app/projects/[id]/pipeline/preconditions'
 import {
   closeConfirmationLines,
   roundBlockerMessage,
-} from '@/app/projects/[id]/rounds/preconditions'
+} from '@/app/projects/[id]/(tabs)/rounds/preconditions'
 import { ownerDb } from '@/lib/db'
 import {
   createUser,
@@ -232,16 +231,6 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     expect(confirmation).toContain('irreversível')
     expect(confirmation).toContain('Ainda não terminaram: Bia Avaliadora')
     expect(confirmation).toContain('não depende de todos terem terminado')
-  })
-
-  it('a aba de rodadas fica ativa e aponta para a própria tela', async () => {
-    const admin = await newUser('Admin')
-    const { project } = await readyProject(admin)
-
-    auth.userId = admin
-    const tabs = findElement(await render(project), ProjectTabs)
-    expect(tabs).toBeTruthy()
-    expect((tabs!.props as { active?: string }).active).toBe('rounds')
   })
 
   it('o avaliador não alcança a área de rodadas', async () => {

@@ -16,7 +16,7 @@ vi.mock('next/navigation', () => ({
   },
 }))
 
-import ProjectPage from '@/app/projects/[id]/page'
+import ProjectPage from '@/app/projects/[id]/(tabs)/page'
 import { PhaseBar, PROJECT_PHASES } from '@/app/projects/[id]/phase-bar'
 import { ownerDb, projects, pgErrorCode } from '@/lib/db'
 import { eq } from 'drizzle-orm'

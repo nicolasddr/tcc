@@ -1,22 +1,14 @@
 import { notFound } from 'next/navigation'
 import { requireUserId } from '@/lib/supabase/server'
 import { transaction } from '@/lib/db'
-import { loadPipelineAccess, requirePipelineAdmin } from '../pipeline/access'
-import { loadCodebook, listCodebookVersions } from '../pipeline/codebook'
-import { CodebookEditor } from '../pipeline/codebook-editor'
-import { CodebookHistory } from '../pipeline/codebook-history'
-import { PHASE_2 } from '../pipeline/preconditions'
+import { loadPipelineAccess, requirePipelineAdmin } from '../../pipeline/access'
+import { loadCodebook, listCodebookVersions } from '../../pipeline/codebook'
+import { CodebookEditor } from '../../pipeline/codebook-editor'
+import { CodebookHistory } from '../../pipeline/codebook-history'
+import { PHASE_2 } from '../../pipeline/preconditions'
 import { loadOpenRound } from '../rounds/rounds'
-import { ProjectTabs } from '../project-tabs'
 import { defaultDefinitionType } from '@/app/projects/definition-types'
 import { Section } from '@/app/components/ui/section'
-import {
-  PageShell,
-  TopBar,
-  BackLink,
-  PageTitle,
-  PageSubtitle,
-} from '@/app/components/ui/shell'
 
 export default async function ProjectCodebookPage({
   params,
@@ -41,19 +33,7 @@ export default async function ProjectCodebookPage({
   if (!codebook) notFound()
 
   return (
-    <PageShell
-      width="wide"
-      header={
-        <TopBar>
-          <BackLink href={`/projects/${id}`}>Voltar ao projeto</BackLink>
-        </TopBar>
-      }
-    >
-      <PageTitle>Codebook</PageTitle>
-      <PageSubtitle>{project.name}</PageSubtitle>
-
-      <ProjectTabs projectId={project.id} isAdmin active="codebook" />
-
+    <>
       <Section
         title="Definições"
         hint={
@@ -80,6 +60,6 @@ export default async function ProjectCodebookPage({
       >
         <CodebookHistory projectId={project.id} versions={versions} />
       </Section>
-    </PageShell>
+    </>
   )
 }

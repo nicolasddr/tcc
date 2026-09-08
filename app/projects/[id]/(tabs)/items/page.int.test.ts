@@ -16,9 +16,8 @@ vi.mock('next/navigation', () => ({
   },
 }))
 
-import ProjectItemsPage from '@/app/projects/[id]/items/page'
+import ProjectItemsPage from '@/app/projects/[id]/(tabs)/items/page'
 import { ItemsEditor } from '@/app/projects/[id]/pipeline/items-editor'
-import { ProjectTabs } from '@/app/projects/[id]/project-tabs'
 import { ownerDb } from '@/lib/db'
 import {
   createUser,
@@ -47,7 +46,6 @@ function findElement(node: unknown, type: unknown): ReactElement | null {
 }
 
 type ItemsProps = Parameters<typeof ItemsEditor>[0]
-type TabsProps = Parameters<typeof ProjectTabs>[0]
 
 function render(id: string) {
   return ProjectItemsPage({ params: Promise.resolve({ id }) })
@@ -103,16 +101,6 @@ describe('app/projects/[id]/items — a tela dos itens de entrada', () => {
 
     auth.userId = admin
     expect(itemsOf(await render(project)).items).toEqual([])
-  })
-
-  it('a aba dos itens fica marcada como ativa', async () => {
-    const admin = await newUser('Admin')
-    const project = await newProject(admin)
-
-    auth.userId = admin
-    const tabs = findElement(await render(project), ProjectTabs)
-    expect(tabs).toBeTruthy()
-    expect((tabs!.props as TabsProps).active).toBe('items')
   })
 
   it('o avaliador ativo NÃO enxerga (notFound)', async () => {

@@ -22,7 +22,7 @@ import { EmptyState } from '@/app/components/ui/empty-state'
 import { moveBy } from '@/lib/reorder'
 import { PHASE_2 } from './preconditions'
 import { definitionsWithoutCriteria, missingCriteriaMessage } from './criteria'
-import { codebookLockedMessage } from '../rounds/preconditions'
+import { codebookLockedMessage } from '../(tabs)/rounds/preconditions'
 import { NotesPerResponse } from './criteria-summary'
 import {
   CODEBOOK_NOTE_MAX,

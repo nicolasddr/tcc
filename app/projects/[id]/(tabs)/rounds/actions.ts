@@ -12,8 +12,8 @@ import {
   rounds,
 } from '@/lib/db'
 import { isProjectAdmin } from '@/lib/authz'
-import { loadCodebook } from '../pipeline/codebook'
-import { loadPrompt } from '../pipeline/prompt'
+import { loadCodebook } from '../../pipeline/codebook'
+import { loadPrompt } from '../../pipeline/prompt'
 import { loadOpenRound, ROUND_CLOSED, ROUND_OPEN } from './rounds'
 import { roundBlockerMessage, roundBlockers } from './preconditions'
 

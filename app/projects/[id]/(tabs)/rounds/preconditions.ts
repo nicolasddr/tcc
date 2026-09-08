@@ -3,8 +3,8 @@ import {
   quotedList,
   type CriterionScope,
   type DefinitionKey,
-} from '../pipeline/criteria'
-import { PHASE_2 } from '../pipeline/preconditions'
+} from '../../pipeline/criteria'
+import { PHASE_2 } from '../../pipeline/preconditions'
 
 export type RoundDefinition = DefinitionKey & { title: string }
 

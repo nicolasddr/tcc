@@ -1,22 +1,14 @@
 import { requireUserId } from '@/lib/supabase/server'
 import { transaction } from '@/lib/db'
-import { loadPipelineAccess, requirePipelineAdmin } from '../pipeline/access'
-import { loadCodebook } from '../pipeline/codebook'
-import { loadPrompt } from '../pipeline/prompt'
-import { ProjectTabs } from '../project-tabs'
+import { loadPipelineAccess, requirePipelineAdmin } from '../../pipeline/access'
+import { loadCodebook } from '../../pipeline/codebook'
+import { loadPrompt } from '../../pipeline/prompt'
 import { listEvaluatorsNotFinished, listRounds, loadOpenRound } from './rounds'
 import { roundBlockers } from './preconditions'
 import { NewRound } from './new-round'
 import { CloseRound } from './close-round'
 import { RoundList } from './round-list'
 import { Section } from '@/app/components/ui/section'
-import {
-  PageShell,
-  TopBar,
-  BackLink,
-  PageTitle,
-  PageSubtitle,
-} from '@/app/components/ui/shell'
 
 export default async function ProjectRoundsPage({
   params,
@@ -57,19 +49,7 @@ export default async function ProjectRoundsPage({
   const promptVersionNumber = prompt?.version?.versionNumber ?? null
 
   return (
-    <PageShell
-      width="wide"
-      header={
-        <TopBar>
-          <BackLink href={`/projects/${id}`}>Voltar ao projeto</BackLink>
-        </TopBar>
-      }
-    >
-      <PageTitle>Rodadas</PageTitle>
-      <PageSubtitle>{project.name}</PageSubtitle>
-
-      <ProjectTabs projectId={project.id} isAdmin active="rounds" />
-
+    <>
       {openRound ? (
         <Section
           title={`Rodada ${openRound.roundNumber} aberta`}
@@ -103,6 +83,6 @@ export default async function ProjectRoundsPage({
       >
         <RoundList rounds={rounds} />
       </Section>
-    </PageShell>
+    </>
   )
 }

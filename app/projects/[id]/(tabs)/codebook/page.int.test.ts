@@ -16,8 +16,8 @@ vi.mock('next/navigation', () => ({
   },
 }))
 
-import ProjectCodebookPage from '@/app/projects/[id]/codebook/page'
-import CodebookVersionPage from '@/app/projects/[id]/codebook/[versionId]/page'
+import ProjectCodebookPage from '@/app/projects/[id]/(tabs)/codebook/page'
+import CodebookVersionPage from '@/app/projects/[id]/(tabs)/codebook/[versionId]/page'
 import { CodebookHistory } from '@/app/projects/[id]/pipeline/codebook-history'
 import type { CodebookVersionSummary } from '@/app/projects/[id]/pipeline/codebook'
 import {
@@ -31,7 +31,6 @@ import {
   CodebookReadOnly,
 } from '@/app/projects/[id]/pipeline/codebook-editor'
 import { VersionStatus } from '@/app/projects/[id]/pipeline/version-status'
-import { ProjectTabs } from '@/app/projects/[id]/project-tabs'
 import { Button } from '@/app/components/ui/button'
 import { formatDate } from '@/app/notifications/labels'
 import { PHASE_1, PHASE_2 } from '@/app/projects/[id]/pipeline/preconditions'
@@ -391,16 +390,6 @@ describe('app/projects/[id]/codebook — a tela do codebook', () => {
     const editor = findElement(await renderCodebook(project), CodebookEditor)
     const props = editor!.props as Parameters<typeof CodebookEditor>[0]
     expect(props.openRoundNumber).toBeNull()
-  })
-
-  it('a aba do codebook fica marcada como ativa', async () => {
-    const admin = await newUser('Admin')
-    const project = await newProject(admin)
-
-    auth.userId = admin
-    const tabs = findElement(await renderCodebook(project), ProjectTabs)
-    expect(tabs).toBeTruthy()
-    expect((tabs!.props as Parameters<typeof ProjectTabs>[0]).active).toBe('codebook')
   })
 
   it('o Avaliador não acessa a tela nem a versão', async () => {

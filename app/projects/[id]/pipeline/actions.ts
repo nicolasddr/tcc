@@ -40,8 +40,8 @@ import {
 } from './preconditions'
 import { loadPipelineInputs } from './inputs'
 import { itemContentError, normalizeItemContent } from './item-content'
-import { loadOpenRound } from '../rounds/rounds'
-import { codebookLockedMessage } from '../rounds/preconditions'
+import { loadOpenRound } from '../(tabs)/rounds/rounds'
+import { codebookLockedMessage } from '../(tabs)/rounds/preconditions'
 import {
   CODEBOOK_NOTE_MAX,
   CRITERION_DESCRIPTION_MAX,
