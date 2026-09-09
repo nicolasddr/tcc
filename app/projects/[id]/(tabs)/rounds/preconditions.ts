@@ -1,3 +1,5 @@
+import type { LlmFailure } from '@/lib/ai/failure'
+import { RESPONSE_TEXT_MAX } from '@/lib/limits'
 import {
   definitionsWithoutCriteria,
   quotedList,
@@ -157,6 +159,52 @@ export function selectionBlockerMessage(blocker: SelectionBlocker): string {
         ? 'Um dos itens selecionados já produziu resposta nesta rodada, e o mesmo item não gera duas respostas na mesma rodada. Escolha outro item, ou use este de novo na próxima rodada.'
         : `${blocker.count} dos itens selecionados já produziram resposta nesta rodada, e o mesmo item não gera duas respostas na mesma rodada. Escolha outros itens, ou use estes de novo na próxima rodada.`
   }
+}
+
+export type GenerationFailure =
+  | LlmFailure
+  | 'blank'
+  | 'too_long'
+  | 'duplicate'
+  | 'ceiling'
+
+const GENERATION_FAILURE_MESSAGES: Record<GenerationFailure, string> = {
+  auth:
+    'O provedor não aceitou a chave de acesso configurada no servidor. ' +
+    'Confira a chave com quem cuida da instalação e gere de novo.',
+  model:
+    'O provedor não reconheceu o modelo configurado no servidor. ' +
+    'Confira o identificador do modelo com quem cuida da instalação e gere de novo.',
+  too_large:
+    'Este item é grande demais para o modelo. Reduza o conteúdo do item, ' +
+    'ou o texto do prompt, e gere de novo.',
+  timeout:
+    'A LLM demorou demais para responder e a chamada foi encerrada. ' +
+    'Gere de novo para este item.',
+  unavailable:
+    'O provedor da LLM está fora do ar ou sobrecarregado agora. ' +
+    'Gere de novo em alguns instantes.',
+  unknown:
+    'Não foi possível obter a resposta da LLM para este item. ' +
+    'Gere de novo em alguns instantes.',
+  blank:
+    'A LLM devolveu uma resposta vazia, e resposta vazia não é dado de pesquisa. ' +
+    'Nada foi gravado para este item; gere de novo.',
+  too_long:
+    `A resposta veio com mais de ${RESPONSE_TEXT_MAX} caracteres. Nada foi gravado ` +
+    'para este item, porque cortar a resposta adulteraria o dado em silêncio. ' +
+    'Gere de novo, ou reduza o item e o prompt.',
+  duplicate:
+    'Este item já tinha resposta nesta rodada quando a geração chegou nele, e o mesmo ' +
+    'item não gera duas respostas na mesma rodada. Recarregue a página para ver as ' +
+    'respostas da rodada.',
+  ceiling:
+    'O projeto atingiu o teto de respostas de LLM antes de chegar neste item. ' +
+    'Fale com quem cuida da instalação para revisar o teto.',
+}
+
+export function generationFailureMessage(failure: GenerationFailure): string {
+  return GENERATION_FAILURE_MESSAGES[failure]
 }
 
 export function codebookLockedMessage(roundNumber: number): string {

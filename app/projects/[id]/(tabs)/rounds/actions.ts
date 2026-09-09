@@ -9,13 +9,36 @@ import {
   projects,
   codebookVersions,
   promptVersions,
+  inputItems,
+  responses,
   rounds,
 } from '@/lib/db'
 import { isProjectAdmin } from '@/lib/authz'
+import { askLlm } from '@/lib/ai'
+import { llmFailureOf } from '@/lib/ai/failure'
+import {
+  countProjectResponse,
+  hasProjectResponsesLeft,
+  projectResponsesMax,
+} from '@/lib/ai/quota'
+import { RESPONSE_TEXT_MAX } from '@/lib/limits'
 import { loadCodebook } from '../../pipeline/codebook'
 import { loadPrompt } from '../../pipeline/prompt'
-import { loadOpenRound, ROUND_CLOSED, ROUND_OPEN } from './rounds'
-import { roundBlockerMessage, roundBlockers } from './preconditions'
+import { loadItems } from '../../pipeline/items'
+import { composeLlmInput } from '../../pipeline/llm-input'
+import {
+  loadItemsUsedInRound,
+  loadRoundComposition,
+  type RoundComposition,
+} from '../../pipeline/responses'
+import { isOpen, loadOpenRound, ROUND_CLOSED, ROUND_OPEN } from './rounds'
+import {
+  roundBlockerMessage,
+  roundBlockers,
+  selectionBlockerMessage,
+  selectionBlockers,
+  type GenerationFailure,
+} from './preconditions'
 
 export type NewRoundState =
   | { error: string }
@@ -195,4 +218,190 @@ export async function closeRound(
 
   revalidateRounds(projectId)
   return { ok: true, nonce: Date.now(), roundNumber: outcome.roundNumber }
+}
+
+export type GeneratedResponse = { responseId: string; itemId: string }
+
+export type FailedGeneration = { itemId: string; failure: GenerationFailure }
+
+export type GenerateResponsesState =
+  | { error: string }
+  | {
+      ok: true
+      nonce: number
+      created: GeneratedResponse[]
+      failed: FailedGeneration[]
+    }
+  | null
+
+const GENERATE_DENIED =
+  'Não foi possível gerar as respostas. Apenas o administrador do projeto pode gerá-las.'
+
+const GENERATE_ROUND_MISSING =
+  'Esta rodada não existe mais neste projeto. Recarregue a página para ver a lista atual.'
+
+const GENERATE_VERSIONS_MISSING =
+  'Não foi possível ler as versões de codebook e de prompt que esta rodada fixou. Recarregue a página.'
+
+function generateClosedMessage(roundNumber: number): string {
+  return (
+    `A rodada ${roundNumber} já foi fechada, e rodada fechada não recebe mais ` +
+    'resposta. Abra a próxima rodada para gerar de novo.'
+  )
+}
+
+function ceilingReached(max: number): string {
+  return (
+    `Este projeto atingiu o teto de ${max} respostas de LLM, que existe para o teste ` +
+    'não virar fatura. Fale com quem cuida da instalação para revisar o teto.'
+  )
+}
+
+type GenerationSetup =
+  | { status: 'missing' }
+  | { status: 'closed'; roundNumber: number }
+  | { status: 'no_versions' }
+  | { status: 'blocked'; message: string }
+  | { status: 'ready'; composition: RoundComposition; contents: Map<string, string> }
+
+async function setUpGeneration(
+  projectId: string,
+  roundId: string,
+  selected: string[],
+): Promise<GenerationSetup> {
+  return transaction<GenerationSetup>(async (tx) => {
+    const [round] = await tx
+      .select({ id: rounds.id, roundNumber: rounds.roundNumber, status: rounds.status })
+      .from(rounds)
+      .where(and(eq(rounds.id, roundId), eq(rounds.projectId, projectId)))
+      .limit(1)
+
+    if (!round) return { status: 'missing' }
+    if (!isOpen(round)) return { status: 'closed', roundNumber: round.roundNumber }
+
+    const composition = await loadRoundComposition(projectId, roundId, tx)
+    if (!composition) return { status: 'no_versions' }
+
+    const items = await loadItems(projectId, tx)
+    const usedInRound = await loadItemsUsedInRound(roundId, tx)
+
+    const blockers = selectionBlockers(selected, {
+      available: items.map((item) => item.id),
+      usedInRound,
+    })
+    if (blockers.length > 0) {
+      return { status: 'blocked', message: selectionBlockerMessage(blockers[0]) }
+    }
+
+    return {
+      status: 'ready',
+      composition,
+      contents: new Map(items.map((item) => [item.id, item.content])),
+    }
+  })
+}
+
+export async function generateResponses(
+  _prev: GenerateResponsesState,
+  formData: FormData,
+): Promise<GenerateResponsesState> {
+  const userId = await requireUserId()
+
+  const projectId = String(formData.get('project_id') ?? '')
+  const roundId = String(formData.get('round_id') ?? '')
+  if (!projectId || !roundId) return { error: 'Rodada inválida.' }
+
+  if (!(await isProjectAdmin(userId, projectId))) return { error: GENERATE_DENIED }
+
+  const selected = formData.getAll('item_ids').map((value) => String(value))
+
+  const setup = await setUpGeneration(projectId, roundId, selected)
+
+  if (setup.status === 'missing') return { error: GENERATE_ROUND_MISSING }
+  if (setup.status === 'closed') return { error: generateClosedMessage(setup.roundNumber) }
+  if (setup.status === 'no_versions') return { error: GENERATE_VERSIONS_MISSING }
+  if (setup.status === 'blocked') return { error: setup.message }
+
+  if (!hasProjectResponsesLeft(projectId)) {
+    return { error: ceilingReached(projectResponsesMax()) }
+  }
+
+  const { composition, contents } = setup
+  const created: GeneratedResponse[] = []
+  const failed: FailedGeneration[] = []
+
+  for (const itemId of selected) {
+    if (!hasProjectResponsesLeft(projectId)) {
+      failed.push({ itemId, failure: 'ceiling' })
+      continue
+    }
+
+    const input = composeLlmInput({
+      promptText: composition.promptText,
+      definitionTitles: composition.definitionTitles,
+      itemContent: contents.get(itemId)!,
+    })
+
+    let text: string
+    let model: string
+    let modelVersion: string
+    try {
+      const answer = await askLlm(input)
+      text = answer.text
+      model = answer.model
+      modelVersion = answer.modelVersion
+    } catch (cause) {
+      failed.push({ itemId, failure: llmFailureOf(cause) })
+      continue
+    }
+
+    if (text.trim() === '') {
+      failed.push({ itemId, failure: 'blank' })
+      continue
+    }
+    if (text.length > RESPONSE_TEXT_MAX) {
+      failed.push({ itemId, failure: 'too_long' })
+      continue
+    }
+
+    let responseId: string
+    try {
+      responseId = await transaction(async (tx) => {
+        const [row] = await tx
+          .insert(responses)
+          .values({
+            roundId,
+            inputItemId: itemId,
+            text,
+            model,
+            modelVersion,
+            promptVersionId: composition.promptVersionId,
+            codebookVersionId: composition.codebookVersionId,
+            createdBy: userId,
+          })
+          .returning({ id: responses.id })
+
+        await tx
+          .update(inputItems)
+          .set({ usedAt: sql`now()` })
+          .where(and(eq(inputItems.id, itemId), isNull(inputItems.usedAt)))
+
+        return row.id
+      })
+    } catch (err) {
+      if (pgErrorCode(err) === '23505') {
+        failed.push({ itemId, failure: 'duplicate' })
+        continue
+      }
+      throw err
+    }
+
+    countProjectResponse(projectId)
+    created.push({ responseId, itemId })
+  }
+
+  revalidateRounds(projectId)
+  revalidatePath(`/projects/${projectId}/items`)
+
+  return { ok: true, nonce: Date.now(), created, failed }
 }
