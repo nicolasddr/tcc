@@ -88,7 +88,7 @@ O resto do núcleo da metodologia, descrito na landing page e no
 - O segundo e o terceiro tempo do codebook: descrições das definições e
   critérios, autorados na Fase 2 (ver
   [ADR 0001](../adr/0001-codebook-em-tres-tempos.md)).
-- As entidades Rodada e Resposta, com a proveniência. Elas nascem na Fase 2, e
+- As entidades Rodada e Resposta, com o modelo e as versões gravados. Elas nascem na Fase 2, e
   portanto no Épico 2, porque a Fase 1 não persiste resposta nenhuma.
 - Telas de avaliação, painel de discordância e as métricas de concordância:
   Krippendorff's Alpha como primária e Cohen's Kappa, com Qualidade como

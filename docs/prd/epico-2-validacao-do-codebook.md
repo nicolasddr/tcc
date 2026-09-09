@@ -31,7 +31,7 @@ A Fase 2 ganha o ciclo completo de validação do codebook, que se repete quanta
    prompt congelam, e a partir dali elas nunca mais mudam. Só existe uma rodada aberta por vez.
 3. Dentro da rodada, o Administrador **gera respostas**, de 1 a 5 itens por vez. A LLM continua
    recebendo só o prompt e os títulos das definições, exatamente como na Fase 1: nenhum critério vai
-   para a LLM antes da Fase 3. Cada Resposta grava a proveniência completa.
+   para a LLM antes da Fase 3. Cada Resposta grava o modelo, as versões e a origem.
 4. Os **avaliadores** avaliam todas as respostas da rodada, atribuindo Alto, Médio ou Baixo a cada
    critério de cada definição, com justificativa opcional. Enviou, travou: avaliação enviada é
    imutável.
@@ -192,13 +192,13 @@ que a validação do codebook aconteça sobre o pipeline simples.
 - Nenhuma descrição de definição e nenhum critério entra no envio
 - A ordem das definições no envio é a ordem salva na versão
 
-**19.** Como Administrador de Projeto, quero que cada Resposta grave a proveniência completa, para
-que o resultado seja reproduzível e comparável.
+**19.** Como Administrador de Projeto, quero que cada Resposta grave o modelo, as versões e a
+origem, para que o resultado seja reproduzível e comparável.
 
 - Cada resposta registra a origem, o modelo, a versão do modelo, a versão do prompt e a versão do
   codebook, além da rodada e do item
 - O modelo em uso aparece na interface antes da geração
-- A proveniência é gravada na mesma operação que grava o texto
+- Esses campos são gravados na mesma operação que grava o texto
 
 **20.** Como Administrador de Projeto, quero ver um estado de carregamento durante a geração, para
 que eu não clique duas vezes nem ache que travou.
@@ -534,7 +534,7 @@ não exista um caminho de excluir alguém sem justificar.
 ### Integridade e rastreabilidade
 
 - Toda nota fica atrelada à versão do codebook vigente no momento da submissão, através da rodada e
-  também das colunas de proveniência da resposta.
+  também das colunas de versão da resposta.
 - Avaliação enviada é imutável. A recusa de edição e de segundo envio vive na camada de aplicação,
   apoiada por restrições declarativas de unicidade e pela coluna obrigatória de data de envio.
   Restrição sim, trigger não.
@@ -621,11 +621,11 @@ não exista um caminho de excluir alguém sem justificar.
 
 ### Resposta e geração
 
-- Tabela nova de respostas, com rodada, item, texto e proveniência completa: origem, modelo, versão
-  do modelo, versão do prompt e versão do codebook.
+- Tabela nova de respostas, com rodada, item, texto, origem, modelo, versão do modelo, versão do
+  prompt e versão do codebook.
 - As versões ficam gravadas também na resposta, mesmo já sendo determinadas pela rodada. A
-  redundância é deliberada: proveniência é uma afirmação sobre como aquele texto veio a existir, e é
-  o que permite acrescentar a resposta colada manualmente no futuro sem remodelar a tabela, além de
+  redundância é deliberada: esses campos são uma afirmação sobre como aquele texto veio a existir, e
+  são o que permite acrescentar a resposta colada manualmente no futuro sem remodelar a tabela, além de
   tornar a exportação autossuficiente linha a linha. Um teste prova que as duas fontes concordam.
 - Unicidade em rodada mais item, para impedir duas respostas do mesmo item na mesma rodada.
 - Falha na geração não persiste nada. Resposta sem texto não é avaliável, não entra no cálculo e só
@@ -751,7 +751,7 @@ matriz de notas e devolve o coeficiente. Nenhuma action calcula coeficiente por 
   rodada com uma aberta é recusado; fechar impede resposta nova e avaliação nova; fechar duas vezes é
   recusado; avaliador é barrado.
 - **Action de geração**: compõe o envio com prompt mais títulos, sem descrição e sem critério, usando
-  a LLM falsa; grava proveniência completa; item repetido na mesma rodada é recusado; falha parcial
+  a LLM falsa; grava origem, modelo e versões; item repetido na mesma rodada é recusado; falha parcial
   grava as que deram certo e não deixa linha das que falharam; teto do projeto recusa antes de
   chamar a LLM; avaliador é barrado.
 - **Action de envio de avaliação**: envio incompleto é recusado; envio completo grava avaliação e
@@ -789,7 +789,7 @@ membros. Os unitários seguem os de versionamento e de reordenação.
 Fora deste épico, com motivo:
 
 - **Colar resposta manualmente**, prevista na ADR 0003. A Fase 2 mede ambiguidade de codebook sobre
-  um lote gerado pelo próprio pipeline, e resposta colada tem proveniência incompleta. A coluna de
+  um lote gerado pelo próprio pipeline, e resposta colada não tem modelo nem versão de modelo. A coluna de
   origem nasce mesmo assim, com um valor só em uso. Se entrar depois, o vínculo ao item de entrada é
   obrigatório, e não opcional como o documento antigo pedia, porque resposta sem item não tem lugar
   na matriz nem no cálculo.

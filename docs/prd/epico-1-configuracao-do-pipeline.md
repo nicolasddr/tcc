@@ -279,7 +279,7 @@ encha de respostas descartáveis que ninguém vai avaliar.
 
 - Depois de um teste, nenhuma linha nova existe em tabela nenhuma
 - O resultado do teste some ao sair da tela, e não há histórico de testes
-- Nenhuma proveniência é registrada, porque não há resposta persistida
+- Nenhum modelo, versão ou origem é registrado, porque não há resposta persistida
 - O teste não congela a versão do prompt nem a do codebook: sem resposta gravada, não existe registro
   apontando para elas, e continuar editando é justamente o fluxo desta fase
 
@@ -593,7 +593,7 @@ pronta com a suíte vermelha.
 - A saída é texto livre e opaco para a ferramenta. Não há parsing de JSON nem formato imposto. Se
   o Administrador quiser saída estruturada, ele pede isso no texto do prompt, que é livre.
 - "Testar o prompt" chama `lib/ai` e devolve o texto para a tela sem gravar nada: sem Resposta, sem
-  Rodada, sem proveniência. A ADR 0001 muda nesse ponto, porque ela previa um smoke test que
+  Rodada, sem registro de modelo e versões. A ADR 0001 muda nesse ponto, porque ela previa um smoke test que
   persistia poucas respostas.
 - Teto de respostas por projeto configurável por variável de ambiente, para que um erro em épico
   futuro não vire fatura.
@@ -624,7 +624,7 @@ pronta com a suíte vermelha.
 
 Ficam escritas aqui porque nascem das decisões acima e o Épico 2 vai depender delas:
 
-- Toda Resposta grava proveniência: origem (gerada pela ferramenta ou colada à mão), modelo,
+- Toda Resposta grava origem (gerada pela ferramenta ou colada à mão), modelo,
   versão do modelo, versão do prompt e versão do codebook. É o que a ADR 0002 exige para
   replicabilidade.
 - A Rodada existe da Fase 2 em diante e aponta para o par de versões (prompt e codebook) mais o
@@ -698,7 +698,7 @@ Realocado para o **Épico 2 (Fase 2)**, com o texto das histórias aproveitado d
 - Geração de respostas em lote e persistência de Resposta (HU-034).
 - Telas de avaliação, notas e justificativas (HU-036 e HU-037).
 - Painel de discordância e anotações de consenso (HU-038).
-- Entidades Rodada e Resposta, com a proveniência descrita acima.
+- Entidades Rodada e Resposta, com os campos descritos acima.
 - Cálculo de concordância entre avaliadores.
 
 Fora do escopo do projeto por decisões anteriores que continuam valendo:

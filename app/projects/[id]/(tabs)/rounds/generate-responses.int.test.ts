@@ -190,7 +190,7 @@ describe('app/projects/[id]/rounds/actions — gerar respostas na rodada aberta'
     await cleanup(projs, users)
   })
 
-  it('cada item selecionado produz uma resposta, com a proveniência completa', async () => {
+  it('cada item selecionado produz uma resposta, com origem, modelo e versões', async () => {
     const admin = await newUser('Admin')
     const { project, round, items, codebookVersion, promptVersion } = await openRound(
       admin,
@@ -219,7 +219,7 @@ describe('app/projects/[id]/rounds/actions — gerar respostas na rodada aberta'
     }
   })
 
-  it('a proveniência grava o modelo PEDIDO e a versão RESOLVIDA, que são diferentes', async () => {
+  it('a resposta grava o modelo PEDIDO e a versão RESOLVIDA, que são diferentes', async () => {
     const admin = await newUser('Admin')
     const { project, round, items } = await openRound(admin)
 

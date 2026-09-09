@@ -69,7 +69,7 @@ export default async function ProjectRoundsPage({
         <>
           <Section
             title={`Gerar respostas na rodada ${openRound.roundNumber}`}
-            hint="De 1 a 5 itens por geração, cada item produzindo exatamente uma resposta, gravada com a proveniência completa: origem, modelo, versão do modelo e as versões de codebook e de prompt que esta rodada fixou."
+            hint="De 1 a 5 itens por geração, cada item produzindo exatamente uma resposta, que grava origem, modelo, versão do modelo e as versões de codebook e de prompt que esta rodada fixou."
           >
             <GenerateResponses
               projectId={project.id}

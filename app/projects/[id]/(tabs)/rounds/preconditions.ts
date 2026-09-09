@@ -209,8 +209,8 @@ export function generationFailureMessage(failure: GenerationFailure): string {
 
 export function generatedCountMessage(count: number): string {
   return count === 1
-    ? '1 resposta gerada e gravada com a proveniência completa.'
-    : `${count} respostas geradas e gravadas com a proveniência completa.`
+    ? '1 resposta gerada e gravada com o modelo e as versões desta rodada.'
+    : `${count} respostas geradas e gravadas com o modelo e as versões desta rodada.`
 }
 
 export function codebookLockedMessage(roundNumber: number): string {

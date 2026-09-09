@@ -83,11 +83,11 @@ treinado.
 A saída da LLM para um item de entrada, produzida pelo pipeline (prompt + definições + item).
 Não confundir com as respostas do questionário de perfil, que um Avaliador dá ao entrar no
 projeto: aquelas são de outro conceito e não devem usar esta palavra.
-
-**Proveniência (da Resposta)**
-O que permite reproduzir e comparar uma resposta: a origem (gerada pela ferramenta ou colada
-manualmente), o modelo e a versão usados, e as versões de prompt e codebook que a produziram.
-É exigida pela promessa de replicabilidade do Shah.
+Junto do texto, toda resposta grava o que permite reproduzi-la e compará-la: a origem (gerada
+pela ferramenta ou colada manualmente), o modelo e a versão usados, e as versões de prompt e
+codebook que a produziram. É o que a promessa de replicabilidade do Shah exige.
+Evitar: um nome coletivo para esses cinco campos, *proveniência* inclusive. Eles são concretos e
+poucos; citá-los diz mais do que o rótulo.
 
 **Avaliar**
 Ato do Avaliador de aplicar o codebook a uma resposta, atribuindo escala e justificativa.
