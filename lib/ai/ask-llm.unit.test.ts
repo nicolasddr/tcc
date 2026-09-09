@@ -58,8 +58,29 @@ describe('askLlm', () => {
     expect(await askLlm('Classifique isto.')).toEqual({
       text: 'Categoria: Informacional',
       model: 'modelo-de-teste',
+      modelVersion: 'modelo-de-teste',
     })
     expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('a versão do modelo é a que o provedor resolveu, e não a que foi pedida', async () => {
+    respondWith(jsonResponse(200, { ...ANSWER, model: 'modelo-de-teste-2026-05-01' }))
+
+    expect(await askLlm('Classifique isto.')).toMatchObject({
+      model: 'modelo-de-teste',
+      modelVersion: 'modelo-de-teste-2026-05-01',
+    })
+  })
+
+  it('sem modelo resolvido no payload, a versão cai para o modelo pedido', async () => {
+    for (const model of [undefined, null, '', '   ', 42]) {
+      respondWith(jsonResponse(200, { ...ANSWER, model }))
+
+      expect(await askLlm('Classifique isto.')).toMatchObject({
+        model: 'modelo-de-teste',
+        modelVersion: 'modelo-de-teste',
+      })
+    }
   })
 
   it('sem chave configurada, recusa como falha de autenticação e não chama o provedor', async () => {

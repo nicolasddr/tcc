@@ -7,6 +7,7 @@ const llm = vi.hoisted(() => ({
   inputs: [] as string[],
   text: 'Categoria: Informacional',
   model: 'modelo-de-teste',
+  modelVersion: 'modelo-de-teste-2026-05-01',
   fails: false,
   failure: null as LlmFailure | null,
 }))
@@ -29,7 +30,7 @@ vi.mock('@/lib/ai', async () => {
       llm.inputs.push(input)
       if (llm.failure) throw new LlmError(llm.failure)
       if (llm.fails) throw new Error('provedor indisponível')
-      return { text: llm.text, model: llm.model }
+      return { text: llm.text, model: llm.model, modelVersion: llm.modelVersion }
     },
   }
 })

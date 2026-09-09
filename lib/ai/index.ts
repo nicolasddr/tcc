@@ -10,11 +10,12 @@ const ENDPOINT = 'https://api.openai.com/v1/responses'
 export type LlmAnswer = {
   text: string
   model: string
+  modelVersion: string
 }
 
 type ResponsePart = { type?: string; text?: string }
 type ResponseItem = { content?: ResponsePart[] }
-type ResponsePayload = { output?: ResponseItem[] }
+type ResponsePayload = { output?: ResponseItem[]; model?: unknown }
 
 export function llmModel(): string {
   return process.env.OPENAI_MODEL?.trim() || DEFAULT_LLM_MODEL
@@ -38,6 +39,11 @@ function outputText(payload: ResponsePayload): string {
     )
     .map((part) => part.text)
     .join('\n')
+}
+
+function modelVersion(payload: ResponsePayload, requested: string): string {
+  const resolved = typeof payload.model === 'string' ? payload.model.trim() : ''
+  return resolved || requested
 }
 
 async function readJson(response: Response): Promise<unknown> {
@@ -75,5 +81,10 @@ export async function askLlm(input: string): Promise<LlmAnswer> {
   const payload = await readJson(response)
   if (!payload || typeof payload !== 'object') throw new LlmError('unknown')
 
-  return { text: outputText(payload as ResponsePayload), model }
+  const answer = payload as ResponsePayload
+  return {
+    text: outputText(answer),
+    model,
+    modelVersion: modelVersion(answer, model),
+  }
 }
