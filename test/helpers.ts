@@ -23,6 +23,7 @@ import {
   promptVersions,
   inputItems,
   rounds,
+  responses,
 } from '@/lib/db'
 
 const ROLLBACK = Symbol('rollback')
@@ -359,6 +360,45 @@ export async function addRound(
   return row.id
 }
 
+export async function addResponse(
+  tx: DbExecutor,
+  roundId: string,
+  inputItemId: string,
+  createdBy: string,
+  opts: {
+    text?: string
+    source?: 'generated' | 'pasted'
+    model?: string
+    modelVersion?: string
+    promptVersionId?: string
+    codebookVersionId?: string
+  } = {},
+): Promise<string> {
+  const [round] = await tx
+    .select({
+      promptVersionId: rounds.promptVersionId,
+      codebookVersionId: rounds.codebookVersionId,
+    })
+    .from(rounds)
+    .where(eq(rounds.id, roundId))
+    .limit(1)
+  const [row] = await tx
+    .insert(responses)
+    .values({
+      roundId,
+      inputItemId,
+      text: opts.text ?? 'Resposta de teste',
+      source: opts.source ?? 'generated',
+      model: opts.model ?? 'modelo-de-teste',
+      modelVersion: opts.modelVersion ?? 'modelo-de-teste-2026-01-01',
+      promptVersionId: opts.promptVersionId ?? round.promptVersionId,
+      codebookVersionId: opts.codebookVersionId ?? round.codebookVersionId,
+      createdBy,
+    })
+    .returning({ id: responses.id })
+  return row.id
+}
+
 /** Cria uma notificação para `userId` (não lida) e devolve o id. */
 export async function addNotification(
   tx: DbExecutor,
@@ -412,6 +452,12 @@ export async function memberId(
  */
 export async function cleanup(projectIds: string[], userIds: string[]): Promise<void> {
   if (projectIds.length > 0) {
+    await ownerDb.delete(responses).where(
+      inArray(
+        responses.roundId,
+        ownerDb.select({ id: rounds.id }).from(rounds).where(inArray(rounds.projectId, projectIds)),
+      ),
+    )
     await ownerDb.delete(projects).where(inArray(projects.id, projectIds))
   }
   if (userIds.length > 0) {

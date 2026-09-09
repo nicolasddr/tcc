@@ -393,3 +393,48 @@ export const rounds = pgTable("rounds", {
 	check("rd_round_number_positive", sql`round_number >= 1`),
 	check("rd_closed_at_matches_status", sql`(status = 'open'::text AND closed_at IS NULL) OR (status = 'closed'::text AND closed_at IS NOT NULL)`),
 ]);
+
+export const responses = pgTable("responses", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	roundId: uuid("round_id").notNull(),
+	inputItemId: uuid("input_item_id").notNull(),
+	text: text().notNull(),
+	source: text().default('generated').notNull(),
+	model: text().notNull(),
+	modelVersion: text("model_version").notNull(),
+	promptVersionId: uuid("prompt_version_id").notNull(),
+	codebookVersionId: uuid("codebook_version_id").notNull(),
+	createdBy: uuid("created_by").notNull(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	index("rs_round_created").using("btree", table.roundId.asc().nullsLast(), table.createdAt.asc().nullsLast()),
+	foreignKey({
+			columns: [table.roundId],
+			foreignColumns: [rounds.id],
+			name: "responses_round_id_fkey"
+		}).onDelete("cascade"),
+	foreignKey({
+			columns: [table.inputItemId],
+			foreignColumns: [inputItems.id],
+			name: "responses_input_item_id_fkey"
+		}).onDelete("restrict"),
+	foreignKey({
+			columns: [table.promptVersionId],
+			foreignColumns: [promptVersions.id],
+			name: "responses_prompt_version_id_fkey"
+		}),
+	foreignKey({
+			columns: [table.codebookVersionId],
+			foreignColumns: [codebookVersions.id],
+			name: "responses_codebook_version_id_fkey"
+		}),
+	foreignKey({
+			columns: [table.createdBy],
+			foreignColumns: [profiles.id],
+			name: "responses_created_by_fkey"
+		}).onDelete("restrict"),
+	unique("rs_unique_round_item").on(table.roundId, table.inputItemId),
+	check("responses_source_check", sql`source = ANY (ARRAY['generated'::text, 'pasted'::text])`),
+	check("rs_text_len", sql`char_length("text") <= 50000`),
+	check("rs_text_not_blank", sql`btrim("text") <> ''`),
+]);
