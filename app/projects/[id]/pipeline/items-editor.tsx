@@ -4,6 +4,7 @@ import { useActionState, useState } from 'react'
 import { createItem, updateItem, deleteItem, type ItemState } from './actions'
 import type { InputItem } from './items'
 import { itemPreview } from './item-preview'
+import { itemUsageLabel } from './item-usage'
 import { Button } from '@/app/components/ui/button'
 import { Field, Input, Textarea } from '@/app/components/ui/field'
 import { Form, FormActions } from '@/app/components/ui/form'
@@ -191,7 +192,9 @@ function ItemCard({ projectId, item }: { projectId: string; item: InputItem }) {
     <Card>
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
         <span className="text-sm font-semibold text-ink">{item.name}</span>
-        {item.isEditable ? null : <Badge tone="neutral">usado em rodada</Badge>}
+        {item.isEditable && item.roundNumbers.length === 0 ? null : (
+          <Badge tone="neutral">{itemUsageLabel(item.roundNumbers) ?? 'usado em rodada'}</Badge>
+        )}
       </div>
 
       {editing ? (

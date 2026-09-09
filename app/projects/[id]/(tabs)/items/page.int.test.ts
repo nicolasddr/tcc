@@ -18,6 +18,7 @@ vi.mock('next/navigation', () => ({
 
 import ProjectItemsPage from '@/app/projects/[id]/(tabs)/items/page'
 import { ItemsEditor } from '@/app/projects/[id]/pipeline/items-editor'
+import { itemUsageLabel } from '@/app/projects/[id]/pipeline/item-usage'
 import { ownerDb } from '@/lib/db'
 import {
   createUser,
@@ -25,6 +26,10 @@ import {
   addActiveEvaluator,
   addPendingMember,
   addInputItem,
+  addCodebookVersion,
+  addPromptVersion,
+  addRound,
+  addResponse,
   cleanup,
 } from '@/test/helpers'
 
@@ -93,6 +98,56 @@ describe('app/projects/[id]/items — a tela dos itens de entrada', () => {
       'Consulta 001',
       'Consulta 002',
     ])
+  })
+
+  it('a lista diz em quais rodadas cada item já produziu resposta, sem filtrar nem travar', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin)
+    const usedAt = new Date().toISOString()
+    const reused = await addInputItem(ownerDb, project, admin, {
+      name: 'Consulta 001',
+      usedAt,
+    })
+    const once = await addInputItem(ownerDb, project, admin, {
+      name: 'Consulta 002',
+      usedAt,
+    })
+    const never = await addInputItem(ownerDb, project, admin, { name: 'Consulta 003' })
+    const codebookVersion = await addCodebookVersion(ownerDb, project, admin, {
+      definitions: [
+        { title: 'Informacional', type: 'category', criteria: [{ name: 'Clareza' }] },
+      ],
+    })
+    const promptVersion = await addPromptVersion(ownerDb, project, admin)
+    const first = await addRound(
+      ownerDb,
+      project,
+      admin,
+      codebookVersion,
+      promptVersion,
+      { roundNumber: 1, status: 'closed' },
+    )
+    const second = await addRound(
+      ownerDb,
+      project,
+      admin,
+      codebookVersion,
+      promptVersion,
+      { roundNumber: 2 },
+    )
+    await addResponse(ownerDb, first, reused, admin)
+    await addResponse(ownerDb, second, reused, admin)
+    await addResponse(ownerDb, second, once, admin)
+
+    auth.userId = admin
+    const props = itemsOf(await render(project))
+
+    expect(props.items.map((item) => item.id)).toEqual([reused, once, never])
+    expect(props.items.map((item) => item.roundNumbers)).toEqual([[1, 2], [2], []])
+    expect(itemUsageLabel(props.items[0].roundNumbers)).toBe('usado nas rodadas 1, 2')
+    expect(itemUsageLabel(props.items[1].roundNumbers)).toBe('usado na rodada 2')
+    expect(itemUsageLabel(props.items[2].roundNumbers)).toBeNull()
+    expect(props.items.map((item) => item.isEditable)).toEqual([false, false, true])
   })
 
   it('o projeto sem item nenhum abre o editor vazio', async () => {

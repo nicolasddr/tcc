@@ -1,6 +1,7 @@
 import { asc, count, eq } from 'drizzle-orm'
 import { ownerDb, type DbExecutor, inputItems } from '@/lib/db'
 import { isUsed } from '@/lib/versioning'
+import { loadItemRoundUsage } from './responses'
 
 export type InputItem = {
   id: string
@@ -10,6 +11,7 @@ export type InputItem = {
   updatedAt: string | null
   usedAt: string | null
   isEditable: boolean
+  roundNumbers: number[]
 }
 
 export async function loadItems(
@@ -29,7 +31,13 @@ export async function loadItems(
     .where(eq(inputItems.projectId, projectId))
     .orderBy(asc(inputItems.createdAt))
 
-  return rows.map((row) => ({ ...row, isEditable: !isUsed(row) }))
+  const usage = await loadItemRoundUsage(projectId, db)
+
+  return rows.map((row) => ({
+    ...row,
+    isEditable: !isUsed(row),
+    roundNumbers: usage.get(row.id) ?? [],
+  }))
 }
 
 export async function countItems(

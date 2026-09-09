@@ -6,13 +6,13 @@ import {
   SELECTION_MAX,
   generatedCountMessage,
   generationFailureMessage,
-  itemUsageLabel,
   selectionBlockerMessage,
   selectionBlockers,
 } from './preconditions'
 import type { InputItem } from '../../pipeline/items'
 import type { RoundResponse } from '../../pipeline/responses'
 import { itemPreview } from '../../pipeline/item-preview'
+import { itemUsageLabel } from '../../pipeline/item-usage'
 import { formatDate } from '@/app/notifications/labels'
 import { Alert } from '@/app/components/ui/alert'
 import { Badge } from '@/app/components/ui/badge'
@@ -27,14 +27,12 @@ export function GenerateResponses({
   projectId,
   round,
   items,
-  usage,
   generated,
   model,
 }: {
   projectId: string
   round: { id: string; roundNumber: number }
   items: InputItem[]
-  usage: Record<string, number[]>
   generated: RoundResponse[]
   model: string
 }) {
@@ -102,7 +100,7 @@ export function GenerateResponses({
           {items.map((item) => {
             const used = usedHere.has(item.id)
             const checked = selected.includes(item.id)
-            const label = itemUsageLabel(usage[item.id] ?? [])
+            const label = itemUsageLabel(item.roundNumbers)
 
             return (
               <li key={item.id}>

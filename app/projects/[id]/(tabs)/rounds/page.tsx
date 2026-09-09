@@ -4,7 +4,7 @@ import { loadPipelineAccess, requirePipelineAdmin } from '../../pipeline/access'
 import { loadCodebook } from '../../pipeline/codebook'
 import { loadPrompt } from '../../pipeline/prompt'
 import { loadItems } from '../../pipeline/items'
-import { listRoundResponses, loadItemRoundUsage } from '../../pipeline/responses'
+import { listRoundResponses } from '../../pipeline/responses'
 import { listEvaluatorsNotFinished, listRounds, loadOpenRound } from './rounds'
 import { roundBlockers } from './preconditions'
 import { NewRound } from './new-round'
@@ -30,7 +30,6 @@ export default async function ProjectRoundsPage({
     prompt,
     evaluatorsNotFinished,
     items,
-    usage,
     generated,
   } = await transaction(async (tx) => {
     const access = await loadPipelineAccess(id, userId, tx)
@@ -47,10 +46,6 @@ export default async function ProjectRoundsPage({
         ? await listEvaluatorsNotFinished(projectId, tx)
         : [],
       items: projectId && openRound ? await loadItems(projectId, tx) : [],
-      usage:
-        projectId && openRound
-          ? Object.fromEntries(await loadItemRoundUsage(projectId, tx))
-          : {},
       generated: openRound ? await listRoundResponses(openRound.id, tx) : [],
     }
   })
@@ -80,7 +75,6 @@ export default async function ProjectRoundsPage({
               projectId={project.id}
               round={openRound}
               items={items}
-              usage={usage}
               generated={generated}
               model={llmModel()}
             />

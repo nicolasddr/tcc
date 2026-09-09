@@ -25,9 +25,9 @@ import { formatDate } from '@/app/notifications/labels'
 import { PHASE_1, PHASE_2 } from '@/app/projects/[id]/pipeline/preconditions'
 import {
   closeConfirmationLines,
-  itemUsageLabel,
   roundBlockerMessage,
 } from '@/app/projects/[id]/(tabs)/rounds/preconditions'
+import { itemUsageLabel } from '@/app/projects/[id]/pipeline/item-usage'
 import { llmModel } from '@/lib/ai'
 import { ownerDb } from '@/lib/db'
 import {
@@ -303,9 +303,9 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     const props = generateOf(await render(project))
 
     expect(props.items.map((item) => item.id)).toEqual([reused, fresh])
-    expect(props.usage[reused]).toEqual([1, 2])
-    expect(props.usage[fresh]).toBeUndefined()
-    expect(itemUsageLabel(props.usage[reused])).toBe('usado nas rodadas 1, 2')
+    expect(props.items.map((item) => item.roundNumbers)).toEqual([[1, 2], []])
+    expect(itemUsageLabel(props.items[0].roundNumbers)).toBe('usado nas rodadas 1, 2')
+    expect(itemUsageLabel(props.items[1].roundNumbers)).toBeNull()
     expect(props.generated.map((response) => response.itemId)).toEqual([reused])
   })
 
