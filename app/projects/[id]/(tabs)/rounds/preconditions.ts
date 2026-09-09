@@ -82,6 +82,83 @@ export function roundBlockerMessage(blocker: RoundBlocker): string {
   }
 }
 
+export const SELECTION_MAX = 5
+
+export type SelectionInputs = {
+  available: readonly string[]
+  usedInRound: readonly string[]
+  max?: number
+}
+
+export type SelectionBlocker =
+  | { key: 'empty' }
+  | { key: 'too_many'; count: number; max: number }
+  | { key: 'repeated' }
+  | { key: 'foreign' }
+  | { key: 'already_used'; count: number }
+
+export function selectionBlockers(
+  selected: readonly string[],
+  { available, usedInRound, max = SELECTION_MAX }: SelectionInputs,
+): SelectionBlocker[] {
+  const blockers: SelectionBlocker[] = []
+
+  if (selected.length === 0) blockers.push({ key: 'empty' })
+
+  if (selected.length > max) {
+    blockers.push({ key: 'too_many', count: selected.length, max })
+  }
+
+  if (new Set(selected).size !== selected.length) blockers.push({ key: 'repeated' })
+
+  const pool = new Set(available)
+  if (selected.some((itemId) => !pool.has(itemId))) blockers.push({ key: 'foreign' })
+
+  const used = new Set(usedInRound)
+  const repeatedInRound = new Set(selected.filter((itemId) => used.has(itemId)))
+  if (repeatedInRound.size > 0) {
+    blockers.push({ key: 'already_used', count: repeatedInRound.size })
+  }
+
+  return blockers
+}
+
+export function canGenerate(
+  selected: readonly string[],
+  inputs: SelectionInputs,
+): boolean {
+  return selectionBlockers(selected, inputs).length === 0
+}
+
+export function selectionBlockerMessage(blocker: SelectionBlocker): string {
+  switch (blocker.key) {
+    case 'empty':
+      return (
+        'Nenhum item foi selecionado, e cada item selecionado é uma resposta a gerar. ' +
+        `Escolha de 1 a ${SELECTION_MAX} itens.`
+      )
+    case 'too_many':
+      return (
+        `A geração aceita no máximo ${blocker.max} itens de cada vez, e vieram ` +
+        `${blocker.count}. Tire alguns da seleção e gere de novo.`
+      )
+    case 'repeated':
+      return (
+        'O mesmo item apareceu duas vezes na seleção, e um item produz exatamente uma ' +
+        'resposta por rodada. Recarregue a página e selecione de novo.'
+      )
+    case 'foreign':
+      return (
+        'Algum item selecionado não é deste projeto. Recarregue a página para ver a ' +
+        'lista atual de itens.'
+      )
+    case 'already_used':
+      return blocker.count === 1
+        ? 'Um dos itens selecionados já produziu resposta nesta rodada, e o mesmo item não gera duas respostas na mesma rodada. Escolha outro item, ou use este de novo na próxima rodada.'
+        : `${blocker.count} dos itens selecionados já produziram resposta nesta rodada, e o mesmo item não gera duas respostas na mesma rodada. Escolha outros itens, ou use estes de novo na próxima rodada.`
+  }
+}
+
 export function codebookLockedMessage(roundNumber: number): string {
   return (
     `A rodada ${roundNumber} está aberta, e o codebook fica em leitura enquanto isso, ` +

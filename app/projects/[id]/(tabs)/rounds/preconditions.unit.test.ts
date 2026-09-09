@@ -1,11 +1,16 @@
 import { describe, it, expect } from 'vitest'
 import {
+  canGenerate,
   canOpenRound,
   closeConfirmationLines,
   codebookLockedMessage,
   roundBlockerMessage,
   roundBlockers,
+  selectionBlockerMessage,
+  selectionBlockers,
+  SELECTION_MAX,
   type RoundInputs,
+  type SelectionInputs,
 } from '@/app/projects/[id]/(tabs)/rounds/preconditions'
 import { PHASE_1, PHASE_2 } from '@/app/projects/[id]/pipeline/preconditions'
 
@@ -134,5 +139,79 @@ describe('app/projects/[id]/rounds/preconditions — o que trava a abertura de u
     expect(message).toContain('rodada 2')
     expect(message).toContain('leitura')
     expect(message).toContain('Feche a rodada')
+  })
+})
+
+const POOL = ['i1', 'i2', 'i3', 'i4', 'i5', 'i6']
+
+function selection(patch: Partial<SelectionInputs> = {}): SelectionInputs {
+  return { available: POOL, usedInRound: [], ...patch }
+}
+
+function selectionKeys(
+  selected: readonly string[],
+  inputs: SelectionInputs = selection(),
+): string[] {
+  return selectionBlockers(selected, inputs).map((blocker) => blocker.key)
+}
+
+describe('app/projects/[id]/rounds/preconditions — o que trava a seleção de itens da geração', () => {
+  it('libera de 1 até o máximo de itens do pool', () => {
+    expect(selectionBlockers(['i1'], selection())).toEqual([])
+    expect(canGenerate(POOL.slice(0, SELECTION_MAX), selection())).toBe(true)
+  })
+
+  it('trava sem nenhum item selecionado, porque não haveria resposta a gerar', () => {
+    expect(selectionKeys([])).toEqual(['empty'])
+    expect(canGenerate([], selection())).toBe(false)
+    expect(selectionBlockerMessage({ key: 'empty' })).toContain(`1 a ${SELECTION_MAX}`)
+  })
+
+  it('trava acima do máximo, e a mensagem diz o teto e quantos vieram', () => {
+    const selected = POOL.slice(0, SELECTION_MAX + 1)
+    expect(selectionKeys(selected)).toEqual(['too_many'])
+
+    const [blocker] = selectionBlockers(selected, selection())
+    expect(blocker).toEqual({ key: 'too_many', count: 6, max: SELECTION_MAX })
+
+    const message = selectionBlockerMessage(blocker)
+    expect(message).toContain(`máximo ${SELECTION_MAX}`)
+    expect(message).toContain('vieram 6')
+  })
+
+  it('trava o mesmo item repetido na seleção, porque um item é uma resposta só', () => {
+    expect(selectionKeys(['i1', 'i2', 'i1'])).toEqual(['repeated'])
+    expect(selectionBlockerMessage({ key: 'repeated' })).toContain('duas vezes')
+  })
+
+  it('trava item que não é do projeto', () => {
+    expect(selectionKeys(['i1', 'de-outro-projeto'])).toEqual(['foreign'])
+    expect(selectionBlockerMessage({ key: 'foreign' })).toContain('não é deste projeto')
+  })
+
+  it('trava item que já produziu resposta nesta rodada, e conta quantos são', () => {
+    const inputs = selection({ usedInRound: ['i2', 'i3'] })
+    expect(selectionKeys(['i1', 'i2'], inputs)).toEqual(['already_used'])
+
+    const [blocker] = selectionBlockers(['i1', 'i2', 'i3'], inputs)
+    expect(blocker).toEqual({ key: 'already_used', count: 2 })
+    expect(selectionBlockerMessage(blocker)).toContain('2 dos itens')
+    expect(selectionBlockerMessage({ key: 'already_used', count: 1 })).toContain(
+      'Um dos itens',
+    )
+  })
+
+  it('o mesmo item volta a ser selecionável quando o uso é de outra rodada', () => {
+    expect(selectionBlockers(['i1'], selection({ usedInRound: [] }))).toEqual([])
+  })
+
+  it('acumula tudo o que trava, em vez de parar no primeiro problema', () => {
+    const inputs = selection({ usedInRound: ['i2'] })
+    expect(selectionKeys(['i1', 'i1', 'i2', 'i3', 'i4', 'x'], inputs)).toEqual([
+      'too_many',
+      'repeated',
+      'foreign',
+      'already_used',
+    ])
   })
 })
