@@ -20,12 +20,15 @@ import ProjectRoundsPage from '@/app/projects/[id]/(tabs)/rounds/page'
 import { RoundList } from '@/app/projects/[id]/(tabs)/rounds/round-list'
 import { NewRound } from '@/app/projects/[id]/(tabs)/rounds/new-round'
 import { CloseRound } from '@/app/projects/[id]/(tabs)/rounds/close-round'
+import { GenerateResponses } from '@/app/projects/[id]/(tabs)/rounds/generate-responses'
 import { formatDate } from '@/app/notifications/labels'
 import { PHASE_1, PHASE_2 } from '@/app/projects/[id]/pipeline/preconditions'
 import {
   closeConfirmationLines,
+  itemUsageLabel,
   roundBlockerMessage,
 } from '@/app/projects/[id]/(tabs)/rounds/preconditions'
+import { llmModel } from '@/lib/ai'
 import { ownerDb } from '@/lib/db'
 import {
   createUser,
@@ -34,7 +37,9 @@ import {
   addPendingMember,
   addCodebookVersion,
   addPromptVersion,
+  addInputItem,
   addRound,
+  addResponse,
   cleanup,
 } from '@/test/helpers'
 
@@ -71,6 +76,7 @@ function textOf(node: unknown): string {
 type ListProps = Parameters<typeof RoundList>[0]
 type NewRoundProps = Parameters<typeof NewRound>[0]
 type CloseRoundProps = Parameters<typeof CloseRound>[0]
+type GenerateProps = Parameters<typeof GenerateResponses>[0]
 
 function render(id: string) {
   return ProjectRoundsPage({ params: Promise.resolve({ id }) })
@@ -92,6 +98,12 @@ function closeRoundOf(tree: unknown): CloseRoundProps {
   const element = findElement(tree, CloseRound)
   expect(element).toBeTruthy()
   return element!.props as CloseRoundProps
+}
+
+function generateOf(tree: unknown): GenerateProps {
+  const element = findElement(tree, GenerateResponses)
+  expect(element).toBeTruthy()
+  return element!.props as GenerateProps
 }
 
 describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
@@ -143,6 +155,8 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     expect(newRound.blockers).toEqual([])
     expect(newRound.codebookVersionNumber).toBe(1)
     expect(newRound.promptVersionNumber).toBe(1)
+
+    expect(findElement(tree, GenerateResponses)).toBeNull()
   })
 
   it('a lista mostra número, estado, versões usadas e data de cada rodada', async () => {
@@ -231,6 +245,68 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     expect(confirmation).toContain('irreversível')
     expect(confirmation).toContain('Ainda não terminaram: Bia Avaliadora')
     expect(confirmation).toContain('não depende de todos terem terminado')
+  })
+
+  it('com rodada aberta, o seletor recebe os itens, o modelo em uso e as respostas da rodada', async () => {
+    const admin = await newUser('Admin')
+    const { project, codebookVersion, promptVersion } = await readyProject(admin)
+    const first = await addInputItem(ownerDb, project, admin, { name: 'Item 1' })
+    const second = await addInputItem(ownerDb, project, admin, { name: 'Item 2' })
+    const round = await addRound(
+      ownerDb,
+      project,
+      admin,
+      codebookVersion,
+      promptVersion,
+      { roundNumber: 1 },
+    )
+    await addResponse(ownerDb, round, first, admin)
+
+    auth.userId = admin
+    const props = generateOf(await render(project))
+
+    expect(props.round.id).toBe(round)
+    expect(props.round.roundNumber).toBe(1)
+    expect(props.model).toBe(llmModel())
+    expect(props.items.map((item) => item.id)).toEqual([first, second])
+    expect(props.generated).toHaveLength(1)
+    expect(props.generated[0].itemId).toBe(first)
+    expect(props.generated[0].itemName).toBe('Item 1')
+    expect(formatDate(props.generated[0].createdAt)).toBeTruthy()
+  })
+
+  it('o seletor diz em quais rodadas cada item já produziu resposta, sem tirar ninguém da lista', async () => {
+    const admin = await newUser('Admin')
+    const { project, codebookVersion, promptVersion } = await readyProject(admin)
+    const reused = await addInputItem(ownerDb, project, admin, { name: 'Item reaproveitado' })
+    const fresh = await addInputItem(ownerDb, project, admin, { name: 'Item novo' })
+    const closed = await addRound(
+      ownerDb,
+      project,
+      admin,
+      codebookVersion,
+      promptVersion,
+      { roundNumber: 1, status: 'closed' },
+    )
+    const open = await addRound(
+      ownerDb,
+      project,
+      admin,
+      codebookVersion,
+      promptVersion,
+      { roundNumber: 2 },
+    )
+    await addResponse(ownerDb, closed, reused, admin)
+    await addResponse(ownerDb, open, reused, admin)
+
+    auth.userId = admin
+    const props = generateOf(await render(project))
+
+    expect(props.items.map((item) => item.id)).toEqual([reused, fresh])
+    expect(props.usage[reused]).toEqual([1, 2])
+    expect(props.usage[fresh]).toBeUndefined()
+    expect(itemUsageLabel(props.usage[reused])).toBe('usado nas rodadas 1, 2')
+    expect(props.generated.map((response) => response.itemId)).toEqual([reused])
   })
 
   it('o avaliador não alcança a área de rodadas', async () => {

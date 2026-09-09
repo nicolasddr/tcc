@@ -3,11 +3,15 @@ import { transaction } from '@/lib/db'
 import { loadPipelineAccess, requirePipelineAdmin } from '../../pipeline/access'
 import { loadCodebook } from '../../pipeline/codebook'
 import { loadPrompt } from '../../pipeline/prompt'
+import { loadItems } from '../../pipeline/items'
+import { listRoundResponses, loadItemRoundUsage } from '../../pipeline/responses'
 import { listEvaluatorsNotFinished, listRounds, loadOpenRound } from './rounds'
 import { roundBlockers } from './preconditions'
 import { NewRound } from './new-round'
 import { CloseRound } from './close-round'
+import { GenerateResponses } from './generate-responses'
 import { RoundList } from './round-list'
+import { llmModel } from '@/lib/ai'
 import { Section } from '@/app/components/ui/section'
 
 export default async function ProjectRoundsPage({
@@ -18,22 +22,38 @@ export default async function ProjectRoundsPage({
   const { id } = await params
   const userId = await requireUserId()
 
-  const { access, rounds, openRound, codebook, prompt, evaluatorsNotFinished } =
-    await transaction(async (tx) => {
-      const access = await loadPipelineAccess(id, userId, tx)
-      const projectId = access.project?.id
+  const {
+    access,
+    rounds,
+    openRound,
+    codebook,
+    prompt,
+    evaluatorsNotFinished,
+    items,
+    usage,
+    generated,
+  } = await transaction(async (tx) => {
+    const access = await loadPipelineAccess(id, userId, tx)
+    const projectId = access.project?.id
+    const openRound = projectId ? await loadOpenRound(projectId, tx) : null
 
-      return {
-        access,
-        rounds: projectId ? await listRounds(projectId, tx) : [],
-        openRound: projectId ? await loadOpenRound(projectId, tx) : null,
-        codebook: projectId ? await loadCodebook(projectId, tx) : null,
-        prompt: projectId ? await loadPrompt(projectId, tx) : null,
-        evaluatorsNotFinished: projectId
-          ? await listEvaluatorsNotFinished(projectId, tx)
-          : [],
-      }
-    })
+    return {
+      access,
+      openRound,
+      rounds: projectId ? await listRounds(projectId, tx) : [],
+      codebook: projectId ? await loadCodebook(projectId, tx) : null,
+      prompt: projectId ? await loadPrompt(projectId, tx) : null,
+      evaluatorsNotFinished: projectId
+        ? await listEvaluatorsNotFinished(projectId, tx)
+        : [],
+      items: projectId && openRound ? await loadItems(projectId, tx) : [],
+      usage:
+        projectId && openRound
+          ? Object.fromEntries(await loadItemRoundUsage(projectId, tx))
+          : {},
+      generated: openRound ? await listRoundResponses(openRound.id, tx) : [],
+    }
+  })
 
   const project = requirePipelineAdmin(access, id)
 
@@ -51,18 +71,34 @@ export default async function ProjectRoundsPage({
   return (
     <>
       {openRound ? (
-        <Section
-          title={`Rodada ${openRound.roundNumber} aberta`}
-          hint="Só existe uma rodada aberta por projeto. Fechar é ação sua, é irreversível e não depende de todos terem terminado."
-        >
-          <CloseRound
-            projectId={project.id}
-            round={openRound}
-            evaluatorsNotFinished={evaluatorsNotFinished}
-            codebookVersionNumber={codebookVersionNumber}
-            promptVersionNumber={promptVersionNumber}
-          />
-        </Section>
+        <>
+          <Section
+            title={`Gerar respostas na rodada ${openRound.roundNumber}`}
+            hint="De 1 a 5 itens por geração, cada item produzindo exatamente uma resposta, gravada com a proveniência completa: origem, modelo, versão do modelo e as versões de codebook e de prompt que esta rodada fixou."
+          >
+            <GenerateResponses
+              projectId={project.id}
+              round={openRound}
+              items={items}
+              usage={usage}
+              generated={generated}
+              model={llmModel()}
+            />
+          </Section>
+
+          <Section
+            title={`Rodada ${openRound.roundNumber} aberta`}
+            hint="Só existe uma rodada aberta por projeto. Fechar é ação sua, é irreversível e não depende de todos terem terminado."
+          >
+            <CloseRound
+              projectId={project.id}
+              round={openRound}
+              evaluatorsNotFinished={evaluatorsNotFinished}
+              codebookVersionNumber={codebookVersionNumber}
+              promptVersionNumber={promptVersionNumber}
+            />
+          </Section>
+        </>
       ) : (
         <Section
           title="Nova rodada"

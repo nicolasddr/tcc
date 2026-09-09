@@ -1,5 +1,5 @@
 import { and, asc, eq } from 'drizzle-orm'
-import { ownerDb, type DbExecutor, responses, rounds } from '@/lib/db'
+import { ownerDb, type DbExecutor, inputItems, responses, rounds } from '@/lib/db'
 import { loadCodebookVersion } from './codebook'
 import { loadPromptVersion } from './prompt'
 import { isUuid } from './versions'
@@ -12,6 +12,13 @@ export type RoundComposition = {
 }
 
 export type ItemRoundUsage = Map<string, number[]>
+
+export type RoundResponse = {
+  id: string
+  itemId: string
+  itemName: string
+  createdAt: string
+}
 
 export async function loadRoundComposition(
   projectId: string,
@@ -77,4 +84,23 @@ export async function loadItemsUsedInRound(
     .where(eq(responses.roundId, roundId))
 
   return rows.map((row) => row.itemId)
+}
+
+export async function listRoundResponses(
+  roundId: string,
+  db: DbExecutor = ownerDb,
+): Promise<RoundResponse[]> {
+  if (!isUuid(roundId)) return []
+
+  return db
+    .select({
+      id: responses.id,
+      itemId: responses.inputItemId,
+      itemName: inputItems.name,
+      createdAt: responses.createdAt,
+    })
+    .from(responses)
+    .innerJoin(inputItems, eq(inputItems.id, responses.inputItemId))
+    .where(eq(responses.roundId, roundId))
+    .orderBy(asc(responses.createdAt))
 }
