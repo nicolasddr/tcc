@@ -121,24 +121,31 @@ export function ButtonLink({
   )
 }
 
+const iconButtonSizes: Record<ButtonSize, string> = {
+  md: 'h-10 w-10',
+  sm: 'h-7 w-7',
+}
+
+export function iconButtonClass(size: ButtonSize = 'md', className?: string): string {
+  return cx(
+    'relative inline-flex cursor-pointer items-center justify-center',
+    iconButtonSizes[size],
+    'rounded-control border-0 bg-transparent text-label transition-colors',
+    'not-disabled:hover:bg-canvas focus-visible:outline-none',
+    'focus-visible:ring-[3px] focus-visible:ring-brand-ring',
+    className,
+  )
+}
+
 export function IconButton({
+  size = 'md',
   className,
   children,
   type = 'button',
   ...rest
-}: React.ButtonHTMLAttributes<HTMLButtonElement>) {
+}: { size?: ButtonSize } & React.ButtonHTMLAttributes<HTMLButtonElement>) {
   return (
-    <button
-      type={type}
-      className={cx(
-        'relative inline-flex h-10 w-10 cursor-pointer items-center justify-center',
-        'rounded-control border-0 bg-transparent text-label transition-colors',
-        'not-disabled:hover:bg-canvas focus-visible:outline-none',
-        'focus-visible:ring-[3px] focus-visible:ring-brand-ring',
-        className,
-      )}
-      {...rest}
-    >
+    <button type={type} className={iconButtonClass(size, className)} {...rest}>
       {children}
     </button>
   )

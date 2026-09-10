@@ -6,6 +6,7 @@ import type { InputItem } from './items'
 import { itemPreview } from './item-preview'
 import { itemUsageLabel } from './item-usage'
 import { Button } from '@/app/components/ui/button'
+import { RowActions, RowMenuItem } from '@/app/components/ui/row-actions'
 import { Field, Input, Textarea } from '@/app/components/ui/field'
 import { Form, FormActions } from '@/app/components/ui/form'
 import { Card } from '@/app/components/ui/card'
@@ -159,7 +160,7 @@ function EditItemForm({
   )
 }
 
-function DeleteItemForm({ projectId, item }: { projectId: string; item: InputItem }) {
+function ItemRowActions({ projectId, item }: { projectId: string; item: InputItem }) {
   const [state, action, pending] = useActionState(deleteItem, initialState)
 
   return (
@@ -174,9 +175,11 @@ function DeleteItemForm({ projectId, item }: { projectId: string; item: InputIte
       >
         <input type="hidden" name="project_id" value={projectId} />
         <input type="hidden" name="item_id" value={item.id} />
-        <Button type="submit" variant="danger" size="sm" loading={pending} loadingText="Removendo…">
-          Remover
-        </Button>
+        <RowActions menuLabel={`Mais ações do item ${item.name}`}>
+          <RowMenuItem type="submit" disabled={pending} aria-busy={pending || undefined}>
+            {pending ? 'Removendo…' : 'Remover'}
+          </RowMenuItem>
+        </RowActions>
       </form>
 
       {state && 'error' in state ? <Alert tone="error">{state.error}</Alert> : null}
@@ -227,11 +230,11 @@ function ItemCard({ projectId, item }: { projectId: string; item: InputItem }) {
             </Button>
 
             {item.isEditable ? (
-              <div className="flex flex-wrap items-center gap-3">
+              <div className="flex flex-wrap items-center gap-2">
                 <Button variant="secondary" size="sm" onClick={() => setEditing(true)}>
                   Editar
                 </Button>
-                <DeleteItemForm projectId={projectId} item={item} />
+                <ItemRowActions projectId={projectId} item={item} />
               </div>
             ) : (
               <span className="text-[13px] text-muted">

@@ -12,6 +12,7 @@ import {
   type DefinitionType,
 } from '@/app/projects/definition-types'
 import { Button } from '@/app/components/ui/button'
+import { RowActions, RowMenuItem } from '@/app/components/ui/row-actions'
 import { Field, Input, Select, Textarea } from '@/app/components/ui/field'
 import { Form, FormActions } from '@/app/components/ui/form'
 import { Card } from '@/app/components/ui/card'
@@ -149,35 +150,28 @@ function CriterionFields({
                     />
                   </Field>
 
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      aria-label={`Mover o ${label.toLocaleLowerCase('pt-BR')} ${index + 1} para cima`}
-                      disabled={index === 0}
-                      onClick={() => onChange(moveBy(criteria, index, -1))}
-                    >
-                      ↑
-                    </Button>
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      aria-label={`Mover o ${label.toLocaleLowerCase('pt-BR')} ${index + 1} para baixo`}
-                      disabled={index === criteria.length - 1}
-                      onClick={() => onChange(moveBy(criteria, index, 1))}
-                    >
-                      ↓
-                    </Button>
-                    <Button
-                      variant="danger"
-                      size="sm"
+                  <RowActions
+                    className="mb-1.5"
+                    menuLabel={`Mais ações do ${label.toLocaleLowerCase('pt-BR')} ${index + 1}`}
+                    up={{
+                      label: `Mover o ${label.toLocaleLowerCase('pt-BR')} ${index + 1} para cima`,
+                      disabled: index === 0,
+                      onClick: () => onChange(moveBy(criteria, index, -1)),
+                    }}
+                    down={{
+                      label: `Mover o ${label.toLocaleLowerCase('pt-BR')} ${index + 1} para baixo`,
+                      disabled: index === criteria.length - 1,
+                      onClick: () => onChange(moveBy(criteria, index, 1)),
+                    }}
+                  >
+                    <RowMenuItem
                       onClick={() =>
                         onChange(criteria.filter((c) => c.key !== criterion.key))
                       }
                     >
                       Remover
-                    </Button>
-                  </div>
+                    </RowMenuItem>
+                  </RowActions>
                 </div>
 
                 <div className="mt-2.5">
@@ -302,35 +296,28 @@ function CodebookFields({
                     </Select>
                   </Field>
 
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      aria-label={`Mover a definição ${index + 1} para cima`}
-                      disabled={index === 0}
-                      onClick={() => move(index, -1)}
-                    >
-                      ↑
-                    </Button>
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      aria-label={`Mover a definição ${index + 1} para baixo`}
-                      disabled={index === rows.length - 1}
-                      onClick={() => move(index, 1)}
-                    >
-                      ↓
-                    </Button>
-                    <Button
-                      variant="danger"
-                      size="sm"
+                  <RowActions
+                    className="mb-1.5"
+                    menuLabel={`Mais ações da definição ${index + 1}`}
+                    up={{
+                      label: `Mover a definição ${index + 1} para cima`,
+                      disabled: index === 0,
+                      onClick: () => move(index, -1),
+                    }}
+                    down={{
+                      label: `Mover a definição ${index + 1} para baixo`,
+                      disabled: index === rows.length - 1,
+                      onClick: () => move(index, 1),
+                    }}
+                  >
+                    <RowMenuItem
                       onClick={() =>
                         setRows((current) => current.filter((r) => r.key !== row.key))
                       }
                     >
                       Remover
-                    </Button>
-                  </div>
+                    </RowMenuItem>
+                  </RowActions>
                 </div>
 
                 {inPhase2 ? (

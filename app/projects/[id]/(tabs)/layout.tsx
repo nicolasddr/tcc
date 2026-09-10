@@ -8,13 +8,8 @@ import { ProjectTabs } from '../project-tabs'
 import { Badge, StatusBadge } from '@/app/components/ui/badge'
 import { Chip, ChipLink } from '@/app/components/ui/chip'
 import { PageShell, TopBar, BackLink, PageTitle } from '@/app/components/ui/shell'
-import {
-  UsersIcon,
-  SlidersIcon,
-  TagIcon,
-  UserIcon,
-  ChevronRightIcon,
-} from '@/app/components/ui/icons'
+import { UsersIcon, SlidersIcon, TagIcon, UserIcon } from '@/app/components/ui/icons'
+import { Disclosure } from '@/app/components/ui/disclosure'
 
 export default async function ProjectTabsLayout({
   params,
@@ -117,15 +112,11 @@ export default async function ProjectTabsLayout({
         </div>
 
         {project.description ? (
-          <details className="group mt-3">
-            <summary className="inline-flex cursor-pointer list-none items-center gap-1.5 rounded-control text-[12.5px] font-semibold text-muted focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-brand-ring [&::-webkit-details-marker]:hidden">
-              <ChevronRightIcon className="transition-transform group-open:rotate-90" />
-              Sobre o projeto
-            </summary>
+          <Disclosure summary="Sobre o projeto" className="mt-3">
             <p className="mt-2 max-w-[68ch] text-[13.5px] leading-relaxed text-label">
               {project.description}
             </p>
-          </details>
+          </Disclosure>
         ) : null}
 
         {isMember ? <ProjectTabs projectId={project.id} isAdmin={isAdmin} /> : null}
