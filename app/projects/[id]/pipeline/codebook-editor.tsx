@@ -9,22 +9,33 @@ import type {
 } from './codebook'
 import {
   DEFINITION_TYPE_OPTIONS,
+  definitionTypeLabel,
   type DefinitionType,
 } from '@/app/projects/definition-types'
-import { Button } from '@/app/components/ui/button'
+import { Button, buttonClass } from '@/app/components/ui/button'
 import { RowActions, RowMenuItem } from '@/app/components/ui/row-actions'
 import { Disclosure } from '@/app/components/ui/disclosure'
+import { EditableRow } from '@/app/components/ui/editable-row'
+import { Badge } from '@/app/components/ui/badge'
 import { Field, Input, Select, Textarea } from '@/app/components/ui/field'
 import { Form, FormActions } from '@/app/components/ui/form'
 import { SaveBar } from '@/app/components/ui/save-bar'
 import { Card } from '@/app/components/ui/card'
+import { preWrapClass } from '@/app/components/ui/prose'
 import { Alert } from '@/app/components/ui/alert'
 import { VersionStatus } from './version-status'
 import { DefinitionList } from './definition-list'
 import { EmptyState } from '@/app/components/ui/empty-state'
 import { moveBy } from '@/lib/reorder'
+import { plural } from '@/lib/plural'
 import { PHASE_2 } from './preconditions'
-import { definitionsWithoutCriteria, missingCriteriaMessage } from './criteria'
+import {
+  criteriaOfDefinition,
+  definitionsWithoutCriteria,
+  missingCriteriaMessage,
+  ownCriteria,
+  type CriterionScope,
+} from './criteria'
 import { codebookLockedMessage } from '../(tabs)/rounds/preconditions'
 import { CodebookSummary } from './criteria-summary'
 import {
@@ -185,6 +196,7 @@ function CriterionFields({
   label,
   addLabel,
   emptyHint,
+  required,
   onChange,
 }: {
   scope: string
@@ -192,6 +204,7 @@ function CriterionFields({
   label: string
   addLabel: string
   emptyHint: string
+  required: boolean
   onChange: (next: CriterionRow[]) => void
 }) {
   function update(key: number, patch: Partial<CriterionRow>) {
@@ -216,13 +229,13 @@ function CriterionFields({
                 <div className="flex flex-wrap items-end gap-3">
                   <Field
                     label={`${label} ${index + 1}`}
-                    required
+                    required={required}
                     className="min-w-[220px] flex-1"
                   >
                     <Input
                       type="text"
                       name="criterion_name"
-                      required
+                      required={required}
                       maxLength={CRITERION_NAME_MAX}
                       value={criterion.name}
                       onChange={(e) => update(criterion.key, { name: e.target.value })}
@@ -287,6 +300,64 @@ function CriterionFields({
   )
 }
 
+const GENERAL_ANCHOR = 'criterios-gerais'
+
+function definitionScopes(
+  definitionId: string,
+  own: readonly CriterionRow[],
+  general: readonly CriterionRow[],
+): CriterionScope[] {
+  return [
+    ...own.map(() => ({ definitionId })),
+    ...general.map(() => ({ definitionId: null })),
+  ]
+}
+
+function notesLabel(ownCount: number, generalCount: number): string {
+  const total = ownCount + generalCount
+  return `Esta definição vale ${plural(total, 'nota', 'notas')} por resposta: ${plural(
+    ownCount,
+    'própria',
+    'próprias',
+  )} + ${plural(generalCount, 'geral', 'gerais')}.`
+}
+
+function InheritedCriteria({ criteria }: { criteria: CriterionRow[] }) {
+  return (
+    <div className="rounded-card border border-dashed border-line-strong px-[14px] py-3">
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5">
+        <span className="text-[13px] font-semibold text-label">
+          Herdados dos critérios gerais · {criteria.length}
+        </span>
+        <a href={`#${GENERAL_ANCHOR}`} className={buttonClass('link')}>
+          Editar os gerais
+        </a>
+      </div>
+
+      {criteria.length === 0 ? (
+        <p className="m-0 mt-2 text-[13px] text-muted">
+          Nenhum critério geral nesta versão.
+        </p>
+      ) : (
+        <ul className="m-0 mt-2 flex list-none flex-col gap-2 p-0">
+          {criteria.map((criterion, index) => (
+            <li key={criterion.key}>
+              <span className="text-[13px] font-semibold text-ink">
+                {criterion.name.trim() || `Critério geral ${index + 1}`}
+              </span>
+              {criterion.description.trim() ? (
+                <p className={`m-0 mt-1 text-[13px] ${preWrapClass} text-muted`}>
+                  {criterion.description}
+                </p>
+              ) : null}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+}
+
 function CodebookFields({
   definitions,
   criteria,
@@ -316,6 +387,24 @@ function CodebookFields({
   const [rows, setRows] = useState<Row[]>(initial.rows)
   const [general, setGeneral] = useState<CriterionRow[]>(initial.general)
   const [noteText, setNoteText] = useState(initial.note)
+  const [expandedKey, setExpandedKey] = useState<number | null>(
+    () => initial.rows.find((row) => row.title.trim() === '')?.key ?? null,
+  )
+
+  function toggle(key: number) {
+    setExpandedKey((current) => (current === key ? null : key))
+  }
+
+  function add() {
+    const row = newRow(defaultType)
+    setRows((current) => [...current, row])
+    setExpandedKey(row.key)
+  }
+
+  function remove(key: number) {
+    setRows((current) => current.filter((row) => row.key !== key))
+    setExpandedKey((current) => (current === key ? null : current))
+  }
 
   function update(key: number, patch: Partial<Row>) {
     setRows((current) =>
@@ -378,20 +467,23 @@ function CodebookFields({
       ) : null}
 
       {inPhase2 ? (
-        <Card padding="sm">
-          <h3 className="m-0 text-sm font-bold text-ink">Critérios gerais</h3>
-          <p className="m-0 mt-1 mb-3 text-[13px] text-muted">
-            {generalScopeLabel(rows.length)}
-          </p>
-          <CriterionFields
-            scope="general"
-            criteria={general}
-            label="Nome do critério geral"
-            addLabel="Adicionar critério geral"
-            emptyHint="Nenhum critério geral nesta versão."
-            onChange={setGeneral}
-          />
-        </Card>
+        <div id={GENERAL_ANCHOR} className="scroll-mt-4">
+          <Card padding="sm">
+            <h3 className="m-0 text-sm font-bold text-ink">Critérios gerais</h3>
+            <p className="m-0 mt-1 mb-3 text-[13px] text-muted">
+              {generalScopeLabel(rows.length)}
+            </p>
+            <CriterionFields
+              scope="general"
+              criteria={general}
+              label="Nome do critério geral"
+              addLabel="Adicionar critério geral"
+              emptyHint="Nenhum critério geral nesta versão."
+              required
+              onChange={setGeneral}
+            />
+          </Card>
+        </div>
       ) : null}
 
       <p className="m-0 text-[13px] text-muted">
@@ -405,71 +497,99 @@ function CodebookFields({
         </EmptyState>
       ) : (
         <ul className="m-0 flex list-none flex-col gap-3 p-0">
-          {rows.map((row, index) => (
-            <li key={row.key}>
-              <Card padding="sm">
-                <div className="flex flex-wrap items-end gap-3">
-                  <Field
-                    label={`Título da definição ${index + 1}`}
-                    required
-                    className="min-w-[220px] flex-[2]"
-                  >
-                    <Input
-                      type="text"
-                      name="definition_title"
-                      required
-                      maxLength={DEFINITION_TITLE_MAX}
-                      value={row.title}
-                      onChange={(e) => update(row.key, { title: e.target.value })}
-                      placeholder="Ex.: Informacional"
-                    />
-                  </Field>
+          {rows.map((row, index) => {
+            const expanded = expandedKey === row.key
+            const id = String(row.key)
+            const scopes = definitionScopes(id, row.criteria, general)
+            const own = ownCriteria(id, scopes).length
+            const applicable = criteriaOfDefinition(id, scopes).length
+            const typeLabel = row.type ? definitionTypeLabel(row.type) : null
 
-                  <Field label="Tipo" required className="min-w-[200px] flex-1">
-                    <Select
-                      name="definition_type"
-                      required
-                      value={row.type}
-                      onChange={(e) =>
-                        update(row.key, { type: e.target.value as DefinitionType })
-                      }
+            return (
+              <li key={row.key}>
+                <EditableRow
+                  expanded={expanded}
+                  onToggle={() => toggle(row.key)}
+                  title={
+                    <>
+                      <span className="mr-2 tabular-nums text-muted">{index + 1}</span>
+                      {row.title.trim() || 'Definição sem título'}
+                    </>
+                  }
+                  meta={
+                    inPhase2
+                      ? plural(own, 'critério próprio', 'critérios próprios')
+                      : null
+                  }
+                  badges={
+                    <>
+                      {inPhase2 && own === 0 && applicable > 0 ? (
+                        <Badge tone="warning">sem critério próprio</Badge>
+                      ) : null}
+                      {typeLabel ? <Badge tone="accent">{typeLabel}</Badge> : null}
+                    </>
+                  }
+                  actions={
+                    <RowActions
+                      menuLabel={`Mais ações da definição ${index + 1}`}
+                      up={{
+                        label: `Mover a definição ${index + 1} para cima`,
+                        disabled: index === 0,
+                        onClick: () => move(index, -1),
+                      }}
+                      down={{
+                        label: `Mover a definição ${index + 1} para baixo`,
+                        disabled: index === rows.length - 1,
+                        onClick: () => move(index, 1),
+                      }}
                     >
-                      <option value="">Escolha um tipo…</option>
-                      {DEFINITION_TYPE_OPTIONS.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </Select>
-                  </Field>
-
-                  <RowActions
-                    className="mb-1.5"
-                    menuLabel={`Mais ações da definição ${index + 1}`}
-                    up={{
-                      label: `Mover a definição ${index + 1} para cima`,
-                      disabled: index === 0,
-                      onClick: () => move(index, -1),
-                    }}
-                    down={{
-                      label: `Mover a definição ${index + 1} para baixo`,
-                      disabled: index === rows.length - 1,
-                      onClick: () => move(index, 1),
-                    }}
-                  >
-                    <RowMenuItem
-                      onClick={() =>
-                        setRows((current) => current.filter((r) => r.key !== row.key))
-                      }
+                      <RowMenuItem onClick={() => remove(row.key)}>Remover</RowMenuItem>
+                    </RowActions>
+                  }
+                  footer={inPhase2 ? notesLabel(own, applicable - own) : null}
+                >
+                  <div className="flex flex-wrap items-end gap-3">
+                    <Field
+                      label={`Título da definição ${index + 1}`}
+                      required={expanded}
+                      className="min-w-[220px] flex-[2]"
                     >
-                      Remover
-                    </RowMenuItem>
-                  </RowActions>
-                </div>
+                      <Input
+                        type="text"
+                        name="definition_title"
+                        required={expanded}
+                        maxLength={DEFINITION_TITLE_MAX}
+                        value={row.title}
+                        onChange={(e) => update(row.key, { title: e.target.value })}
+                        placeholder="Ex.: Informacional"
+                      />
+                    </Field>
 
-                {inPhase2 ? (
-                  <>
-                    <div className="mt-3">
+                    <Field
+                      label="Tipo"
+                      required={expanded}
+                      className="min-w-[200px] flex-1"
+                    >
+                      <Select
+                        name="definition_type"
+                        required={expanded}
+                        value={row.type}
+                        onChange={(e) =>
+                          update(row.key, { type: e.target.value as DefinitionType })
+                        }
+                      >
+                        <option value="">Escolha um tipo…</option>
+                        {DEFINITION_TYPE_OPTIONS.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </Select>
+                    </Field>
+                  </div>
+
+                  {inPhase2 ? (
+                    <>
                       <Field
                         label={`Descrição da definição ${index + 1} (opcional)`}
                         hint="O texto que o avaliador lê para entender o que o título quis dizer. Salvar sem descrição é permitido."
@@ -485,32 +605,31 @@ function CodebookFields({
                           placeholder="Ex.: a resposta busca informação sobre um assunto, sem intenção de compra."
                         />
                       </Field>
-                    </div>
 
-                    <div className="mt-3 border-t border-line pt-3">
-                      <CriterionFields
-                        scope={String(index)}
-                        criteria={row.criteria}
-                        label="Nome do critério"
-                        addLabel="Adicionar critério"
-                        emptyHint="Nenhum critério próprio nesta definição. Ela também recebe os critérios gerais da versão."
-                        onChange={(next) => update(row.key, { criteria: next })}
-                      />
-                    </div>
-                  </>
-                ) : null}
-              </Card>
-            </li>
-          ))}
+                      <div className="border-t border-line pt-3">
+                        <CriterionFields
+                          scope={String(index)}
+                          criteria={row.criteria}
+                          label="Nome do critério"
+                          addLabel="Adicionar critério"
+                          emptyHint="Nenhum critério próprio nesta definição. Ela também recebe os critérios gerais da versão."
+                          required={expanded}
+                          onChange={(next) => update(row.key, { criteria: next })}
+                        />
+                      </div>
+
+                      <InheritedCriteria criteria={general} />
+                    </>
+                  ) : null}
+                </EditableRow>
+              </li>
+            )
+          })}
         </ul>
       )}
 
       <FormActions align="start">
-        <Button
-          variant="secondary"
-          size="sm"
-          onClick={() => setRows((current) => [...current, newRow(defaultType)])}
-        >
+        <Button variant="secondary" size="sm" onClick={add}>
           Adicionar definição
         </Button>
       </FormActions>

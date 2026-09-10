@@ -77,7 +77,7 @@ export function buttonClass(
 export type ButtonProps = ButtonOptions & {
   loading?: boolean
   loadingText?: React.ReactNode
-} & React.ButtonHTMLAttributes<HTMLButtonElement>
+} & React.ComponentProps<'button'>
 
 export function Button({
   variant = 'primary',
