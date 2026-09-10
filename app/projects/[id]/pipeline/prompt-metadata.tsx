@@ -1,3 +1,4 @@
+import { preWrapClass } from '@/app/components/ui/prose'
 import type { PromptMetadata } from './prompt'
 
 const FIELDS: { key: keyof PromptMetadata; label: string }[] = [
@@ -15,7 +16,7 @@ export function PromptMetadataList({ version }: { version: PromptMetadata }) {
       {filled.map(({ key, label }) => (
         <div key={key} className="flex flex-col gap-0.5">
           <dt className="text-[13px] font-semibold text-label">{label}</dt>
-          <dd className="m-0 text-[13px] break-words whitespace-pre-wrap text-ink">
+          <dd className={`m-0 text-[13px] ${preWrapClass} text-ink`}>
             {version[key]}
           </dd>
         </div>

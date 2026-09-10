@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { isValidElement, type ReactElement } from 'react'
+import { createElement, isValidElement, type ReactElement } from 'react'
+import { renderToStaticMarkup } from 'react-dom/server'
 
 const auth = vi.hoisted(() => ({ userId: null as string | null }))
 
@@ -313,6 +314,37 @@ describe('app/projects/[id]/codebook — a tela do codebook', () => {
     ])
     expect(props.isOpen).toBe(true)
     expect(historyOf(tree).versions.map((v) => v.versionNumber)).toEqual([1])
+  })
+
+  it('a tela abre em leitura, sem nenhum campo, e oferece editar as definições', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin, PHASE_2)
+    await addCodebookVersion(ownerDb, project, admin, {
+      definitions: [
+        {
+          title: 'Informacional',
+          type: 'category',
+          description: 'busca informação',
+          criteria: [{ name: 'Cita a fonte' }],
+        },
+      ],
+      generalCriteria: [{ name: 'Clareza' }],
+    })
+
+    auth.userId = admin
+    const editor = findElement(await renderCodebook(project), CodebookEditor)
+    expect(editor).toBeTruthy()
+
+    const props = editor!.props as Parameters<typeof CodebookEditor>[0]
+    const html = renderToStaticMarkup(createElement(CodebookEditor, props))
+
+    expect(html).not.toContain('<input')
+    expect(html).not.toContain('<textarea')
+    expect(html).not.toContain('<select')
+    expect(html).toContain('Editar defini')
+    expect(html).toContain('Informacional')
+    expect(html).toContain('busca informa')
+    expect(html).toContain('Clareza')
   })
 
   it('com rodada aberta, a tela fica em leitura e explica que é preciso fechar a rodada', async () => {

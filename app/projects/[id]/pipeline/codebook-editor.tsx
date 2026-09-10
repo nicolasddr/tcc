@@ -1,6 +1,6 @@
 'use client'
 
-import { startTransition, useActionState, useState } from 'react'
+import { startTransition, useActionState, useEffect, useState } from 'react'
 import { saveCodebook, type CodebookState } from './actions'
 import type {
   CodebookCriterion,
@@ -15,6 +15,7 @@ import { Button } from '@/app/components/ui/button'
 import { RowActions, RowMenuItem } from '@/app/components/ui/row-actions'
 import { Field, Input, Select, Textarea } from '@/app/components/ui/field'
 import { Form, FormActions } from '@/app/components/ui/form'
+import { SaveBar } from '@/app/components/ui/save-bar'
 import { Card } from '@/app/components/ui/card'
 import { Alert } from '@/app/components/ui/alert'
 import { VersionStatus } from './version-status'
@@ -84,6 +85,48 @@ function toRows(
   }))
 }
 
+function serializeCriteria(criteria: readonly CriterionRow[]): string {
+  return JSON.stringify(
+    criteria.map((criterion) => [criterion.name.trim(), criterion.description.trim()]),
+  )
+}
+
+function serializeRow(row: Row): string {
+  return JSON.stringify([
+    row.title.trim(),
+    row.type,
+    row.description.trim(),
+    serializeCriteria(row.criteria),
+  ])
+}
+
+function countChanged(before: readonly string[], after: readonly string[]): number {
+  const shared = Math.min(before.length, after.length)
+  let changed = Math.abs(before.length - after.length)
+  for (let index = 0; index < shared; index++) {
+    if (before[index] !== after[index]) changed++
+  }
+  return changed
+}
+
+function changesLabel(
+  changedDefinitions: number,
+  generalChanged: boolean,
+  noteChanged: boolean,
+): string {
+  const parts: string[] = []
+  if (changedDefinitions > 0) {
+    parts.push(
+      changedDefinitions === 1
+        ? '1 definição alterada'
+        : `${changedDefinitions} definições alteradas`,
+    )
+  }
+  if (generalChanged) parts.push('critérios gerais alterados')
+  if (noteChanged) parts.push('observação alterada')
+  return `Alterações não salvas: ${parts.join(' · ')}.`
+}
+
 function TypeLegend() {
   return (
     <Card tone="subtle" padding="sm">
@@ -96,6 +139,32 @@ function TypeLegend() {
         ))}
       </dl>
     </Card>
+  )
+}
+
+function CodebookBody({
+  definitions,
+  criteria,
+  inPhase2,
+}: {
+  definitions: CodebookDefinition[]
+  criteria: CodebookCriterion[]
+  inPhase2: boolean
+}) {
+  return (
+    <>
+      <TypeLegend />
+      {definitions.length === 0 ? (
+        <EmptyState>Esta versão não tem definições.</EmptyState>
+      ) : (
+        <>
+          <DefinitionList definitions={definitions} criteria={criteria} />
+          {inPhase2 ? (
+            <NotesPerResponse definitions={definitions} criteria={criteria} />
+          ) : null}
+        </>
+      )}
+    </>
   )
 }
 
@@ -213,19 +282,29 @@ function CodebookFields({
   defaultType,
   note,
   inPhase2,
+  pending,
+  status,
+  onDone,
 }: {
   definitions: CodebookDefinition[]
   criteria: CodebookCriterion[]
   defaultType: DefinitionType | null
   note: string
   inPhase2: boolean
+  pending: boolean
+  status: React.ReactNode
+  onDone: () => void
 }) {
-  const [rows, setRows] = useState<Row[]>(() =>
-    toRows(definitions, criteria, defaultType),
-  )
-  const [general, setGeneral] = useState<CriterionRow[]>(() =>
-    toCriterionRows(criteria.filter((criterion) => criterion.definitionId === null)),
-  )
+  const [initial] = useState(() => ({
+    rows: toRows(definitions, criteria, defaultType),
+    general: toCriterionRows(
+      criteria.filter((criterion) => criterion.definitionId === null),
+    ),
+    note,
+  }))
+  const [rows, setRows] = useState<Row[]>(initial.rows)
+  const [general, setGeneral] = useState<CriterionRow[]>(initial.general)
+  const [noteText, setNoteText] = useState(initial.note)
 
   function update(key: number, patch: Partial<Row>) {
     setRows((current) =>
@@ -244,6 +323,31 @@ function CodebookFields({
       ...general.map(() => ({ definitionId: null })),
     ],
   )
+
+  const changedDefinitions = countChanged(
+    initial.rows.map(serializeRow),
+    rows.map(serializeRow),
+  )
+  const generalChanged =
+    serializeCriteria(initial.general) !== serializeCriteria(general)
+  const noteChanged = initial.note.trim() !== noteText.trim()
+  const dirty = changedDefinitions > 0 || generalChanged || noteChanged
+
+  useEffect(() => {
+    if (!dirty) return
+    function warnOnLeave(event: BeforeUnloadEvent) {
+      event.preventDefault()
+    }
+    window.addEventListener('beforeunload', warnOnLeave)
+    return () => window.removeEventListener('beforeunload', warnOnLeave)
+  }, [dirty])
+
+  function discard() {
+    setRows(initial.rows)
+    setGeneral(initial.general)
+    setNoteText(initial.note)
+    onDone()
+  }
 
   return (
     <>
@@ -414,10 +518,29 @@ function CodebookFields({
           name="note"
           rows={2}
           maxLength={CODEBOOK_NOTE_MAX}
-          defaultValue={note}
+          value={noteText}
+          onChange={(e) => setNoteText(e.target.value)}
           placeholder="Ex.: separei “Transacional” de “Navegacional”."
         />
       </Field>
+
+      {status}
+
+      {dirty ? (
+        <SaveBar
+          changes={changesLabel(changedDefinitions, generalChanged, noteChanged)}
+          onDiscard={discard}
+          loading={pending}
+          loadingText="Salvando…"
+          saveLabel="Salvar definições"
+        />
+      ) : (
+        <FormActions align="start">
+          <Button variant="secondary" onClick={onDone}>
+            Voltar à leitura
+          </Button>
+        </FormActions>
+      )}
     </>
   )
 }
@@ -443,17 +566,7 @@ export function CodebookReadOnly({
       {openRoundNumber !== null ? (
         <Alert tone="notice">{codebookLockedMessage(openRoundNumber)}</Alert>
       ) : null}
-      <TypeLegend />
-      {definitions.length === 0 ? (
-        <EmptyState>Esta versão não tem definições.</EmptyState>
-      ) : (
-        <>
-          <DefinitionList definitions={definitions} criteria={criteria} />
-          {inPhase2 ? (
-            <NotesPerResponse definitions={definitions} criteria={criteria} />
-          ) : null}
-        </>
-      )}
+      <CodebookBody definitions={definitions} criteria={criteria} inPhase2={inPhase2} />
     </div>
   )
 }
@@ -480,6 +593,11 @@ export function CodebookEditor({
   const inPhase2 = phase >= PHASE_2
   const [state, submit, pending] = useActionState(saveCodebook, initialState)
 
+  const saved = state !== null && 'ok' in state
+  const savedNonce = saved ? state.nonce : 0
+  const [editingNonce, setEditingNonce] = useState<number | null>(null)
+  const editing = editingNonce === savedNonce
+
   if (openRoundNumber !== null) {
     return (
       <CodebookReadOnly
@@ -490,6 +608,23 @@ export function CodebookEditor({
         criteria={criteria}
         inPhase2={inPhase2}
       />
+    )
+  }
+
+  if (!editing) {
+    return (
+      <div className="flex flex-col gap-4">
+        <VersionStatus version={version} isOpen={isOpen} />
+        <CodebookBody
+          definitions={definitions}
+          criteria={criteria}
+          inPhase2={inPhase2}
+        />
+        {saved ? <Alert tone="success">Definições salvas.</Alert> : null}
+        <FormActions align="start">
+          <Button onClick={() => setEditingNonce(savedNonce)}>Editar definições</Button>
+        </FormActions>
+      </div>
     )
   }
 
@@ -514,16 +649,12 @@ export function CodebookEditor({
           defaultType={defaultType}
           note={version?.note ?? ''}
           inPhase2={inPhase2}
+          pending={pending}
+          status={
+            state && 'error' in state ? <Alert tone="error">{state.error}</Alert> : null
+          }
+          onDone={() => setEditingNonce(null)}
         />
-
-        {state && 'error' in state ? <Alert tone="error">{state.error}</Alert> : null}
-        {state && 'ok' in state ? <Alert tone="success">Definições salvas.</Alert> : null}
-
-        <FormActions>
-          <Button type="submit" loading={pending} loadingText="Salvando…">
-            Salvar definições
-          </Button>
-        </FormActions>
       </Form>
     </div>
   )

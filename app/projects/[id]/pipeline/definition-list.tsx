@@ -3,6 +3,7 @@ import { Badge } from '@/app/components/ui/badge'
 import { definitionTypeLabel } from '@/app/projects/definition-types'
 import type { CodebookCriterion, CodebookDefinition } from './codebook'
 import { criteriaOfDefinition, isGeneral } from './criteria'
+import { preWrapClass } from '@/app/components/ui/prose'
 
 export function DefinitionList({
   definitions,
@@ -34,7 +35,7 @@ export function DefinitionList({
               </div>
 
               {definition.description ? (
-                <p className="m-0 mt-2 text-[13px] break-words whitespace-pre-wrap text-ink">
+                <p className={`m-0 mt-2 text-[13px] ${preWrapClass} text-ink`}>
                   {definition.description}
                 </p>
               ) : null}
@@ -52,7 +53,7 @@ export function DefinitionList({
                         ) : null}
                       </span>
                       {criterion.description ? (
-                        <p className="m-0 mt-1 text-[13px] break-words whitespace-pre-wrap text-muted">
+                        <p className={`m-0 mt-1 text-[13px] ${preWrapClass} text-muted`}>
                           {criterion.description}
                         </p>
                       ) : null}
