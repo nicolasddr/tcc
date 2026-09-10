@@ -33,6 +33,7 @@ import {
 } from '@/app/projects/[id]/pipeline/codebook-editor'
 import { VersionStatus } from '@/app/projects/[id]/pipeline/version-status'
 import { Button } from '@/app/components/ui/button'
+import { InfoTooltip } from '@/app/components/ui/tooltip'
 import { formatDate } from '@/app/notifications/labels'
 import { PHASE_1, PHASE_2 } from '@/app/projects/[id]/pipeline/preconditions'
 import { ownerDb } from '@/lib/db'
@@ -407,11 +408,12 @@ describe('app/projects/[id]/codebook — a tela do codebook', () => {
     expect(props.openRoundNumber).toBeNull()
     expect(props.isOpen).toBe(false)
 
-    const status = textOf(
-      VersionStatus({ version: props.version, isOpen: props.isOpen }),
-    )
-    expect(status).toContain('congelada')
-    expect(status).toContain('cria a versão 2')
+    const status = VersionStatus({ version: props.version, isOpen: props.isOpen })
+    expect(textOf(status)).toContain('congelada')
+
+    const tooltip = findElement(status, InfoTooltip)
+    expect(tooltip).toBeTruthy()
+    expect((tooltip!.props as { text: string }).text).toContain('cria a versão 2')
   })
 
   it('sem rodada aberta, o editor não recebe trava nenhuma', async () => {

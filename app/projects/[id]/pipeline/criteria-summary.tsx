@@ -1,14 +1,11 @@
 import { StatCard } from '@/app/components/ui/stat'
+import { plural } from '@/lib/plural'
 import {
   generalCriteria,
   notesPerResponse,
   type CriterionScope,
   type DefinitionKey,
 } from './criteria'
-
-function plural(count: number, one: string, many: string): string {
-  return `${count} ${count === 1 ? one : many}`
-}
 
 export function NotesPerResponse({
   definitions,
@@ -36,5 +33,36 @@ export function NotesPerResponse({
         </>
       }
     />
+  )
+}
+
+export function CodebookSummary({
+  definitions,
+  criteria,
+}: {
+  definitions: readonly DefinitionKey[]
+  criteria: readonly CriterionScope[]
+}) {
+  const general = generalCriteria(criteria).length
+  const own = criteria.length - general
+
+  return (
+    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      <NotesPerResponse definitions={definitions} criteria={criteria} />
+
+      <StatCard
+        label="Definições"
+        value={definitions.length}
+        suffix={definitions.length === 1 ? 'definição' : 'definições'}
+        hint="A ordem da lista é a ordem em que aparecem para a equipe e vão à LLM."
+      />
+
+      <StatCard
+        label="Critérios"
+        value={criteria.length}
+        suffix={criteria.length === 1 ? 'critério' : 'critérios'}
+        hint={`${plural(own, 'próprio', 'próprios')} · ${plural(general, 'geral', 'gerais')}`}
+      />
+    </div>
   )
 }

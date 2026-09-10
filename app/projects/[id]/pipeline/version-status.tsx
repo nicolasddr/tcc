@@ -1,4 +1,5 @@
 import { Badge } from '@/app/components/ui/badge'
+import { InfoTooltip } from '@/app/components/ui/tooltip'
 
 export function VersionStatus({
   version,
@@ -15,26 +16,19 @@ export function VersionStatus({
     )
   }
 
+  const explanation = isOpen
+    ? `Enquanto nenhuma rodada usar esta versão, salvar altera a própria versão. Assim que uma rodada a usar, ela congela e o salvamento seguinte cria a versão ${version.versionNumber + 1}.`
+    : `Esta versão já foi usada por uma rodada e não muda mais. A próxima alteração salva cria a versão ${version.versionNumber + 1}, com o conteúdo copiado desta.`
+
   return (
-    <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+    <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5">
       <span className="text-[13px] font-semibold text-ink">
         Versão {version.versionNumber}
       </span>
-      {isOpen ? (
-        <>
-          <Badge tone="info">em aberto</Badge>
-          <span className="text-[13px] text-muted">
-            {`Enquanto nenhuma rodada usar esta versão, salvar altera a própria versão. Assim que uma rodada a usar, ela congela e o salvamento seguinte cria a versão ${version.versionNumber + 1}.`}
-          </span>
-        </>
-      ) : (
-        <>
-          <Badge tone="neutral">congelada</Badge>
-          <span className="text-[13px] text-muted">
-            {`Esta versão já foi usada por uma rodada e não muda mais. A próxima alteração salva cria a versão ${version.versionNumber + 1}, com o conteúdo copiado desta.`}
-          </span>
-        </>
-      )}
+      <Badge tone={isOpen ? 'info' : 'neutral'}>
+        {isOpen ? 'em aberto' : 'congelada'}
+      </Badge>
+      <InfoTooltip text={explanation} />
     </div>
   )
 }

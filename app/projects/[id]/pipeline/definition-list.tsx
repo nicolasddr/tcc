@@ -2,7 +2,7 @@ import { Card } from '@/app/components/ui/card'
 import { Badge } from '@/app/components/ui/badge'
 import { definitionTypeLabel } from '@/app/projects/definition-types'
 import type { CodebookCriterion, CodebookDefinition } from './codebook'
-import { criteriaOfDefinition, isGeneral } from './criteria'
+import { criteriaOfDefinition, isGeneral, ownCriteria } from './criteria'
 import { preWrapClass } from '@/app/components/ui/prose'
 
 export function DefinitionList({
@@ -16,6 +16,7 @@ export function DefinitionList({
     <ul className="m-0 flex list-none flex-col gap-2 p-0">
       {definitions.map((definition, index) => {
         const applicable = criteriaOfDefinition(definition.id, criteria)
+        const own = ownCriteria(definition.id, criteria)
 
         return (
           <li key={definition.id}>
@@ -29,9 +30,14 @@ export function DefinitionList({
                     {definition.title}
                   </span>
                 </span>
-                <Badge tone="accent">
-                  {definitionTypeLabel(definition.type) ?? definition.type}
-                </Badge>
+                <span className="flex flex-wrap items-center gap-2">
+                  {own.length === 0 && applicable.length > 0 ? (
+                    <Badge tone="warning">sem critério próprio</Badge>
+                  ) : null}
+                  <Badge tone="accent">
+                    {definitionTypeLabel(definition.type) ?? definition.type}
+                  </Badge>
+                </span>
               </div>
 
               {definition.description ? (

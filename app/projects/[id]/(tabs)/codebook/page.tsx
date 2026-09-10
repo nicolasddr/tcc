@@ -36,7 +36,8 @@ export default async function ProjectCodebookPage({
     <>
       <Section
         title="Definições"
-        hint={
+        hint="Os conceitos que estruturam a tarefa da LLM."
+        help={
           project.phase >= PHASE_2
             ? 'Os conceitos que estruturam a tarefa da LLM, cada um com título, tipo, a descrição que o avaliador lê e os critérios com que ele julga. Só os títulos vão para a LLM.'
             : 'Os conceitos que estruturam a tarefa da LLM, cada um com título e tipo. A descrição e os critérios de cada definição são escritos na Fase 2.'

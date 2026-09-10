@@ -18,14 +18,18 @@ export function generalCriteria<C extends CriterionScope>(
   return criteria.filter(isGeneral)
 }
 
+export function ownCriteria<C extends CriterionScope>(
+  definitionId: string,
+  criteria: readonly C[],
+): C[] {
+  return criteria.filter((criterion) => criterion.definitionId === definitionId)
+}
+
 export function criteriaOfDefinition<C extends CriterionScope>(
   definitionId: string,
   criteria: readonly C[],
 ): C[] {
-  return [
-    ...criteria.filter((criterion) => criterion.definitionId === definitionId),
-    ...generalCriteria(criteria),
-  ]
+  return [...ownCriteria(definitionId, criteria), ...generalCriteria(criteria)]
 }
 
 export function resolveCells<D extends DefinitionKey, C extends CriterionScope>(

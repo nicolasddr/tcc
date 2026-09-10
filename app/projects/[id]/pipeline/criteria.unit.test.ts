@@ -6,6 +6,7 @@ import {
   isGeneral,
   missingCriteriaMessage,
   notesPerResponse,
+  ownCriteria,
   resolveCells,
 } from '@/app/projects/[id]/pipeline/criteria'
 
@@ -94,6 +95,38 @@ describe('app/projects/[id]/pipeline/criteria — herança dos critérios gerais
     )
 
     expect(cells.map((cell) => cell.definition.id)).toEqual(['d1'])
+  })
+})
+
+describe('app/projects/[id]/pipeline/criteria — o critério próprio da definição', () => {
+  it('devolve só os critérios da própria definição, sem os gerais', () => {
+    const criteria = [
+      criterion('c1', 'd1'),
+      criterion('c2', 'd1'),
+      criterion('c3', 'd2'),
+      criterion('g1', null),
+    ]
+
+    expect(ownCriteria('d1', criteria).map((c) => c.id)).toEqual(['c1', 'c2'])
+    expect(criteriaOfDefinition('d1', criteria).map((c) => c.id)).toEqual([
+      'c1',
+      'c2',
+      'g1',
+    ])
+  })
+
+  it('a definição sem critério próprio fica vazia mesmo com gerais na versão', () => {
+    const criteria = [criterion('c1', 'd1'), criterion('g1', null)]
+
+    expect(ownCriteria('d2', criteria)).toEqual([])
+    expect(criteriaOfDefinition('d2', criteria).map((c) => c.id)).toEqual(['g1'])
+    expect(definitionsWithoutCriteria([transacional], criteria)).toEqual([])
+  })
+
+  it('mantém a ordem recebida', () => {
+    const criteria = [criterion('c2', 'd1'), criterion('g1', null), criterion('c1', 'd1')]
+
+    expect(ownCriteria('d1', criteria).map((c) => c.id)).toEqual(['c2', 'c1'])
   })
 })
 

@@ -13,6 +13,7 @@ import {
 } from '@/app/projects/definition-types'
 import { Button } from '@/app/components/ui/button'
 import { RowActions, RowMenuItem } from '@/app/components/ui/row-actions'
+import { Disclosure } from '@/app/components/ui/disclosure'
 import { Field, Input, Select, Textarea } from '@/app/components/ui/field'
 import { Form, FormActions } from '@/app/components/ui/form'
 import { SaveBar } from '@/app/components/ui/save-bar'
@@ -25,7 +26,7 @@ import { moveBy } from '@/lib/reorder'
 import { PHASE_2 } from './preconditions'
 import { definitionsWithoutCriteria, missingCriteriaMessage } from './criteria'
 import { codebookLockedMessage } from '../(tabs)/rounds/preconditions'
-import { NotesPerResponse } from './criteria-summary'
+import { CodebookSummary } from './criteria-summary'
 import {
   CODEBOOK_NOTE_MAX,
   CRITERION_DESCRIPTION_MAX,
@@ -129,17 +130,29 @@ function changesLabel(
 
 function TypeLegend() {
   return (
-    <Card tone="subtle" padding="sm">
-      <dl className="m-0 flex flex-col gap-1.5">
-        {DEFINITION_TYPE_OPTIONS.map((option) => (
-          <div key={option.value} className="flex flex-wrap gap-x-2 text-[13px]">
-            <dt className="font-semibold text-ink">{option.label}</dt>
-            <dd className="m-0 min-w-[200px] flex-1 text-muted">{option.hint}</dd>
-          </div>
-        ))}
-      </dl>
-    </Card>
+    <Disclosure summary="O que é cada tipo">
+      <Card tone="subtle" padding="sm" className="mt-2">
+        <dl className="m-0 flex flex-col gap-1.5">
+          {DEFINITION_TYPE_OPTIONS.map((option) => (
+            <div key={option.value} className="flex flex-wrap gap-x-2 text-[13px]">
+              <dt className="font-semibold text-ink">{option.label}</dt>
+              <dd className="m-0 min-w-[200px] flex-1 text-muted">{option.hint}</dd>
+            </div>
+          ))}
+        </dl>
+      </Card>
+    </Disclosure>
   )
+}
+
+function generalScopeLabel(definitionCount: number): string {
+  const scope =
+    definitionCount === 0
+      ? 'Valem para todas as definições desta versão.'
+      : definitionCount === 1
+        ? 'Valem para a definição desta versão.'
+        : `Valem para as ${definitionCount} definições desta versão.`
+  return `${scope} Editar ou remover um critério geral vale para todas elas.`
 }
 
 function CodebookBody({
@@ -153,16 +166,14 @@ function CodebookBody({
 }) {
   return (
     <>
+      {inPhase2 && definitions.length > 0 ? (
+        <CodebookSummary definitions={definitions} criteria={criteria} />
+      ) : null}
       <TypeLegend />
       {definitions.length === 0 ? (
         <EmptyState>Esta versão não tem definições.</EmptyState>
       ) : (
-        <>
-          <DefinitionList definitions={definitions} criteria={criteria} />
-          {inPhase2 ? (
-            <NotesPerResponse definitions={definitions} criteria={criteria} />
-          ) : null}
-        </>
+        <DefinitionList definitions={definitions} criteria={criteria} />
       )}
     </>
   )
@@ -349,8 +360,40 @@ function CodebookFields({
     onDone()
   }
 
+  const summaryDefinitions = rows.map((row) => ({ id: String(row.key) }))
+  const summaryCriteria = [
+    ...rows.flatMap((row) =>
+      row.criteria.map(() => ({ definitionId: String(row.key) })),
+    ),
+    ...general.map(() => ({ definitionId: null })),
+  ]
+
   return (
     <>
+      {inPhase2 ? (
+        <CodebookSummary
+          definitions={summaryDefinitions}
+          criteria={summaryCriteria}
+        />
+      ) : null}
+
+      {inPhase2 ? (
+        <Card padding="sm">
+          <h3 className="m-0 text-sm font-bold text-ink">Critérios gerais</h3>
+          <p className="m-0 mt-1 mb-3 text-[13px] text-muted">
+            {generalScopeLabel(rows.length)}
+          </p>
+          <CriterionFields
+            scope="general"
+            criteria={general}
+            label="Nome do critério geral"
+            addLabel="Adicionar critério geral"
+            emptyHint="Nenhum critério geral nesta versão."
+            onChange={setGeneral}
+          />
+        </Card>
+      ) : null}
+
       <p className="m-0 text-[13px] text-muted">
         A ordem desta lista é a ordem em que as definições aparecem para a equipe e são
         enviadas à LLM. Use as setas para reordenar; a ordem é salva junto com a versão.
@@ -472,42 +515,12 @@ function CodebookFields({
         </Button>
       </FormActions>
 
-      {inPhase2 ? (
-        <>
-          <Card padding="sm">
-            <h3 className="m-0 text-sm font-bold text-ink">Critérios gerais</h3>
-            <p className="m-0 mt-1 mb-3 text-[13px] text-muted">
-              Valem para todas as definições da versão de uma vez. Editar ou remover um
-              critério geral vale para todas elas.
-            </p>
-            <CriterionFields
-              scope="general"
-              criteria={general}
-              label="Nome do critério geral"
-              addLabel="Adicionar critério geral"
-              emptyHint="Nenhum critério geral nesta versão."
-              onChange={setGeneral}
-            />
-          </Card>
-
-          <NotesPerResponse
-            definitions={rows.map((row) => ({ id: String(row.key) }))}
-            criteria={[
-              ...rows.flatMap((row) =>
-                row.criteria.map(() => ({ definitionId: String(row.key) })),
-              ),
-              ...general.map(() => ({ definitionId: null })),
-            ]}
-          />
-
-          {uncovered.length > 0 ? (
-            <Alert tone="notice">
-              {missingCriteriaMessage(
-                uncovered.map((row, index) => row.title || `sem título ${index + 1}`),
-              )}
-            </Alert>
-          ) : null}
-        </>
+      {inPhase2 && uncovered.length > 0 ? (
+        <Alert tone="notice">
+          {missingCriteriaMessage(
+            uncovered.map((row, index) => row.title || `sem título ${index + 1}`),
+          )}
+        </Alert>
       ) : null}
 
       <Field
