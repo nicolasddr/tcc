@@ -5,19 +5,21 @@ export function Panel({
   title,
   icon,
   action,
+  tone,
   className,
   children,
 }: {
   title: React.ReactNode
   icon?: React.ReactNode
   action?: React.ReactNode
+  tone?: CardTone
   className?: string
   children: React.ReactNode
 }) {
   return (
-    <Card padding="lg" className={cx('flex flex-col', className)}>
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="m-0 flex items-center gap-2 text-[15px] font-bold text-ink">
+    <Card padding="lg" tone={tone} className={cx('flex flex-col', className)}>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h2 className="m-0 flex flex-wrap items-center gap-2 text-[15px] font-bold text-ink">
           {icon}
           {title}
         </h2>

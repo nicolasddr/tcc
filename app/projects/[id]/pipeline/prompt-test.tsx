@@ -7,6 +7,7 @@ import { Button } from '@/app/components/ui/button'
 import { Field, Select } from '@/app/components/ui/field'
 import { Form, FormActions } from '@/app/components/ui/form'
 import { Card } from '@/app/components/ui/card'
+import { preWrapClass } from '@/app/components/ui/prose'
 import { Alert } from '@/app/components/ui/alert'
 import { EmptyState } from '@/app/components/ui/empty-state'
 
@@ -77,7 +78,12 @@ export function PromptTest({
         {error && !pending ? <Alert tone="error">{error}</Alert> : null}
 
         <FormActions align="start">
-          <Button type="submit" loading={pending} loadingText="Consultando a LLM…">
+          <Button
+            type="submit"
+            variant="secondary"
+            loading={pending}
+            loadingText="Consultando a LLM…"
+          >
             Testar o prompt
           </Button>
           <span className="text-[13px] text-muted">Modelo: {model}</span>
@@ -101,10 +107,8 @@ export function PromptTest({
               ? `Resposta do teste anterior (${answer.model})`
               : `Resposta da LLM (${answer.model})`}
           </p>
-          <Card padding="sm">
-            <p
-              className={`m-0 ${outputClass} whitespace-pre-wrap break-words text-ink`}
-            >
+          <Card padding="sm" tone="subtle">
+            <p className={`m-0 ${outputClass} ${preWrapClass} text-ink`}>
               {answer.output}
             </p>
           </Card>

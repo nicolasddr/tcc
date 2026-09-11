@@ -29,7 +29,8 @@ export default async function ProjectItemsPage({
     <>
       <Section
         title="Itens de entrada"
-        hint="O pool de itens do projeto: cada item vira uma resposta da LLM, e as fases seguintes amostram desse pool."
+        hint="O pool de itens do projeto."
+        help="Cada item vira uma resposta da LLM, e as fases seguintes amostram desse pool."
       >
         <ItemsEditor projectId={project.id} items={items} />
       </Section>

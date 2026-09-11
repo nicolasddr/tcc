@@ -11,7 +11,13 @@ import { loadItems } from '../../pipeline/items'
 import { loadCodebook } from '../../pipeline/codebook'
 import { EMPTY_PIPELINE, canAdvanceFromPhase1 } from '../../pipeline/preconditions'
 import { llmModel } from '@/lib/ai'
+import { Card } from '@/app/components/ui/card'
+import { Disclosure } from '@/app/components/ui/disclosure'
+import { Panel } from '@/app/components/ui/panel'
 import { Section } from '@/app/components/ui/section'
+import { InfoTooltip } from '@/app/components/ui/tooltip'
+
+const HISTORY_ANCHOR = 'historico-do-prompt'
 
 export default async function ProjectPromptPage({
   params,
@@ -45,42 +51,56 @@ export default async function ProjectPromptPage({
 
   return (
     <>
-      <Section
-        title="Texto do prompt"
-        hint="A instrução enviada à LLM, versionada de forma independente do codebook."
-      >
+      <div className="mt-6 flex flex-col gap-4">
         <PromptEditor
           projectId={project.id}
           version={prompt.version}
           isOpen={prompt.isOpen}
+          definitions={codebook.definitions.length}
+          items={items.length}
+          historyAnchor={HISTORY_ANCHOR}
         />
-      </Section>
 
-      <Section
-        title="Dados desta versão do prompt"
-        hint="Nome, descrição e registro de mudanças são opcionais, valem para a versão mais recente e podem ser corrigidos a qualquer momento: como não vão à LLM, editá-los não cria versão nova."
-      >
-        <PromptMetadataEditor projectId={project.id} version={prompt.version} />
-      </Section>
+        <Card>
+          <Disclosure summary="Detalhes da versão — nome, descrição, o que mudou">
+            <div className="mt-3 flex flex-col gap-3">
+              <p className="m-0 text-[13px] text-muted">
+                Nome, descrição e registro de mudanças são opcionais, valem para a versão
+                mais recente e podem ser corrigidos a qualquer momento: como não vão à
+                LLM, editá-los não cria versão nova.
+              </p>
+              <PromptMetadataEditor projectId={project.id} version={prompt.version} />
+            </div>
+          </Disclosure>
+        </Card>
 
-      <Section
-        title="Testar o prompt"
-        hint="A verificação que fecha a Fase 1: a saída aparece aqui na tela e não é gravada em lugar nenhum."
-      >
-        <PromptTest
-          projectId={project.id}
-          items={items}
-          model={llmModel()}
-          ready={canAdvanceFromPhase1(inputs)}
-        />
-      </Section>
+        <Panel
+          tone="accent"
+          title={
+            <>
+              Testar o prompt
+              <InfoTooltip text="A verificação que fecha a Fase 1: a saída aparece aqui na tela e não é gravada em lugar nenhum." />
+            </>
+          }
+        >
+          <PromptTest
+            projectId={project.id}
+            items={items}
+            model={llmModel()}
+            ready={canAdvanceFromPhase1(inputs)}
+          />
+        </Panel>
+      </div>
 
-      <Section
-        title="Histórico de versões"
-        hint="Da mais recente para a mais antiga. Abrir uma versão mostra o texto como estava nela, em leitura: versão congelada não é editável nem apagável."
-      >
-        <PromptHistory projectId={project.id} versions={versions} />
-      </Section>
+      <div id={HISTORY_ANCHOR} className="scroll-mt-4">
+        <Section
+          title="Histórico de versões"
+          hint="Da mais recente para a mais antiga."
+          help="Abrir uma versão mostra o texto como estava nela, em leitura: versão congelada não é editável nem apagável."
+        >
+          <PromptHistory projectId={project.id} versions={versions} />
+        </Section>
+      </div>
     </>
   )
 }

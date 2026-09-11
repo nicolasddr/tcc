@@ -90,7 +90,12 @@ export function PromptMetadataEditor({
       ) : null}
 
       <FormActions>
-        <Button type="submit" loading={pending} loadingText="Salvando…">
+        <Button
+          type="submit"
+          variant="secondary"
+          loading={pending}
+          loadingText="Salvando…"
+        >
           Salvar dados do prompt
         </Button>
       </FormActions>

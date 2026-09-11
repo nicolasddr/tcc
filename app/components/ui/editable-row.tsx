@@ -8,6 +8,7 @@ import { cx } from './cx'
 export function EditableRow({
   title,
   meta,
+  preview,
   badges,
   actions,
   expanded,
@@ -20,6 +21,7 @@ export function EditableRow({
 }: {
   title: React.ReactNode
   meta?: React.ReactNode
+  preview?: React.ReactNode
   badges?: React.ReactNode
   actions?: React.ReactNode
   expanded: boolean
@@ -76,6 +78,8 @@ export function EditableRow({
           {actions}
         </span>
       </div>
+
+      {preview && !expanded ? <div className="mt-1.5">{preview}</div> : null}
 
       <div
         id={panelId}

@@ -6,6 +6,7 @@ import { hasPromptMetadata, loadPromptVersion } from '../../../pipeline/prompt'
 import { VersionBadges, VersionMeta } from '../../../pipeline/version-history'
 import { PromptMetadataList } from '../../../pipeline/prompt-metadata'
 import { Card } from '@/app/components/ui/card'
+import { preWrapClass } from '@/app/components/ui/prose'
 import { Section } from '@/app/components/ui/section'
 import { BackLink } from '@/app/components/ui/shell'
 
@@ -51,7 +52,9 @@ export default async function PromptVersionPage({
         hint="Em leitura, com a mesma formatação com que foi salvo."
       >
         <Card padding="sm">
-          <p className="m-0 max-h-[60vh] overflow-auto font-mono text-[13px] leading-[1.6] break-words whitespace-pre-wrap text-ink">
+          <p
+            className={`m-0 max-h-[60vh] overflow-auto font-mono text-[13px] leading-[1.6] ${preWrapClass} text-ink`}
+          >
             {version.text}
           </p>
         </Card>

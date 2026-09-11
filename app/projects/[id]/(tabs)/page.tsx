@@ -181,64 +181,62 @@ export default async function ProjectPage({
                 inOnboarding > 0 ? `${inOnboarding} em onboarding` : 'ativos no projeto'
               }
             />
-
-            {artifacts ? (
-              <>
-                <StatCard
-                  label="Codebook"
-                  value={artifacts.codebook.definitions.length}
-                  suffix={
-                    artifacts.codebook.definitions.length === 1
-                      ? 'definição'
-                      : 'definições'
-                  }
-                  hint={
-                    <>
-                      {artifacts.codebook.version
-                        ? `Versão ${artifacts.codebook.version.versionNumber} vigente · `
-                        : 'Nenhuma versão ainda · '}
-                      <OpenLink href={`/projects/${project.id}/codebook`}>
-                        Abrir codebook
-                      </OpenLink>
-                    </>
-                  }
-                />
-
-                <StatCard
-                  label="Prompt"
-                  value={
-                    artifacts.prompt.version
-                      ? `v${artifacts.prompt.version.versionNumber}`
-                      : '—'
-                  }
-                  suffix={artifacts.prompt.version ? 'vigente' : undefined}
-                  hint={
-                    <>
-                      {artifacts.prompt.version?.name
-                        ? `${artifacts.prompt.version.name} · `
-                        : artifacts.prompt.version
-                          ? 'Sem nome · '
-                          : 'Nenhuma versão ainda · '}
-                      <OpenLink href={`/projects/${project.id}/prompt`}>
-                        Abrir prompt
-                      </OpenLink>
-                    </>
-                  }
-                />
-
-                <StatCard
-                  label="Itens de entrada"
-                  value={artifacts.items}
-                  suffix="no pool"
-                  hint={
-                    <OpenLink href={`/projects/${project.id}/items`}>
-                      Abrir itens
-                    </OpenLink>
-                  }
-                />
-              </>
-            ) : null}
           </div>
+
+          {artifacts ? (
+            <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              <StatCard
+                label="Codebook"
+                value={artifacts.codebook.definitions.length}
+                suffix={
+                  artifacts.codebook.definitions.length === 1
+                    ? 'definição'
+                    : 'definições'
+                }
+                hint={
+                  <>
+                    {artifacts.codebook.version
+                      ? `Versão ${artifacts.codebook.version.versionNumber} vigente · `
+                      : 'Nenhuma versão ainda · '}
+                    <OpenLink href={`/projects/${project.id}/codebook`}>
+                      Abrir codebook
+                    </OpenLink>
+                  </>
+                }
+              />
+
+              <StatCard
+                label="Prompt"
+                value={
+                  artifacts.prompt.version
+                    ? `v${artifacts.prompt.version.versionNumber}`
+                    : '—'
+                }
+                suffix={artifacts.prompt.version ? 'vigente' : undefined}
+                hint={
+                  <>
+                    {artifacts.prompt.version?.name
+                      ? `${artifacts.prompt.version.name} · `
+                      : artifacts.prompt.version
+                        ? 'Sem nome · '
+                        : 'Nenhuma versão ainda · '}
+                    <OpenLink href={`/projects/${project.id}/prompt`}>
+                      Abrir prompt
+                    </OpenLink>
+                  </>
+                }
+              />
+
+              <StatCard
+                label="Itens de entrada"
+                value={artifacts.items}
+                suffix="no pool"
+                hint={
+                  <OpenLink href={`/projects/${project.id}/items`}>Abrir itens</OpenLink>
+                }
+              />
+            </div>
+          ) : null}
 
           {artifacts ? (
             <div id="avancar" className="scroll-mt-6">
