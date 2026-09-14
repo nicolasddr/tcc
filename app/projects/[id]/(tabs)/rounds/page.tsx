@@ -12,6 +12,7 @@ import { CloseRound } from './close-round'
 import { GenerateResponses } from './generate-responses'
 import { RoundList } from './round-list'
 import { llmModel } from '@/lib/ai'
+import { projectResponsesLeft, projectResponsesMax } from '@/lib/ai/quota'
 import { Section } from '@/app/components/ui/section'
 
 export default async function ProjectRoundsPage({
@@ -77,6 +78,8 @@ export default async function ProjectRoundsPage({
               items={items}
               generated={generated}
               model={llmModel()}
+              responsesLeft={projectResponsesLeft(project.id)}
+              responsesMax={projectResponsesMax()}
             />
           </Section>
 

@@ -1,11 +1,15 @@
 'use client'
 
-import { useActionState, useState } from 'react'
+import { useActionState, useRef, useState } from 'react'
 import { generateResponses, type GenerateResponsesState } from './actions'
 import {
   SELECTION_MAX,
+  ceilingReachedMessage,
   generatedCountMessage,
   generationFailureMessage,
+  generationMax,
+  responsesLeftMessage,
+  retryLabel,
   selectionBlockerMessage,
   selectionBlockers,
 } from './preconditions'
@@ -29,16 +33,21 @@ export function GenerateResponses({
   items,
   generated,
   model,
+  responsesLeft,
+  responsesMax,
 }: {
   projectId: string
   round: { id: string; roundNumber: number }
   items: InputItem[]
   generated: RoundResponse[]
   model: string
+  responsesLeft: number
+  responsesMax: number
 }) {
   const [state, action, pending] = useActionState(generateResponses, initialState)
   const [selected, setSelected] = useState<string[]>([])
   const [settled, setSettled] = useState<number | null>(null)
+  const formRef = useRef<HTMLFormElement>(null)
 
   const done = state && 'ok' in state ? state.nonce : null
   if (done !== settled) {
@@ -50,12 +59,23 @@ export function GenerateResponses({
   const usedHere = new Set(usedInRound)
   const available = items.filter((item) => !usedHere.has(item.id))
 
+  const max = generationMax(responsesLeft)
+  const outOfQuota = responsesLeft === 0
+
   const blockers = selectionBlockers(selected, {
     available: items.map((item) => item.id),
     usedInRound,
+    responsesLeft,
   })
   const complaint = blockers.find((blocker) => blocker.key !== 'empty')
-  const atMax = selected.length >= SELECTION_MAX
+  const atMax = selected.length >= max
+
+  const atMaxNote =
+    max < SELECTION_MAX
+      ? `Restam ${max} ${max === 1 ? 'vaga' : 'vagas'} de resposta de LLM neste ` +
+        'projeto, e cada item selecionado gasta uma.'
+      : `Máximo de ${SELECTION_MAX} itens por geração. Gere estes e selecione os ` +
+        'próximos depois.'
 
   function toggle(itemId: string, checked: boolean) {
     setSelected((current) =>
@@ -72,6 +92,16 @@ export function GenerateResponses({
   const nameOf = (itemId: string) =>
     items.find((item) => item.id === itemId)?.name ?? 'Item removido'
 
+  const retryable = (outcome?.failed ?? [])
+    .map((failure) => failure.itemId)
+    .filter((itemId) => available.some((item) => item.id === itemId))
+  const retryTargets = retryable.slice(0, max)
+
+  function retryFailed() {
+    setSelected(retryTargets)
+    formRef.current?.scrollIntoView({ block: 'start' })
+  }
+
   if (items.length === 0) {
     return (
       <EmptyState>
@@ -83,16 +113,17 @@ export function GenerateResponses({
 
   return (
     <div className="flex flex-col gap-4">
-      <Form action={action} gap="sm">
+      <Form action={action} gap="sm" ref={formRef}>
         <input type="hidden" name="project_id" value={projectId} />
         <input type="hidden" name="round_id" value={round.id} />
 
         <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
           <p className="m-0 text-[13px] font-semibold text-ink">
-            {selected.length} de {SELECTION_MAX} itens selecionados
+            {selected.length} de {max}{' '}
+            {max === 1 ? 'item selecionado' : 'itens selecionados'}
           </p>
           <p className="m-0 text-[13px] text-muted">
-            Cada item selecionado produz exatamente uma resposta nesta rodada.
+            {responsesLeftMessage(responsesLeft, responsesMax)}
           </p>
         </div>
 
@@ -113,7 +144,7 @@ export function GenerateResponses({
                       name="item_ids"
                       value={item.id}
                       checked={checked}
-                      disabled={used || pending || (atMax && !checked)}
+                      disabled={used || pending || outOfQuota || (atMax && !checked)}
                       onChange={(event) => toggle(item.id, event.target.checked)}
                       className="mt-[3px] h-4 w-4 shrink-0 accent-brand"
                     />
@@ -149,11 +180,12 @@ export function GenerateResponses({
           </p>
         ) : null}
 
-        {atMax ? (
-          <p className="m-0 text-[13px] text-muted">
-            Máximo de {SELECTION_MAX} itens por geração. Gere estes e selecione os
-            próximos depois.
-          </p>
+        {atMax && !outOfQuota ? (
+          <p className="m-0 text-[13px] text-muted">{atMaxNote}</p>
+        ) : null}
+
+        {outOfQuota ? (
+          <Alert tone="notice">{ceilingReachedMessage(responsesMax)}</Alert>
         ) : null}
 
         {complaint ? (
@@ -166,7 +198,7 @@ export function GenerateResponses({
             type="submit"
             loading={pending}
             loadingText="Gerando…"
-            disabled={blockers.length > 0}
+            disabled={blockers.length > 0 || outOfQuota}
           >
             Gerar respostas
           </Button>
@@ -200,6 +232,20 @@ export function GenerateResponses({
               </li>
             ))}
           </ul>
+
+          {retryTargets.length > 0 ? (
+            <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5">
+              <Button type="button" variant="secondary" size="sm" onClick={retryFailed}>
+                {retryLabel(retryTargets.length)}
+              </Button>
+              {retryTargets.length < retryable.length ? (
+                <span className="text-[13px] text-muted">
+                  Só cabem {retryTargets.length} de {retryable.length} nesta geração; os
+                  demais ficam para a próxima.
+                </span>
+              ) : null}
+            </div>
+          ) : null}
         </Card>
       ) : null}
 

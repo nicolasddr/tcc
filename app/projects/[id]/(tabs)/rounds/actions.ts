@@ -33,6 +33,7 @@ import {
 } from '../../pipeline/responses'
 import { isOpen, loadOpenRound, ROUND_CLOSED, ROUND_OPEN } from './rounds'
 import {
+  ceilingReachedMessage,
   roundBlockerMessage,
   roundBlockers,
   selectionBlockerMessage,
@@ -250,13 +251,6 @@ function generateClosedMessage(roundNumber: number): string {
   )
 }
 
-function ceilingReached(max: number): string {
-  return (
-    `Este projeto atingiu o teto de ${max} respostas de LLM, que existe para o teste ` +
-    'não virar fatura. Fale com quem cuida da instalação para revisar o teto.'
-  )
-}
-
 type GenerationSetup =
   | { status: 'missing' }
   | { status: 'closed'; roundNumber: number }
@@ -323,7 +317,7 @@ export async function generateResponses(
   if (setup.status === 'blocked') return { error: setup.message }
 
   if (!hasProjectResponsesLeft(projectId)) {
-    return { error: ceilingReached(projectResponsesMax()) }
+    return { error: ceilingReachedMessage(projectResponsesMax()) }
   }
 
   const { composition, contents } = setup

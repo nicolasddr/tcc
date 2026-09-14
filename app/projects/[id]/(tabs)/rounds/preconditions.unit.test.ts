@@ -2,8 +2,12 @@ import { describe, it, expect } from 'vitest'
 import {
   canGenerate,
   canOpenRound,
+  ceilingReachedMessage,
   closeConfirmationLines,
   codebookLockedMessage,
+  generationMax,
+  responsesLeftMessage,
+  retryLabel,
   roundBlockerMessage,
   roundBlockers,
   selectionBlockerMessage,
@@ -213,5 +217,61 @@ describe('app/projects/[id]/rounds/preconditions — o que trava a seleção de 
       'foreign',
       'already_used',
     ])
+  })
+
+  it('trava a seleção acima das vagas restantes, que é outra causa que o lote cheio', () => {
+    const inputs = selection({ responsesLeft: 2 })
+    expect(selectionKeys(['i1', 'i2'], inputs)).toEqual([])
+    expect(selectionKeys(['i1', 'i2', 'i3'], inputs)).toEqual(['ceiling'])
+
+    const [blocker] = selectionBlockers(['i1', 'i2', 'i3'], inputs)
+    expect(blocker).toEqual({ key: 'ceiling', count: 3, left: 2 })
+
+    const message = selectionBlockerMessage(blocker)
+    expect(message).toContain('Restam 2 vagas')
+    expect(message).toContain('vieram 3')
+  })
+
+  it('sem nenhuma vaga restante, a mensagem fala do teto em vez de mandar tirar itens', () => {
+    expect(selectionKeys(['i1'], selection({ responsesLeft: 0 }))).toEqual(['ceiling'])
+    expect(selectionBlockerMessage({ key: 'ceiling', count: 1, left: 0 })).toContain(
+      'não tem mais nenhuma vaga',
+    )
+  })
+
+  it('o lote cheio e as vagas restantes travam por conta própria, cada um com sua causa', () => {
+    expect(selectionKeys(POOL, selection({ responsesLeft: 3 }))).toEqual([
+      'too_many',
+      'ceiling',
+    ])
+  })
+})
+
+describe('app/projects/[id]/rounds/preconditions — o teto do projeto no seletor', () => {
+  it('o máximo da geração nasce limitado pelas vagas restantes', () => {
+    expect(generationMax(200)).toBe(SELECTION_MAX)
+    expect(generationMax(SELECTION_MAX)).toBe(SELECTION_MAX)
+    expect(generationMax(2)).toBe(2)
+    expect(generationMax(0)).toBe(0)
+    expect(generationMax(-1)).toBe(0)
+  })
+
+  it('a tela diz quantas vagas restam, de quantas', () => {
+    expect(responsesLeftMessage(7, 200)).toBe(
+      'Restam 7 vagas de resposta de LLM neste projeto, de 200.',
+    )
+    expect(responsesLeftMessage(1, 200)).toBe(
+      'Resta 1 vaga de resposta de LLM neste projeto, de 200.',
+    )
+    expect(responsesLeftMessage(0, 200)).toContain('Restam 0 vagas')
+  })
+
+  it('o teto atingido nomeia o limite', () => {
+    expect(ceilingReachedMessage(200)).toContain('teto de 200 respostas')
+  })
+
+  it('a retentativa nomeia quantos itens ela vai selecionar', () => {
+    expect(retryLabel(1)).toBe('Tentar de novo só este item')
+    expect(retryLabel(3)).toBe('Tentar de novo só estes 3 itens')
   })
 })

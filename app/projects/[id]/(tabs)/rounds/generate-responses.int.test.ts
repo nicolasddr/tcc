@@ -9,6 +9,7 @@ const llm = vi.hoisted(() => ({
   model: 'modelo-pedido',
   modelVersion: 'modelo-resolvido-2026-05-01',
   failure: null as LlmFailure | null,
+  failWhen: null as null | ((input: string) => LlmFailure | null),
   beforeAnswer: null as null | (() => Promise<void>),
 }))
 
@@ -31,7 +32,8 @@ vi.mock('@/lib/ai', async () => {
       const hook = llm.beforeAnswer
       llm.beforeAnswer = null
       if (hook) await hook()
-      if (llm.failure) throw new LlmError(llm.failure)
+      const failure = llm.failWhen?.(input) ?? llm.failure
+      if (failure) throw new LlmError(failure)
       return { text: llm.text, model: llm.model, modelVersion: llm.modelVersion }
     },
   }
@@ -181,6 +183,7 @@ describe('app/projects/[id]/rounds/actions — gerar respostas na rodada aberta'
     llm.inputs = []
     llm.text = 'Categoria: Informacional'
     llm.failure = null
+    llm.failWhen = null
     resetProjectResponses()
     delete process.env.LLM_PROJECT_RESPONSES_MAX
   })
@@ -509,6 +512,31 @@ describe('app/projects/[id]/rounds/actions — gerar respostas na rodada aberta'
     const refused = await generateResponses(null, fd(project, round, [items[2]]))
     expect(errorOf(refused)).toMatch(/teto/i)
     expect(llm.inputs).toHaveLength(2)
+  })
+
+  it('a retentativa dos itens que falharam grava só eles, e a falha não gastou o teto', async () => {
+    const admin = await newUser('Admin')
+    const { project, round, items } = await openRound(admin, { items: 3 })
+    process.env.LLM_PROJECT_RESPONSES_MAX = '3'
+
+    auth.userId = admin
+    llm.failWhen = (input) => (input.includes('conteúdo do item 2') ? 'unavailable' : null)
+
+    const first = okOf(await generateResponses(null, fd(project, round, items)))
+
+    expect(first.created.map((row) => row.itemId)).toEqual([items[0], items[2]])
+    expect(first.failed).toEqual([{ itemId: items[1], failure: 'unavailable' }])
+    expect(await listResponses(round)).toHaveLength(2)
+    expect(await usedAtOf(items[1])).toBeNull()
+
+    llm.failWhen = null
+    const retryIds = first.failed.map((row) => row.itemId)
+    const retry = okOf(await generateResponses(null, fd(project, round, retryIds)))
+
+    expect(retry.created.map((row) => row.itemId)).toEqual([items[1]])
+    expect(retry.failed).toEqual([])
+    expect(await listResponses(round)).toHaveLength(3)
+    expect(await usedAtOf(items[1])).not.toBeNull()
   })
 
   it('quem é barrado antes da chamada não consome o teto', async () => {

@@ -90,18 +90,24 @@ export type SelectionInputs = {
   available: readonly string[]
   usedInRound: readonly string[]
   max?: number
+  responsesLeft?: number
 }
 
 export type SelectionBlocker =
   | { key: 'empty' }
   | { key: 'too_many'; count: number; max: number }
+  | { key: 'ceiling'; count: number; left: number }
   | { key: 'repeated' }
   | { key: 'foreign' }
   | { key: 'already_used'; count: number }
 
+export function generationMax(responsesLeft: number): number {
+  return Math.max(0, Math.min(SELECTION_MAX, responsesLeft))
+}
+
 export function selectionBlockers(
   selected: readonly string[],
-  { available, usedInRound, max = SELECTION_MAX }: SelectionInputs,
+  { available, usedInRound, max = SELECTION_MAX, responsesLeft }: SelectionInputs,
 ): SelectionBlocker[] {
   const blockers: SelectionBlocker[] = []
 
@@ -109,6 +115,10 @@ export function selectionBlockers(
 
   if (selected.length > max) {
     blockers.push({ key: 'too_many', count: selected.length, max })
+  }
+
+  if (responsesLeft !== undefined && selected.length > responsesLeft) {
+    blockers.push({ key: 'ceiling', count: selected.length, left: responsesLeft })
   }
 
   if (new Set(selected).size !== selected.length) blockers.push({ key: 'repeated' })
@@ -144,6 +154,10 @@ export function selectionBlockerMessage(blocker: SelectionBlocker): string {
         `A geração aceita no máximo ${blocker.max} itens de cada vez, e vieram ` +
         `${blocker.count}. Tire alguns da seleção e gere de novo.`
       )
+    case 'ceiling':
+      return blocker.left === 0
+        ? 'Este projeto não tem mais nenhuma vaga de resposta de LLM, e cada item selecionado gastaria uma. Fale com quem cuida da instalação para revisar o teto.'
+        : `Restam ${blocker.left} ${blocker.left === 1 ? 'vaga' : 'vagas'} de resposta de LLM neste projeto, e vieram ${blocker.count} itens selecionados. Tire ${blocker.count - blocker.left} da seleção e gere de novo.`
     case 'repeated':
       return (
         'O mesmo item apareceu duas vezes na seleção, e um item produz exatamente uma ' +
@@ -205,6 +219,25 @@ const GENERATION_FAILURE_MESSAGES: Record<GenerationFailure, string> = {
 
 export function generationFailureMessage(failure: GenerationFailure): string {
   return GENERATION_FAILURE_MESSAGES[failure]
+}
+
+export function ceilingReachedMessage(max: number): string {
+  return (
+    `Este projeto atingiu o teto de ${max} respostas de LLM, que existe para o teste ` +
+    'não virar fatura. Fale com quem cuida da instalação para revisar o teto.'
+  )
+}
+
+export function responsesLeftMessage(left: number, max: number): string {
+  return left === 1
+    ? `Resta 1 vaga de resposta de LLM neste projeto, de ${max}.`
+    : `Restam ${left} vagas de resposta de LLM neste projeto, de ${max}.`
+}
+
+export function retryLabel(count: number): string {
+  return count === 1
+    ? 'Tentar de novo só este item'
+    : `Tentar de novo só estes ${count} itens`
 }
 
 export function generatedCountMessage(count: number): string {
