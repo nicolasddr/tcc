@@ -67,6 +67,9 @@ export default async function ProjectTabsLayout({
   const isAdmin = memberships.some(
     (m) => m.role === 'administrator' && m.status === 'active',
   )
+  const isEvaluator = memberships.some(
+    (m) => m.role === 'evaluator' && m.status === 'active',
+  )
   const isActiveMember = memberships.some((m) => m.status === 'active')
   const isMember = memberships.length > 0
   const taskType = taskTypeLabel(project.taskType)
@@ -114,7 +117,13 @@ export default async function ProjectTabsLayout({
           ) : null}
         </div>
 
-        {isMember ? <ProjectTabs projectId={project.id} isAdmin={isAdmin} /> : null}
+        {isMember ? (
+          <ProjectTabs
+            projectId={project.id}
+            isAdmin={isAdmin}
+            isEvaluator={isEvaluator}
+          />
+        ) : null}
       </header>
 
       {children}

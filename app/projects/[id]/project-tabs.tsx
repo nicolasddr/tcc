@@ -8,11 +8,18 @@ import {
   BookIcon,
   FileTextIcon,
   ListIcon,
+  CheckCircleIcon,
 } from '@/app/components/ui/icons'
 
 const soon = 'Ainda não implementado'
 
-export type ProjectTab = 'overview' | 'codebook' | 'prompt' | 'items' | 'rounds'
+export type ProjectTab =
+  | 'overview'
+  | 'codebook'
+  | 'prompt'
+  | 'items'
+  | 'rounds'
+  | 'evaluate'
 
 export function activeTab(pathname: string, projectId: string): ProjectTab {
   const rest = pathname.slice(`/projects/${projectId}`.length).split('/')[1]
@@ -25,6 +32,8 @@ export function activeTab(pathname: string, projectId: string): ProjectTab {
       return 'items'
     case 'rounds':
       return 'rounds'
+    case 'evaluate':
+      return 'evaluate'
     default:
       return 'overview'
   }
@@ -33,9 +42,11 @@ export function activeTab(pathname: string, projectId: string): ProjectTab {
 export function ProjectTabs({
   projectId,
   isAdmin,
+  isEvaluator,
 }: {
   projectId: string
   isAdmin: boolean
+  isEvaluator: boolean
 }) {
   const active = activeTab(usePathname() ?? '', projectId)
 
@@ -88,6 +99,16 @@ export function ProjectTabs({
           Rodadas
         </Tab>
       )}
+
+      {isEvaluator ? (
+        <Tab
+          icon={<CheckCircleIcon />}
+          href={`/projects/${projectId}/evaluate`}
+          active={active === 'evaluate'}
+        >
+          Avaliar
+        </Tab>
+      ) : null}
     </TabList>
   )
 }

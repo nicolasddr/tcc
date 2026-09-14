@@ -20,6 +20,8 @@ export type RoundResponse = {
   createdAt: string
 }
 
+export type ResponseDetail = RoundResponse & { text: string }
+
 export async function loadRoundComposition(
   projectId: string,
   roundId: string,
@@ -103,4 +105,27 @@ export async function listRoundResponses(
     .innerJoin(inputItems, eq(inputItems.id, responses.inputItemId))
     .where(eq(responses.roundId, roundId))
     .orderBy(asc(responses.createdAt))
+}
+
+export async function loadRoundResponse(
+  roundId: string,
+  responseId: string,
+  db: DbExecutor = ownerDb,
+): Promise<ResponseDetail | null> {
+  if (!isUuid(roundId) || !isUuid(responseId)) return null
+
+  const [response] = await db
+    .select({
+      id: responses.id,
+      itemId: responses.inputItemId,
+      itemName: inputItems.name,
+      text: responses.text,
+      createdAt: responses.createdAt,
+    })
+    .from(responses)
+    .innerJoin(inputItems, eq(inputItems.id, responses.inputItemId))
+    .where(and(eq(responses.id, responseId), eq(responses.roundId, roundId)))
+    .limit(1)
+
+  return response ?? null
 }

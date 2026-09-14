@@ -20,6 +20,8 @@ export type Round = {
   closedAt: string | null
 }
 
+export type OpenRound = Round & { codebookVersionId: string }
+
 export type RoundSummary = Round & {
   authorName: string
   codebookVersionNumber: number
@@ -33,7 +35,7 @@ export function isOpen(round: { status: string }): boolean {
 export async function loadOpenRound(
   projectId: string,
   db: DbExecutor = ownerDb,
-): Promise<Round | null> {
+): Promise<OpenRound | null> {
   const [round] = await db
     .select({
       id: rounds.id,
@@ -41,6 +43,7 @@ export async function loadOpenRound(
       status: rounds.status,
       createdAt: rounds.createdAt,
       closedAt: rounds.closedAt,
+      codebookVersionId: rounds.codebookVersionId,
     })
     .from(rounds)
     .where(and(eq(rounds.projectId, projectId), eq(rounds.status, ROUND_OPEN)))

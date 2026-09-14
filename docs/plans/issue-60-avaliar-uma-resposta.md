@@ -11,8 +11,8 @@ seguinte herda — anote ali o que divergiu, como foi feito no plano do redesenh
 | Parte | Entrega | Estado |
 |---|---|---|
 | 1 | Fundação de dados: limite, duas tabelas, helper de autorização, fixtures e a guarda do vínculo | ☑ |
-| 2 | Servidor da avaliação: módulos puros, loaders e a action de envio, com os testes de integração | ☐ |
-| 3 | Tela do avaliador e navegação: rota, formulário, leitura pós-envio e a aba | ☐ |
+| 2 | Servidor da avaliação: módulos puros, loaders e a action de envio, com os testes de integração | ☑ |
+| 3 | Tela do avaliador e navegação: rota, formulário, leitura pós-envio e a aba | ☑ |
 
 Decisões de domínio já registradas, nenhuma ADR nova é necessária: ADR 0009 (imutabilidade, vínculo
 de membro e a emenda da chave por definição), ADR 0010 (escala fixa), ADR 0008 (Administrador-avaliador).
@@ -566,6 +566,80 @@ texto que vira prop (o `text` do `InfoTooltip`, por exemplo) some das asserçõe
 
 Os três gates verdes, os AC da issue marcados e a tela conferida no app real. Para conferir logado,
 usar o preview/navegador real: o Playwright headless não hidrata.
+
+### O que ficou desta Parte
+
+`npm run lint`, `npm run typecheck` e `npm test` (589 testes) verdes, e a tela conferida logada no
+`dev:local` com dados semeados à mão (avaliador ativo, rodada aberta, duas respostas): preencher,
+enviar, ver travado e voltar nela depois.
+
+**A rota virou canônica, e isso não estava no plano.** A § 3.1 propunha `?response=<id>` opcional,
+com fallback na primeira não avaliada. Rodando no navegador, esse desenho tem um bug real: o envio
+chama `revalidatePath`, a página reescolhe a resposta corrente, a fila anda para a próxima — e o
+componente cliente, que já estava em modo leitura, continua montado mostrando as notas recém-enviadas
+sob o cabeçalho da resposta **seguinte**. A correção tem duas metades:
+
+- a página redireciona para `/projects/:id/evaluate?response=<id>` sempre que a rota não traz a
+  resposta corrente. Com o id na URL, a revalidação do envio re-renderiza a MESMA resposta, agora em
+  leitura vinda do servidor — que é exatamente o que a § 3.1.6 pede;
+- `<EvaluationForm key={response.id}>`, para que o estado local nunca sobreviva à troca de resposta.
+
+Consequência: `?response=` deixa de ser opcional na prática, e o teste de página precisa seguir o
+redirect (helper `open()` em `page.int.test.ts`). A #61, ao trocar a escolha por ordem embaralhada e
+avanço automático, herda a rota já explícita — é o seam que ela precisa.
+
+**Um controle a mais do que a § 3.1 previa:** com a rota canônica, quem termina uma resposta ficaria
+preso nela sem nenhuma saída (anterior/próxima é da #61). A tela oferece um único link,
+"Avaliar a próxima resposta", só quando a avaliação já foi enviada **e** existe outra resposta não
+avaliada na rodada. Não é o par de controles da #61 — é o que impede a rota mínima de ser um beco sem
+saída, e a #61 o substitui.
+
+Arquivos novos em `app/projects/[id]/(tabs)/evaluate/`:
+
+```ts
+// queue.ts — a escolha da resposta, o seam que a #61 substitui
+export function pickResponseId(
+  responses: readonly { id: string }[], evaluated: readonly string[],
+  requested?: string | null,
+): string | null                       // pedida (se for da rodada) → 1ª não avaliada → 1ª
+export function nextResponseId(
+  responses: readonly { id: string }[], evaluated: readonly string[], currentId: string,
+): string | null
+
+// page.tsx — server component, uma transação só
+// evaluation-form.tsx — client component; props:
+//   { projectId, roundNumber, response: ResponseDetail, cells, submitted }
+```
+
+Peças tocadas fora da pasta:
+
+- `(tabs)/rounds/rounds.ts`: `loadOpenRound` passou a devolver `OpenRound = Round & { codebookVersionId: string }`.
+  A tela precisa da versão de codebook que a rodada congelou, e `listRounds`/`RoundSummary` não mudaram;
+- `pipeline/responses.ts`: `loadRoundResponse(roundId, responseId, db?)` → `ResponseDetail = RoundResponse & { text: string }`.
+  `listRoundResponses` não traz o texto, e a tela do avaliador precisa dele — carregar só o da resposta corrente;
+- `(tabs)/layout.tsx`: calcula `isEvaluator` e passa para `<ProjectTabs>`, que agora **exige** a prop;
+- `project-tabs.tsx`: `ProjectTab` ganhou `'evaluate'`, e a aba "Avaliar" (`CheckCircleIcon`) aparece
+  para quem tem vínculo de avaliador ativo. A "Rodadas" desabilitada para não-administrador ficou
+  como estava.
+
+**O modo leitura é derivado, sem efeito** (`reading = submitted !== null || 'ok' in state`), como o
+aviso do plano pedia. O estado local nasce de `submitted` quando ele existe, então leitura e edição
+renderizam da mesma fonte.
+
+**A nota selecionada usa `border-current`** sobre o tint do tom (`bg-success-bg`/`warning`/`danger`):
+só o tint pálido não lia como "escolhido" na tela real.
+
+**Não entrou:** `listEvaluatorsNotFinished` continua devolvendo todos os avaliadores ativos. Excluir
+quem já avaliou tudo esbarra numa decisão de produto que o plano não resolve — numa rodada com zero
+resposta, *todo mundo* terminou vacuosamente, e a tela de fechar rodada passaria a dizer que ninguém
+está pendente. Vira issue própria, como a § 5 previa.
+
+### Testes da Parte 3
+
+`page.int.test.ts` (15) e `queue.unit.test.ts` (7), mais o caso `evaluate` em
+`project-tabs.unit.test.ts`. Além dos seis casos da lista acima: o redirect para a rota canônica, a
+permanência na mesma resposta depois do envio com o link para a próxima, a ausência do link quando
+não há próxima, e o Administrador-avaliador entrando pelo vínculo de avaliador.
 
 ---
 

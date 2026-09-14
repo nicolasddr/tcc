@@ -14,6 +14,7 @@ describe('app/projects/[id]/project-tabs — a aba ativa sai da rota', () => {
     expect(activeTab(path('/prompt'), project)).toBe('prompt')
     expect(activeTab(path('/items'), project)).toBe('items')
     expect(activeTab(path('/rounds'), project)).toBe('rounds')
+    expect(activeTab(path('/evaluate'), project)).toBe('evaluate')
   })
 
   it('a tela de uma versão fica na aba do seu artefato', () => {
