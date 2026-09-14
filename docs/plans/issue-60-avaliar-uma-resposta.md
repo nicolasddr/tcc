@@ -390,8 +390,104 @@ Os três gates verdes e todos os AC de regra da issue provados por teste, ainda 
 
 ### O que a Parte 3 herda
 
-Anotar aqui: assinatura final de `submitEvaluation` e do seu estado, dos loaders e das funções puras;
-o texto exato das mensagens de recusa; e se o contrato de encoding da § 4 mudou.
+**O contrato de encoding da § 4 não mudou**, e agora tem um dono: `cellKey` monta a chave
+(`<definitionId>_<criterionId>`) que o servidor lê e que o formulário tem que produzir — usar a
+função nos dois lados, em vez de repetir o template. Os campos continuam `score_<chave>` e
+`justification_<chave>`, mais os ocultos `project_id` e `response_id`. Justificativa é `.trim()`ada:
+só espaço grava `null`.
+
+Assinaturas reais (tudo em `app/projects/[id]/(tabs)/evaluate/`):
+
+```ts
+// scale.ts
+export const SCALE = ['high', 'medium', 'low'] as const
+export type ScaleValue = (typeof SCALE)[number]
+export type ScaleTone = 'success' | 'warning' | 'danger'
+export function isScaleValue(value: unknown): value is ScaleValue
+export function scaleLabel(value: ScaleValue): string        // Alto / Médio / Baixo
+export function scaleTone(value: ScaleValue): ScaleTone      // success / warning / danger
+
+// completeness.ts
+export type CellKey = { definitionId: string; criterionId: string }
+export type Cell<D> = { definition: D; criterion: { id: string } }
+export type Answer = {
+  definitionId: string; criterionId: string; value: string; justification: string
+}
+export function cellKey(cell: CellKey): string
+export function definitionsIncomplete<D extends { id: string; title: string }>(
+  cells: readonly Cell<D>[], answers: readonly Answer[],
+): D[]
+export function isComplete<D extends { id: string }>(
+  cells: readonly Cell<D>[], answers: readonly Answer[],
+): boolean
+export function incompleteMessage(titles: readonly string[]): string
+
+// access.ts
+export type EvaluatorProject = { id: string; name: string; phase: number; taskType: string | null }
+export type EvaluatorAccess = { project: EvaluatorProject; memberId: string }
+export function requireEvaluator(
+  projectId: string, userId: string, db: DbExecutor = ownerDb,
+): Promise<EvaluatorAccess>
+
+// evaluation.ts
+export type EvaluationScore = {
+  definitionId: string; criterionId: string; value: string; justification: string | null
+}
+export type SubmittedEvaluation = {
+  id: string; roundId: string; responseId: string; submittedAt: string
+  scores: EvaluationScore[]
+}
+export function loadEvaluationOf(
+  responseId: string, memberId: string, db?: DbExecutor,
+): Promise<SubmittedEvaluation | null>
+export function loadEvaluatedResponseIds(
+  roundId: string, memberId: string, db?: DbExecutor,
+): Promise<string[]>
+
+// actions.ts
+export type EvaluationState = { error: string } | { ok: true; nonce: number } | null
+export function submitEvaluation(
+  _prev: EvaluationState, formData: FormData,
+): Promise<EvaluationState>
+```
+
+**Três coisas que divergiram do plano, todas para menos acoplamento:**
+
+1. `Cell<D>` em vez de consumir `CodebookCell` direto. O tipo pede só `{ definition, criterion: { id } }`,
+   então a saída de `resolveCells` entra sem cast e as funções puras não dependem do codebook.
+2. `cellKey` não estava na lista da § 2.2, mas é o que impede a Parte 3 de divergir do servidor.
+3. `requireEvaluator` devolve `{ project, memberId }`, e não só o projeto: a página precisa do vínculo
+   para `loadEvaluationOf`/`loadEvaluatedResponseIds`, e derivá-lo duas vezes seria a mesma query repetida.
+
+`definitionsIncomplete` só conta como nota dada um valor que passa por `isScaleValue` — justificativa
+preenchida sem nota continua incompleta, e lixo no campo de nota não "completa" a definição.
+
+**Ordem de recusa dentro da action** (a primeira que bate ganha): sessão → vínculo de avaliador ativo
+→ resposta existe e é da rodada daquele projeto → rodada aberta → já enviada → codebook legível →
+justificativa longa / valor fora da escala (por célula, na ordem do codebook) → incompleto. Nada é
+gravado antes de todas as células passarem.
+
+Texto exato das recusas:
+
+| Situação | Mensagem |
+|---|---|
+| `project_id`/`response_id` ausente ou não-uuid | `Avaliação inválida.` |
+| sem vínculo de avaliador ativo (inclui o Administrador sem o segundo vínculo e o avaliador de outro projeto) | `Não foi possível enviar a avaliação. Apenas quem tem vínculo de avaliador ativo neste projeto pode avaliar.` |
+| resposta inexistente ou de outro projeto | `Esta resposta não existe mais nesta rodada. Recarregue a página para ver a lista atual.` |
+| rodada fechada | `A rodada N já foi fechada, e rodada fechada não recebe mais avaliação. Aguarde a próxima rodada para avaliar.` |
+| segundo envio (checagem explícita **e** backstop do `23505`) | `Você já enviou a avaliação desta resposta, e o envio é definitivo. Recarregue a página para vê-la.` |
+| versão de codebook ilegível | `Não foi possível ler a versão de codebook que esta rodada fixou. Recarregue a página.` |
+| valor fora da escala | `Uma das notas está fora da escala. Recarregue a página e dê as notas de novo.` |
+| justificativa longa | `Uma das justificativas passa do limite de 2000 caracteres.` |
+| incompleto | `incompleteMessage(...)` — singular: `A definição “X” ainda tem critério sem nota. Dê uma nota em cada critério dela para enviar a avaliação.`; plural: `As definições “X”, “Y” e “Z” ainda têm critério sem nota. ... delas ...` |
+
+No sucesso: `revalidatePath('/projects/:id/evaluate')` e `{ ok: true, nonce }` — é desse `nonce` que a
+Parte 3 tem que **derivar** a volta para o modo leitura (o eslint proíbe `setState` em `useEffect`).
+
+Testes da Parte 2: `scale.unit.test.ts` (5), `completeness.unit.test.ts` (10),
+`actions.int.test.ts` (15) e `access.int.test.ts` (7 — não previsto no plano, mas `requireEvaluator`
+é entrega desta Parte e ficaria sem cobertura até a Parte 3). `npm run lint`, `npm run typecheck` e
+`npm test` (567 testes) verdes. Nenhuma tela mudou, nenhuma migration nova.
 
 ---
 
