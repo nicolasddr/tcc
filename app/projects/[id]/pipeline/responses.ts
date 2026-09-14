@@ -104,7 +104,7 @@ export async function listRoundResponses(
     .from(responses)
     .innerJoin(inputItems, eq(inputItems.id, responses.inputItemId))
     .where(eq(responses.roundId, roundId))
-    .orderBy(asc(responses.createdAt))
+    .orderBy(asc(responses.createdAt), asc(responses.id))
 }
 
 export async function loadRoundResponse(

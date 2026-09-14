@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
+  listRoundResponses,
   loadItemRoundUsage,
   loadItemsUsedInRound,
   loadRoundComposition,
@@ -172,6 +173,28 @@ describe('app/projects/[id]/pipeline/responses — a leitura que alimenta a gera
       expect(await loadItemsUsedInRound(round, tx)).toEqual([used])
       expect(await loadItemsUsedInRound(round2, tx)).toEqual([elsewhere])
       expect(await loadItemsUsedInRound('nem-uuid', tx)).toEqual([])
+    })
+  })
+})
+
+describe('app/projects/[id]/pipeline/responses — a ordem canônica da rodada', () => {
+  it('lista por created_at e, no empate, pelo id — sempre na mesma ordem', async () => {
+    await inRollbackTx(async (tx) => {
+      const { admin, project, round } = await seedRound(tx)
+
+      const created: string[] = []
+      for (let index = 0; index < 5; index += 1) {
+        const item = await addInputItem(tx, project, admin, { name: `Item ${index + 1}` })
+        created.push(await addResponse(tx, round, item, admin))
+      }
+
+      const listed = await listRoundResponses(round, tx)
+
+      expect(new Set(listed.map((response) => response.createdAt)).size).toBe(1)
+      expect(listed.map((response) => response.id)).toEqual([...created].sort())
+      expect(listed.map((response) => response.id)).toEqual(
+        (await listRoundResponses(round, tx)).map((response) => response.id),
+      )
     })
   })
 })

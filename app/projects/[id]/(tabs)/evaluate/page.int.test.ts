@@ -20,10 +20,13 @@ vi.mock('next/navigation', () => ({
 
 import ProjectEvaluatePage from '@/app/projects/[id]/(tabs)/evaluate/page'
 import { EvaluationForm } from '@/app/projects/[id]/(tabs)/evaluate/evaluation-form'
+import { buildQueue } from '@/app/projects/[id]/(tabs)/evaluate/queue'
 import { loadCodebookVersion } from '@/app/projects/[id]/pipeline/codebook'
 import { resolveCells } from '@/app/projects/[id]/pipeline/criteria'
-import { PHASE_2 } from '@/app/projects/[id]/pipeline/preconditions'
+import { listRoundResponses } from '@/app/projects/[id]/pipeline/responses'
+import { PHASE_1, PHASE_2 } from '@/app/projects/[id]/pipeline/preconditions'
 import { ButtonLink } from '@/app/components/ui/button'
+import { ProgressBar } from '@/app/components/ui/stat'
 import { ownerDb } from '@/lib/db'
 import {
   createUser,
@@ -123,10 +126,12 @@ describe('app/projects/[id]/evaluate — a tela do avaliador', () => {
       definitions?: { title: string; description?: string; criteria?: { name: string }[] }[]
       generalCriteria?: { name: string }[]
       responses?: number
+      phase?: number
+      openRound?: boolean
     } = {},
   ): Promise<Scene> {
     const project = await seedProject(ownerDb, admin, 'Projeto de Teste', {
-      phase: PHASE_2,
+      phase: opts.phase ?? PHASE_2,
     })
     projs.push(project)
 
@@ -142,6 +147,11 @@ describe('app/projects/[id]/evaluate — a tela do avaliador', () => {
       generalCriteria: opts.generalCriteria,
     })
     const promptVersion = await addPromptVersion(ownerDb, project, admin)
+
+    if (opts.openRound === false) {
+      return { project, round: '', codebookVersion, responses: [] }
+    }
+
     const round = await addRound(ownerDb, project, admin, codebookVersion, promptVersion)
 
     const responses: string[] = []
@@ -163,6 +173,13 @@ describe('app/projects/[id]/evaluate — a tela do avaliador', () => {
     const user = await newUser(name)
     await addActiveEvaluator(ownerDb, project, user)
     return user
+  }
+
+  /** A fila que AQUELE vínculo deve ver, calculada fora da página. */
+  async function queueOf(scene: Scene, evaluator: string): Promise<string[]> {
+    const member = await memberIdOf(ownerDb, scene.project, evaluator)
+    const listed = await listRoundResponses(scene.round)
+    return buildQueue(listed, [], member, scene.round).map((response) => response.id)
   }
 
   beforeEach(() => {
@@ -282,15 +299,48 @@ describe('app/projects/[id]/evaluate — a tela do avaliador', () => {
     expect(html).not.toContain('Excluir')
   })
 
-  it('sem ?response= na rota, a página redireciona para a resposta que escolheu', async () => {
+  it('sem ?response= na rota, a página redireciona para a primeira DA MINHA fila', async () => {
     const admin = await newUser('Admin')
-    const scene = await scenario(admin, { responses: 2 })
+    const scene = await scenario(admin, { responses: 6 })
     const evaluator = await newEvaluator(scene.project)
+    const [first] = await queueOf(scene, evaluator)
 
     auth.userId = evaluator
     await expect(render(scene.project)).rejects.toThrow(
-      `NEXT_REDIRECT:/projects/${scene.project}/evaluate?response=${scene.responses[0]}`,
+      `NEXT_REDIRECT:/projects/${scene.project}/evaluate?response=${first}`,
     )
+  })
+
+  it('dois avaliadores do mesmo projeto abrem em ordens diferentes', async () => {
+    const admin = await newUser('Admin')
+    const scene = await scenario(admin, { responses: 8 })
+    const mine = await newEvaluator(scene.project, 'Avaliadora')
+    const theirs = await newEvaluator(scene.project, 'Avaliador')
+
+    const myQueue = await queueOf(scene, mine)
+    const theirQueue = await queueOf(scene, theirs)
+    expect(theirQueue).not.toEqual(myQueue)
+
+    auth.userId = mine
+    expect(formOf(await open(scene.project)).response.id).toBe(myQueue[0])
+
+    auth.userId = theirs
+    expect(formOf(await open(scene.project)).response.id).toBe(theirQueue[0])
+  })
+
+  it('o rótulo vem da ordem canônica e é o mesmo para os dois avaliadores', async () => {
+    const admin = await newUser('Admin')
+    const scene = await scenario(admin, { responses: 4 })
+    const mine = await newEvaluator(scene.project, 'Avaliadora')
+    const theirs = await newEvaluator(scene.project, 'Avaliador')
+
+    const third = scene.responses[2]
+
+    auth.userId = mine
+    expect(formOf(await open(scene.project, third)).label).toBe('Resposta 3')
+
+    auth.userId = theirs
+    expect(formOf(await open(scene.project, third)).label).toBe('Resposta 3')
   })
 
   it('depois de enviada, a rota fica na mesma resposta e oferece ir para a próxima', async () => {
@@ -351,7 +401,7 @@ describe('app/projects/[id]/evaluate — a tela do avaliador', () => {
     expect(page).not.toContain('concord')
   })
 
-  it('sem rodada aberta, a tela espera em vez de mostrar formulário', async () => {
+  it('sem codebook nenhum, a tela diz que o administrador ainda está montando', async () => {
     const admin = await newUser('Admin')
     const project = await seedProject(ownerDb, admin, 'Projeto de Teste', {
       phase: PHASE_2,
@@ -362,10 +412,42 @@ describe('app/projects/[id]/evaluate — a tela do avaliador', () => {
     auth.userId = evaluator
     const tree = await render(project)
     expect(findElement(tree, EvaluationForm)).toBeNull()
-    expect(textOf(tree)).toContain('não tem rodada aberta')
+    expect(textOf(tree)).toContain('montando o codebook')
   })
 
-  it('com rodada aberta e nenhuma resposta gerada, a tela espera', async () => {
+  it('com definição sem critério, a espera ainda é o codebook', async () => {
+    const admin = await newUser('Admin')
+    const scene = await scenario(admin, {
+      openRound: false,
+      definitions: [{ title: 'Informacional', criteria: [] }],
+    })
+    const evaluator = await newEvaluator(scene.project)
+
+    auth.userId = evaluator
+    expect(textOf(await render(scene.project))).toContain('montando o codebook')
+  })
+
+  it('antes da Fase 2, a espera é o codebook mesmo com o codebook pronto', async () => {
+    const admin = await newUser('Admin')
+    const scene = await scenario(admin, { openRound: false, phase: PHASE_1 })
+    const evaluator = await newEvaluator(scene.project)
+
+    auth.userId = evaluator
+    expect(textOf(await render(scene.project))).toContain('montando o codebook')
+  })
+
+  it('com o codebook pronto e sem rodada aberta, a tela espera a rodada', async () => {
+    const admin = await newUser('Admin')
+    const scene = await scenario(admin, { openRound: false })
+    const evaluator = await newEvaluator(scene.project)
+
+    auth.userId = evaluator
+    const tree = await render(scene.project)
+    expect(findElement(tree, EvaluationForm)).toBeNull()
+    expect(textOf(tree)).toContain('abrir uma rodada')
+  })
+
+  it('com rodada aberta e nenhuma resposta gerada, a tela espera as respostas', async () => {
     const admin = await newUser('Admin')
     const scene = await scenario(admin, { responses: 0 })
     const evaluator = await newEvaluator(scene.project)
@@ -374,6 +456,48 @@ describe('app/projects/[id]/evaluate — a tela do avaliador', () => {
     const tree = await render(scene.project)
     expect(findElement(tree, EvaluationForm)).toBeNull()
     expect(textOf(tree)).toContain('ainda não tem resposta gerada')
+  })
+
+  it('com tudo avaliado, a faixa diz que terminei SEM esconder a última resposta', async () => {
+    const admin = await newUser('Admin')
+    const scene = await scenario(admin, { responses: 2 })
+    const evaluator = await newEvaluator(scene.project)
+    const member = await memberIdOf(ownerDb, scene.project, evaluator)
+    for (const response of scene.responses) {
+      await addEvaluation(ownerDb, scene.round, response, member)
+    }
+
+    auth.userId = evaluator
+    const tree = await open(scene.project, scene.responses[1])
+    const text = textOf(tree)
+
+    expect(formOf(tree).response.id).toBe(scene.responses[1])
+    expect(formOf(tree).submitted).not.toBeNull()
+    expect(text).toContain('Você terminou')
+    expect(text).toContain('aguarda o fechamento')
+    expect(text).toContain('2 de 2 respostas avaliadas')
+  })
+
+  it('a barra de progresso conta só as MINHAS avaliações', async () => {
+    const admin = await newUser('Admin')
+    const scene = await scenario(admin, { responses: 4 })
+    const mine = await newEvaluator(scene.project, 'Avaliadora')
+    const theirs = await newEvaluator(scene.project, 'Avaliador')
+    const myMember = await memberIdOf(ownerDb, scene.project, mine)
+    const theirMember = await memberIdOf(ownerDb, scene.project, theirs)
+
+    await addEvaluation(ownerDb, scene.round, scene.responses[0], myMember)
+    for (const response of scene.responses.slice(0, 3)) {
+      await addEvaluation(ownerDb, scene.round, response, theirMember)
+    }
+
+    auth.userId = mine
+    const tree = await open(scene.project)
+    const bar = findElement(tree, ProgressBar)
+
+    expect(bar).toBeTruthy()
+    expect(bar!.props).toMatchObject({ value: 1, max: 4 })
+    expect(textOf(tree)).toContain('1 de 4 respostas avaliadas')
   })
 
   it('o administrador sem vínculo de avaliador não alcança a tela', async () => {

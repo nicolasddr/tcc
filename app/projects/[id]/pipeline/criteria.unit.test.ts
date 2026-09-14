@@ -3,6 +3,7 @@ import {
   criteriaOfDefinition,
   definitionsWithoutCriteria,
   generalCriteria,
+  isCodebookComplete,
   isGeneral,
   missingCriteriaMessage,
   notesPerResponse,
@@ -191,5 +192,33 @@ describe('app/projects/[id]/pipeline/criteria — a definição sem régua nenhu
 
   it('sem definição descoberta não há mensagem', () => {
     expect(missingCriteriaMessage([])).toBe('')
+  })
+})
+
+describe('app/projects/[id]/pipeline/criteria — o codebook completo', () => {
+  it('uma definição sem critério deixa o codebook incompleto', () => {
+    expect(
+      isCodebookComplete([informacional, transacional], [criterion('c1', 'd1')]),
+    ).toBe(false)
+  })
+
+  it('cada definição com critério próprio completa o codebook', () => {
+    expect(
+      isCodebookComplete(
+        [informacional, transacional],
+        [criterion('c1', 'd1'), criterion('c2', 'd2')],
+      ),
+    ).toBe(true)
+  })
+
+  it('um critério geral cobrindo todas também completa o codebook', () => {
+    expect(
+      isCodebookComplete([informacional, transacional], [criterion('g1', null)]),
+    ).toBe(true)
+  })
+
+  it('sem definição nenhuma não há codebook a aplicar', () => {
+    expect(isCodebookComplete([], [criterion('g1', null)])).toBe(false)
+    expect(isCodebookComplete([], [])).toBe(false)
   })
 })

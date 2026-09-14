@@ -100,11 +100,18 @@ function DefinitionSummary({
   )
 }
 
-function ResponseCard({ response }: { response: ResponseDetail }) {
+function ResponseCard({
+  response,
+  label,
+}: {
+  response: ResponseDetail
+  label: string
+}) {
   return (
     <Card tone="subtle" padding="sm">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-        <span className="text-[13px] font-semibold text-ink">{response.itemName}</span>
+        <span className="text-[13px] font-semibold text-ink">{label}</span>
+        <span className="text-[13px] text-muted">{response.itemName}</span>
         <span className="text-[13px] text-muted">{formatDate(response.createdAt)}</span>
       </div>
       <p className={`m-0 mt-2 text-sm ${preWrapClass} text-ink`}>{response.text}</p>
@@ -116,12 +123,14 @@ export function EvaluationForm({
   projectId,
   roundNumber,
   response,
+  label,
   cells,
   submitted,
 }: {
   projectId: string
   roundNumber: number
   response: ResponseDetail
+  label: string
   cells: Cell[]
   submitted: SubmittedEvaluation | null
 }) {
@@ -152,7 +161,7 @@ export function EvaluationForm({
   if (reading) {
     return (
       <div className="flex flex-col gap-4">
-        <ResponseCard response={response} />
+        <ResponseCard response={response} label={label} />
 
         {sent ? <Alert tone="success">Avaliação enviada.</Alert> : null}
 
@@ -218,7 +227,7 @@ export function EvaluationForm({
       <input type="hidden" name="project_id" value={projectId} />
       <input type="hidden" name="response_id" value={response.id} />
 
-      <ResponseCard response={response} />
+      <ResponseCard response={response} label={label} />
 
       <p className="m-0 text-[13px] text-muted">
         Dê uma nota em cada critério de cada definição, com justificativa opcional. O

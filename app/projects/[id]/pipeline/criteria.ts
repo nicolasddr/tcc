@@ -62,6 +62,16 @@ export function definitionsWithoutCriteria<D extends DefinitionKey>(
   )
 }
 
+export function isCodebookComplete(
+  definitions: readonly DefinitionKey[],
+  criteria: readonly CriterionScope[],
+): boolean {
+  return (
+    definitions.length > 0 &&
+    definitionsWithoutCriteria(definitions, criteria).length === 0
+  )
+}
+
 export function quotedList(titles: readonly string[]): string {
   const named = titles.map((title) => `“${title}”`)
   if (named.length <= 1) return named[0] ?? ''

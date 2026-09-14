@@ -89,6 +89,18 @@ codebook que a produziram. É o que a promessa de replicabilidade do Shah exige.
 Evitar: um nome coletivo para esses cinco campos, *proveniência* inclusive. Eles são concretos e
 poucos; citá-los diz mais do que o rótulo.
 
+**Fila do avaliador**
+A sequência em que um Avaliador vê as Respostas de uma Rodada. É própria de cada vínculo,
+embaralhada de forma determinística e estável entre visitas, inclusive quando o Administrador gera
+mais respostas no meio da rodada. Não é a ordem em que as respostas foram criadas, e não aparece
+como número em tela nenhuma (ver ADR 0012).
+
+**Rótulo da resposta**
+O nome fixo de uma Resposta dentro da Rodada ("Resposta 3"), derivado da ordem de criação e igual
+para todos os avaliadores, independente da posição na fila de cada um. É o que permite discutir uma
+resposta específica na revisão de discordâncias.
+Evitar: posição, que é da fila de cada um e muda de avaliador para avaliador.
+
 **Avaliar**
 Ato do Avaliador de aplicar o codebook a uma resposta, atribuindo escala e justificativa.
 

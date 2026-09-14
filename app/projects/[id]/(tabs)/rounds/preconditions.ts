@@ -2,6 +2,7 @@ import type { LlmFailure } from '@/lib/ai/failure'
 import { RESPONSE_TEXT_MAX } from '@/lib/limits'
 import {
   definitionsWithoutCriteria,
+  isCodebookComplete,
   quotedList,
   type CriterionScope,
   type DefinitionKey,
@@ -34,11 +35,11 @@ export function roundBlockers(inputs: RoundInputs): RoundBlocker[] {
     blockers.push({ key: 'open_round', roundNumber: inputs.openRoundNumber })
   }
 
-  if (inputs.definitions.length === 0) {
-    blockers.push({ key: 'definition' })
-  } else {
-    const uncovered = definitionsWithoutCriteria(inputs.definitions, inputs.criteria)
-    if (uncovered.length > 0) {
+  if (!isCodebookComplete(inputs.definitions, inputs.criteria)) {
+    if (inputs.definitions.length === 0) {
+      blockers.push({ key: 'definition' })
+    } else {
+      const uncovered = definitionsWithoutCriteria(inputs.definitions, inputs.criteria)
       blockers.push({ key: 'criteria', titles: uncovered.map((d) => d.title) })
     }
   }
