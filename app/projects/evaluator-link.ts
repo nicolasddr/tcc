@@ -15,8 +15,6 @@ export type EvaluatorRoleView = {
   link: EvaluatorLink | null
 }
 
-export const SUBMITTED_EVALUATIONS_UNTIL_EPICO_2 = 0
-
 export const ASSUME_DENIED =
   'Apenas o administrador do projeto pode assumir o papel de avaliador.'
 
@@ -33,7 +31,7 @@ export const REVOKE_EVALUATIONS_SUBMITTED =
 
 export function evaluatorLinkOf(
   memberships: readonly MembershipRow[],
-  submittedEvaluations: number = SUBMITTED_EVALUATIONS_UNTIL_EPICO_2,
+  submittedEvaluations: number,
 ): EvaluatorLink | null {
   const row = memberships.find((m) => m.role === 'evaluator')
   if (!row) return null

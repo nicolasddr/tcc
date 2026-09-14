@@ -438,3 +438,58 @@ export const responses = pgTable("responses", {
 	check("rs_text_len", sql`char_length("text") <= 50000`),
 	check("rs_text_not_blank", sql`btrim("text") <> ''`),
 ]);
+
+export const evaluations = pgTable("evaluations", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	roundId: uuid("round_id").notNull(),
+	responseId: uuid("response_id").notNull(),
+	projectMemberId: uuid("project_member_id").notNull(),
+	submittedAt: timestamp("submitted_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	index("ev_round_member").using("btree", table.roundId.asc().nullsLast(), table.projectMemberId.asc().nullsLast()),
+	foreignKey({
+			columns: [table.roundId],
+			foreignColumns: [rounds.id],
+			name: "evaluations_round_id_fkey"
+		}).onDelete("restrict"),
+	foreignKey({
+			columns: [table.responseId],
+			foreignColumns: [responses.id],
+			name: "evaluations_response_id_fkey"
+		}).onDelete("restrict"),
+	foreignKey({
+			columns: [table.projectMemberId],
+			foreignColumns: [projectMembers.id],
+			name: "evaluations_project_member_id_fkey"
+		}).onDelete("restrict"),
+	unique("ev_unique_response_member").on(table.responseId, table.projectMemberId),
+]);
+
+export const scores = pgTable("scores", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	evaluationId: uuid("evaluation_id").notNull(),
+	definitionId: uuid("definition_id").notNull(),
+	criterionId: uuid("criterion_id").notNull(),
+	value: text().notNull(),
+	justification: text(),
+}, (table) => [
+	index("sc_evaluation").using("btree", table.evaluationId.asc().nullsLast()),
+	foreignKey({
+			columns: [table.evaluationId],
+			foreignColumns: [evaluations.id],
+			name: "scores_evaluation_id_fkey"
+		}).onDelete("cascade"),
+	foreignKey({
+			columns: [table.definitionId],
+			foreignColumns: [codebookDefinitions.id],
+			name: "scores_definition_id_fkey"
+		}).onDelete("restrict"),
+	foreignKey({
+			columns: [table.criterionId],
+			foreignColumns: [codebookCriteria.id],
+			name: "scores_criterion_id_fkey"
+		}).onDelete("restrict"),
+	unique("sc_unique_cell").on(table.evaluationId, table.definitionId, table.criterionId),
+	check("sc_value_check", sql`value = ANY (ARRAY['high'::text, 'medium'::text, 'low'::text])`),
+	check("sc_justification_len", sql`justification IS NULL OR char_length(justification) <= 2000`),
+]);

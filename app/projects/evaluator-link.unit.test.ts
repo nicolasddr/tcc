@@ -5,7 +5,6 @@ import {
   REVOKE_DENIED,
   REVOKE_EVALUATIONS_SUBMITTED,
   REVOKE_NO_LINK,
-  SUBMITTED_EVALUATIONS_UNTIL_EPICO_2,
   assumeEvaluatorRefusal,
   canAssumeEvaluatorRole,
   canRevokeEvaluatorRole,
@@ -20,17 +19,17 @@ const activeEvaluator = { role: 'evaluator', status: 'active' }
 
 const link = (over: Partial<EvaluatorLink> = {}): EvaluatorLink => ({
   status: 'active',
-  submittedEvaluations: SUBMITTED_EVALUATIONS_UNTIL_EPICO_2,
+  submittedEvaluations: 0,
   ...over,
 })
 
 describe('evaluatorLinkOf', () => {
   it('devolve null para quem só tem o vínculo de administrador', () => {
-    expect(evaluatorLinkOf([admin])).toBeNull()
+    expect(evaluatorLinkOf([admin], 0)).toBeNull()
   })
 
   it('encontra o vínculo de avaliador ao lado do de administrador', () => {
-    expect(evaluatorLinkOf([admin, pendingEvaluator])).toEqual({
+    expect(evaluatorLinkOf([admin, pendingEvaluator], 0)).toEqual({
       status: 'pending_onboarding',
       submittedEvaluations: 0,
     })
@@ -41,7 +40,7 @@ describe('evaluatorLinkOf', () => {
   })
 
   it('lista vazia devolve null', () => {
-    expect(evaluatorLinkOf([])).toBeNull()
+    expect(evaluatorLinkOf([], 0)).toBeNull()
   })
 })
 

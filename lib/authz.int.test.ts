@@ -11,6 +11,9 @@ import {
   isMemberOf,
   isProjectMember,
   isProjectAdmin,
+  evaluatorMembershipId,
+  isProjectEvaluator,
+  countSubmittedEvaluations,
   hasPendingInvitation,
   sharesProjectWith,
   canViewResponse,
@@ -19,7 +22,7 @@ import {
   findInviteeByEmail,
   listMyPendingInvitations,
 } from '@/lib/authz'
-import { profiles, projectInvitations } from '@/lib/db'
+import { profiles, projectInvitations, projectMembers } from '@/lib/db'
 import {
   inRollbackTx,
   createUser,
@@ -27,6 +30,12 @@ import {
   addActiveEvaluator,
   addPendingMember,
   addPendingInvitation,
+  addCodebookVersion,
+  addPromptVersion,
+  addInputItem,
+  addRound,
+  addResponse,
+  addEvaluation,
   grantCreatePermission,
   memberId,
 } from '@/test/helpers'
@@ -206,6 +215,78 @@ describe('lib/authz — predicados de autorização', () => {
         .where(eq(projectInvitations.id, invA))
       const afterDecline = await listMyPendingInvitations(invitee, tx)
       expect(afterDecline.map((r) => r.invitationId)).toEqual([invB])
+    })
+  })
+
+  it('evaluatorMembershipId: devolve o vínculo de AVALIADOR ativo, e só ele', async () => {
+    await inRollbackTx(async (tx) => {
+      const admin = await createUser(tx, 'Admin')
+      const evaluator = await createUser(tx, 'Avaliador')
+      const pending = await createUser(tx, 'Pendente')
+      const inactive = await createUser(tx, 'Inativo')
+      const stranger = await createUser(tx, 'Estranho')
+      const project = await createProject(tx, admin)
+      const otherProject = await createProject(tx, admin, 'Outro Projeto')
+
+      const link = await addActiveEvaluator(tx, project, evaluator)
+      await addPendingMember(tx, project, pending)
+      const inactiveLink = await addActiveEvaluator(tx, project, inactive)
+      await tx
+        .update(projectMembers)
+        .set({ status: 'inactive' })
+        .where(eq(projectMembers.id, inactiveLink))
+
+      expect(await evaluatorMembershipId(evaluator, project, tx)).toBe(link)
+      expect(await isProjectEvaluator(evaluator, project, tx)).toBe(true)
+
+      expect(await evaluatorMembershipId(admin, project, tx)).toBeNull()
+      expect(await evaluatorMembershipId(pending, project, tx)).toBeNull()
+      expect(await evaluatorMembershipId(inactive, project, tx)).toBeNull()
+      expect(await evaluatorMembershipId(stranger, project, tx)).toBeNull()
+      expect(await isProjectEvaluator(admin, project, tx)).toBe(false)
+
+      expect(await evaluatorMembershipId(evaluator, otherProject, tx)).toBeNull()
+    })
+  })
+
+  it('evaluatorMembershipId: com os dois papéis, devolve o de avaliador', async () => {
+    await inRollbackTx(async (tx) => {
+      const admin = await createUser(tx, 'Admin-avaliador')
+      const project = await createProject(tx, admin)
+      const adminLink = await memberId(tx, project, admin)
+      const evaluatorLink = await addActiveEvaluator(tx, project, admin)
+
+      const found = await evaluatorMembershipId(admin, project, tx)
+      expect(found).toBe(evaluatorLink)
+      expect(found).not.toBe(adminLink)
+      expect(await isProjectAdmin(admin, project, tx)).toBe(true)
+    })
+  })
+
+  it('countSubmittedEvaluations: conta só as do vínculo de avaliador naquele projeto', async () => {
+    await inRollbackTx(async (tx) => {
+      const admin = await createUser(tx, 'Admin')
+      const evaluator = await createUser(tx, 'Avaliador')
+      const other = await createUser(tx, 'Outro avaliador')
+      const project = await createProject(tx, admin)
+      const link = await addActiveEvaluator(tx, project, evaluator)
+      const otherLink = await addActiveEvaluator(tx, project, other)
+
+      const codebook = await addCodebookVersion(tx, project, admin)
+      const prompt = await addPromptVersion(tx, project, admin)
+      const item = await addInputItem(tx, project, admin)
+      const round = await addRound(tx, project, admin, codebook, prompt)
+      const response = await addResponse(tx, round, item, admin)
+
+      expect(await countSubmittedEvaluations(evaluator, project, tx)).toBe(0)
+
+      await addEvaluation(tx, round, response, link)
+      expect(await countSubmittedEvaluations(evaluator, project, tx)).toBe(1)
+
+      await addEvaluation(tx, round, response, otherLink)
+      expect(await countSubmittedEvaluations(evaluator, project, tx)).toBe(1)
+      expect(await countSubmittedEvaluations(other, project, tx)).toBe(1)
+      expect(await countSubmittedEvaluations(admin, project, tx)).toBe(0)
     })
   })
 })

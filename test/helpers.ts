@@ -24,6 +24,8 @@ import {
   inputItems,
   rounds,
   responses,
+  evaluations,
+  scores,
 } from '@/lib/db'
 
 const ROLLBACK = Symbol('rollback')
@@ -399,6 +401,64 @@ export async function addResponse(
   return row.id
 }
 
+export type CellFixture = {
+  definitionId: string
+  criterionId: string
+  value?: 'high' | 'medium' | 'low'
+  justification?: string | null
+}
+
+export async function addEvaluation(
+  tx: DbExecutor,
+  roundId: string,
+  responseId: string,
+  projectMemberId: string,
+  opts: { submittedAt?: string; cells?: CellFixture[] } = {},
+): Promise<string> {
+  const [row] = await tx
+    .insert(evaluations)
+    .values({
+      roundId,
+      responseId,
+      projectMemberId,
+      ...(opts.submittedAt === undefined ? {} : { submittedAt: opts.submittedAt }),
+    })
+    .returning({ id: evaluations.id })
+  const cells = opts.cells ?? []
+  if (cells.length > 0) {
+    await tx.insert(scores).values(
+      cells.map((cell) => ({
+        evaluationId: row.id,
+        definitionId: cell.definitionId,
+        criterionId: cell.criterionId,
+        value: cell.value ?? 'high',
+        justification: cell.justification ?? null,
+      })),
+    )
+  }
+  return row.id
+}
+
+export async function addScore(
+  tx: DbExecutor,
+  evaluationId: string,
+  definitionId: string,
+  criterionId: string,
+  opts: { value?: 'high' | 'medium' | 'low'; justification?: string | null } = {},
+): Promise<string> {
+  const [row] = await tx
+    .insert(scores)
+    .values({
+      evaluationId,
+      definitionId,
+      criterionId,
+      value: opts.value ?? 'high',
+      justification: opts.justification ?? null,
+    })
+    .returning({ id: scores.id })
+  return row.id
+}
+
 /** Cria uma notificação para `userId` (não lida) e devolve o id. */
 export async function addNotification(
   tx: DbExecutor,
@@ -452,12 +512,12 @@ export async function memberId(
  */
 export async function cleanup(projectIds: string[], userIds: string[]): Promise<void> {
   if (projectIds.length > 0) {
-    await ownerDb.delete(responses).where(
-      inArray(
-        responses.roundId,
-        ownerDb.select({ id: rounds.id }).from(rounds).where(inArray(rounds.projectId, projectIds)),
-      ),
-    )
+    const roundIds = ownerDb
+      .select({ id: rounds.id })
+      .from(rounds)
+      .where(inArray(rounds.projectId, projectIds))
+    await ownerDb.delete(evaluations).where(inArray(evaluations.roundId, roundIds))
+    await ownerDb.delete(responses).where(inArray(responses.roundId, roundIds))
     await ownerDb.delete(projects).where(inArray(projects.id, projectIds))
   }
   if (userIds.length > 0) {

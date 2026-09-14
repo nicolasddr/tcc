@@ -2,7 +2,7 @@ import { notFound } from 'next/navigation'
 import { and, eq } from 'drizzle-orm'
 import { requireUserId } from '@/lib/supabase/server'
 import { transaction, projects, projectMembers } from '@/lib/db'
-import { listProjectMembers } from '@/lib/authz'
+import { countSubmittedEvaluations, listProjectMembers } from '@/lib/authz'
 import { groupMembers } from '../../members'
 import { evaluatorLinkOf } from '../../evaluator-link'
 import { MemberList } from '../member-list'
@@ -46,7 +46,15 @@ export default async function ProjectMembersPage({
       ? await listProjectMembers(userId, id, { isAdmin, isActive }, tx)
       : []
 
-    return { project, isAdmin, isActive, evaluatorLink: evaluatorLinkOf(memberships), memberRows }
+    const submittedEvaluations = await countSubmittedEvaluations(userId, id, tx)
+
+    return {
+      project,
+      isAdmin,
+      isActive,
+      evaluatorLink: evaluatorLinkOf(memberships, submittedEvaluations),
+      memberRows,
+    }
   })
 
   if (!project || !isActive) notFound()

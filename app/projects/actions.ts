@@ -15,7 +15,12 @@ import {
   notifications,
   type DbExecutor,
 } from '@/lib/db'
-import { canCreateProjects, findInviteeByEmail, isProjectAdmin } from '@/lib/authz'
+import {
+  canCreateProjects,
+  countSubmittedEvaluations,
+  findInviteeByEmail,
+  isProjectAdmin,
+} from '@/lib/authz'
 import { emitInvitationNotification } from '@/lib/notifications/invitation'
 import { normalizeTaskType } from './task-types'
 import {
@@ -355,7 +360,7 @@ async function evaluatorRoleView(
 
   return {
     isAdmin: await isProjectAdmin(userId, projectId, db),
-    link: evaluatorLinkOf(memberships),
+    link: evaluatorLinkOf(memberships, await countSubmittedEvaluations(userId, projectId, db)),
   }
 }
 

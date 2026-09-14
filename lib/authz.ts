@@ -10,6 +10,7 @@ import {
   projectInvitations,
   platformPermissionRequests,
   superAdmins,
+  evaluations,
 } from '@/lib/db'
 
 // Roda a query `limit 1` e devolve se veio alguma linha (equivalente ao `exists`).
@@ -82,6 +83,53 @@ export function isProjectAdmin(
       )
       .limit(1),
   )
+}
+
+export async function evaluatorMembershipId(
+  userId: string,
+  projectId: string,
+  db: DbExecutor = ownerDb,
+): Promise<string | null> {
+  const [row] = await db
+    .select({ id: projectMembers.id })
+    .from(projectMembers)
+    .where(
+      and(
+        eq(projectMembers.projectId, projectId),
+        eq(projectMembers.userId, userId),
+        eq(projectMembers.role, 'evaluator'),
+        eq(projectMembers.status, 'active'),
+      ),
+    )
+    .limit(1)
+  return row?.id ?? null
+}
+
+export async function isProjectEvaluator(
+  userId: string,
+  projectId: string,
+  db: DbExecutor = ownerDb,
+): Promise<boolean> {
+  return (await evaluatorMembershipId(userId, projectId, db)) !== null
+}
+
+export async function countSubmittedEvaluations(
+  userId: string,
+  projectId: string,
+  db: DbExecutor = ownerDb,
+): Promise<number> {
+  const [row] = await db
+    .select({ total: sql<number>`count(*)::int` })
+    .from(evaluations)
+    .innerJoin(projectMembers, eq(projectMembers.id, evaluations.projectMemberId))
+    .where(
+      and(
+        eq(projectMembers.projectId, projectId),
+        eq(projectMembers.userId, userId),
+        eq(projectMembers.role, 'evaluator'),
+      ),
+    )
+  return row?.total ?? 0
 }
 
 /** Tem convite PENDENTE para o projeto? */
