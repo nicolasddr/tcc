@@ -9,7 +9,7 @@ import { Badge, StatusBadge } from '@/app/components/ui/badge'
 import { Chip, ChipLink } from '@/app/components/ui/chip'
 import { PageShell, TopBar, BackLink, PageTitle } from '@/app/components/ui/shell'
 import { UsersIcon, SlidersIcon, TagIcon, UserIcon } from '@/app/components/ui/icons'
-import { Disclosure } from '@/app/components/ui/disclosure'
+import { InfoTooltip } from '@/app/components/ui/tooltip'
 
 export default async function ProjectTabsLayout({
   params,
@@ -83,6 +83,9 @@ export default async function ProjectTabsLayout({
       <header>
         <div className="flex min-w-0 flex-wrap items-center gap-3">
           <PageTitle>{project.name}</PageTitle>
+          {project.description ? (
+            <InfoTooltip text={project.description} />
+          ) : null}
           <StatusBadge status={project.status}>
             {projectStatusLabel(project.status)}
           </StatusBadge>
@@ -110,14 +113,6 @@ export default async function ProjectTabsLayout({
             </ChipLink>
           ) : null}
         </div>
-
-        {project.description ? (
-          <Disclosure summary="Sobre o projeto" className="mt-3">
-            <p className="mt-2 max-w-[68ch] text-[13.5px] leading-relaxed text-label">
-              {project.description}
-            </p>
-          </Disclosure>
-        ) : null}
 
         {isMember ? <ProjectTabs projectId={project.id} isAdmin={isAdmin} /> : null}
       </header>
