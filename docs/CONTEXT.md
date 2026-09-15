@@ -120,6 +120,11 @@ célula: a mesma resposta avaliada em duas definições rende duas unidades, nã
 não existe é dado faltante, nunca exclusão de avaliador — a unidade sem par sai do cálculo e a
 pessoa continua nele. E o coeficiente é **não calculável**, nunca zero e nunca 1, em três casos:
 menos de dois avaliadores, nenhuma unidade avaliada por dois deles, e nenhuma variação nas notas.
+Não existe média, soma nem "ICR do projeto" em tela nenhuma: a leitura entre rodadas é a série, um
+ponto por rodada com a sua versão de codebook ao lado. E na matriz por célula, **não aplicável** é o
+par definição × critério que não existe naquela versão — critério específico de outra definição —, o
+que é diferente de **não calculável** (a célula existe, tem nota e não tem coeficiente) e de **sem
+nota** (a célula existe e ninguém a avaliou ainda).
 Evitar: confiabilidade, acurácia.
 
 **Qualidade**

@@ -13,21 +13,17 @@ import { EMPTY_PIPELINE, PHASE_1 } from '../pipeline/preconditions'
 import { loadCodebook } from '../pipeline/codebook'
 import { loadPrompt } from '../pipeline/prompt'
 import { countItems } from '../pipeline/items'
-import Link from '@/app/components/app-link'
+import { listRounds } from './rounds/rounds'
+import { loadProjectObservations } from './rounds/agreement'
+import { agreementSeries } from './rounds/agreement-series'
+import { AgreementSeriesChart } from './rounds/agreement-series-chart'
 import { SubmitButton } from '@/app/components/submit-button'
 import { ButtonLink } from '@/app/components/ui/button'
 import { Callout } from '@/app/components/ui/panel'
+import { OpenLink } from '@/app/components/ui/open-link'
 import { StatCard } from '@/app/components/ui/stat'
 import { Section } from '@/app/components/ui/section'
 import { ArrowRightIcon } from '@/app/components/ui/icons'
-
-function OpenLink({ href, children }: { href: string; children: React.ReactNode }) {
-  return (
-    <Link href={href} className="font-semibold text-brand hover:text-brand-hover">
-      {children}
-    </Link>
-  )
-}
 
 export default async function ProjectPage({
   params,
@@ -38,7 +34,7 @@ export default async function ProjectPage({
   const userId = await requireUserId()
 
 
-  const { project, memberships, pendingInvitation, memberRows, artifacts } = await transaction(async (tx) => {
+  const { project, memberships, pendingInvitation, memberRows, artifacts, agreement } = await transaction(async (tx) => {
     const [project] = await tx
       .select({
         id: projects.id,
@@ -87,7 +83,21 @@ export default async function ProjectPage({
         }
       : null
 
-    return { project, memberships, pendingInvitation, memberRows, artifacts }
+    const agreement = viewerIsAdmin
+      ? {
+          rounds: await listRounds(id, tx),
+          observations: await loadProjectObservations(id, tx),
+        }
+      : null
+
+    return {
+      project,
+      memberships,
+      pendingInvitation,
+      memberRows,
+      artifacts,
+      agreement,
+    }
   })
   if (!project) notFound()
 
@@ -108,6 +118,10 @@ export default async function ProjectPage({
 
   const canLeave =
     !isAdmin && memberships.some((m) => m.role === 'evaluator' && m.status === 'active')
+
+  const series = agreement
+    ? agreementSeries(agreement.rounds, agreement.observations)
+    : null
 
   const members = groupMembers(memberRows)
   const activeEvaluators = members.filter(
@@ -236,6 +250,15 @@ export default async function ProjectPage({
                 }
               />
             </div>
+          ) : null}
+
+          {series ? (
+            <Section
+              title="Concordância por rodada"
+              hint="Um ponto por rodada, em ordem cronológica, com a versão de codebook que cada uma fixou. A curva é a leitura da fase: o codebook refinado entre rodadas deve aparecer aqui como concordância maior na rodada seguinte."
+            >
+              <AgreementSeriesChart points={series} projectId={project.id} />
+            </Section>
           ) : null}
 
           {artifacts ? (

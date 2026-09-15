@@ -8,7 +8,8 @@
 //
 // PRÉ-REQUISITO: Supabase LOCAL de pé (`supabase start`), igual ao `npm test`.
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { isValidElement, type ReactElement } from 'react'
+import { createElement, isValidElement, type ReactElement } from 'react'
+import { renderToStaticMarkup } from 'react-dom/server'
 
 const auth = vi.hoisted(() => ({ userId: null as string | null }))
 
@@ -36,6 +37,10 @@ import {
   PHASE_2,
   pendingRequirements,
 } from '@/app/projects/[id]/pipeline/preconditions'
+import { AgreementSeriesChart } from '@/app/projects/[id]/(tabs)/rounds/agreement-series-chart'
+import { formatAlpha } from '@/app/projects/[id]/(tabs)/rounds/agreement-labels'
+import { loadCodebookVersion } from '@/app/projects/[id]/pipeline/codebook'
+import { resolveCells } from '@/app/projects/[id]/pipeline/criteria'
 import { ownerDb } from '@/lib/db'
 import {
   createUser,
@@ -45,6 +50,10 @@ import {
   addCodebookVersion,
   addPromptVersion,
   addInputItem,
+  addRound,
+  addResponse,
+  addEvaluation,
+  type CellFixture,
   cleanup,
 } from '@/test/helpers'
 
@@ -87,6 +96,9 @@ function hasProp(node: unknown, key: string, value: unknown): boolean {
 type ChecklistProps = Parameters<typeof PipelineChecklist>[0]
 type TabsProps = Parameters<typeof ProjectTabs>[0]
 type AdvanceProps = Parameters<typeof AdvancePhase>[0]
+type SeriesProps = Parameters<typeof AgreementSeriesChart>[0]
+
+type ScaleValue = NonNullable<CellFixture['value']>
 
 function render(id: string) {
   return ProjectPage({ params: Promise.resolve({ id }) })
@@ -105,6 +117,23 @@ function advanceOf(tree: unknown): ReactElement | null {
   const props = checklistOf(tree)
   if (!props) return null
   return findElement(PipelineChecklist(props), AdvancePhase)
+}
+
+function seriesOf(tree: unknown): SeriesProps {
+  const element = findElement(tree, AgreementSeriesChart)
+  expect(element).toBeTruthy()
+  return element!.props as SeriesProps
+}
+
+function seriesMarkupOf(tree: unknown): string {
+  return renderToStaticMarkup(createElement(AgreementSeriesChart, seriesOf(tree)))
+}
+
+function seriesTextOf(tree: unknown): string {
+  return seriesMarkupOf(tree)
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
 }
 
 describe('app/projects/[id]/page — escopo de visibilidade', () => {
@@ -127,6 +156,60 @@ describe('app/projects/[id]/page — escopo de visibilidade', () => {
     const tabs = findElement(await renderLayout(projectId), ProjectTabs)
     expect(tabs).toBeTruthy()
     return ProjectTabs(tabs!.props as TabsProps)
+  }
+
+  async function roundWith(
+    project: string,
+    admin: string,
+    promptVersion: string,
+    opts: {
+      roundNumber: number
+      versionNumber: number
+      status?: 'open' | 'closed'
+      byEvaluator?: Record<string, readonly ScaleValue[]>
+    },
+  ): Promise<string> {
+    const codebookVersion = await addCodebookVersion(ownerDb, project, admin, {
+      versionNumber: opts.versionNumber,
+      definitions: [
+        { title: 'Informacional', type: 'category', criteria: [{ name: 'Clareza' }] },
+      ],
+    })
+    const round = await addRound(
+      ownerDb,
+      project,
+      admin,
+      codebookVersion,
+      promptVersion,
+      { roundNumber: opts.roundNumber, status: opts.status ?? 'closed' },
+    )
+
+    const codebook = await loadCodebookVersion(project, codebookVersion)
+    const cells = resolveCells(codebook!.definitions, codebook!.criteria)
+    const byEvaluator = Object.entries(opts.byEvaluator ?? {})
+    const responseCount = byEvaluator[0]?.[1].length ?? 0
+
+    const responses: string[] = []
+    for (let index = 0; index < responseCount; index += 1) {
+      const item = await addInputItem(ownerDb, project, admin, {
+        name: `Item ${opts.roundNumber}.${index + 1}`,
+      })
+      responses.push(await addResponse(ownerDb, round, item, admin))
+    }
+
+    for (const [evaluator, values] of byEvaluator) {
+      for (const [index, value] of values.entries()) {
+        await addEvaluation(ownerDb, round, responses[index], evaluator, {
+          cells: cells.map<CellFixture>((cell) => ({
+            definitionId: cell.definition.id,
+            criterionId: cell.criterion.id,
+            value,
+          })),
+        })
+      }
+    }
+
+    return round
   }
 
   beforeEach(() => {
@@ -243,18 +326,133 @@ describe('app/projects/[id]/page — escopo de visibilidade', () => {
     expect(hasProp(tree, 'href', `/projects/${project}/codebook`)).toBe(false)
   })
 
-  it('a visão geral vista pelo avaliador não fala de concordância', async () => {
+  it('a visão geral vista pelo avaliador não fala de concordância, nem com rodada avaliada', async () => {
     const admin = await newUser('Admin')
     const evaluator = await newUser('Avaliador')
     const project = await newProject(admin, PHASE_2)
-    await addActiveEvaluator(ownerDb, project, evaluator)
+    const ana = await addActiveEvaluator(ownerDb, project, evaluator)
+    const bruno = await addActiveEvaluator(ownerDb, project, await newUser('Bruno'))
+    const promptVersion = await addPromptVersion(ownerDb, project, admin)
+
+    await roundWith(project, admin, promptVersion, {
+      roundNumber: 1,
+      versionNumber: 1,
+      byEvaluator: {
+        [ana]: ['low', 'medium', 'high'],
+        [bruno]: ['low', 'medium', 'high'],
+      },
+    })
+
+    auth.userId = admin
+    expect(seriesOf(await render(project)).points).toHaveLength(1)
 
     auth.userId = evaluator
-    const page = deepText(await render(project))
+    const tree = await render(project)
+    expect(findElement(tree, AgreementSeriesChart)).toBeNull()
 
+    const page = deepText(tree)
     expect(page).not.toContain('Krippendorff')
     expect(page).not.toContain('ICR')
     expect(page).not.toContain('Concordância')
+  })
+
+  it('duas versões de codebook viram dois pontos, e nada na tela junta os dois', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin, PHASE_2)
+    const ana = await addActiveEvaluator(ownerDb, project, await newUser('Ana'))
+    const bruno = await addActiveEvaluator(ownerDb, project, await newUser('Bruno'))
+    const promptVersion = await addPromptVersion(ownerDb, project, admin)
+
+    await roundWith(project, admin, promptVersion, {
+      roundNumber: 1,
+      versionNumber: 1,
+      byEvaluator: {
+        [ana]: ['low', 'medium', 'high'],
+        [bruno]: ['low', 'medium', 'high'],
+      },
+    })
+    await roundWith(project, admin, promptVersion, {
+      roundNumber: 2,
+      versionNumber: 2,
+      status: 'open',
+      byEvaluator: {
+        [ana]: ['low', 'medium', 'high'],
+        [bruno]: ['high', 'medium', 'low'],
+      },
+    })
+
+    auth.userId = admin
+    const tree = await render(project)
+
+    const points = seriesOf(tree).points
+    expect(points.map((point) => point.roundNumber)).toEqual([1, 2])
+    expect(points.map((point) => point.codebookVersionNumber)).toEqual([1, 2])
+
+    const [first, second] = points
+    if (!first.agreement.calculable || !second.agreement.calculable) {
+      throw new Error('as duas rodadas deveriam ter coeficiente')
+    }
+    expect(first.agreement.alpha).not.toBe(second.agreement.alpha)
+
+    const text = seriesTextOf(tree)
+    expect(text).toContain(formatAlpha(first.agreement.alpha))
+    expect(text).toContain(formatAlpha(second.agreement.alpha))
+    expect(text).toContain('Codebook v1')
+    expect(text).toContain('Codebook v2')
+
+    const mean = (first.agreement.alpha + second.agreement.alpha) / 2
+    expect(text).not.toContain(formatAlpha(mean))
+    expect(text).not.toContain('média')
+    expect(text).not.toContain('no total')
+  })
+
+  it('a rodada sem avaliação continua na série, como ponto não calculável', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin, PHASE_2)
+    const promptVersion = await addPromptVersion(ownerDb, project, admin)
+    await roundWith(project, admin, promptVersion, { roundNumber: 1, versionNumber: 1 })
+
+    auth.userId = admin
+    const tree = await render(project)
+
+    expect(seriesOf(tree).points).toHaveLength(1)
+    expect(seriesOf(tree).points[0].agreement).toMatchObject({ calculable: false })
+
+    const text = seriesTextOf(tree)
+    expect(text).toContain('Rodada 1')
+    expect(text).toContain('não calculável')
+    expect(text).not.toContain('0,000')
+  })
+
+  it('os pontos da série aparecem em ordem cronológica', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin, PHASE_2)
+    const promptVersion = await addPromptVersion(ownerDb, project, admin)
+    for (const roundNumber of [1, 2, 3]) {
+      await roundWith(project, admin, promptVersion, {
+        roundNumber,
+        versionNumber: roundNumber,
+        status: roundNumber === 3 ? 'open' : 'closed',
+      })
+    }
+
+    auth.userId = admin
+    const text = seriesTextOf(await render(project))
+
+    expect(text.indexOf('Rodada 1')).toBeLessThan(text.indexOf('Rodada 2'))
+    expect(text.indexOf('Rodada 2')).toBeLessThan(text.indexOf('Rodada 3'))
+  })
+
+  it('a série vazia diz que ela começa na primeira rodada, e leva às rodadas', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin, PHASE_2)
+
+    auth.userId = admin
+    const tree = await render(project)
+
+    expect(seriesOf(tree).points).toEqual([])
+    expect(seriesTextOf(tree)).toContain('começa na primeira rodada')
+    expect(seriesMarkupOf(tree)).toContain(`href="/projects/${project}/rounds"`)
   })
 
   it('a visão geral resume codebook, prompt e itens com link para cada tela', async () => {

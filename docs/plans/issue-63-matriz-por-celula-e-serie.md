@@ -13,7 +13,7 @@ seguinte herda" — anotar ali o que divergiu, como nos planos das #60, #61 e #6
 |---|---|---|
 | 1 | Agrupar por célula, sem tela: `agreement-matrix.ts`, os quatro estados de célula e os rótulos | ☑ |
 | 2 | A matriz na tela do Administrador, sobre a versão de codebook que a rodada fixou | ☑ |
-| 3 | A série de ICR por rodada na página do projeto, e a invisibilidade ao Avaliador | ☐ |
+| 3 | A série de ICR por rodada na página do projeto, e a invisibilidade ao Avaliador | ☑ |
 
 **Nenhuma ADR nova.** As decisões que esta fatia usa já estão registradas: ADR 0002 (prompt e codebook
 separados — é a matriz por célula que torna essa separação útil), ADR 0004 (faixa de referência sem
@@ -479,7 +479,47 @@ Fechar a #63 com referência ao commit, como nas fatias anteriores.
 
 ### O que ficou desta Parte
 
-> Preencher ao fim da Parte 3.
+**O que divergiu do plano:**
+
+- O componente é `(tabs)/rounds/agreement-series-chart.tsx`, exportando `AgreementSeriesChart`, e
+  não `agreement-series.tsx` — mesma razão da Parte 2: um par `agreement-series.ts` +
+  `agreement-series.tsx` na mesma pasta seria ambíguo para `import … from './agreement-series'`. O
+  sufixo diz o que o componente é, como em `agreement-matrix.ts` → `agreement-matrix-table.tsx`.
+- `OpenLink` saiu de dentro de `(tabs)/page.tsx` para `app/components/ui/open-link.tsx`. A série
+  precisava do mesmo link, e um arquivo de `page` não pode exportar componente nomeado sem brigar
+  com as convenções de export do Next. A visão geral passou a importá-lo de lá, e nada mudou no
+  visual.
+- O SVG tem `viewBox` de largura fixa em 100 unidades, com `preserveAspectRatio="none"` e um
+  `maxWidth` de 120px por ponto. Com `meet` o desenho ficava preso ao tamanho natural (duas
+  colunas de 26px num contêiner de 912px); com `none` sem teto, as colunas viravam barras de 251px
+  de largura por 25px de altura. O teto por ponto mantém a coluna em ~66px em qualquer contagem de
+  rodadas. As linhas de referência levam `vectorEffect="non-scaling-stroke"`, senão o tracejado
+  esticava junto com a escala horizontal.
+- A frase da série evita a palavra "média" no texto renderizado, e não só a operação: o teste do AC
+  afirma sobre o texto, então dizer "sem média entre rodadas" quebraria a própria asserção. O texto
+  diz "nenhum valor que junte rodadas".
+- Um teste a mais do que o plano pedia: a série vazia (projeto sem rodada) mostra o `EmptyState` e
+  leva às rodadas. E o unitário afirma que `agreement-series.ts` exporta **só** `agreementSeries` —
+  é como a proibição de agregar vira teste, e não só intenção.
+
+**O que ficou de pé:**
+
+- `(tabs)/page.tsx` carrega `listRounds` e `loadProjectObservations` dentro da mesma `transaction`,
+  só no ramo `viewerIsAdmin`, e calcula a série depois. O Avaliador não recebe os dados, e o teste
+  de invisibilidade agora roda sobre um projeto **com** rodada avaliada.
+- `docs/CONTEXT.md`, na entrada **Concordância (ICR)**: não existe média, soma nem "ICR do projeto"
+  em tela nenhuma, e a distinção entre célula **não aplicável**, **não calculável** e **sem nota**.
+- Nada foi tocado em `lib/agreement.ts`, `agreement.ts`, `agreement-matrix.ts`,
+  `agreement-matrix-table.tsx` nem `agreement-labels.ts`.
+
+**Conferido no navegador** (`npm run dev:local`, projeto com duas rodadas fechadas, uma na v1 e
+outra na v2): os dois pontos aparecem em ordem, cada um com a sua versão, o gráfico desenha as duas
+colunas com as linhas de corte, e a página não rola na horizontal nem em 1100px nem em 375px.
+
+**Ponta solta conhecida (fora desta fatia):** `(tabs)/evaluate/actions.int.test.ts` afirma que a
+tabela `scores` está globalmente vazia. É uma asserção global num banco local compartilhado com o
+cenário de dev, então ela falha sempre que existe dado semeado à mão. Não tem relação com esta
+fatia, e some com `npm run db:reset`.
 
 ---
 
