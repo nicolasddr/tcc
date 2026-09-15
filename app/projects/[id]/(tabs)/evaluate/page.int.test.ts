@@ -22,6 +22,10 @@ import ProjectEvaluatePage from '@/app/projects/[id]/(tabs)/evaluate/page'
 import { EvaluationForm } from '@/app/projects/[id]/(tabs)/evaluate/evaluation-form'
 import { ContextPanel } from '@/app/projects/[id]/(tabs)/evaluate/context-panel'
 import { QueueNav } from '@/app/projects/[id]/(tabs)/evaluate/queue-nav'
+import {
+  AgreementPanel,
+  AgreementValue,
+} from '@/app/projects/[id]/(tabs)/rounds/agreement-panel'
 import { buildQueue } from '@/app/projects/[id]/(tabs)/evaluate/queue'
 import { loadCodebookVersion } from '@/app/projects/[id]/pipeline/codebook'
 import { resolveCells } from '@/app/projects/[id]/pipeline/criteria'
@@ -73,6 +77,17 @@ function collectText(node: unknown): string {
 
 function textOf(node: unknown): string {
   return collectText(node).replace(/\s+/g, ' ').trim()
+}
+
+function deepText(node: unknown): string {
+  if (typeof node === 'string' || typeof node === 'number') return ` ${node} `
+  if (Array.isArray(node)) return node.map(deepText).join('')
+  if (isValidElement(node)) {
+    return Object.values(node.props as Record<string, unknown>)
+      .map(deepText)
+      .join('')
+  }
+  return ''
 }
 
 type FormProps = Parameters<typeof EvaluationForm>[0]
@@ -574,6 +589,36 @@ describe('app/projects/[id]/evaluate — a tela do avaliador', () => {
     expect(page).not.toContain('coeficiente')
     expect(page).not.toContain('kappa')
     expect(page).not.toContain('concord')
+  })
+
+  it('com a rodada já medida por dois avaliadores, o avaliador segue sem ver o ICR', async () => {
+    const admin = await newUser('Admin')
+    const scene = await scenario(admin, { responses: 2 })
+    const ana = await newEvaluator(scene.project, 'Ana')
+    const bruno = await newEvaluator(scene.project, 'Bruno')
+
+    const codebook = await loadCodebookVersion(scene.project, scene.codebookVersion)
+    const cells = resolveCells(codebook!.definitions, codebook!.criteria).map((cell) => ({
+      definitionId: cell.definition.id,
+      criterionId: cell.criterion.id,
+      value: 'high' as const,
+    }))
+
+    for (const user of [ana, bruno]) {
+      const member = await memberIdOf(ownerDb, scene.project, user)
+      await addEvaluation(ownerDb, scene.round, scene.responses[0], member, { cells })
+    }
+
+    auth.userId = bruno
+    const tree = await open(scene.project)
+
+    expect(findElement(tree, AgreementPanel)).toBeNull()
+    expect(findElement(tree, AgreementValue)).toBeNull()
+
+    const page = `${deepText(tree)} ${markupOf(formOf(tree))}`
+    expect(page).not.toContain('Krippendorff')
+    expect(page).not.toContain('ICR')
+    expect(page).not.toContain('Concordância')
   })
 
   it('sem codebook nenhum, a tela diz que o administrador ainda está montando', async () => {

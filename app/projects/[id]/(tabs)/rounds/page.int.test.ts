@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { isValidElement, type ReactElement } from 'react'
+import { createElement, isValidElement, type ReactElement } from 'react'
+import { renderToStaticMarkup } from 'react-dom/server'
 
 const auth = vi.hoisted(() => ({ userId: null as string | null }))
 
@@ -21,6 +22,13 @@ import { RoundList } from '@/app/projects/[id]/(tabs)/rounds/round-list'
 import { NewRound } from '@/app/projects/[id]/(tabs)/rounds/new-round'
 import { CloseRound } from '@/app/projects/[id]/(tabs)/rounds/close-round'
 import { GenerateResponses } from '@/app/projects/[id]/(tabs)/rounds/generate-responses'
+import {
+  AgreementPanel,
+  AgreementValue,
+} from '@/app/projects/[id]/(tabs)/rounds/agreement-panel'
+import { AGREEMENT_SOURCE } from '@/app/projects/[id]/(tabs)/rounds/agreement-labels'
+import { loadCodebookVersion } from '@/app/projects/[id]/pipeline/codebook'
+import { resolveCells } from '@/app/projects/[id]/pipeline/criteria'
 import { formatDate } from '@/app/notifications/labels'
 import { PHASE_1, PHASE_2 } from '@/app/projects/[id]/pipeline/preconditions'
 import {
@@ -40,6 +48,8 @@ import {
   addInputItem,
   addRound,
   addResponse,
+  addEvaluation,
+  type CellFixture,
   cleanup,
 } from '@/test/helpers'
 
@@ -77,6 +87,7 @@ type ListProps = Parameters<typeof RoundList>[0]
 type NewRoundProps = Parameters<typeof NewRound>[0]
 type CloseRoundProps = Parameters<typeof CloseRound>[0]
 type GenerateProps = Parameters<typeof GenerateResponses>[0]
+type PanelProps = Parameters<typeof AgreementPanel>[0]
 
 function render(id: string) {
   return ProjectRoundsPage({ params: Promise.resolve({ id }) })
@@ -106,6 +117,23 @@ function generateOf(tree: unknown): GenerateProps {
   return element!.props as GenerateProps
 }
 
+function panelOf(tree: unknown): PanelProps {
+  const element = findElement(tree, AgreementPanel)
+  expect(element).toBeTruthy()
+  return element!.props as PanelProps
+}
+
+function markupTextOf(element: ReactElement): string {
+  return renderToStaticMarkup(element)
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function panelTextOf(tree: unknown): string {
+  return markupTextOf(createElement(AgreementPanel, panelOf(tree)))
+}
+
 describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
   let users: string[]
   let projs: string[]
@@ -129,6 +157,53 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     })
     const promptVersion = await addPromptVersion(ownerDb, project, admin)
     return { project, codebookVersion, promptVersion }
+  }
+
+  async function newEvaluator(project: string, name: string): Promise<string> {
+    return addActiveEvaluator(ownerDb, project, await newUser(name))
+  }
+
+  async function openRoundWith(
+    admin: string,
+    responseCount: number,
+  ): Promise<{
+    project: string
+    round: string
+    responses: string[]
+    cells: { definitionId: string; criterionId: string }[]
+  }> {
+    const { project, codebookVersion, promptVersion } = await readyProject(admin)
+    const round = await addRound(
+      ownerDb,
+      project,
+      admin,
+      codebookVersion,
+      promptVersion,
+      { roundNumber: 1 },
+    )
+
+    const responses: string[] = []
+    for (let index = 0; index < responseCount; index += 1) {
+      const item = await addInputItem(ownerDb, project, admin, {
+        name: `Item ${index + 1}`,
+      })
+      responses.push(await addResponse(ownerDb, round, item, admin))
+    }
+
+    const codebook = await loadCodebookVersion(project, codebookVersion)
+    const cells = resolveCells(codebook!.definitions, codebook!.criteria).map((cell) => ({
+      definitionId: cell.definition.id,
+      criterionId: cell.criterion.id,
+    }))
+
+    return { project, round, responses, cells }
+  }
+
+  function filled(
+    cells: { definitionId: string; criterionId: string }[],
+    value: CellFixture['value'],
+  ): CellFixture[] {
+    return cells.map((cell) => ({ ...cell, value }))
   }
 
   beforeEach(() => {
@@ -307,6 +382,160 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     expect(itemUsageLabel(props.items[0].roundNumbers)).toBe('usado nas rodadas 1, 2')
     expect(itemUsageLabel(props.items[1].roundNumbers)).toBeNull()
     expect(props.generated.map((response) => response.itemId)).toEqual([reused])
+  })
+
+  it('com dois avaliadores concordando, o painel dá o valor, o N, a faixa e a origem', async () => {
+    const admin = await newUser('Admin')
+    const scene = await openRoundWith(admin, 3)
+    const ana = await newEvaluator(scene.project, 'Ana')
+    const bruno = await newEvaluator(scene.project, 'Bruno')
+
+    const values = ['low', 'medium', 'high'] as const
+    for (const [index, value] of values.entries()) {
+      for (const evaluator of [ana, bruno]) {
+        await addEvaluation(ownerDb, scene.round, scene.responses[index], evaluator, {
+          cells: filled(scene.cells, value),
+        })
+      }
+    }
+
+    auth.userId = admin
+    const tree = await render(scene.project)
+
+    const props = panelOf(tree)
+    expect(props.agreement).toEqual({
+      calculable: true,
+      alpha: 1,
+      units: 3,
+      raters: 2,
+    })
+    expect(props.responses).toBe(3)
+
+    const text = panelTextOf(tree)
+    expect(text).toContain('Concordância (ICR)')
+    expect(text).toContain('1,000')
+    expect(text).toContain('3 unidades · 2 avaliadores')
+    expect(text).toContain('boa')
+    expect(text).toContain(AGREEMENT_SOURCE)
+    expect(text).toContain('não trava')
+  })
+
+  it('com um avaliador só, o painel diz não calculável, o motivo e o N que tem', async () => {
+    const admin = await newUser('Admin')
+    const scene = await openRoundWith(admin, 2)
+    const ana = await newEvaluator(scene.project, 'Ana')
+
+    for (const response of scene.responses) {
+      await addEvaluation(ownerDb, scene.round, response, ana, {
+        cells: filled(scene.cells, 'high'),
+      })
+    }
+
+    auth.userId = admin
+    const tree = await render(scene.project)
+
+    expect(panelOf(tree).agreement).toEqual({
+      calculable: false,
+      reason: 'few_evaluators',
+      units: 0,
+      raters: 1,
+    })
+
+    const text = panelTextOf(tree)
+    expect(text).toContain('não calculável')
+    expect(text).toContain('Menos de dois avaliadores')
+    expect(text).toContain('0 unidades · 1 avaliador')
+  })
+
+  it('a amostra pequena avisa sem esconder o número', async () => {
+    const admin = await newUser('Admin')
+    const scene = await openRoundWith(admin, 2)
+    const ana = await newEvaluator(scene.project, 'Ana')
+    const bruno = await newEvaluator(scene.project, 'Bruno')
+
+    const values = ['low', 'high'] as const
+    for (const [index, value] of values.entries()) {
+      for (const evaluator of [ana, bruno]) {
+        await addEvaluation(ownerDb, scene.round, scene.responses[index], evaluator, {
+          cells: filled(scene.cells, value),
+        })
+      }
+    }
+
+    auth.userId = admin
+    const text = panelTextOf(await render(scene.project))
+
+    expect(text).toContain('Amostra pequena')
+    expect(text).toContain('1,000')
+    expect(text).toContain('2 unidades · 2 avaliadores')
+  })
+
+  it('o esforço por avaliador mostra a contagem de cada um, inclusive quem enviou zero', async () => {
+    const admin = await newUser('Admin')
+    const scene = await openRoundWith(admin, 3)
+    const ana = await newEvaluator(scene.project, 'Ana')
+    const bruno = await newEvaluator(scene.project, 'Bruno')
+    await newEvaluator(scene.project, 'Carla')
+
+    for (const response of scene.responses) {
+      await addEvaluation(ownerDb, scene.round, response, ana, {
+        cells: filled(scene.cells, 'high'),
+      })
+    }
+    await addEvaluation(ownerDb, scene.round, scene.responses[0], bruno, {
+      cells: filled(scene.cells, 'medium'),
+    })
+
+    auth.userId = admin
+    const tree = await render(scene.project)
+
+    expect(panelOf(tree).effort.map((row) => [row.name, row.submitted])).toEqual([
+      ['Ana', 3],
+      ['Bruno', 1],
+      ['Carla', 0],
+    ])
+
+    const text = panelTextOf(tree)
+    expect(text).toContain('Ana 3 avaliações enviadas')
+    expect(text).toContain('Bruno 1 avaliação enviada')
+    expect(text).toContain('Carla 0 avaliações enviadas')
+  })
+
+  it('a lista de rodadas traz o coeficiente ao lado das versões que ele mede', async () => {
+    const admin = await newUser('Admin')
+    const scene = await openRoundWith(admin, 2)
+    const ana = await newEvaluator(scene.project, 'Ana')
+    const bruno = await newEvaluator(scene.project, 'Bruno')
+
+    const values = ['low', 'high'] as const
+    for (const [index, value] of values.entries()) {
+      for (const evaluator of [ana, bruno]) {
+        await addEvaluation(ownerDb, scene.round, scene.responses[index], evaluator, {
+          cells: filled(scene.cells, value),
+        })
+      }
+    }
+
+    auth.userId = admin
+    const list = listOf(await render(scene.project))
+
+    expect(list.agreement.get(scene.round)).toEqual({
+      calculable: true,
+      alpha: 1,
+      units: 2,
+      raters: 2,
+    })
+
+    const rendered = RoundList(list)
+    expect(textOf(rendered)).toContain('Codebook v1 · Prompt v1')
+
+    const value = findElement(rendered, AgreementValue)
+    expect(value).toBeTruthy()
+
+    const text = markupTextOf(value!)
+    expect(text).toContain('Concordância (ICR): 1,000')
+    expect(text).toContain('boa')
+    expect(text).toContain('2 unidades · 2 avaliadores')
   })
 
   it('o avaliador não alcança a área de rodadas', async () => {

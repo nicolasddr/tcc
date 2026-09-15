@@ -16,9 +16,12 @@ vi.mock('next/navigation', () => ({
 
 import { createRound, closeRound } from '@/app/projects/[id]/(tabs)/rounds/actions'
 import { listRounds, loadOpenRound } from '@/app/projects/[id]/(tabs)/rounds/rounds'
+import { loadRoundObservations } from '@/app/projects/[id]/(tabs)/rounds/agreement'
 import { saveCodebook } from '@/app/projects/[id]/pipeline/actions'
-import { loadCodebook } from '@/app/projects/[id]/pipeline/codebook'
+import { loadCodebook, loadCodebookVersion } from '@/app/projects/[id]/pipeline/codebook'
+import { resolveCells } from '@/app/projects/[id]/pipeline/criteria'
 import { PHASE_1, PHASE_2 } from '@/app/projects/[id]/pipeline/preconditions'
+import { ordinalAlpha } from '@/lib/agreement'
 import {
   ownerDb,
   pgErrorCode,
@@ -33,7 +36,10 @@ import {
   addActiveEvaluator,
   addCodebookVersion,
   addPromptVersion,
+  addInputItem,
   addRound,
+  addResponse,
+  addEvaluation,
   cleanup,
 } from '@/test/helpers'
 
@@ -359,6 +365,45 @@ describe('app/projects/[id]/rounds/actions — criar, fechar e travar o codebook
     expect(row.status).toBe('closed')
     expect(row.closedAt).not.toBeNull()
     expect(await loadOpenRound(project)).toBeNull()
+  })
+
+  it('fechar não olha métrica: a rodada com ICR não calculável fecha igual', async () => {
+    const admin = await newUser('Admin')
+    const evaluator = await newUser('Bia Avaliadora')
+    const { project, codebookVersion, promptVersion } = await readyProject(admin)
+    const member = await addActiveEvaluator(ownerDb, project, evaluator)
+    const round = await addRound(
+      ownerDb,
+      project,
+      admin,
+      codebookVersion,
+      promptVersion,
+      { roundNumber: 1 },
+    )
+    const item = await addInputItem(ownerDb, project, admin)
+    const response = await addResponse(ownerDb, round, item, admin)
+
+    const codebook = await loadCodebookVersion(project, codebookVersion)
+    await addEvaluation(ownerDb, round, response, member, {
+      cells: resolveCells(codebook!.definitions, codebook!.criteria).map((cell) => ({
+        definitionId: cell.definition.id,
+        criterionId: cell.criterion.id,
+        value: 'high' as const,
+      })),
+    })
+
+    expect(ordinalAlpha(await loadRoundObservations(round))).toMatchObject({
+      calculable: false,
+      reason: 'few_evaluators',
+    })
+
+    auth.userId = admin
+    expect(await closeRound(null, closeRoundForm(project, round))).toMatchObject({
+      ok: true,
+    })
+
+    const [row] = await roundsOf(project)
+    expect(row.status).toBe('closed')
   })
 
   it('fechar duas vezes é recusado', async () => {

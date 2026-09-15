@@ -65,6 +65,17 @@ function findElement(node: unknown, type: unknown): ReactElement | null {
   return null
 }
 
+function deepText(node: unknown): string {
+  if (typeof node === 'string' || typeof node === 'number') return ` ${node} `
+  if (Array.isArray(node)) return node.map(deepText).join('')
+  if (isValidElement(node)) {
+    return Object.values(node.props as Record<string, unknown>)
+      .map(deepText)
+      .join('')
+  }
+  return ''
+}
+
 function hasProp(node: unknown, key: string, value: unknown): boolean {
   if (Array.isArray(node)) return node.some((child) => hasProp(child, key, value))
   if (!isValidElement(node)) return false
@@ -230,6 +241,20 @@ describe('app/projects/[id]/page — escopo de visibilidade', () => {
     const tree = await render(project)
     expect(checklistOf(tree)).toBeNull()
     expect(hasProp(tree, 'href', `/projects/${project}/codebook`)).toBe(false)
+  })
+
+  it('a visão geral vista pelo avaliador não fala de concordância', async () => {
+    const admin = await newUser('Admin')
+    const evaluator = await newUser('Avaliador')
+    const project = await newProject(admin, PHASE_2)
+    await addActiveEvaluator(ownerDb, project, evaluator)
+
+    auth.userId = evaluator
+    const page = deepText(await render(project))
+
+    expect(page).not.toContain('Krippendorff')
+    expect(page).not.toContain('ICR')
+    expect(page).not.toContain('Concordância')
   })
 
   it('a visão geral resume codebook, prompt e itens com link para cada tela', async () => {

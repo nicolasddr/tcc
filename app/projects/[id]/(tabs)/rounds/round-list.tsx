@@ -2,9 +2,17 @@ import { Badge } from '@/app/components/ui/badge'
 import { Card } from '@/app/components/ui/card'
 import { EmptyState } from '@/app/components/ui/empty-state'
 import { formatDate } from '@/app/notifications/labels'
+import type { Agreement } from '@/lib/agreement'
+import { AgreementValue } from './agreement-panel'
 import { isOpen, type RoundSummary } from './rounds'
 
-export function RoundList({ rounds }: { rounds: RoundSummary[] }) {
+export function RoundList({
+  rounds,
+  agreement,
+}: {
+  rounds: RoundSummary[]
+  agreement: Map<string, Agreement>
+}) {
   if (rounds.length === 0) {
     return (
       <EmptyState>
@@ -39,6 +47,10 @@ export function RoundList({ rounds }: { rounds: RoundSummary[] }) {
               Aberta em {formatDate(round.createdAt)} por {round.authorName}
               {round.closedAt ? ` · fechada em ${formatDate(round.closedAt)}` : null}
             </p>
+
+            {agreement.has(round.id) ? (
+              <AgreementValue agreement={agreement.get(round.id)!} />
+            ) : null}
           </Card>
         </li>
       ))}

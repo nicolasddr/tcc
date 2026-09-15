@@ -13,7 +13,7 @@ seguinte herda — anote ali o que divergiu, como nos planos das #60 e #61.
 |---|---|---|
 | 1 | O módulo puro: `lib/agreement.ts`, o Alpha ordinal e os unitários que o provam | ☑ |
 | 2 | Leitura: das notas gravadas para a matriz, e as contagens por avaliador | ☑ |
-| 3 | A tela do Administrador: valor, N, faixa de referência, avisos e a invisibilidade ao Avaliador | ☐ |
+| 3 | A tela do Administrador: valor, N, faixa de referência, avisos e a invisibilidade ao Avaliador | ☑ |
 
 Decisões de domínio já registradas, **nenhuma ADR nova é necessária**: ADR 0004 (faixa de referência
 sem trava), ADR 0010 (escala fixa de três pontos, que é o que dá nível ordinal ao coeficiente),
@@ -498,8 +498,84 @@ coeficiente com N, faixa, origem e aviso, enquanto a do Avaliador não mostra na
 
 ### O que ficou desta Parte
 
-_(preencher: o que divergiu, onde o painel acabou ficando, e o que a #63 pode reaproveitar tal como
-está.)_
+**Os dois módulos saíram como planejados**, com uma assinatura a registrar. `agreement-labels.ts`:
+
+```ts
+export type AgreementBand = 'questionable' | 'acceptable' | 'good'
+export const AGREEMENT_LABEL = 'Concordância (ICR)'
+export const NOT_CALCULABLE_LABEL = 'não calculável'
+export const AGREEMENT_SOURCE = 'Krippendorff (2004)'
+export const AGREEMENT_BANDS = { acceptable: 0.667, good: 0.8 } as const
+export const SMALL_SAMPLE_RATERS = 3
+export const SMALL_SAMPLE_RESPONSES = 10
+export const BAND_REFERENCE: string
+export function agreementBand(alpha: number): AgreementBand
+export function bandLabel(band: AgreementBand): string
+export function bandTone(band: AgreementBand): 'danger' | 'warning' | 'success'
+export function formatAlpha(alpha: number): string
+export function sampleSize({ units, raters }: Pick<Agreement, 'units' | 'raters'>): string
+export function smallSampleWarning({ raters, responses }): string | null
+export function notCalculableMessage(reason: NotCalculableReason): string
+```
+
+`AGREEMENT_LABEL` e `NOT_CALCULABLE_LABEL` não estavam no plano e nasceram aqui porque o rótulo
+aparece em três lugares (painel, linha da lista, teste de invisibilidade) e repetir a string
+convidaria a divergir. `BAND_REFERENCE` é a frase única da faixa, montada a partir dos próprios
+cortes, então mudar `AGREEMENT_BANDS` muda o texto junto.
+
+**O corte de amostra pequena está no texto, não em comentário.** O plano pedia um comentário dizendo
+que o corte é critério da ferramenta; o repo não usa comentários, então a ressalva virou parte da
+frase que o Administrador lê: "o corte é convenção desta ferramenta, não da literatura". Um teste
+afirma que esse aviso **não** cita `AGREEMENT_SOURCE`, para a convenção nunca passar por literatura.
+Continua valendo confirmar 3 / 10 com o orientador.
+
+**`formatAlpha` usa `toFixed(3)` com troca de ponto por vírgula, não `Intl`.** É determinístico em
+qualquer ambiente, que era o motivo de a função existir. Efeito colateral a conhecer: o arredondamento
+é o binário do IEEE 754, então `0,6665` sai `0,666` — o teste do valor cru usa `0.66666`, que
+arredonda para `0,667` e continua caindo em questionável, que é o ponto do caso.
+
+**O painel ficou em `Section` própria, entre gerar respostas e fechar rodada.** A ordem na tela é:
+gerar respostas → **Concordância na rodada N** → Rodada N aberta (fechar). O aviso aparece cedo, como
+a história 42 pede, e antes do botão irreversível.
+
+**`AgreementPanel` recebe `responses` como número de respostas *avaliadas*, derivado das próprias
+observações** (`new Set(...map(o => o.responseId)).size`), e não de `listRoundResponses`. Assim o
+corte de amostra pequena mede o que foi avaliado, que é o que o § 3 diz, e a página não precisa de
+consulta nova. O `hint` do `StatCard` mostra os três números juntos: `8 unidades · 2 avaliadores · 4
+respostas avaliadas`.
+
+**O aviso de amostra pequena aparece também quando o coeficiente não é calculável.** O plano só
+tratava do caso calculável. Manter a regra única ("a amostra é pequena") evita um segundo critério
+escondido, e o aviso nunca substitui o valor — ele entra como `Alert tone="notice"` 12px abaixo do
+`StatCard`, verificado no preview.
+
+**`RoundList` ganhou a prop `agreement: Map<string, Agreement>`**, e só desenha `AgreementValue` para
+a rodada que está na chave. A página monta o mapa com `ordinalAlpha(observations.get(round.id) ?? [])`
+para **toda** rodada listada, então na prática toda linha tem valor — inclusive a rodada recém-aberta,
+que mostra "não calculável · 0 unidades · 0 avaliadores".
+
+**Nenhuma action passou a olhar métrica.** Quem chama `ordinalAlpha` é só `(tabs)/rounds/page.tsx`.
+O teste `fechar não olha métrica: a rodada com ICR não calculável fecha igual`, em
+`actions.int.test.ts`, prova a ADR 0004 com a rodada de um avaliador só.
+
+**A invisibilidade ao Avaliador ficou provada em dois lugares**, e os dois precisaram de um coletor de
+texto novo: `textOf` só desce por `children`, e título e dica de `Section` são props. O `deepText` dos
+testes percorre **todas** as props. Em `(tabs)/evaluate/page.int.test.ts` a rodada tem avaliações de
+dois avaliadores e a árvore do Avaliador não contém `AgreementPanel` nem `AgreementValue`, nem os
+textos "Krippendorff", "ICR" e "Concordância"; em `(tabs)/page.int.test.ts` a mesma asserção de texto
+roda sobre a visão geral vista por um avaliador.
+
+**O que a #63 reaproveita tal como está:** `agreement-labels.ts` inteiro (faixa, tom, formato e o N
+não sabem de rodada nenhuma), `AgreementValue` para cada ponto da série, e o mapa por rodada que a
+página já monta a partir de `loadProjectObservations` — a matriz por célula é o mesmo `ordinalAlpha`
+sobre as observações filtradas por `definitionId`/`criterionId`.
+
+**Verificado no navegador** (`npm run dev:local`, projeto semeado e apagado depois): valor, faixa,
+N, frase da origem, aviso e lista de esforço na tela; badge no tom de perigo para `questionável`;
+sem transbordo horizontal em 1100px nem em 375px. O screenshot do painel sai preto pelo problema
+conhecido do preview — a conferência foi por `get_page_text` e geometria via `javascript_tool`.
+
+`npm test` 700 testes verdes (21 novos); `npm run lint` e `npm run typecheck` verdes.
 
 ---
 

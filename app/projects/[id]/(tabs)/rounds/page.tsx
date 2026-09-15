@@ -6,11 +6,18 @@ import { loadPrompt } from '../../pipeline/prompt'
 import { loadItems } from '../../pipeline/items'
 import { listRoundResponses } from '../../pipeline/responses'
 import { listEvaluatorsNotFinished, listRounds, loadOpenRound } from './rounds'
+import {
+  listEvaluatorEffort,
+  loadProjectObservations,
+  type RoundObservation,
+} from './agreement'
 import { roundBlockers } from './preconditions'
 import { NewRound } from './new-round'
 import { CloseRound } from './close-round'
 import { GenerateResponses } from './generate-responses'
 import { RoundList } from './round-list'
+import { AgreementPanel } from './agreement-panel'
+import { ordinalAlpha, type Agreement } from '@/lib/agreement'
 import { llmModel } from '@/lib/ai'
 import { projectResponsesLeft, projectResponsesMax } from '@/lib/ai/quota'
 import { Section } from '@/app/components/ui/section'
@@ -32,6 +39,8 @@ export default async function ProjectRoundsPage({
     evaluatorsNotFinished,
     items,
     generated,
+    observations,
+    effort,
   } = await transaction(async (tx) => {
     const access = await loadPipelineAccess(id, userId, tx)
     const projectId = access.project?.id
@@ -48,10 +57,25 @@ export default async function ProjectRoundsPage({
         : [],
       items: projectId && openRound ? await loadItems(projectId, tx) : [],
       generated: openRound ? await listRoundResponses(openRound.id, tx) : [],
+      observations: projectId
+        ? await loadProjectObservations(projectId, tx)
+        : new Map<string, RoundObservation[]>(),
+      effort:
+        projectId && openRound
+          ? await listEvaluatorEffort(openRound.id, projectId, tx)
+          : [],
     }
   })
 
   const project = requirePipelineAdmin(access, id)
+
+  const agreement = new Map<string, Agreement>(
+    rounds.map((round) => [round.id, ordinalAlpha(observations.get(round.id) ?? [])]),
+  )
+  const openObservations = openRound ? (observations.get(openRound.id) ?? []) : []
+  const evaluatedResponses = new Set(
+    openObservations.map((observation) => observation.responseId),
+  ).size
 
   const blockers = roundBlockers({
     phase: project.phase,
@@ -84,6 +108,17 @@ export default async function ProjectRoundsPage({
           </Section>
 
           <Section
+            title={`Concordância na rodada ${openRound.roundNumber}`}
+            hint="Krippendorff's Alpha ordinal desta rodada, sobre a versão de codebook que ela fixou. O valor aparece desde a primeira avaliação e não trava nada: fechar a rodada e avançar de fase continuam sendo decisão sua."
+          >
+            <AgreementPanel
+              agreement={agreement.get(openRound.id) ?? ordinalAlpha([])}
+              responses={evaluatedResponses}
+              effort={effort}
+            />
+          </Section>
+
+          <Section
             title={`Rodada ${openRound.roundNumber} aberta`}
             hint="Só existe uma rodada aberta por projeto. Fechar é ação sua, é irreversível e não depende de todos terem terminado."
           >
@@ -112,9 +147,9 @@ export default async function ProjectRoundsPage({
 
       <Section
         title="Rodadas do projeto"
-        hint="Em ordem cronológica, com o estado de cada uma e as versões de codebook e de prompt que ela fixou."
+        hint="Em ordem cronológica, com o estado de cada uma, as versões de codebook e de prompt que ela fixou e a concordância alcançada sobre elas."
       >
-        <RoundList rounds={rounds} />
+        <RoundList rounds={rounds} agreement={agreement} />
       </Section>
     </>
   )
