@@ -20,12 +20,14 @@ vi.mock('next/navigation', () => ({
 
 import ProjectEvaluatePage from '@/app/projects/[id]/(tabs)/evaluate/page'
 import { EvaluationForm } from '@/app/projects/[id]/(tabs)/evaluate/evaluation-form'
+import { ContextPanel } from '@/app/projects/[id]/(tabs)/evaluate/context-panel'
+import { QueueNav } from '@/app/projects/[id]/(tabs)/evaluate/queue-nav'
 import { buildQueue } from '@/app/projects/[id]/(tabs)/evaluate/queue'
 import { loadCodebookVersion } from '@/app/projects/[id]/pipeline/codebook'
 import { resolveCells } from '@/app/projects/[id]/pipeline/criteria'
 import { listRoundResponses } from '@/app/projects/[id]/pipeline/responses'
 import { PHASE_1, PHASE_2 } from '@/app/projects/[id]/pipeline/preconditions'
-import { ButtonLink } from '@/app/components/ui/button'
+import { Section } from '@/app/components/ui/section'
 import { ProgressBar } from '@/app/components/ui/stat'
 import { ownerDb } from '@/lib/db'
 import {
@@ -75,11 +77,40 @@ function textOf(node: unknown): string {
 
 type FormProps = Parameters<typeof EvaluationForm>[0]
 
-function render(id: string, response?: string) {
+type PanelProps = Parameters<typeof ContextPanel>[0]
+
+function render(id: string, response?: string, sent?: boolean) {
   return ProjectEvaluatePage({
     params: Promise.resolve({ id }),
-    searchParams: Promise.resolve(response ? { response } : {}),
+    searchParams: Promise.resolve({
+      ...(response ? { response } : {}),
+      ...(sent ? { sent: '1' } : {}),
+    }),
   })
+}
+
+function navOf(tree: unknown): { prev: string | null; next: string | null } {
+  const nav = findElement(tree, QueueNav)
+  expect(nav).toBeTruthy()
+  return nav!.props as { prev: string | null; next: string | null }
+}
+
+function headingOf(tree: unknown): string {
+  const section = findElement(tree, Section)
+  expect(section).toBeTruthy()
+  return collectText((section!.props as { title: unknown }).title)
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function panelOf(tree: unknown): PanelProps {
+  const element = findElement(tree, ContextPanel)
+  expect(element).toBeTruthy()
+  return element!.props as PanelProps
+}
+
+function panelMarkupOf(tree: unknown): string {
+  return renderToStaticMarkup(createElement(ContextPanel, panelOf(tree)))
 }
 
 async function open(id: string, response?: string) {
@@ -128,6 +159,9 @@ describe('app/projects/[id]/evaluate — a tela do avaliador', () => {
       responses?: number
       phase?: number
       openRound?: boolean
+      prompt?: { text?: string; name?: string; description?: string }
+      item?: { name?: string; content?: string }
+      responseText?: string
     } = {},
   ): Promise<Scene> {
     const project = await seedProject(ownerDb, admin, 'Projeto de Teste', {
@@ -146,7 +180,11 @@ describe('app/projects/[id]/evaluate — a tela do avaliador', () => {
       })),
       generalCriteria: opts.generalCriteria,
     })
-    const promptVersion = await addPromptVersion(ownerDb, project, admin)
+    const promptVersion = await addPromptVersion(ownerDb, project, admin, {
+      text: opts.prompt?.text,
+      name: opts.prompt?.name ?? null,
+      description: opts.prompt?.description ?? null,
+    })
 
     if (opts.openRound === false) {
       return { project, round: '', codebookVersion, responses: [] }
@@ -156,12 +194,14 @@ describe('app/projects/[id]/evaluate — a tela do avaliador', () => {
 
     const responses: string[] = []
     for (let index = 0; index < (opts.responses ?? 1); index += 1) {
+      const first = index === 0
       const item = await addInputItem(ownerDb, project, admin, {
-        name: `Item ${index + 1}`,
+        name: (first ? opts.item?.name : undefined) ?? `Item ${index + 1}`,
+        content: first ? opts.item?.content : undefined,
       })
       responses.push(
         await addResponse(ownerDb, round, item, admin, {
-          text: `Resposta ${index + 1}`,
+          text: (first ? opts.responseText : undefined) ?? `Resposta ${index + 1}`,
         }),
       )
     }
@@ -343,34 +383,169 @@ describe('app/projects/[id]/evaluate — a tela do avaliador', () => {
     expect(formOf(await open(scene.project, third)).label).toBe('Resposta 3')
   })
 
-  it('depois de enviada, a rota fica na mesma resposta e oferece ir para a próxima', async () => {
+  it('voltar pelo controle a uma resposta já enviada mostra o modo leitura', async () => {
     const admin = await newUser('Admin')
-    const scene = await scenario(admin, { responses: 2 })
+    const scene = await scenario(admin, { responses: 3 })
     const evaluator = await newEvaluator(scene.project)
     const member = await memberIdOf(ownerDb, scene.project, evaluator)
-    await addEvaluation(ownerDb, scene.round, scene.responses[0], member)
+    const queue = await queueOf(scene, evaluator)
+    await addEvaluation(ownerDb, scene.round, queue[0], member)
 
     auth.userId = evaluator
-    const tree = await render(scene.project, scene.responses[0])
-    expect(formOf(tree).response.id).toBe(scene.responses[0])
-    expect(formOf(tree).submitted).not.toBeNull()
+    const back = navOf(await render(scene.project, queue[1])).prev
+    expect(back).toBe(`/projects/${scene.project}/evaluate?response=${queue[0]}`)
 
-    const link = findElement(tree, ButtonLink)
-    expect(link).toBeTruthy()
-    expect((link!.props as { href: string }).href).toBe(
-      `/projects/${scene.project}/evaluate?response=${scene.responses[1]}`,
-    )
+    const props = formOf(await render(scene.project, queue[0]))
+    expect(props.response.id).toBe(queue[0])
+    expect(props.submitted).not.toBeNull()
+
+    const html = markupOf(props)
+    expect(html).toContain('definitivo')
+    expect(html).not.toContain('<textarea')
   })
 
-  it('sem próxima resposta a avaliar, a tela não oferece avançar', async () => {
+  it('anterior e próxima apontam para os vizinhos na MINHA ordem', async () => {
+    const admin = await newUser('Admin')
+    const scene = await scenario(admin, { responses: 5 })
+    const evaluator = await newEvaluator(scene.project)
+    const queue = await queueOf(scene, evaluator)
+    const route = `/projects/${scene.project}/evaluate?response=`
+
+    auth.userId = evaluator
+    expect(navOf(await render(scene.project, queue[2]))).toEqual({
+      prev: `${route}${queue[1]}`,
+      next: `${route}${queue[3]}`,
+    })
+  })
+
+  it('nas pontas da fila, o controle que falta não aponta para lugar nenhum', async () => {
+    const admin = await newUser('Admin')
+    const scene = await scenario(admin, { responses: 4 })
+    const evaluator = await newEvaluator(scene.project)
+    const queue = await queueOf(scene, evaluator)
+    const route = `/projects/${scene.project}/evaluate?response=`
+
+    auth.userId = evaluator
+    expect(navOf(await render(scene.project, queue[0]))).toEqual({
+      prev: null,
+      next: `${route}${queue[1]}`,
+    })
+    expect(navOf(await render(scene.project, queue[3]))).toEqual({
+      prev: `${route}${queue[2]}`,
+      next: null,
+    })
+  })
+
+  it('com uma resposta só, nenhum controle leva a lugar nenhum', async () => {
     const admin = await newUser('Admin')
     const scene = await scenario(admin)
     const evaluator = await newEvaluator(scene.project)
-    const member = await memberIdOf(ownerDb, scene.project, evaluator)
-    await addEvaluation(ownerDb, scene.round, scene.responses[0], member)
 
     auth.userId = evaluator
-    expect(findElement(await render(scene.project, scene.responses[0]), ButtonLink)).toBeNull()
+    expect(navOf(await open(scene.project))).toEqual({ prev: null, next: null })
+  })
+
+  it('a confirmação do envio vem de ?sent=1, e o redirect canônico não a carrega', async () => {
+    const admin = await newUser('Admin')
+    const scene = await scenario(admin, { responses: 2 })
+    const evaluator = await newEvaluator(scene.project)
+    const queue = await queueOf(scene, evaluator)
+
+    auth.userId = evaluator
+    expect(textOf(await render(scene.project, queue[1], true))).toContain(
+      'Avaliação enviada',
+    )
+    expect(textOf(await render(scene.project, queue[1]))).not.toContain(
+      'Avaliação enviada',
+    )
+
+    await expect(render(scene.project, undefined, true)).rejects.toThrow(
+      `NEXT_REDIRECT:/projects/${scene.project}/evaluate?response=${queue[0]}`,
+    )
+    const url = await render(scene.project, undefined, true).then(
+      () => '',
+      (error: Error) => error.message,
+    )
+    expect(url).not.toContain('sent')
+  })
+
+  it('o painel de contexto traz o prompt e o item que geraram a resposta', async () => {
+    const admin = await newUser('Admin')
+    const scene = await scenario(admin, {
+      prompt: { text: 'Classifique a intenção de busca.' },
+      item: { name: 'como plantar manjericão', content: 'Consulta do usuário.' },
+    })
+    const evaluator = await newEvaluator(scene.project)
+
+    auth.userId = evaluator
+    const tree = await open(scene.project)
+    const html = panelMarkupOf(tree)
+
+    expect(html).toContain('O que foi pedido')
+    expect(html).toContain('Classifique a inten')
+    expect(html).toContain('como plantar manjeric')
+    expect(html).toContain('Consulta do usu')
+    expect(html).toContain('versão 1')
+  })
+
+  it('o nome e a descrição do prompt aparecem quando preenchidos e somem quando nulos', async () => {
+    const admin = await newUser('Admin')
+    const named = await scenario(admin, {
+      prompt: { name: 'Classificador v1', description: 'Sem exemplos ainda.' },
+    })
+    const bare = await scenario(admin)
+    const evaluator = await newEvaluator(named.project)
+    await addActiveEvaluator(ownerDb, bare.project, evaluator)
+
+    auth.userId = evaluator
+    const withMetadata = panelMarkupOf(await open(named.project))
+    expect(withMetadata).toContain('Classificador v1')
+    expect(withMetadata).toContain('Sem exemplos ainda')
+
+    const without = panelMarkupOf(await open(bare.project))
+    expect(without).not.toContain('Nome do prompt')
+    expect(without).not.toContain('Descrição do prompt')
+  })
+
+  it('o painel fica FORA do formulário, para o preenchido não se perder ao abri-lo', async () => {
+    const admin = await newUser('Admin')
+    const scene = await scenario(admin)
+    const evaluator = await newEvaluator(scene.project)
+
+    auth.userId = evaluator
+    const tree = await open(scene.project)
+
+    expect(findElement(tree, ContextPanel)).toBeTruthy()
+    expect(findElement(findElement(tree, EvaluationForm), ContextPanel)).toBeNull()
+    expect(markupOf(formOf(tree))).not.toContain('O que foi pedido')
+    expect(panelMarkupOf(tree)).toContain('<details')
+    expect(panelMarkupOf(tree)).not.toContain('open=""')
+  })
+
+  it('o texto da resposta e o do prompt preservam a formatação', async () => {
+    const admin = await newUser('Admin')
+    const scene = await scenario(admin, {
+      prompt: { text: 'Linha 1\nLinha 2' },
+      responseText: 'Parágrafo 1\n\nParágrafo 2',
+    })
+    const evaluator = await newEvaluator(scene.project)
+
+    auth.userId = evaluator
+    const tree = await open(scene.project)
+
+    expect(markupOf(formOf(tree))).toMatch(
+      /class="[^"]*whitespace-pre-wrap[^"]*"[^>]*>Parágrafo 1/,
+    )
+    expect(panelMarkupOf(tree)).toMatch(/class="[^"]*whitespace-pre-wrap[^"]*"[^>]*>Linha 1/)
+  })
+
+  it('o cabeçalho diz em nome de quem a avaliação está sendo feita', async () => {
+    const admin = await newUser('Admin')
+    const scene = await scenario(admin)
+    const evaluator = await newEvaluator(scene.project, 'Marta Ribeiro')
+
+    auth.userId = evaluator
+    expect(headingOf(await open(scene.project))).toContain('Avaliando como Marta Ribeiro')
   })
 
   it('a rota escolhe a resposta pedida, e sem pedido abre a primeira ainda não avaliada', async () => {

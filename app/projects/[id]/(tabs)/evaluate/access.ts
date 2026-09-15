@@ -1,6 +1,6 @@
 import { notFound, redirect } from 'next/navigation'
 import { and, eq } from 'drizzle-orm'
-import { ownerDb, type DbExecutor, projects, projectMembers } from '@/lib/db'
+import { ownerDb, type DbExecutor, profiles, projects, projectMembers } from '@/lib/db'
 
 export type EvaluatorProject = {
   id: string
@@ -12,6 +12,7 @@ export type EvaluatorProject = {
 export type EvaluatorAccess = {
   project: EvaluatorProject
   memberId: string
+  memberName: string
 }
 
 export async function requireEvaluator(
@@ -33,8 +34,13 @@ export async function requireEvaluator(
   if (!project) notFound()
 
   const memberships = await db
-    .select({ id: projectMembers.id, status: projectMembers.status })
+    .select({
+      id: projectMembers.id,
+      status: projectMembers.status,
+      name: profiles.name,
+    })
     .from(projectMembers)
+    .innerJoin(profiles, eq(profiles.id, projectMembers.userId))
     .where(
       and(
         eq(projectMembers.projectId, projectId),
@@ -44,7 +50,7 @@ export async function requireEvaluator(
     )
 
   const active = memberships.find((membership) => membership.status === 'active')
-  if (active) return { project, memberId: active.id }
+  if (active) return { project, memberId: active.id, memberName: active.name }
 
   if (memberships.some((membership) => membership.status === 'pending_onboarding')) {
     redirect(`/projects/${projectId}/onboarding`)

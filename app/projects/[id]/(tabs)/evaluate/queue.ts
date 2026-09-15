@@ -40,3 +40,30 @@ export function pickResponseId(
 
   return (pending ?? queue[0]).id
 }
+
+export function neighbours(
+  queue: readonly QueuedResponse[],
+  currentId: string,
+): { prev: string | null; next: string | null } {
+  const index = queue.findIndex((response) => response.id === currentId)
+  if (index === -1) return { prev: null, next: null }
+
+  return {
+    prev: queue[index - 1]?.id ?? null,
+    next: queue[index + 1]?.id ?? null,
+  }
+}
+
+export function nextPendingId(
+  queue: readonly QueuedResponse[],
+  currentId: string,
+): string | null {
+  const start = queue.findIndex((response) => response.id === currentId)
+
+  for (let step = 1; step <= queue.length; step += 1) {
+    const candidate = queue[(start + step) % queue.length]
+    if (candidate.id !== currentId && !candidate.evaluated) return candidate.id
+  }
+
+  return null
+}

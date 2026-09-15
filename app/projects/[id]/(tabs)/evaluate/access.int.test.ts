@@ -48,15 +48,27 @@ describe('app/projects/[id]/evaluate/access — quem entra na tela do avaliador'
     await cleanup(projs, users)
   })
 
-  it('o avaliador ativo entra, e recebe o projeto e o próprio vínculo', async () => {
+  it('o avaliador ativo entra, e recebe o projeto, o vínculo e o próprio nome', async () => {
     const admin = await newUser('Admin')
     const project = await newProject(admin)
-    const evaluator = await newUser('Avaliadora')
+    const evaluator = await newUser('Marta Ribeiro')
     await addActiveEvaluator(ownerDb, project, evaluator)
 
     const access = await requireEvaluator(project, evaluator)
     expect(access.project).toMatchObject({ id: project, name: 'Projeto de Teste' })
     expect(access.memberId).toBe(await memberIdOf(ownerDb, project, evaluator))
+    expect(access.memberName).toBe('Marta Ribeiro')
+  })
+
+  it('o nome é o do avaliador, e não o de quem criou o projeto', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin)
+    await addActiveEvaluator(ownerDb, project, admin)
+    const evaluator = await newUser('Avaliadora')
+    await addActiveEvaluator(ownerDb, project, evaluator)
+
+    expect((await requireEvaluator(project, evaluator)).memberName).toBe('Avaliadora')
+    expect((await requireEvaluator(project, admin)).memberName).toBe('Admin')
   })
 
   it('o administrador sem vínculo de avaliador leva notFound', async () => {

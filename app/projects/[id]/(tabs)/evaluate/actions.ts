@@ -1,6 +1,7 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
+import { redirect } from 'next/navigation'
 import { and, eq } from 'drizzle-orm'
 import { requireUserId } from '@/lib/supabase/server'
 import {
@@ -15,8 +16,11 @@ import { evaluatorMembershipId } from '@/lib/authz'
 import { JUSTIFICATION_MAX } from '@/lib/limits'
 import { loadCodebookVersion } from '../../pipeline/codebook'
 import { resolveCells } from '../../pipeline/criteria'
+import { listRoundResponses } from '../../pipeline/responses'
 import { isUuid } from '../../pipeline/versions'
 import { isOpen } from '../rounds/rounds'
+import { loadEvaluatedResponseIds } from './evaluation'
+import { buildQueue, nextPendingId } from './queue'
 import { cellKey, definitionsIncomplete, incompleteMessage, type Answer } from './completeness'
 import { isScaleValue } from './scale'
 
@@ -56,7 +60,7 @@ type SubmitOutcome =
   | { status: 'out_of_scale' }
   | { status: 'too_long' }
   | { status: 'incomplete'; titles: string[] }
-  | { status: 'ok' }
+  | { status: 'ok'; nextId: string | null }
 
 export async function submitEvaluation(
   _prev: EvaluationState,
@@ -156,7 +160,11 @@ export async function submitEvaluation(
         )
       }
 
-      return { status: 'ok' }
+      const listed = await listRoundResponses(response.roundId, tx)
+      const evaluated = await loadEvaluatedResponseIds(response.roundId, memberId, tx)
+      const queue = buildQueue(listed, evaluated, memberId, response.roundId)
+
+      return { status: 'ok', nextId: nextPendingId(queue, responseId) }
     })
   } catch (err) {
     if (pgErrorCode(err) === '23505') return { error: ALREADY_SUBMITTED }
@@ -172,5 +180,10 @@ export async function submitEvaluation(
   if (outcome.status === 'incomplete') return { error: incompleteMessage(outcome.titles) }
 
   revalidatePath(`/projects/${projectId}/evaluate`)
+
+  if (outcome.nextId) {
+    redirect(`/projects/${projectId}/evaluate?response=${outcome.nextId}&sent=1`)
+  }
+
   return { ok: true, nonce: Date.now() }
 }

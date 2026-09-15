@@ -23,7 +23,7 @@ import { Card } from '@/app/components/ui/card'
 import { Disclosure } from '@/app/components/ui/disclosure'
 import { Textarea } from '@/app/components/ui/field'
 import { Form, FormActions } from '@/app/components/ui/form'
-import { preWrapClass } from '@/app/components/ui/prose'
+import { preWrapClass, scrollBoxClass } from '@/app/components/ui/prose'
 import { InfoTooltip } from '@/app/components/ui/tooltip'
 
 type Cell = CodebookCell<CodebookDefinition, CodebookCriterion>
@@ -114,7 +114,9 @@ function ResponseCard({
         <span className="text-[13px] text-muted">{response.itemName}</span>
         <span className="text-[13px] text-muted">{formatDate(response.createdAt)}</span>
       </div>
-      <p className={`m-0 mt-2 text-sm ${preWrapClass} text-ink`}>{response.text}</p>
+      <p className={`m-0 mt-2 text-sm ${scrollBoxClass} ${preWrapClass} text-ink`}>
+        {response.text}
+      </p>
     </Card>
   )
 }

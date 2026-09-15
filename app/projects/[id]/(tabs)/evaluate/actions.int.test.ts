@@ -15,12 +15,14 @@ vi.mock('next/navigation', () => ({
 }))
 
 import { submitEvaluation } from '@/app/projects/[id]/(tabs)/evaluate/actions'
+import { buildQueue } from '@/app/projects/[id]/(tabs)/evaluate/queue'
 import {
   loadEvaluatedResponseIds,
   loadEvaluationOf,
 } from '@/app/projects/[id]/(tabs)/evaluate/evaluation'
 import { loadCodebookVersion } from '@/app/projects/[id]/pipeline/codebook'
 import { resolveCells } from '@/app/projects/[id]/pipeline/criteria'
+import { listRoundResponses } from '@/app/projects/[id]/pipeline/responses'
 import { PHASE_2 } from '@/app/projects/[id]/pipeline/preconditions'
 import { JUSTIFICATION_MAX } from '@/lib/limits'
 import {
@@ -147,6 +149,29 @@ describe('app/projects/[id]/evaluate/actions — enviar a avaliação de uma res
         data.set(`justification_${key}`, opts.justification)
       }
     }
+    return data
+  }
+
+  async function queueOf(
+    scene: Scenario,
+    admin: string,
+    member: string,
+    extra: number,
+  ): Promise<string[]> {
+    for (let index = 0; index < extra; index += 1) {
+      const item = await addInputItem(ownerDb, scene.project, admin, {
+        name: `Item extra ${index + 1}`,
+      })
+      await addResponse(ownerDb, scene.round, item, admin)
+    }
+
+    const listed = await listRoundResponses(scene.round)
+    return buildQueue(listed, [], member, scene.round).map((response) => response.id)
+  }
+
+  function formOf(scene: Scenario, responseId: string): FormData {
+    const data = form(scene)
+    data.set('response_id', responseId)
     return data
   }
 
@@ -438,5 +463,86 @@ describe('app/projects/[id]/evaluate/actions — enviar a avaliação de uma res
     expect(await loadEvaluatedResponseIds(scene.round, member)).toEqual([scene.response])
     expect(await loadEvaluatedResponseIds(scene.round, outroMember[0].id)).toEqual([])
     expect(await loadEvaluationOf(scene.response, outroMember[0].id)).toBeNull()
+  })
+
+  it('com pendente sobrando, o envio leva à próxima da MINHA fila, com a confirmação', async () => {
+    const admin = await newUser('Admin')
+    const scene = await scenario(admin)
+    const evaluator = await newEvaluator(scene.project)
+    const member = await memberIdOf(ownerDb, scene.project, evaluator)
+    const queue = await queueOf(scene, admin, member, 3)
+
+    auth.userId = evaluator
+    await expect(submitEvaluation(null, formOf(scene, queue[0]))).rejects.toThrow(
+      `NEXT_REDIRECT:/projects/${scene.project}/evaluate?response=${queue[1]}&sent=1`,
+    )
+  })
+
+  it('a avaliação FICA GRAVADA mesmo no caminho que redireciona', async () => {
+    const admin = await newUser('Admin')
+    const scene = await scenario(admin)
+    const evaluator = await newEvaluator(scene.project)
+    const member = await memberIdOf(ownerDb, scene.project, evaluator)
+    const queue = await queueOf(scene, admin, member, 1)
+
+    auth.userId = evaluator
+    await expect(submitEvaluation(null, formOf(scene, queue[0]))).rejects.toThrow(
+      'NEXT_REDIRECT:',
+    )
+
+    const [evaluation] = await evaluationsOf(queue[0])
+    expect(evaluation).toBeTruthy()
+    expect(evaluation.projectMemberId).toBe(member)
+    expect(await scoresOf(evaluation.id)).toHaveLength(scene.cells.length)
+    expect(await loadEvaluatedResponseIds(scene.round, member)).toEqual([queue[0]])
+  })
+
+  it('da última da fila, o avanço DÁ A VOLTA para a pendente lá atrás', async () => {
+    const admin = await newUser('Admin')
+    const scene = await scenario(admin)
+    const evaluator = await newEvaluator(scene.project)
+    const member = await memberIdOf(ownerDb, scene.project, evaluator)
+    const queue = await queueOf(scene, admin, member, 3)
+
+    auth.userId = evaluator
+    for (const responseId of queue.slice(1, queue.length - 1)) {
+      await expect(submitEvaluation(null, formOf(scene, responseId))).rejects.toThrow(
+        'NEXT_REDIRECT:',
+      )
+    }
+
+    await expect(
+      submitEvaluation(null, formOf(scene, queue[queue.length - 1])),
+    ).rejects.toThrow(
+      `NEXT_REDIRECT:/projects/${scene.project}/evaluate?response=${queue[0]}&sent=1`,
+    )
+  })
+
+  it('o envio da última pendente não redireciona, e devolve ok', async () => {
+    const admin = await newUser('Admin')
+    const scene = await scenario(admin)
+    const evaluator = await newEvaluator(scene.project)
+
+    auth.userId = evaluator
+    expect(await submitEvaluation(null, form(scene))).toMatchObject({ ok: true })
+  })
+
+  it('a próxima é a da MINHA fila, e não a do colega', async () => {
+    const admin = await newUser('Admin')
+    const scene = await scenario(admin)
+    const mine = await newEvaluator(scene.project, 'Avaliadora')
+    const theirs = await newEvaluator(scene.project, 'Avaliador')
+    const myMember = await memberIdOf(ownerDb, scene.project, mine)
+    const theirMember = await memberIdOf(ownerDb, scene.project, theirs)
+
+    const myQueue = await queueOf(scene, admin, myMember, 7)
+    const listed = await listRoundResponses(scene.round)
+    const theirQueue = buildQueue(listed, [], theirMember, scene.round).map((r) => r.id)
+    expect(theirQueue).not.toEqual(myQueue)
+
+    auth.userId = mine
+    await expect(submitEvaluation(null, formOf(scene, myQueue[0]))).rejects.toThrow(
+      `NEXT_REDIRECT:/projects/${scene.project}/evaluate?response=${myQueue[1]}&sent=1`,
+    )
   })
 })
