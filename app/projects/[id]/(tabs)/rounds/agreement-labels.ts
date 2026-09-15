@@ -17,6 +17,21 @@ export const SMALL_SAMPLE_RATERS = 3
 
 export const SMALL_SAMPLE_RESPONSES = 10
 
+export const CELL_NOT_APPLICABLE = '—'
+
+export const CELL_NOT_APPLICABLE_TITLE = 'critério específico de outra definição'
+
+export const CELL_UNRATED_LABEL = 'sem nota'
+
+export const MATRIX_LEGEND =
+  `Na matriz, “${CELL_UNRATED_LABEL}” é célula que existe no codebook e que ninguém ` +
+  `avaliou ainda; “${cellNotCalculableLabel('few_evaluators')}”, ` +
+  `“${cellNotCalculableLabel('no_shared_units')}” e ` +
+  `“${cellNotCalculableLabel('no_variation')}” são células com nota e sem coeficiente, ` +
+  'respectivamente por um avaliador só, por nenhuma resposta avaliada por dois deles e ' +
+  `por todas as notas no mesmo ponto da escala; e “${CELL_NOT_APPLICABLE}” é ` +
+  `${CELL_NOT_APPLICABLE_TITLE}, que não se aplica a esta. Nenhum desses casos vale zero.`
+
 export const BAND_REFERENCE =
   `Faixa de referência de ${AGREEMENT_SOURCE}: abaixo de ` +
   `${formatCut(AGREEMENT_BANDS.acceptable)} é questionável, de ` +
@@ -108,5 +123,16 @@ export function notCalculableMessage(reason: NotCalculableReason): string {
         'concordância por acaso a descontar, e o coeficiente fica indefinido — o que ' +
         'não é o mesmo que concordância perfeita.'
       )
+  }
+}
+
+export function cellNotCalculableLabel(reason: NotCalculableReason): string {
+  switch (reason) {
+    case 'few_evaluators':
+      return '1 avaliador'
+    case 'no_shared_units':
+      return 'sem cruzamento'
+    case 'no_variation':
+      return 'sem variação'
   }
 }

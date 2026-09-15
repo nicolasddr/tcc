@@ -3,11 +3,16 @@ import {
   AGREEMENT_BANDS,
   AGREEMENT_SOURCE,
   BAND_REFERENCE,
+  CELL_NOT_APPLICABLE,
+  CELL_NOT_APPLICABLE_TITLE,
+  CELL_UNRATED_LABEL,
+  MATRIX_LEGEND,
   SMALL_SAMPLE_RATERS,
   SMALL_SAMPLE_RESPONSES,
   agreementBand,
   bandLabel,
   bandTone,
+  cellNotCalculableLabel,
   formatAlpha,
   notCalculableMessage,
   sampleSize,
@@ -114,5 +119,34 @@ describe('app/projects/[id]/rounds/agreement-labels — o coeficiente na tela', 
     expect(variation).toContain('não é o mesmo que concordância perfeita')
 
     expect(new Set([few, shared, variation]).size).toBe(3)
+  })
+
+  it('o rótulo curto de célula é diferente por motivo, e cabe dentro da célula', () => {
+    expect(cellNotCalculableLabel('few_evaluators')).toBe('1 avaliador')
+    expect(cellNotCalculableLabel('no_shared_units')).toBe('sem cruzamento')
+    expect(cellNotCalculableLabel('no_variation')).toBe('sem variação')
+
+    for (const reason of ['few_evaluators', 'no_shared_units', 'no_variation'] as const) {
+      expect(cellNotCalculableLabel(reason).length).toBeLessThan(20)
+      expect(cellNotCalculableLabel(reason)).not.toBe(notCalculableMessage(reason))
+    }
+  })
+
+  it('sem nota e não aplicável são rótulos distintos, e nenhum deles é um número', () => {
+    expect(CELL_UNRATED_LABEL).toBe('sem nota')
+    expect(CELL_NOT_APPLICABLE).not.toBe(CELL_UNRATED_LABEL)
+    expect(CELL_NOT_APPLICABLE).not.toMatch(/\d/)
+    expect(CELL_UNRATED_LABEL).not.toMatch(/\d/)
+    expect(CELL_NOT_APPLICABLE_TITLE).toContain('outra definição')
+  })
+
+  it('a legenda da matriz explica os três rótulos curtos, o traço e a ausência de zero', () => {
+    expect(MATRIX_LEGEND).toContain(CELL_UNRATED_LABEL)
+    expect(MATRIX_LEGEND).toContain(cellNotCalculableLabel('few_evaluators'))
+    expect(MATRIX_LEGEND).toContain(cellNotCalculableLabel('no_shared_units'))
+    expect(MATRIX_LEGEND).toContain(cellNotCalculableLabel('no_variation'))
+    expect(MATRIX_LEGEND).toContain(CELL_NOT_APPLICABLE)
+    expect(MATRIX_LEGEND).toContain(CELL_NOT_APPLICABLE_TITLE)
+    expect(MATRIX_LEGEND).toContain('zero')
   })
 })
