@@ -4,6 +4,7 @@ import {
   isScaleValue,
   scaleLabel,
   scaleTone,
+  scaleRank,
 } from '@/app/projects/[id]/(tabs)/evaluate/scale'
 
 describe('app/projects/[id]/evaluate/scale — a escala fixa de três pontos', () => {
@@ -31,5 +32,17 @@ describe('app/projects/[id]/evaluate/scale — a escala fixa de três pontos', (
     const tones = SCALE.map(scaleTone)
     expect(tones).toEqual(['success', 'warning', 'danger'])
     expect(new Set(tones).size).toBe(SCALE.length)
+  })
+
+  it('vira posto ordinal crescente, de baixo para alto', () => {
+    expect(scaleRank('low')).toBe(1)
+    expect(scaleRank('medium')).toBe(2)
+    expect(scaleRank('high')).toBe(3)
+  })
+
+  it('dá um posto distinto a cada valor, e a ordem da escala é decrescente nos postos', () => {
+    const ranks = SCALE.map(scaleRank)
+    expect(ranks).toEqual([3, 2, 1])
+    expect(new Set(ranks).size).toBe(SCALE.length)
   })
 })

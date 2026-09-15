@@ -12,7 +12,7 @@ seguinte herda — anote ali o que divergiu, como nos planos das #60 e #61.
 | Parte | Entrega | Estado |
 |---|---|---|
 | 1 | O módulo puro: `lib/agreement.ts`, o Alpha ordinal e os unitários que o provam | ☑ |
-| 2 | Leitura: das notas gravadas para a matriz, e as contagens por avaliador | ☐ |
+| 2 | Leitura: das notas gravadas para a matriz, e as contagens por avaliador | ☑ |
 | 3 | A tela do Administrador: valor, N, faixa de referência, avisos e a invisibilidade ao Avaliador | ☐ |
 
 Decisões de domínio já registradas, **nenhuma ADR nova é necessária**: ADR 0004 (faixa de referência
@@ -362,8 +362,54 @@ faltante de verdade, e nenhum loader importa `lib/agreement`.
 
 ### O que a Parte 3 herda
 
-_(preencher: assinaturas finais, se `listEvaluatorEffort` precisou de mais alguma coluna, e qualquer
-decisão sobre administrador-avaliador que tenha aparecido.)_
+**As assinaturas saíram como planejadas, com um nome de campo a registrar.** `(tabs)/rounds/agreement.ts`:
+
+```ts
+export type RoundObservation = Observation & {
+  responseId: string
+  definitionId: string
+  criterionId: string
+  projectMemberId: string
+}
+export type EvaluatorEffort = { projectMemberId: string; name: string; submitted: number }
+
+export function loadRoundObservations(roundId: string, db?: DbExecutor): Promise<RoundObservation[]>
+export function loadProjectObservations(projectId: string, db?: DbExecutor): Promise<Map<string, RoundObservation[]>>
+export function listEvaluatorEffort(roundId: string, projectId: string, db?: DbExecutor): Promise<EvaluatorEffort[]>
+```
+
+A contagem de avaliações enviadas chama-se **`submitted`**, e não `evaluations`, porque o módulo já
+importa a tabela `evaluations` de `@/lib/db` e o nome colidiria na leitura. Nenhuma coluna a mais foi
+necessária: `projectMemberId` (o vínculo), `name` e `submitted` bastam para a lista de esforço da
+história 43.
+
+**O loader importa `lib/agreement` só como tipo.** `import type { Observation }` some na compilação,
+então `RoundObservation` estende o tipo da Parte 1 sem que nada em `agreement.ts` chame `ordinalAlpha`
+— a regra de "nenhum loader calcula" continua valendo ao pé da letra. Quem calcula é a página da
+Parte 3.
+
+**`loadProjectObservations` omite a rodada sem nenhuma avaliação**, em vez de devolver chave com lista
+vazia. A página tem que tratar a ausência: `ordinalAlpha(byRound.get(round.id) ?? [])` devolve
+`calculable: false`, `reason: 'few_evaluators'`, `units: 0`, `raters: 0` — que é exatamente o que a
+tela deve mostrar para uma rodada recém-aberta.
+
+**Administrador-avaliador não virou caso especial.** `raterId` é o `projectMemberId`, e `requireEvaluator`
+só deixa enviar quem tem vínculo `role = 'evaluator'` ativo — o mesmo filtro de `listEvaluatorEffort`.
+Então um administrador que também é avaliador aparece uma vez só, pelo vínculo de avaliador, tanto nas
+observações quanto na lista de esforço. Nada a decidir na Parte 3.
+
+**`scaleRank` nasceu aqui**, em `(tabs)/evaluate/scale.ts`, com `low → 1`, `medium → 2`, `high → 3` e
+dois casos novos em `scale.unit.test.ts`. A conversão de `scores.value` (texto) para posto passa por
+`isScaleValue`, que já existia: valor fora da escala não vira observação em vez de virar `NaN`.
+
+**Os testes de integração rodam sob `inRollbackTx`**, como `pipeline/responses.int.test.ts`, porque os
+três são leitura pura e não precisam de commit. São 9 casos: o recorte por rodada, a unidade
+resposta × célula com critério geral em duas definições, avaliação parcial sem `null`, a tradução dos
+três valores da escala, o agrupamento por rodada (com omissão da rodada vazia e do outro projeto), as
+duas contagens de esforço e a composição com a Parte 1, em que concordância perfeita com variação
+montada em banco devolve `alpha` exatamente `1`.
+
+`npm test` 679 testes verdes; `npm run lint` e `npm run typecheck` verdes.
 
 ---
 

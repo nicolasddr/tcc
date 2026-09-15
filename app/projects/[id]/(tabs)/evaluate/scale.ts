@@ -30,3 +30,13 @@ export function scaleTone(value: ScaleValue): ScaleTone {
   }
 }
 
+export function scaleRank(value: ScaleValue): number {
+  switch (value) {
+    case 'high':
+      return 3
+    case 'medium':
+      return 2
+    case 'low':
+      return 1
+  }
+}
