@@ -115,7 +115,11 @@ Fase 3, primeiro o codebook (até o ICR subir) e depois o prompt (pela qualidade
 Grau em que avaliadores independentes chegam à mesma conclusão. Medida por Krippendorff's
 Alpha ordinal, calculado **por rodada**, sobre a versão de codebook que aquela rodada fixou,
 e nunca agregado entre versões diferentes. Cohen's Kappa não é usado: o Alpha cobre também o
-caso de dois avaliadores, sem a restrição de ser par a par.
+caso de dois avaliadores, sem a restrição de ser par a par. A unidade de análise é resposta ×
+célula: a mesma resposta avaliada em duas definições rende duas unidades, não uma. Avaliação que
+não existe é dado faltante, nunca exclusão de avaliador — a unidade sem par sai do cálculo e a
+pessoa continua nele. E o coeficiente é **não calculável**, nunca zero e nunca 1, em três casos:
+menos de dois avaliadores, nenhuma unidade avaliada por dois deles, e nenhuma variação nas notas.
 Evitar: confiabilidade, acurácia.
 
 **Qualidade**
