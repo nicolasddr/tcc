@@ -1,5 +1,10 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { createElement, isValidElement, type ReactElement } from 'react'
+import {
+  createElement,
+  isValidElement,
+  type ReactElement,
+  type ReactNode,
+} from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 
 const auth = vi.hoisted(() => ({ userId: null as string | null }))
@@ -26,7 +31,13 @@ import {
   AgreementPanel,
   AgreementValue,
 } from '@/app/projects/[id]/(tabs)/rounds/agreement-panel'
-import { AGREEMENT_SOURCE } from '@/app/projects/[id]/(tabs)/rounds/agreement-labels'
+import { AgreementMatrixTable } from '@/app/projects/[id]/(tabs)/rounds/agreement-matrix-table'
+import {
+  AGREEMENT_SOURCE,
+  CELL_NOT_APPLICABLE,
+  CELL_NOT_APPLICABLE_TITLE,
+} from '@/app/projects/[id]/(tabs)/rounds/agreement-labels'
+import { Section } from '@/app/components/ui/section'
 import { loadCodebookVersion } from '@/app/projects/[id]/pipeline/codebook'
 import { resolveCells } from '@/app/projects/[id]/pipeline/criteria'
 import { formatDate } from '@/app/notifications/labels'
@@ -70,6 +81,24 @@ function findElement(node: unknown, type: unknown): ReactElement | null {
   return null
 }
 
+function findSection(node: unknown, type: unknown): ReactElement | null {
+  if (Array.isArray(node)) {
+    for (const child of node) {
+      const found = findSection(child, type)
+      if (found) return found
+    }
+    return null
+  }
+  if (!isValidElement(node)) return null
+  const props = node.props as Record<string, unknown>
+  if (node.type === Section && findElement(props.children, type)) return node
+  for (const value of Object.values(props)) {
+    const found = findSection(value, type)
+    if (found) return found
+  }
+  return null
+}
+
 function collectText(node: unknown): string {
   if (typeof node === 'string' || typeof node === 'number') return String(node)
   if (Array.isArray(node)) return node.map(collectText).join('')
@@ -83,11 +112,29 @@ function textOf(node: unknown): string {
   return collectText(node).replace(/\s+/g, ' ').trim()
 }
 
+type CodebookShape = Parameters<typeof addCodebookVersion>[3]
+
+type SceneCell = {
+  definitionId: string
+  criterionId: string
+  definitionTitle: string
+  criterionName: string
+}
+
+type Scene = {
+  project: string
+  codebookVersion: string
+  round: string
+  responses: string[]
+  cells: SceneCell[]
+}
+
 type ListProps = Parameters<typeof RoundList>[0]
 type NewRoundProps = Parameters<typeof NewRound>[0]
 type CloseRoundProps = Parameters<typeof CloseRound>[0]
 type GenerateProps = Parameters<typeof GenerateResponses>[0]
 type PanelProps = Parameters<typeof AgreementPanel>[0]
+type MatrixProps = Parameters<typeof AgreementMatrixTable>[0]
 
 function render(id: string) {
   return ProjectRoundsPage({ params: Promise.resolve({ id }) })
@@ -123,6 +170,12 @@ function panelOf(tree: unknown): PanelProps {
   return element!.props as PanelProps
 }
 
+function matrixOf(tree: unknown): MatrixProps {
+  const element = findElement(tree, AgreementMatrixTable)
+  expect(element).toBeTruthy()
+  return element!.props as MatrixProps
+}
+
 function markupTextOf(element: ReactElement): string {
   return renderToStaticMarkup(element)
     .replace(/<[^>]*>/g, ' ')
@@ -132,6 +185,16 @@ function markupTextOf(element: ReactElement): string {
 
 function panelTextOf(tree: unknown): string {
   return markupTextOf(createElement(AgreementPanel, panelOf(tree)))
+}
+
+function matrixTextOf(tree: unknown): string {
+  return markupTextOf(createElement(AgreementMatrixTable, matrixOf(tree)))
+}
+
+function agreementTitleOf(tree: unknown): string {
+  const section = findSection(tree, AgreementMatrixTable)
+  expect(section).toBeTruthy()
+  return textOf((section!.props as { title: ReactNode }).title)
 }
 
 describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
@@ -144,17 +207,28 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     return id
   }
 
+  const ONE_DEFINITION: CodebookShape = {
+    definitions: [
+      { title: 'Informacional', type: 'category', criteria: [{ name: 'Clareza' }] },
+    ],
+  }
+
+  const TWO_DEFINITIONS: CodebookShape = {
+    definitions: [
+      { title: 'Informacional', type: 'category' },
+      { title: 'Transacional', type: 'category' },
+    ],
+    generalCriteria: [{ name: 'Clareza' }],
+  }
+
   async function readyProject(
     admin: string,
     phase = PHASE_2,
+    shape: CodebookShape = ONE_DEFINITION,
   ): Promise<{ project: string; codebookVersion: string; promptVersion: string }> {
     const project = await seedProject(ownerDb, admin, 'Projeto de Teste', { phase })
     projs.push(project)
-    const codebookVersion = await addCodebookVersion(ownerDb, project, admin, {
-      definitions: [
-        { title: 'Informacional', type: 'category', criteria: [{ name: 'Clareza' }] },
-      ],
-    })
+    const codebookVersion = await addCodebookVersion(ownerDb, project, admin, shape)
     const promptVersion = await addPromptVersion(ownerDb, project, admin)
     return { project, codebookVersion, promptVersion }
   }
@@ -163,23 +237,23 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     return addActiveEvaluator(ownerDb, project, await newUser(name))
   }
 
-  async function openRoundWith(
+  async function roundWith(
     admin: string,
     responseCount: number,
-  ): Promise<{
-    project: string
-    round: string
-    responses: string[]
-    cells: { definitionId: string; criterionId: string }[]
-  }> {
-    const { project, codebookVersion, promptVersion } = await readyProject(admin)
+    opts: { shape?: CodebookShape; status?: 'open' | 'closed' } = {},
+  ): Promise<Scene> {
+    const { project, codebookVersion, promptVersion } = await readyProject(
+      admin,
+      PHASE_2,
+      opts.shape ?? ONE_DEFINITION,
+    )
     const round = await addRound(
       ownerDb,
       project,
       admin,
       codebookVersion,
       promptVersion,
-      { roundNumber: 1 },
+      { roundNumber: 1, status: opts.status ?? 'open' },
     )
 
     const responses: string[] = []
@@ -194,16 +268,23 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     const cells = resolveCells(codebook!.definitions, codebook!.criteria).map((cell) => ({
       definitionId: cell.definition.id,
       criterionId: cell.criterion.id,
+      definitionTitle: cell.definition.title,
+      criterionName: cell.criterion.name,
     }))
 
-    return { project, round, responses, cells }
+    return { project, codebookVersion, round, responses, cells }
   }
 
-  function filled(
-    cells: { definitionId: string; criterionId: string }[],
-    value: CellFixture['value'],
-  ): CellFixture[] {
-    return cells.map((cell) => ({ ...cell, value }))
+  function filled(cells: SceneCell[], value: CellFixture['value']): CellFixture[] {
+    return cells.map((cell) => ({
+      definitionId: cell.definitionId,
+      criterionId: cell.criterionId,
+      value,
+    }))
+  }
+
+  function cellsOf(scene: Scene, definitionTitle: string): SceneCell[] {
+    return scene.cells.filter((cell) => cell.definitionTitle === definitionTitle)
   }
 
   beforeEach(() => {
@@ -386,7 +467,7 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
 
   it('com dois avaliadores concordando, o painel dá o valor, o N, a faixa e a origem', async () => {
     const admin = await newUser('Admin')
-    const scene = await openRoundWith(admin, 3)
+    const scene = await roundWith(admin, 3)
     const ana = await newEvaluator(scene.project, 'Ana')
     const bruno = await newEvaluator(scene.project, 'Bruno')
 
@@ -422,7 +503,7 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
 
   it('com um avaliador só, o painel diz não calculável, o motivo e o N que tem', async () => {
     const admin = await newUser('Admin')
-    const scene = await openRoundWith(admin, 2)
+    const scene = await roundWith(admin, 2)
     const ana = await newEvaluator(scene.project, 'Ana')
 
     for (const response of scene.responses) {
@@ -449,7 +530,7 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
 
   it('a amostra pequena avisa sem esconder o número', async () => {
     const admin = await newUser('Admin')
-    const scene = await openRoundWith(admin, 2)
+    const scene = await roundWith(admin, 2)
     const ana = await newEvaluator(scene.project, 'Ana')
     const bruno = await newEvaluator(scene.project, 'Bruno')
 
@@ -472,7 +553,7 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
 
   it('o esforço por avaliador mostra a contagem de cada um, inclusive quem enviou zero', async () => {
     const admin = await newUser('Admin')
-    const scene = await openRoundWith(admin, 3)
+    const scene = await roundWith(admin, 3)
     const ana = await newEvaluator(scene.project, 'Ana')
     const bruno = await newEvaluator(scene.project, 'Bruno')
     await newEvaluator(scene.project, 'Carla')
@@ -503,7 +584,7 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
 
   it('a lista de rodadas traz o coeficiente ao lado das versões que ele mede', async () => {
     const admin = await newUser('Admin')
-    const scene = await openRoundWith(admin, 2)
+    const scene = await roundWith(admin, 2)
     const ana = await newEvaluator(scene.project, 'Ana')
     const bruno = await newEvaluator(scene.project, 'Bruno')
 
@@ -536,6 +617,131 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     expect(text).toContain('Concordância (ICR): 1,000')
     expect(text).toContain('boa')
     expect(text).toContain('2 unidades · 2 avaliadores')
+  })
+
+  it('a célula sem dado suficiente mostra a falta de dado, e nunca um zero', async () => {
+    const admin = await newUser('Admin')
+    const scene = await roundWith(admin, 2, { shape: TWO_DEFINITIONS })
+    const ana = await newEvaluator(scene.project, 'Ana')
+
+    for (const response of scene.responses) {
+      await addEvaluation(ownerDb, scene.round, response, ana, {
+        cells: filled(cellsOf(scene, 'Informacional'), 'high'),
+      })
+    }
+
+    auth.userId = admin
+    const text = matrixTextOf(await render(scene.project))
+
+    expect(text).toContain('1 avaliador')
+    expect(text).toContain('sem nota')
+    expect(text).not.toContain('0,000')
+  })
+
+  it('a matriz é da versão de codebook que a rodada fixou, e não da vigente', async () => {
+    const admin = await newUser('Admin')
+    const scene = await roundWith(admin, 1)
+    await addCodebookVersion(ownerDb, scene.project, admin, {
+      versionNumber: 2,
+      definitions: [
+        {
+          title: 'Informacional',
+          type: 'category',
+          criteria: [{ name: 'Clareza' }, { name: 'Profundidade' }],
+        },
+      ],
+    })
+
+    auth.userId = admin
+    const tree = await render(scene.project)
+
+    expect(matrixOf(tree).codebookVersionNumber).toBe(1)
+
+    const text = matrixTextOf(tree)
+    expect(text).toContain('Clareza')
+    expect(text).not.toContain('Profundidade')
+    expect(text).toContain('Codebook v1')
+  })
+
+  it('a matriz e o painel continuam na tela depois que a rodada fecha', async () => {
+    const admin = await newUser('Admin')
+    const scene = await roundWith(admin, 2, {
+      shape: TWO_DEFINITIONS,
+      status: 'closed',
+    })
+    const ana = await newEvaluator(scene.project, 'Ana')
+    const bruno = await newEvaluator(scene.project, 'Bruno')
+
+    const values = ['low', 'high'] as const
+    for (const [index, value] of values.entries()) {
+      for (const evaluator of [ana, bruno]) {
+        await addEvaluation(ownerDb, scene.round, scene.responses[index], evaluator, {
+          cells: filled(scene.cells, value),
+        })
+      }
+    }
+
+    auth.userId = admin
+    const tree = await render(scene.project)
+
+    expect(findElement(tree, NewRound)).toBeTruthy()
+    expect(agreementTitleOf(tree)).toContain('fechada')
+    expect(panelOf(tree).agreement).toMatchObject({ calculable: true, alpha: 1 })
+    expect(matrixTextOf(tree)).toContain('1,000')
+  })
+
+  it('o critério geral rende uma célula por definição, cada uma com o seu valor', async () => {
+    const admin = await newUser('Admin')
+    const scene = await roundWith(admin, 3, { shape: TWO_DEFINITIONS })
+    const ana = await newEvaluator(scene.project, 'Ana')
+    const bruno = await newEvaluator(scene.project, 'Bruno')
+
+    const agree = ['low', 'medium', 'high'] as const
+    const disagree = ['high', 'medium', 'low'] as const
+    for (const [index, response] of scene.responses.entries()) {
+      await addEvaluation(ownerDb, scene.round, response, ana, {
+        cells: filled(scene.cells, agree[index]),
+      })
+      await addEvaluation(ownerDb, scene.round, response, bruno, {
+        cells: [
+          ...filled(cellsOf(scene, 'Informacional'), agree[index]),
+          ...filled(cellsOf(scene, 'Transacional'), disagree[index]),
+        ],
+      })
+    }
+
+    auth.userId = admin
+    const text = matrixTextOf(await render(scene.project))
+
+    expect(text.split('Clareza')).toHaveLength(2)
+    expect(text).toContain('Informacional')
+    expect(text).toContain('Transacional')
+    expect(text).toContain('1,000')
+    expect(text).toContain('-0,667')
+  })
+
+  it('o critério específico de uma definição é traço na linha da outra', async () => {
+    const admin = await newUser('Admin')
+    const scene = await roundWith(admin, 1, {
+      shape: {
+        definitions: [
+          {
+            title: 'Informacional',
+            type: 'category',
+            criteria: [{ name: 'Profundidade' }],
+          },
+          { title: 'Transacional', type: 'category' },
+        ],
+        generalCriteria: [{ name: 'Clareza' }],
+      },
+    })
+
+    auth.userId = admin
+    const matrix = createElement(AgreementMatrixTable, matrixOf(await render(scene.project)))
+
+    expect(renderToStaticMarkup(matrix)).toContain(`title="${CELL_NOT_APPLICABLE_TITLE}"`)
+    expect(markupTextOf(matrix)).toContain(CELL_NOT_APPLICABLE)
+    expect(markupTextOf(matrix)).toContain('Profundidade')
   })
 
   it('o avaliador não alcança a área de rodadas', async () => {

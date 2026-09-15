@@ -12,7 +12,7 @@ seguinte herda" — anotar ali o que divergiu, como nos planos das #60, #61 e #6
 | Parte | Entrega | Estado |
 |---|---|---|
 | 1 | Agrupar por célula, sem tela: `agreement-matrix.ts`, os quatro estados de célula e os rótulos | ☑ |
-| 2 | A matriz na tela do Administrador, sobre a versão de codebook que a rodada fixou | ☐ |
+| 2 | A matriz na tela do Administrador, sobre a versão de codebook que a rodada fixou | ☑ |
 | 3 | A série de ICR por rodada na página do projeto, e a invisibilidade ao Avaliador | ☐ |
 
 **Nenhuma ADR nova.** As decisões que esta fatia usa já estão registradas: ADR 0002 (prompt e codebook
@@ -358,7 +358,43 @@ do preview, então a conferência é por `get_page_text` e geometria via `javasc
 
 ### O que a Parte 3 herda
 
-> Preencher ao fim da Parte 2.
+**O que divergiu do plano:**
+
+- O componente é `(tabs)/rounds/agreement-matrix-table.tsx`, exportando `AgreementMatrixTable`, e
+  não `agreement-matrix.tsx`. Um par `agreement-matrix.ts` + `agreement-matrix.tsx` na mesma pasta
+  seria ambíguo para `import … from './agreement-matrix'` — e não existe nenhum par assim no repo.
+  O sufixo segue a convenção que já existe ao lado (`agreement.ts` → `agreement-panel.tsx`).
+- A "rodada em foco" é `rounds.find(isOpen) ?? rounds[rounds.length - 1] ?? null`, sobre a lista de
+  `listRounds`, e não `openRound ?? …`. É a mesma rodada, mas como `RoundSummary` ela já traz
+  `codebookVersionId` e `codebookVersionNumber`, que a matriz precisa; `openRound` continua existindo
+  e continua sendo quem decide a geração de respostas e o fechamento.
+- O `EmptyState` cobre também o codebook sem nenhum critério, não só o sem definição: sem uma das
+  duas pontas não há célula para cruzar.
+- O tom da faixa entra como `Badge` com o número dentro, reaproveitando o mesmo vocabulário visual do
+  `BandBadge` do painel, em vez de uma cor de fundo própria da célula.
+
+**O que a Parte 3 pode usar:**
+
+- `RoundSummary` agora tem `codebookVersionId` (passo 2.1), ao lado de `codebookVersionNumber`. A
+  série da Parte 3 só precisa do número, que já estava lá.
+- `(tabs)/rounds/page.tsx` já carrega `loadCodebookVersion` dentro da mesma `transaction`, e a seção
+  de concordância vive fora do `openRound ? …`: o ciclo fechar → ler → refinar → reabrir está de pé.
+- `AgreementMatrixTable` recebe `definitions`, `criteria`, `observations` e `codebookVersionNumber`
+  por parâmetro — nada de consulta dentro do componente. Se a #64 criar `/rounds/[roundId]`, mover a
+  matriz para lá é só mudar quem passa os quatro.
+- Os helpers de cena do `page.int.test.ts` mudaram de nome e de forma: `openRoundWith` virou
+  `roundWith(admin, responseCount, { shape, status })`, aceita o formato do codebook e cria rodada
+  fechada; `scene.cells` agora traz `definitionTitle` e `criterionName`, e `cellsOf(scene, titulo)`
+  recorta as células de uma definição. `readyProject` ganhou um terceiro parâmetro com o mesmo
+  `shape`. O teste também ganhou `findSection`, que acha a `Section` que contém um componente — é
+  como se afirma sobre o título de uma seção, já que `textOf` só varre `children`.
+- Nada foi tocado em `lib/agreement.ts`, em `agreement.ts`, em `agreement-matrix.ts` nem em
+  `agreement-labels.ts`: a Parte 2 só consome o que a Parte 1 deixou pronto.
+
+**Conferido no navegador** (`npm run dev:local`, rodada fechada com 3 definições, 2 critérios gerais
+e 2 específicos): a matriz mostra os quatro estados na mesma tabela, a página não rola na horizontal
+nem em 1100px nem em 375px, e em 375px é o contêiner da tabela que rola (327px de viewport útil para
+748px de tabela).
 
 ---
 

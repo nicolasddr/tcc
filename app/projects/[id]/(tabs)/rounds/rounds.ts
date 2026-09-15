@@ -24,6 +24,7 @@ export type OpenRound = Round & { codebookVersionId: string }
 
 export type RoundSummary = Round & {
   authorName: string
+  codebookVersionId: string
   codebookVersionNumber: number
   promptVersionNumber: number
 }
@@ -64,6 +65,7 @@ export function listRounds(
       createdAt: rounds.createdAt,
       closedAt: rounds.closedAt,
       authorName: profiles.name,
+      codebookVersionId: rounds.codebookVersionId,
       codebookVersionNumber: codebookVersions.versionNumber,
       promptVersionNumber: promptVersions.versionNumber,
     })

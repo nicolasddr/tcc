@@ -1,11 +1,11 @@
 import { requireUserId } from '@/lib/supabase/server'
 import { transaction } from '@/lib/db'
 import { loadPipelineAccess, requirePipelineAdmin } from '../../pipeline/access'
-import { loadCodebook } from '../../pipeline/codebook'
+import { loadCodebook, loadCodebookVersion } from '../../pipeline/codebook'
 import { loadPrompt } from '../../pipeline/prompt'
 import { loadItems } from '../../pipeline/items'
 import { listRoundResponses } from '../../pipeline/responses'
-import { listEvaluatorsNotFinished, listRounds, loadOpenRound } from './rounds'
+import { isOpen, listEvaluatorsNotFinished, listRounds, loadOpenRound } from './rounds'
 import {
   listEvaluatorEffort,
   loadProjectObservations,
@@ -17,10 +17,12 @@ import { CloseRound } from './close-round'
 import { GenerateResponses } from './generate-responses'
 import { RoundList } from './round-list'
 import { AgreementPanel } from './agreement-panel'
+import { AgreementMatrixTable } from './agreement-matrix-table'
 import { ordinalAlpha, type Agreement } from '@/lib/agreement'
 import { llmModel } from '@/lib/ai'
 import { projectResponsesLeft, projectResponsesMax } from '@/lib/ai/quota'
 import { Section } from '@/app/components/ui/section'
+import { formatDate } from '@/app/notifications/labels'
 
 export default async function ProjectRoundsPage({
   params,
@@ -34,6 +36,8 @@ export default async function ProjectRoundsPage({
     access,
     rounds,
     openRound,
+    focusRound,
+    focusCodebook,
     codebook,
     prompt,
     evaluatorsNotFinished,
@@ -45,12 +49,19 @@ export default async function ProjectRoundsPage({
     const access = await loadPipelineAccess(id, userId, tx)
     const projectId = access.project?.id
     const openRound = projectId ? await loadOpenRound(projectId, tx) : null
+    const rounds = projectId ? await listRounds(projectId, tx) : []
+    const focusRound = rounds.find(isOpen) ?? rounds[rounds.length - 1] ?? null
 
     return {
       access,
       openRound,
-      rounds: projectId ? await listRounds(projectId, tx) : [],
+      rounds,
+      focusRound,
       codebook: projectId ? await loadCodebook(projectId, tx) : null,
+      focusCodebook:
+        projectId && focusRound
+          ? await loadCodebookVersion(projectId, focusRound.codebookVersionId, tx)
+          : null,
       prompt: projectId ? await loadPrompt(projectId, tx) : null,
       evaluatorsNotFinished: projectId
         ? await listEvaluatorsNotFinished(projectId, tx)
@@ -61,8 +72,8 @@ export default async function ProjectRoundsPage({
         ? await loadProjectObservations(projectId, tx)
         : new Map<string, RoundObservation[]>(),
       effort:
-        projectId && openRound
-          ? await listEvaluatorEffort(openRound.id, projectId, tx)
+        projectId && focusRound
+          ? await listEvaluatorEffort(focusRound.id, projectId, tx)
           : [],
     }
   })
@@ -72,9 +83,9 @@ export default async function ProjectRoundsPage({
   const agreement = new Map<string, Agreement>(
     rounds.map((round) => [round.id, ordinalAlpha(observations.get(round.id) ?? [])]),
   )
-  const openObservations = openRound ? (observations.get(openRound.id) ?? []) : []
+  const focusObservations = focusRound ? (observations.get(focusRound.id) ?? []) : []
   const evaluatedResponses = new Set(
-    openObservations.map((observation) => observation.responseId),
+    focusObservations.map((observation) => observation.responseId),
   ).size
 
   const blockers = roundBlockers({
@@ -108,17 +119,6 @@ export default async function ProjectRoundsPage({
           </Section>
 
           <Section
-            title={`Concordância na rodada ${openRound.roundNumber}`}
-            hint="Krippendorff's Alpha ordinal desta rodada, sobre a versão de codebook que ela fixou. O valor aparece desde a primeira avaliação e não trava nada: fechar a rodada e avançar de fase continuam sendo decisão sua."
-          >
-            <AgreementPanel
-              agreement={agreement.get(openRound.id) ?? ordinalAlpha([])}
-              responses={evaluatedResponses}
-              effort={effort}
-            />
-          </Section>
-
-          <Section
             title={`Rodada ${openRound.roundNumber} aberta`}
             hint="Só existe uma rodada aberta por projeto. Fechar é ação sua, é irreversível e não depende de todos terem terminado."
           >
@@ -144,6 +144,36 @@ export default async function ProjectRoundsPage({
           />
         </Section>
       )}
+
+      {focusRound ? (
+        <Section
+          title={
+            focusRound.closedAt
+              ? `Concordância na rodada ${focusRound.roundNumber}, fechada`
+              : `Concordância na rodada ${focusRound.roundNumber}`
+          }
+          hint={
+            focusRound.closedAt
+              ? `Krippendorff's Alpha ordinal da rodada ${focusRound.roundNumber}, fechada em ${formatDate(focusRound.closedAt)}, sobre a versão de codebook que ela fixou. É a última rodada do projeto, e a leitura continua aqui depois do fechamento: é com ela que se decide onde refinar o codebook antes da próxima rodada.`
+              : "Krippendorff's Alpha ordinal desta rodada, sobre a versão de codebook que ela fixou. O valor aparece desde a primeira avaliação e não trava nada: fechar a rodada e avançar de fase continuam sendo decisão sua."
+          }
+        >
+          <div className="flex flex-col gap-4">
+            <AgreementPanel
+              agreement={agreement.get(focusRound.id) ?? ordinalAlpha([])}
+              responses={evaluatedResponses}
+              effort={effort}
+            />
+
+            <AgreementMatrixTable
+              definitions={focusCodebook?.definitions ?? []}
+              criteria={focusCodebook?.criteria ?? []}
+              observations={focusObservations}
+              codebookVersionNumber={focusRound.codebookVersionNumber}
+            />
+          </div>
+        </Section>
+      ) : null}
 
       <Section
         title="Rodadas do projeto"
