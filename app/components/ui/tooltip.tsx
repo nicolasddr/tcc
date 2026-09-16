@@ -1,6 +1,6 @@
 export function InfoTooltip({ text }: { text: string }) {
   return (
-    <span className="group relative inline-flex align-middle">
+    <span className="group/tooltip relative inline-flex align-middle">
       <button
         type="button"
         aria-label={text}
@@ -11,7 +11,7 @@ export function InfoTooltip({ text }: { text: string }) {
 
       <span
         aria-hidden="true"
-        className="pointer-events-none absolute top-full left-0 z-50 mt-2 w-[min(320px,calc(100vw-3rem))] rounded-control bg-ink-soft px-3 py-2.5 text-left text-[12.5px] leading-[1.5] font-normal whitespace-pre-wrap text-surface opacity-0 shadow-[0_4px_12px_rgba(0,0,0,0.18)] transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
+        className="pointer-events-none absolute top-full left-0 z-50 mt-2 w-[min(320px,calc(100vw-3rem))] rounded-control bg-ink-soft px-3 py-2.5 text-left text-[12.5px] leading-[1.5] font-normal whitespace-pre-wrap text-surface opacity-0 shadow-[0_4px_12px_rgba(0,0,0,0.18)] transition-opacity group-hover/tooltip:opacity-100 group-focus-within/tooltip:opacity-100"
       >
         {text}
       </span>
