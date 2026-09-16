@@ -28,7 +28,7 @@ export function NotesPerResponse({
           {plural(definitions.length, 'definição', 'definições')} ·{' '}
           {plural(specific, 'critério específico', 'critérios específicos')} ·{' '}
           {plural(general, 'critério geral', 'critérios gerais')}. Cada critério geral
-          vira uma nota em cada definição, e não uma nota por resposta — é esse o esforço
+          vira uma nota em cada definição, e não uma nota por resposta. É esse o esforço
           que o avaliador terá a cada resposta.
         </>
       }
