@@ -1,15 +1,18 @@
 import { Badge } from '@/app/components/ui/badge'
 import { Card } from '@/app/components/ui/card'
 import { EmptyState } from '@/app/components/ui/empty-state'
+import { OpenLink } from '@/app/components/ui/open-link'
 import { formatDate } from '@/app/notifications/labels'
 import type { Agreement } from '@/lib/agreement'
 import { AgreementValue } from './agreement-panel'
 import { isOpen, type RoundSummary } from './rounds'
 
 export function RoundList({
+  projectId,
   rounds,
   agreement,
 }: {
+  projectId: string
   rounds: RoundSummary[]
   agreement: Map<string, Agreement>
 }) {
@@ -51,6 +54,14 @@ export function RoundList({
             {agreement.has(round.id) ? (
               <AgreementValue agreement={agreement.get(round.id)!} />
             ) : null}
+
+            {isOpen(round) ? null : (
+              <p className="m-0 mt-2 text-[13px]">
+                <OpenLink href={`/projects/${projectId}/rounds/${round.id}`}>
+                  Abrir revisão
+                </OpenLink>
+              </p>
+            )}
           </Card>
         </li>
       ))}

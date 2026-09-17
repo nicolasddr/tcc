@@ -21,7 +21,7 @@ vi.mock('next/navigation', () => ({
 import ProjectEvaluatePage from '@/app/projects/[id]/(tabs)/evaluate/page'
 import { EvaluationForm } from '@/app/projects/[id]/(tabs)/evaluate/evaluation-form'
 import { ContextPanel } from '@/app/projects/[id]/(tabs)/evaluate/context-panel'
-import { QueueNav } from '@/app/projects/[id]/(tabs)/evaluate/queue-nav'
+import { QueueNav } from '@/app/components/ui/queue-nav'
 import {
   AgreementPanel,
   AgreementValue,

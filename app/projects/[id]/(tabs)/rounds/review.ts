@@ -1,0 +1,91 @@
+import { and, eq } from 'drizzle-orm'
+import {
+  ownerDb,
+  type DbExecutor,
+  codebookVersions,
+  evaluations,
+  profiles,
+  projectMembers,
+  rounds,
+  scores,
+} from '@/lib/db'
+import { isUuid } from '../../pipeline/versions'
+import { isScaleValue } from '../evaluate/scale'
+import type { CellNote } from './review-groups'
+
+export type ReviewRound = {
+  id: string
+  roundNumber: number
+  status: string
+  closedAt: string | null
+  codebookVersionId: string
+  codebookVersionNumber: number
+}
+
+export async function loadReviewRound(
+  projectId: string,
+  roundId: string,
+  db: DbExecutor = ownerDb,
+): Promise<ReviewRound | null> {
+  if (!isUuid(projectId) || !isUuid(roundId)) return null
+
+  const [round] = await db
+    .select({
+      id: rounds.id,
+      roundNumber: rounds.roundNumber,
+      status: rounds.status,
+      closedAt: rounds.closedAt,
+      codebookVersionId: rounds.codebookVersionId,
+      codebookVersionNumber: codebookVersions.versionNumber,
+    })
+    .from(rounds)
+    .innerJoin(codebookVersions, eq(codebookVersions.id, rounds.codebookVersionId))
+    .where(and(eq(rounds.id, roundId), eq(rounds.projectId, projectId)))
+    .limit(1)
+
+  return round ?? null
+}
+
+export async function loadResponseNotes(
+  responseId: string,
+  db: DbExecutor = ownerDb,
+): Promise<CellNote[]> {
+  if (!isUuid(responseId)) return []
+
+  const rows = await db
+    .select({
+      projectMemberId: evaluations.projectMemberId,
+      evaluatorName: profiles.name,
+      definitionId: scores.definitionId,
+      criterionId: scores.criterionId,
+      value: scores.value,
+      justification: scores.justification,
+    })
+    .from(scores)
+    .innerJoin(evaluations, eq(evaluations.id, scores.evaluationId))
+    .innerJoin(projectMembers, eq(projectMembers.id, evaluations.projectMemberId))
+    .innerJoin(profiles, eq(profiles.id, projectMembers.userId))
+    .where(eq(evaluations.responseId, responseId))
+
+  return rows.flatMap((row) =>
+    isScaleValue(row.value) ? [{ ...row, value: row.value }] : [],
+  )
+}
+
+export async function listEvaluatedRoundIds(
+  projectId: string,
+  memberId: string,
+  db: DbExecutor = ownerDb,
+): Promise<string[]> {
+  if (!isUuid(projectId) || !isUuid(memberId)) return []
+
+  const rows = await db
+    .selectDistinct({ roundId: evaluations.roundId })
+    .from(evaluations)
+    .innerJoin(rounds, eq(rounds.id, evaluations.roundId))
+    .where(
+      and(eq(rounds.projectId, projectId), eq(evaluations.projectMemberId, memberId)),
+    )
+
+  return rows.map((row) => row.roundId)
+}

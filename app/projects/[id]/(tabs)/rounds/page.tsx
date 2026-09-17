@@ -179,7 +179,7 @@ export default async function ProjectRoundsPage({
         title="Rodadas do projeto"
         hint="Em ordem cronológica, com o estado de cada uma, as versões de codebook e de prompt que ela fixou e a concordância alcançada sobre elas."
       >
-        <RoundList rounds={rounds} agreement={agreement} />
+        <RoundList projectId={project.id} rounds={rounds} agreement={agreement} />
       </Section>
     </>
   )

@@ -13,7 +13,7 @@ seguinte herda" — anotar ali o que divergiu, como nos planos das #60, #61, #62
 | Parte | Entrega | Estado |
 |---|---|---|
 | 1 | Classificar divergência e montar a revisão de uma resposta, sem tela e sem banco | ☑ |
-| 2 | A tela da rodada: rota nova, navegação entre respostas, células, notas e justificativas | ☐ |
+| 2 | A tela da rodada: rota nova, navegação entre respostas, células, notas e justificativas | ☑ |
 | 3 | O acesso do Avaliador: só as rodadas em que avaliou, sem coeficiente nenhum | ☐ |
 
 **Nenhuma ADR nova.** As decisões que esta fatia usa já estão registradas: ADR 0009 (avaliação
@@ -521,7 +521,71 @@ do preview, então a conferência é por `get_page_text` e geometria via `javasc
 
 ### O que a Parte 3 herda
 
-_(preencher ao fim da Parte.)_
+**Nada divergiu do plano.** A rota, os dois loaders, a autorização e a lista nasceram como o § 2
+descreve. `npm test` (763 testes, 12 novos), `npm run lint` e `npm run typecheck` verdes.
+
+**As assinaturas finais, como estão no código:**
+
+```ts
+// (tabs)/rounds/review.ts
+export type ReviewRound = {
+  id: string
+  roundNumber: number
+  status: string
+  closedAt: string | null
+  codebookVersionId: string
+  codebookVersionNumber: number
+}
+
+export async function loadReviewRound(projectId, roundId, db?): Promise<ReviewRound | null>
+export async function loadResponseNotes(responseId, db?): Promise<CellNote[]>
+export async function listEvaluatedRoundIds(projectId, memberId, db?): Promise<string[]>
+```
+
+```ts
+// (tabs)/rounds/review-access.ts
+export type ReviewAccess = {
+  project: PipelineProject
+  isAdmin: boolean
+  memberId: string | null
+}
+
+export async function requireReviewAccess(projectId, userId, db?): Promise<ReviewAccess>
+export async function requireReviewableRound(access, roundId, db?): Promise<ReviewRound>
+```
+
+```tsx
+// (tabs)/rounds/review-groups-list.tsx
+export type DefinitionGroup = ReviewGroup<CodebookDefinition, CodebookCriterion>
+export function divergenceSummary(divergent: number, cells: number): string
+export function ReviewGroupsList({ groups }: { groups: DefinitionGroup[] })
+```
+
+**O que a Parte 3 precisa saber:**
+
+- `QueueNav` **subiu** para `app/components/ui/queue-nav.tsx`, sem mudança no visual;
+  `(tabs)/evaluate/page.tsx` e o teste dela passaram a importar de lá. Não sobrou cópia.
+- `listEvaluatedRoundIds` já existe e **não** filtra por rodada fechada: ela responde "em quais
+  rodadas deste projeto este vínculo avaliou". A `listReviewableRounds` do § 3.1 é a que acrescenta
+  o `status = 'closed'` e a ordem por `roundNumber`.
+- `requireReviewAccess` já resolve o vínculo **ativo** de avaliador e devolve `memberId`; o ramo de
+  Avaliador do `/rounds` pode reusá-la em vez de chamar `requireEvaluator`, que faz `notFound` em
+  quem é só administrador.
+- `round-list.tsx` passou a receber `projectId` e a mostrar "Abrir revisão" em **cada rodada
+  fechada**. O componente é da tela de Administrador; o `EvaluatorRounds` da Parte 3 é outro.
+- A célula é componente próprio dentro de `review-groups-list.tsx` (`Cell`), com
+  `group.definition.id` e `cell.criterion.id` à mão — a #66 encosta a anotação ali sem extrair nada.
+- A página **não** importa `lib/agreement`, `agreement.ts` nem `AgreementPanel`/`AgreementMatrixTable`,
+  e há teste que falha se alguém trouxer "Krippendorff", "ICR", "Alpha" ou "Concordância" para o texto
+  renderizado. A Parte 3 reaproveita esse teste para o Avaliador.
+- O teste da tela precisa de dois leitores: percorrer a árvore (`textOf`, que lê também `summary` e
+  `title`) para o chrome da página, e **renderizar** `ReviewGroupsList` (`listTextOf`) para o conteúdo
+  — os grupos chegam nela como dado cru, e percorrer props não os lê.
+- Conferido no navegador com Administrador, em 1100px e em 375px: os grupos com divergência nascem
+  abertos, a justificativa expande em caixa que quebra linha e rola sozinha (`max-height: 40vh`), e a
+  página não rola na horizontal em nenhuma das duas larguras. A cena de conferência foi apagada do
+  banco local ao fim: `(tabs)/evaluate/actions.int.test.ts` afirma que a tabela `scores` inteira
+  está vazia, então qualquer fixture deixada para trás quebra a suíte.
 
 ---
 
