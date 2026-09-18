@@ -15,6 +15,7 @@ import { loadPrompt } from '../pipeline/prompt'
 import { countItems } from '../pipeline/items'
 import { listRounds } from './rounds/rounds'
 import { loadProjectObservations } from './rounds/agreement'
+import { loadProjectOutliers } from './rounds/outliers'
 import { agreementSeries } from './rounds/agreement-series'
 import { AgreementSeriesChart } from './rounds/agreement-series-chart'
 import { SubmitButton } from '@/app/components/submit-button'
@@ -87,6 +88,7 @@ export default async function ProjectPage({
       ? {
           rounds: await listRounds(id, tx),
           observations: await loadProjectObservations(id, tx),
+          outliers: await loadProjectOutliers(id, tx),
         }
       : null
 
@@ -120,7 +122,7 @@ export default async function ProjectPage({
     !isAdmin && memberships.some((m) => m.role === 'evaluator' && m.status === 'active')
 
   const series = agreement
-    ? agreementSeries(agreement.rounds, agreement.observations)
+    ? agreementSeries(agreement.rounds, agreement.observations, agreement.outliers)
     : null
 
   const members = groupMembers(memberRows)

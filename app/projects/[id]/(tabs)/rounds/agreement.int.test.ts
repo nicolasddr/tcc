@@ -245,8 +245,8 @@ describe('app/projects/[id]/rounds/agreement — das notas gravadas para a matri
       const effort = await listEvaluatorEffort(scene.round, project, tx)
 
       expect(effort).toEqual([
-        { projectMemberId: ativa, name: 'Ana', submitted: 3 },
-        { projectMemberId: parada, name: 'Bruno', submitted: 0 },
+        { projectMemberId: ativa, name: 'Ana', status: 'active', submitted: 3 },
+        { projectMemberId: parada, name: 'Bruno', status: 'active', submitted: 0 },
       ])
     })
   })
@@ -266,10 +266,10 @@ describe('app/projects/[id]/rounds/agreement — das notas gravadas para a matri
       })
 
       expect(await listEvaluatorEffort(first.round, project, tx)).toEqual([
-        { projectMemberId: evaluator, name: 'Ana', submitted: 0 },
+        { projectMemberId: evaluator, name: 'Ana', status: 'active', submitted: 0 },
       ])
       expect(await listEvaluatorEffort(second.round, project, tx)).toEqual([
-        { projectMemberId: evaluator, name: 'Ana', submitted: 1 },
+        { projectMemberId: evaluator, name: 'Ana', status: 'active', submitted: 1 },
       ])
     })
   })

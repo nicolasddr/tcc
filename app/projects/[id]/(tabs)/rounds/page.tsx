@@ -10,6 +10,13 @@ import {
   loadProjectObservations,
   type RoundObservation,
 } from './agreement'
+import {
+  agreementPair,
+  evaluatedResponses,
+  withoutExcluded,
+  type AgreementPair,
+} from './agreement-pair'
+import { loadProjectOutliers, loadRoundOutliers } from './outliers'
 import { roundBlockers } from './preconditions'
 import { NewRound } from './new-round'
 import { CloseRound } from './close-round'
@@ -20,11 +27,12 @@ import { listReviewableRounds } from './review'
 import { requireReviewAccess } from './review-access'
 import { AgreementPanel } from './agreement-panel'
 import { AgreementMatrixTable } from './agreement-matrix-table'
-import { ordinalAlpha, type Agreement } from '@/lib/agreement'
 import { llmModel } from '@/lib/ai'
 import { projectResponsesLeft, projectResponsesMax } from '@/lib/ai/quota'
 import { Section } from '@/app/components/ui/section'
 import { formatDate } from '@/app/notifications/labels'
+
+const EMPTY_SET: ReadonlySet<string> = new Set<string>()
 
 export default async function ProjectRoundsPage({
   params,
@@ -47,6 +55,8 @@ export default async function ProjectRoundsPage({
     items,
     generated,
     observations,
+    outliers,
+    focusOutliers,
     effort,
   } = await transaction(async (tx) => {
     const access = await requireReviewAccess(id, userId, tx)
@@ -78,6 +88,11 @@ export default async function ProjectRoundsPage({
       observations: isAdmin
         ? await loadProjectObservations(projectId, tx)
         : new Map<string, RoundObservation[]>(),
+      outliers: isAdmin
+        ? await loadProjectOutliers(projectId, tx)
+        : new Map<string, Set<string>>(),
+      focusOutliers:
+        isAdmin && focusRound ? await loadRoundOutliers(focusRound.id, tx) : [],
       effort: focusRound
         ? await listEvaluatorEffort(focusRound.id, projectId, tx)
         : [],
@@ -97,13 +112,25 @@ export default async function ProjectRoundsPage({
     )
   }
 
-  const agreement = new Map<string, Agreement>(
-    rounds.map((round) => [round.id, ordinalAlpha(observations.get(round.id) ?? [])]),
+  const agreement = new Map<string, AgreementPair>(
+    rounds.map((round) => [
+      round.id,
+      agreementPair(
+        observations.get(round.id) ?? [],
+        outliers.get(round.id) ?? EMPTY_SET,
+      ),
+    ]),
   )
   const focusObservations = focusRound ? (observations.get(focusRound.id) ?? []) : []
-  const evaluatedResponses = new Set(
-    focusObservations.map((observation) => observation.responseId),
-  ).size
+  const focusExcluded = focusRound
+    ? (outliers.get(focusRound.id) ?? EMPTY_SET)
+    : EMPTY_SET
+  const responses = {
+    all: evaluatedResponses(focusObservations),
+    withoutOutliers: evaluatedResponses(
+      withoutExcluded(focusObservations, focusExcluded),
+    ),
+  }
 
   const blockers = roundBlockers({
     phase: project.phase,
@@ -177,9 +204,10 @@ export default async function ProjectRoundsPage({
         >
           <div className="flex flex-col gap-4">
             <AgreementPanel
-              agreement={agreement.get(focusRound.id) ?? ordinalAlpha([])}
-              responses={evaluatedResponses}
+              pair={agreement.get(focusRound.id) ?? agreementPair([], EMPTY_SET)}
+              responses={responses}
               effort={effort}
+              outliers={focusOutliers}
             />
 
             <AgreementMatrixTable

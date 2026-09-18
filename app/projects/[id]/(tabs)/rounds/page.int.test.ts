@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+import { eq } from 'drizzle-orm'
 import {
   createElement,
   isValidElement,
@@ -34,9 +35,12 @@ import {
 } from '@/app/projects/[id]/(tabs)/rounds/agreement-panel'
 import { AgreementMatrixTable } from '@/app/projects/[id]/(tabs)/rounds/agreement-matrix-table'
 import {
+  AGREEMENT_ALL_LABEL,
   AGREEMENT_SOURCE,
+  AGREEMENT_WITHOUT_OUTLIERS_LABEL,
   CELL_NOT_APPLICABLE,
   CELL_NOT_APPLICABLE_TITLE,
+  MATRIX_SCOPE_NOTE,
 } from '@/app/projects/[id]/(tabs)/rounds/agreement-labels'
 import { Section } from '@/app/components/ui/section'
 import { loadCodebookVersion } from '@/app/projects/[id]/pipeline/codebook'
@@ -49,7 +53,7 @@ import {
 } from '@/app/projects/[id]/(tabs)/rounds/preconditions'
 import { itemUsageLabel } from '@/app/projects/[id]/pipeline/item-usage'
 import { llmModel } from '@/lib/ai'
-import { ownerDb } from '@/lib/db'
+import { ownerDb, projectMembers } from '@/lib/db'
 import {
   createUser,
   createProject as seedProject,
@@ -61,6 +65,7 @@ import {
   addRound,
   addResponse,
   addEvaluation,
+  addOutlier,
   type CellFixture,
   cleanup,
 } from '@/test/helpers'
@@ -510,13 +515,12 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     const tree = await render(scene.project)
 
     const props = panelOf(tree)
-    expect(props.agreement).toEqual({
-      calculable: true,
-      alpha: 1,
-      units: 3,
-      raters: 2,
+    expect(props.pair).toEqual({
+      all: { calculable: true, alpha: 1, units: 3, raters: 2 },
+      withoutOutliers: null,
+      excluded: 0,
     })
-    expect(props.responses).toBe(3)
+    expect(props.responses).toEqual({ all: 3, withoutOutliers: 3 })
 
     const text = panelTextOf(tree)
     expect(text).toContain('Concordância (ICR)')
@@ -541,12 +545,13 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     auth.userId = admin
     const tree = await render(scene.project)
 
-    expect(panelOf(tree).agreement).toEqual({
+    expect(panelOf(tree).pair.all).toEqual({
       calculable: false,
       reason: 'few_evaluators',
       units: 0,
       raters: 1,
     })
+    expect(panelOf(tree).pair.withoutOutliers).toBeNull()
 
     const text = panelTextOf(tree)
     expect(text).toContain('não calculável')
@@ -608,6 +613,101 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     expect(text).toContain('Carla 0 avaliações enviadas')
   })
 
+  it('com alguém marcado, o painel mostra os dois valores e quem saiu, com a justificativa', async () => {
+    const admin = await newUser('Admin')
+    const scene = await roundWith(admin, 3)
+    const ana = await newEvaluator(scene.project, 'Ana')
+    const bruno = await newEvaluator(scene.project, 'Bruno')
+    const carla = await newEvaluator(scene.project, 'Carla')
+
+    const agree = ['low', 'medium', 'high'] as const
+    const destoa = ['high', 'low', 'medium'] as const
+    for (const [index, value] of agree.entries()) {
+      for (const evaluator of [ana, bruno]) {
+        await addEvaluation(ownerDb, scene.round, scene.responses[index], evaluator, {
+          cells: filled(scene.cells, value),
+        })
+      }
+      await addEvaluation(ownerDb, scene.round, scene.responses[index], carla, {
+        cells: filled(scene.cells, destoa[index]),
+      })
+    }
+
+    await addOutlier(ownerDb, scene.round, carla, admin, {
+      reason: 'Pontuou em sentido oposto ao grupo em toda a rodada.',
+    })
+
+    auth.userId = admin
+    const tree = await render(scene.project)
+
+    const props = panelOf(tree)
+    expect(props.pair.excluded).toBe(1)
+    expect(props.pair.all).toMatchObject({ raters: 3 })
+    expect(props.pair.withoutOutliers).toMatchObject({
+      calculable: true,
+      alpha: 1,
+      raters: 2,
+    })
+    expect(props.outliers.map((mark) => mark.evaluatorName)).toEqual(['Carla'])
+    expect(props.responses).toEqual({ all: 3, withoutOutliers: 3 })
+
+    const text = panelTextOf(tree)
+    expect(text).toContain(AGREEMENT_ALL_LABEL)
+    expect(text).toContain(AGREEMENT_WITHOUT_OUTLIERS_LABEL)
+    expect(text).toContain('1,000')
+    expect(text).toContain('Carla')
+    expect(text).toContain('Pontuou em sentido oposto ao grupo')
+  })
+
+  it('a matriz por célula diz que é calculada com todos, inclusive os marcados', async () => {
+    const admin = await newUser('Admin')
+    const scene = await roundWith(admin, 2)
+    const ana = await newEvaluator(scene.project, 'Ana')
+    const bruno = await newEvaluator(scene.project, 'Bruno')
+
+    const values = ['low', 'high'] as const
+    for (const [index, value] of values.entries()) {
+      for (const evaluator of [ana, bruno]) {
+        await addEvaluation(ownerDb, scene.round, scene.responses[index], evaluator, {
+          cells: filled(scene.cells, value),
+        })
+      }
+    }
+    await addOutlier(ownerDb, scene.round, bruno, admin)
+
+    auth.userId = admin
+    expect(matrixTextOf(await render(scene.project))).toContain(MATRIX_SCOPE_NOTE)
+  })
+
+  it('o avaliador desativado que avaliou a rodada continua no esforço, marcado como desativado', async () => {
+    const admin = await newUser('Admin')
+    const scene = await roundWith(admin, 2)
+    const ana = await newEvaluator(scene.project, 'Ana')
+    const bruno = await newEvaluator(scene.project, 'Bruno')
+
+    for (const response of scene.responses) {
+      for (const evaluator of [ana, bruno]) {
+        await addEvaluation(ownerDb, scene.round, response, evaluator, {
+          cells: filled(scene.cells, 'high'),
+        })
+      }
+    }
+
+    await ownerDb
+      .update(projectMembers)
+      .set({ status: 'inactive' })
+      .where(eq(projectMembers.id, bruno))
+
+    auth.userId = admin
+    const tree = await render(scene.project)
+
+    expect(panelOf(tree).effort.map((row) => [row.name, row.status])).toEqual([
+      ['Ana', 'active'],
+      ['Bruno', 'inactive'],
+    ])
+    expect(panelTextOf(tree)).toContain('desativado')
+  })
+
   it('a lista de rodadas traz o coeficiente ao lado das versões que ele mede', async () => {
     const admin = await newUser('Admin')
     const scene = await roundWith(admin, 2)
@@ -627,10 +727,9 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     const list = listOf(await render(scene.project))
 
     expect(list.agreement.get(scene.round)).toEqual({
-      calculable: true,
-      alpha: 1,
-      units: 2,
-      raters: 2,
+      all: { calculable: true, alpha: 1, units: 2, raters: 2 },
+      withoutOutliers: null,
+      excluded: 0,
     })
 
     const rendered = RoundList(list)
@@ -712,7 +811,7 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
 
     expect(findElement(tree, NewRound)).toBeTruthy()
     expect(agreementTitleOf(tree)).toContain('fechada')
-    expect(panelOf(tree).agreement).toMatchObject({ calculable: true, alpha: 1 })
+    expect(panelOf(tree).pair.all).toMatchObject({ calculable: true, alpha: 1 })
     expect(matrixTextOf(tree)).toContain('1,000')
   })
 

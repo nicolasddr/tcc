@@ -5,6 +5,7 @@ import { OpenLink } from '@/app/components/ui/open-link'
 import { formatDate } from '@/app/notifications/labels'
 import { AgreementValue } from './agreement-panel'
 import {
+  AGREEMENT_ALL_LABEL,
   AGREEMENT_BANDS,
   BAND_REFERENCE,
   agreementBand,
@@ -20,6 +21,20 @@ const CHART_WIDTH = 100
 const COLUMN_RATIO = 0.55
 
 const SLOT_MAX_PX = 120
+
+const OUTLIER_MARK_HEIGHT = 2
+
+const OUTLIER_MARK_LABEL = 'com exclusão'
+
+const OUTLIER_MARK_TITLE =
+  'Nesta rodada há avaliador marcado como outlier. A coluna continua sendo o valor ' +
+  `${AGREEMENT_ALL_LABEL}; o par com e sem os marcados está na lista de rodadas.`
+
+const OUTLIER_SERIES_NOTE =
+  `A série desenha sempre o valor ${AGREEMENT_ALL_LABEL}, porque cada rodada tem o seu ` +
+  'próprio conjunto de marcados e os valores filtrados não seriam comparáveis entre si. ' +
+  `A marca “${OUTLIER_MARK_LABEL}” diz quais rodadas têm exclusão; o par com e sem os ` +
+  'marcados aparece em cada rodada.'
 
 const columnFill: Record<BandTone, string> = {
   success: 'fill-success-fg',
@@ -66,18 +81,35 @@ function SeriesColumns({ points }: { points: SeriesPoint[] }) {
       />
 
       {points.map((point, index) => {
-        if (!point.agreement.calculable) return null
-        const height = Math.max(0, Math.min(1, point.agreement.alpha)) * CHART_HEIGHT
+        const x = index * slot + (slot - columnWidth) / 2
+        const height = point.agreement.calculable
+          ? Math.max(0, Math.min(1, point.agreement.alpha)) * CHART_HEIGHT
+          : 0
 
         return (
-          <rect
-            key={point.roundId}
-            x={index * slot + (slot - columnWidth) / 2}
-            y={CHART_HEIGHT - height}
-            width={columnWidth}
-            height={height}
-            className={columnFill[bandTone(agreementBand(point.agreement.alpha))]}
-          />
+          <g key={point.roundId}>
+            {point.agreement.calculable ? (
+              <rect
+                x={x}
+                y={CHART_HEIGHT - height}
+                width={columnWidth}
+                height={height}
+                className={columnFill[bandTone(agreementBand(point.agreement.alpha))]}
+              />
+            ) : null}
+
+            {point.hasOutlier ? (
+              <rect
+                x={x}
+                y={Math.max(0, CHART_HEIGHT - height - OUTLIER_MARK_HEIGHT * 2)}
+                width={columnWidth}
+                height={OUTLIER_MARK_HEIGHT}
+                className="fill-warning-fg"
+              >
+                <title>{OUTLIER_MARK_TITLE}</title>
+              </rect>
+            ) : null}
+          </g>
         )
       })}
     </svg>
@@ -125,9 +157,20 @@ export function AgreementSeriesChart({
                 ) : (
                   <Badge tone="info">aberta</Badge>
                 )}
+                {point.hasOutlier ? (
+                  <span title={OUTLIER_MARK_TITLE}>
+                    <Badge tone="warning">{OUTLIER_MARK_LABEL}</Badge>
+                  </span>
+                ) : null}
               </div>
 
-              <AgreementValue agreement={point.agreement} />
+              <AgreementValue
+                pair={{
+                  all: point.agreement,
+                  withoutOutliers: null,
+                  excluded: 0,
+                }}
+              />
             </Card>
           </li>
         ))}
@@ -139,6 +182,10 @@ export function AgreementSeriesChart({
           : 'Um ponto por rodada, e nenhum valor que junte rodadas: cada coeficiente mede a versão de codebook indicada ao lado dele. '}
         {BAND_REFERENCE}
       </p>
+
+      {points.some((point) => point.hasOutlier) ? (
+        <p className="m-0 text-xs text-muted">{OUTLIER_SERIES_NOTE}</p>
+      ) : null}
 
       <p className="m-0 text-xs">
         <OpenLink href={roundsHref}>Abrir rodadas</OpenLink>

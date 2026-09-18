@@ -14,7 +14,7 @@ seguinte herda" — anotar ali o que divergiu, como nos planos das #60, #61, #62
 |---|---|---|
 | 1 | A marca no banco: limite, tabela `round_outliers`, migration, leitura e helpers de teste | ☑ |
 | 2 | As actions e a área de membros: marcar com justificativa, desmarcar, e a linguagem de desativação | ☑ |
-| 3 | O número: ICR com todos e sem os outliers, lado a lado, e a lista de esforço honesta | ☐ |
+| 3 | O número: ICR com todos e sem os outliers, lado a lado, e a lista de esforço honesta | ☑ |
 | 4 | A revisão identifica o outlier, só para o Administrador, e o acerto do glossário | ☐ |
 
 **Nenhuma ADR nova.** A decisão inteira já está registrada na **ADR 0011** (exclusão do cálculo com
@@ -618,8 +618,99 @@ com marca mostra dois, o com todos primeiro, com quem saiu e por quê.
 
 ### O que a Parte 4 herda
 
-Anotar: assinaturas reais de `agreementPair` e de `listEvaluatorEffort`, e como o par ficou no
-`round-list` e na série.
+**`(tabs)/rounds/agreement-pair.ts`** — o tipo do § 3.1 saiu sem desvio, com **duas funções puras a
+mais** que a tela precisava e que não cabiam na página:
+
+```ts
+type AgreementPair = { all: Agreement; withoutOutliers: Agreement | null; excluded: number }
+agreementPair(observations: readonly RoundObservation[], excluded: ReadonlySet<string>): AgreementPair
+withoutExcluded(observations: readonly RoundObservation[], excluded: ReadonlySet<string>): RoundObservation[]
+evaluatedResponses(observations: readonly RoundObservation[]): number
+```
+
+`withoutExcluded` é o filtro que `agreementPair` usa por dentro, exportado porque a página precisa do
+**mesmo** recorte para contar as respostas do lado filtrado; `evaluatedResponses` é a contagem de
+`responseId` distinto que antes estava inline em `rounds/page.tsx`. Nenhuma das duas lê banco, e
+`lib/agreement.ts` continua intocado — a exclusão é filtro na entrada, como manda o § 4.
+
+**`listEvaluatorEffort` (`(tabs)/rounds/agreement.ts`)** — mesma assinatura, duas mudanças no corpo:
+
+```ts
+type EvaluatorEffort = { projectMemberId: string; name: string; status: string; submitted: number }
+```
+
+O `where` perdeu `status = 'active'` e ganhou `.having(or(eq(status,'active'), gt(count(evaluations.id), 0)))`
+sobre o `leftJoin` que já existia — "ativo **ou** com avaliação nesta rodada". `status` entrou no
+`select` e no `groupBy`. `listEvaluatorsNotFinished` **não** mudou. Consequência já visível: o
+avaliador desativado que avaliou a rodada aparece no painel de outliers da área de membros e pode ser
+marcado, o que a Parte 2 tinha deixado pendente.
+
+**Painel e valor (`agreement-panel.tsx`)** — `AgreementPanel` trocou `agreement` por `pair` e ganhou
+`outliers`; `responses` deixou de ser `number` e virou um par, porque o aviso de amostra pequena do
+lado filtrado precisa da contagem do lado filtrado:
+
+```ts
+type ResponseCounts = { all: number; withoutOutliers: number }
+AgreementPanel(props: { pair: AgreementPair; responses: ResponseCounts;
+                        effort: EvaluatorEffort[]; outliers: OutlierMark[] })
+AgreementValue(props: { pair: AgreementPair })
+```
+
+Sem par, o painel renderiza exatamente o que renderizava. Com par: dois `StatCard` em
+`sm:grid-cols-2` (o com todos **primeiro**), o `OUTLIER_PAIR_HINT` embaixo, e um `Disclosure` "Quem
+saiu do cálculo e por quê (N)" com nome, autor, data e a justificativa em caixa com rolagem. Os
+avisos de amostra pequena viraram uma lista: quando há par, cada um vem prefixado pelo rótulo do seu
+lado (`com todos — …`, `sem os marcados como outlier — …`). `EffortList` recebe o conjunto de
+excluídos e marca cada linha com `Badge` "outlier" e/ou "desativado", com uma frase embaixo quando há
+desativado na lista. `BAND_REFERENCE` aparece só no card com todos; o segundo card leva o N, a
+contagem de respostas, quantos ficaram fora e — se for o caso — o motivo de não calculável.
+
+**`agreement-labels.ts`** — as quatro constantes do § 3.2, sem desvio: `AGREEMENT_ALL_LABEL`
+(`'com todos'`), `AGREEMENT_WITHOUT_OUTLIERS_LABEL` (`'sem os marcados como outlier'`),
+`OUTLIER_PAIR_HINT` e `MATRIX_SCOPE_NOTE`. As duas frases são montadas a partir dos dois rótulos.
+
+**Série (`agreement-series.ts` / `-chart.tsx`)** — `SeriesPoint` ganhou `hasOutlier: boolean` e
+`agreementSeries` ganhou um **terceiro parâmetro com default**, para as chamadas e os testes antigos
+continuarem válidos:
+
+```ts
+agreementSeries(rounds, observations, outliers: ReadonlyMap<string, ReadonlySet<string>> = new Map()): SeriesPoint[]
+```
+
+O ponto continua carregando **só** o valor com todos (`agreement: Agreement`), e por isso o chart
+monta o par literal `{ all: point.agreement, withoutOutliers: null, excluded: 0 }` ao chamar
+`AgreementValue` — é a forma de dizer, no código, que a série não desenha o filtrado. A marca é um
+retângulo `fill-warning-fg` acima da coluna, com `<title>`, mais um `Badge` "com exclusão" no item da
+lista e um parágrafo de legenda que só aparece quando alguma rodada tem exclusão.
+
+**Lista de rodadas e matriz** — `RoundList` passou a receber `agreement: Map<string, AgreementPair>`
+(era `Map<string, Agreement>`), e é aí que o par aparece por extenso, na mesma linha, com os rótulos
+curtos. `AgreementMatrixTable` só ganhou o `MATRIX_SCOPE_NOTE` na legenda; o cálculo por célula não
+mudou.
+
+**Páginas** — `(tabs)/rounds/page.tsx` carrega `loadProjectOutliers` (par de toda rodada, para a
+lista) e `loadRoundOutliers` da rodada em foco (para o painel) na transação que já existia, só quando
+`isAdmin`; `(tabs)/page.tsx` carrega `loadProjectOutliers` junto de `loadProjectObservations` e passa
+para a série. As duas usam uma constante `EMPTY_SET` para o caso sem marca.
+
+**Testes:** `agreement-pair.unit.test.ts` (6 casos, os quatro do § 3.5 mais os dois helpers novos),
+`agreement-outliers.int.test.ts` (5 casos: recorte por rodada, desmarcar restaura, desativar não mexe
+no coeficiente, quem saiu do esforço, e marcado-e-desativado ao mesmo tempo), mais 2 casos novos em
+`agreement-series.unit.test.ts` e 3 em `rounds/page.int.test.ts`. `npm test` verde, 805 testes.
+Gotcha herdado da Parte 2: `agreement-outliers.int.test.ts` usa as actions, que commitam, então vai
+de `ownerDb` + `cleanup()`.
+
+**Testes existentes que mudaram de forma** (quem escrever teste novo precisa saber): `panelOf(tree).agreement`
+virou `panelOf(tree).pair.all`, `props.responses` virou `{ all, withoutOutliers }`, `list.agreement.get(id)`
+devolve um `AgreementPair`, e toda asserção sobre `listEvaluatorEffort` precisa do campo `status`.
+
+**Conferido na tela** com Supabase local e `/dev/login`, numa cena de duas rodadas com Ana, Bruno
+(desativado) e Carla (marcada na rodada 2): a rodada 2 mostra os dois cards (`-0,117` questionável com
+todos, `1,000` boa sem os marcados), a justificativa de Carla no `Disclosure`, o aviso de amostra
+pequena só do lado filtrado, a lista de esforço com "desativado" e "outlier", a nota de escopo da
+matriz, e a rodada 1 — cuja marca foi removida — com um valor só. Na visão geral, a rodada 2 aparece
+com a marca na coluna e o `Badge` "com exclusão". A cena foi apagada do banco depois (`scores`
+vazia), como manda o histórico deste projeto.
 
 ---
 

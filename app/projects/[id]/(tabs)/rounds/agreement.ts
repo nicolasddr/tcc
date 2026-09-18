@@ -1,4 +1,4 @@
-import { and, asc, count, eq } from 'drizzle-orm'
+import { and, asc, count, eq, gt, or } from 'drizzle-orm'
 import {
   ownerDb,
   type DbExecutor,
@@ -22,6 +22,7 @@ export type RoundObservation = Observation & {
 export type EvaluatorEffort = {
   projectMemberId: string
   name: string
+  status: string
   submitted: number
 }
 
@@ -113,6 +114,7 @@ export async function listEvaluatorEffort(
     .select({
       projectMemberId: projectMembers.id,
       name: profiles.name,
+      status: projectMembers.status,
       submitted: count(evaluations.id),
     })
     .from(projectMembers)
@@ -128,9 +130,11 @@ export async function listEvaluatorEffort(
       and(
         eq(projectMembers.projectId, projectId),
         eq(projectMembers.role, 'evaluator'),
-        eq(projectMembers.status, 'active'),
       ),
     )
-    .groupBy(projectMembers.id, profiles.name)
+    .groupBy(projectMembers.id, profiles.name, projectMembers.status)
+    .having(
+      or(eq(projectMembers.status, 'active'), gt(count(evaluations.id), 0)),
+    )
     .orderBy(asc(profiles.name))
 }

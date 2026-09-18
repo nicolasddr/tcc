@@ -7,6 +7,10 @@ export type BandTone = 'danger' | 'warning' | 'success'
 
 export const AGREEMENT_LABEL = 'Concordância (ICR)'
 
+export const AGREEMENT_ALL_LABEL = 'com todos'
+
+export const AGREEMENT_WITHOUT_OUTLIERS_LABEL = 'sem os marcados como outlier'
+
 export const NOT_CALCULABLE_LABEL = 'não calculável'
 
 export const AGREEMENT_SOURCE = 'Krippendorff (2004)'
@@ -31,6 +35,19 @@ export const MATRIX_LEGEND =
   'respectivamente por um avaliador só, por nenhuma resposta avaliada por dois deles e ' +
   `por todas as notas no mesmo ponto da escala; e “${CELL_NOT_APPLICABLE}” é ` +
   `${CELL_NOT_APPLICABLE_TITLE}, que não se aplica a esta. Nenhum desses casos vale zero.`
+
+export const OUTLIER_PAIR_HINT =
+  `Os dois valores saem do mesmo dado desta rodada. O primeiro, ${AGREEMENT_ALL_LABEL}, ` +
+  'é o resultado da rodada e continua sendo ele. O segundo, ' +
+  `${AGREEMENT_WITHOUT_OUTLIERS_LABEL}, refaz a conta retirando as notas de quem foi ` +
+  'marcado, e existe para mostrar o quanto a exclusão move o número. A exclusão é ' +
+  'declarada e justificada uma a uma, nunca sugerida pela ferramenta, e nenhuma nota é ' +
+  'apagada por causa dela.'
+
+export const MATRIX_SCOPE_NOTE =
+  `A matriz por célula é calculada ${AGREEMENT_ALL_LABEL}, inclusive com as notas de ` +
+  'quem está marcado como outlier nesta rodada. O par com e sem os marcados aparece só ' +
+  'no coeficiente da rodada, acima.'
 
 export const BAND_REFERENCE =
   `Faixa de referência de ${AGREEMENT_SOURCE}: abaixo de ` +

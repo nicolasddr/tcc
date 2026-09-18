@@ -11,6 +11,7 @@ import {
   CELL_NOT_APPLICABLE_TITLE,
   CELL_UNRATED_LABEL,
   MATRIX_LEGEND,
+  MATRIX_SCOPE_NOTE,
   agreementBand,
   bandTone,
   cellNotCalculableLabel,
@@ -126,6 +127,8 @@ export function AgreementMatrixTable({
         A matriz é da versão de codebook que a rodada fixou, Codebook v
         {codebookVersionNumber}, e não da versão vigente do projeto.
       </p>
+
+      <p className="m-0 text-xs text-muted">{MATRIX_SCOPE_NOTE}</p>
 
       <p className="m-0 text-xs text-muted">{MATRIX_LEGEND}</p>
     </div>

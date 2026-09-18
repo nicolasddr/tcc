@@ -8,11 +8,13 @@ export type SeriesPoint = {
   codebookVersionNumber: number
   closedAt: string | null
   agreement: Agreement
+  hasOutlier: boolean
 }
 
 export function agreementSeries(
   rounds: readonly RoundSummary[],
   observations: ReadonlyMap<string, RoundObservation[]>,
+  outliers: ReadonlyMap<string, ReadonlySet<string>> = new Map(),
 ): SeriesPoint[] {
   return rounds.map((round) => ({
     roundId: round.id,
@@ -20,5 +22,6 @@ export function agreementSeries(
     codebookVersionNumber: round.codebookVersionNumber,
     closedAt: round.closedAt,
     agreement: ordinalAlpha(observations.get(round.id) ?? []),
+    hasOutlier: (outliers.get(round.id)?.size ?? 0) > 0,
   }))
 }

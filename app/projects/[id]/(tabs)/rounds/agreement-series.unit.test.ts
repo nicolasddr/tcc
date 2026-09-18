@@ -85,6 +85,31 @@ describe('agreementSeries — um ponto por rodada, sem agregação', () => {
     expect(points[0].agreement).not.toEqual(points[1].agreement)
   })
 
+  it('sem o mapa de marcas, nenhuma rodada aparece com exclusão', () => {
+    const points = agreementSeries([round('a', 1, 1), round('b', 2, 2)], new Map())
+
+    expect(points.map((point) => point.hasOutlier)).toEqual([false, false])
+  })
+
+  it('marca só as rodadas com exclusão ativa, e a coluna continua sendo o valor com todos', () => {
+    const rounds = [round('a', 1, 1), round('b', 2, 2), round('c', 3, 2)]
+    const observations = new Map<string, RoundObservation[]>([
+      ['a', ratings({ ana: [1, 2, 3], bruno: [1, 2, 3], carla: [3, 1, 2] })],
+      ['b', ratings({ ana: [1, 2, 3], bruno: [1, 2, 3] })],
+    ])
+    const outliers = new Map<string, ReadonlySet<string>>([
+      ['a', new Set(['carla'])],
+      ['c', new Set()],
+    ])
+
+    const points = agreementSeries(rounds, observations, outliers)
+
+    expect(points.map((point) => point.hasOutlier)).toEqual([true, false, false])
+    expect(points[0].agreement).toEqual(
+      agreementSeries(rounds, observations)[0].agreement,
+    )
+  })
+
   it('o módulo não exporta nenhuma função de agregação entre rodadas', () => {
     expect(Object.keys(series)).toEqual(['agreementSeries'])
   })

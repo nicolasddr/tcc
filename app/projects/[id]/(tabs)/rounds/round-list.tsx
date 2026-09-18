@@ -3,8 +3,8 @@ import { Card } from '@/app/components/ui/card'
 import { EmptyState } from '@/app/components/ui/empty-state'
 import { OpenLink } from '@/app/components/ui/open-link'
 import { formatDate } from '@/app/notifications/labels'
-import type { Agreement } from '@/lib/agreement'
 import { AgreementValue } from './agreement-panel'
+import type { AgreementPair } from './agreement-pair'
 import { isOpen, type RoundSummary } from './rounds'
 
 export function RoundList({
@@ -14,7 +14,7 @@ export function RoundList({
 }: {
   projectId: string
   rounds: RoundSummary[]
-  agreement: Map<string, Agreement>
+  agreement: Map<string, AgreementPair>
 }) {
   if (rounds.length === 0) {
     return (
@@ -52,7 +52,7 @@ export function RoundList({
             </p>
 
             {agreement.has(round.id) ? (
-              <AgreementValue agreement={agreement.get(round.id)!} />
+              <AgreementValue pair={agreement.get(round.id)!} />
             ) : null}
 
             {isOpen(round) ? null : (
