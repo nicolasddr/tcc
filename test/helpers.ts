@@ -26,6 +26,7 @@ import {
   responses,
   evaluations,
   scores,
+  roundOutliers,
 } from '@/lib/db'
 
 const ROLLBACK = Symbol('rollback')
@@ -459,6 +460,30 @@ export async function addScore(
   return row.id
 }
 
+/** Marca um vínculo como outlier na rodada; com `removedBy`, a marca já nasce removida. */
+export async function addOutlier(
+  tx: DbExecutor,
+  roundId: string,
+  projectMemberId: string,
+  markedBy: string,
+  opts: { reason?: string; markedAt?: string; removedBy?: string; removedAt?: string } = {},
+): Promise<string> {
+  const removedBy = opts.removedBy ?? null
+  const [row] = await tx
+    .insert(roundOutliers)
+    .values({
+      roundId,
+      projectMemberId,
+      reason: opts.reason ?? 'Justificativa de teste',
+      markedBy,
+      ...(opts.markedAt === undefined ? {} : { markedAt: opts.markedAt }),
+      removedBy,
+      removedAt: removedBy === null ? null : (opts.removedAt ?? new Date().toISOString()),
+    })
+    .returning({ id: roundOutliers.id })
+  return row.id
+}
+
 /** Cria uma notificação para `userId` (não lida) e devolve o id. */
 export async function addNotification(
   tx: DbExecutor,
@@ -516,6 +541,7 @@ export async function cleanup(projectIds: string[], userIds: string[]): Promise<
       .select({ id: rounds.id })
       .from(rounds)
       .where(inArray(rounds.projectId, projectIds))
+    await ownerDb.delete(roundOutliers).where(inArray(roundOutliers.roundId, roundIds))
     await ownerDb.delete(evaluations).where(inArray(evaluations.roundId, roundIds))
     await ownerDb.delete(responses).where(inArray(responses.roundId, roundIds))
     await ownerDb.delete(projects).where(inArray(projects.id, projectIds))

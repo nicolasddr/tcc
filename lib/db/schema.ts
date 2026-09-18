@@ -493,3 +493,40 @@ export const scores = pgTable("scores", {
 	check("sc_value_check", sql`value = ANY (ARRAY['high'::text, 'medium'::text, 'low'::text])`),
 	check("sc_justification_len", sql`justification IS NULL OR char_length(justification) <= 2000`),
 ]);
+
+export const roundOutliers = pgTable("round_outliers", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	roundId: uuid("round_id").notNull(),
+	projectMemberId: uuid("project_member_id").notNull(),
+	reason: text().notNull(),
+	markedBy: uuid("marked_by").notNull(),
+	markedAt: timestamp("marked_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	removedBy: uuid("removed_by"),
+	removedAt: timestamp("removed_at", { withTimezone: true, mode: 'string' }),
+}, (table) => [
+	uniqueIndex("ro_one_active_per_member").using("btree", table.roundId.asc().nullsLast(), table.projectMemberId.asc().nullsLast()).where(sql`(removed_at IS NULL)`),
+	index("ro_round_active").using("btree", table.roundId.asc().nullsLast()).where(sql`(removed_at IS NULL)`),
+	foreignKey({
+			columns: [table.roundId],
+			foreignColumns: [rounds.id],
+			name: "round_outliers_round_id_fkey"
+		}).onDelete("restrict"),
+	foreignKey({
+			columns: [table.projectMemberId],
+			foreignColumns: [projectMembers.id],
+			name: "round_outliers_project_member_id_fkey"
+		}).onDelete("restrict"),
+	foreignKey({
+			columns: [table.markedBy],
+			foreignColumns: [profiles.id],
+			name: "round_outliers_marked_by_fkey"
+		}).onDelete("restrict"),
+	foreignKey({
+			columns: [table.removedBy],
+			foreignColumns: [profiles.id],
+			name: "round_outliers_removed_by_fkey"
+		}).onDelete("restrict"),
+	check("ro_removal_paired", sql`(removed_at IS NULL AND removed_by IS NULL) OR (removed_at IS NOT NULL AND removed_by IS NOT NULL)`),
+	check("ro_reason_len", sql`char_length(reason) <= 2000`),
+	check("ro_reason_not_blank", sql`btrim(reason) <> ''`),
+]);
