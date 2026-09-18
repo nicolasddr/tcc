@@ -13,7 +13,7 @@ seguinte herda" — anotar ali o que divergiu, como nos planos das #60, #61, #62
 | Parte | Entrega | Estado |
 |---|---|---|
 | 1 | A marca no banco: limite, tabela `round_outliers`, migration, leitura e helpers de teste | ☑ |
-| 2 | As actions e a área de membros: marcar com justificativa, desmarcar, e a linguagem de desativação | ☐ |
+| 2 | As actions e a área de membros: marcar com justificativa, desmarcar, e a linguagem de desativação | ☑ |
 | 3 | O número: ICR com todos e sem os outliers, lado a lado, e a lista de esforço honesta | ☐ |
 | 4 | A revisão identifica o outlier, só para o Administrador, e o acerto do glossário | ☐ |
 
@@ -442,8 +442,77 @@ o Supabase local e `/dev/login`. O ICR ainda **não** mudou na tela — isso é 
 
 ### O que a Parte 3 herda
 
-Anotar: assinaturas reais das actions, o shape final dos componentes de `members/`, e se
-`listEvaluatorEffort` precisou de algum campo já nesta Parte.
+**`(tabs)/rounds/outlier-actions.ts`** — assinaturas como no § 2.1, sem desvio:
+
+```ts
+type OutlierState = { error: string } | { ok: true; nonce: number } | null
+markOutlier(prev: OutlierState, formData: FormData): Promise<OutlierState>
+unmarkOutlier(prev: OutlierState, formData: FormData): Promise<OutlierState>
+```
+
+`markOutlier` lê `project_id`, `round_id`, `project_member_id`, `reason`; `unmarkOutlier` lê
+`project_id`, `round_id`, `mark_id`. As duas revalidam os quatro caminhos do § 2.1 e **não** escrevem
+em `notifications`. `unmarkOutlier` confere que a rodada é do projeto antes do `update` — sem isso um
+Administrador do projeto A removeria marca do projeto B só informando o par (`project_id` dele,
+`round_id` alheio), porque `isProjectAdmin` só olha o `project_id` do form.
+
+**Divergência do § 2.2 — uma leitura nova.** O seletor de rodada precisava da lista de rodadas "com
+ao menos uma avaliação enviada", que não existia. Ficou em `(tabs)/rounds/rounds.ts`, ao lado de
+`listRounds`, e não em `outliers.ts` (é listagem de rodada, não leitura de marca):
+
+```ts
+type EvaluatedRound = { id: string; roundNumber: number; status: string }
+listRoundsWithEvaluations(projectId: string, db: DbExecutor = ownerDb): Promise<EvaluatedRound[]>
+```
+
+`selectDistinct` com `innerJoin` em `evaluations`, ordenado por `roundNumber` **desc** — é essa ordem
+que faz "sem `?round=`, a rodada mais recente com avaliação" ser só `rounds[0]`.
+
+**`listEvaluatorEffort` não precisou de nada nesta Parte** — continua com a assinatura e o filtro
+`status = 'active'` da #62. O painel consome e filtra `submitted > 0` na tela. Consequência a
+resolver no § 3.4: **o avaliador desativado ainda não aparece no painel de outliers**, mesmo tendo
+avaliado a rodada, então hoje não há como marcá-lo. Quando o filtro virar "ativo **ou** com avaliação
+nesta rodada", ele passa a aparecer sem nenhuma mudança no painel.
+
+**Componentes de `members/`:**
+
+```ts
+// members/outlier-panel.tsx (servidor)
+type OutlierPanelData = {
+  rounds: EvaluatedRound[]; round: EvaluatedRound | null
+  effort: EvaluatorEffort[]; marks: OutlierMark[]; history: OutlierMark[]
+}
+OutlierPanel(props: { projectId: string } & OutlierPanelData)
+
+// members/outlier-forms.tsx ('use client')
+MarkOutlierForm({ projectId, roundId, projectMemberId, evaluatorName, roundNumber })
+UnmarkOutlierForm({ projectId, roundId, markId, evaluatorName, roundNumber })
+```
+
+`loadOutlierPanel` (em `members/page.tsx`) monta o `OutlierPanelData` inteiro **dentro da transação
+que a página já abria**, e só quando `isAdmin` — fora dele o painel recebe `EMPTY_OUTLIERS` e a
+`Section` nem existe. Sem estado local: a rodada em foco é `?round=<id>` e a justificativa é um
+`textarea` não controlado.
+
+**`members/page.tsx` ganhou `searchParams: Promise<{ round?: string }>`**, e por isso o `render()` do
+`members/page.int.test.ts` passa `searchParams: Promise.resolve({})`. Quem renderizar essa página em
+teste daqui para frente precisa passar os dois.
+
+**Renomes do § 2.3, todos aplicados:** `removeMember` → `deactivateMember`
+(`app/projects/actions.ts`), `RemoveMemberButton` → `DeactivateMemberButton`
+(`[id]/member-actions.tsx`, usado em `member-list.tsx`), rótulo "Desativar" e `pendingText`
+"Desativando…". O `confirm` passou a dizer as três coisas (acesso, avaliações preservadas **e no
+cálculo**, convites cancelados) e aponta a outra porta: marcar outlier na rodada. O `hint` da seção
+da equipe diz a mesma separação. O teste renomeado passou sem mudar nenhuma asserção.
+
+**Testes:** `(tabs)/rounds/outlier-actions.int.test.ts`, 9 casos, os oito do § 2.4 mais "depois de
+desmarcar, dá para marcar de novo na mesma rodada" (a prova pela action do que a Parte 1 provou pelo
+índice parcial). Gotcha: as actions commitam, então as fixtures vão por `ownerDb` + `cleanup()`, e
+não por `inRollbackTx`.
+
+**Conferido na tela** com Supabase local e `/dev/login`: marcar grava com trim e a página já volta com
+a marca; desmarcar devolve a pessoa ao estado "marcar" e a linha vira "marca removida" no histórico,
+com os dois autores e as duas datas. O ICR ainda **não** mudou na tela — é a Parte 3.
 
 ---
 

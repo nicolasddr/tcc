@@ -1,6 +1,6 @@
 import { roleLabel, memberStatusLabel } from '../labels'
 import type { ListedMember } from '../members'
-import { RemoveMemberButton } from './member-actions'
+import { DeactivateMemberButton } from './member-actions'
 import { ButtonLink } from '@/app/components/ui/button'
 import { StatusBadge } from '@/app/components/ui/badge'
 import { Avatar } from '@/app/components/ui/avatar'
@@ -44,14 +44,14 @@ export function MemberList({
                 Ver respostas
               </ButtonLink>
             ) : null}
-            {/* HU-021: o admin remove um avaliador ativo (não a si mesmo,
+            {/* HU-021: o admin desativa um avaliador ativo (não a si mesmo,
                 nem outro administrador). */}
             {canManage &&
             m.roles.includes('evaluator') &&
             !m.roles.includes('administrator') &&
             m.status === 'active' &&
             m.userId !== viewerId ? (
-              <RemoveMemberButton
+              <DeactivateMemberButton
                 projectId={projectId}
                 memberUserId={m.userId}
                 memberName={m.name}

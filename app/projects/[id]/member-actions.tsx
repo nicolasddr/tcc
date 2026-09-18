@@ -1,11 +1,11 @@
 'use client'
 
-import { removeMember, leaveProject } from '@/app/projects/actions'
+import { deactivateMember, leaveProject } from '@/app/projects/actions'
 import { SubmitButton } from '@/app/components/submit-button'
 
-// HU-021: o Administrador remove um avaliador (com confirmação). Botão inline na
-// lista de membros; confirma antes de enviar porque a remoção desativa o avaliador.
-export function RemoveMemberButton({
+// HU-021: o Administrador desativa um avaliador (com confirmação). Botão inline na
+// lista de membros; confirma antes de enviar porque a desativação tira o acesso.
+export function DeactivateMemberButton({
   projectId,
   memberUserId,
   memberName,
@@ -16,11 +16,11 @@ export function RemoveMemberButton({
 }) {
   return (
     <form
-      action={removeMember}
+      action={deactivateMember}
       onSubmit={(e) => {
         if (
           !confirm(
-            `Remover ${memberName} do projeto? A pessoa deixa de participar como avaliador (as avaliações são preservadas). Convites pendentes dela são cancelados.`,
+            `Desativar ${memberName} neste projeto? A pessoa perde o acesso e deixa de participar como avaliadora. As avaliações que ela já enviou continuam gravadas e continuam entrando no cálculo de concordância — para tirar as notas dela do cálculo de uma rodada, marque-a como outlier naquela rodada. Convites pendentes dela são cancelados.`,
           )
         )
           e.preventDefault()
@@ -28,8 +28,8 @@ export function RemoveMemberButton({
     >
       <input type="hidden" name="project_id" value={projectId} />
       <input type="hidden" name="member_user_id" value={memberUserId} />
-      <SubmitButton variant="dangerGhost" pendingText="Removendo…">
-        Remover
+      <SubmitButton variant="dangerGhost" pendingText="Desativando…">
+        Desativar
       </SubmitButton>
     </form>
   )

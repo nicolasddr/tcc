@@ -38,7 +38,10 @@ import {
 } from '@/test/helpers'
 
 function render(id: string) {
-  return ProjectMembersPage({ params: Promise.resolve({ id }) })
+  return ProjectMembersPage({
+    params: Promise.resolve({ id }),
+    searchParams: Promise.resolve({}),
+  })
 }
 
 function findElement(node: unknown, type: unknown): ReactElement | null {

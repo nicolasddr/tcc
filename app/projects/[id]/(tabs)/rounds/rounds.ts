@@ -1,7 +1,8 @@
-import { and, asc, eq } from 'drizzle-orm'
+import { and, asc, desc, eq } from 'drizzle-orm'
 import {
   ownerDb,
   type DbExecutor,
+  evaluations,
   profiles,
   projectMembers,
   codebookVersions,
@@ -21,6 +22,12 @@ export type Round = {
 }
 
 export type OpenRound = Round & { codebookVersionId: string }
+
+export type EvaluatedRound = {
+  id: string
+  roundNumber: number
+  status: string
+}
 
 export type RoundSummary = Round & {
   authorName: string
@@ -75,6 +82,23 @@ export function listRounds(
     .innerJoin(promptVersions, eq(promptVersions.id, rounds.promptVersionId))
     .where(eq(rounds.projectId, projectId))
     .orderBy(asc(rounds.roundNumber))
+}
+
+/** Rodadas com ao menos uma avaliação enviada, da mais recente para a mais antiga. */
+export function listRoundsWithEvaluations(
+  projectId: string,
+  db: DbExecutor = ownerDb,
+): Promise<EvaluatedRound[]> {
+  return db
+    .selectDistinct({
+      id: rounds.id,
+      roundNumber: rounds.roundNumber,
+      status: rounds.status,
+    })
+    .from(rounds)
+    .innerJoin(evaluations, eq(evaluations.roundId, rounds.id))
+    .where(eq(rounds.projectId, projectId))
+    .orderBy(desc(rounds.roundNumber))
 }
 
 export async function listEvaluatorsNotFinished(

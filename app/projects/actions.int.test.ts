@@ -31,7 +31,7 @@ import {
   createProject,
   updateProject,
   setProjectStatus,
-  removeMember,
+  deactivateMember,
   leaveProject,
   inviteEvaluator,
   assumeEvaluatorRole,
@@ -188,7 +188,7 @@ describe('app/projects/actions — autorização explícita', () => {
     expect(completed.status).toBe('completed')
   })
 
-  it('removeMember: não-admin → no-op; admin → inativa e cancela convite pendente', async () => {
+  it('deactivateMember: não-admin → no-op; admin → inativa e cancela convite pendente', async () => {
     const admin = await newUser()
     const evaluator = await newUser()
     const outsider = await newUser()
@@ -198,7 +198,7 @@ describe('app/projects/actions — autorização explícita', () => {
     const memberRow = await addActiveEvaluator(ownerDb, project, evaluator)
 
     auth.userId = outsider
-    await removeMember(fd({ project_id: project, member_user_id: evaluator }))
+    await deactivateMember(fd({ project_id: project, member_user_id: evaluator }))
     const [untouched] = await ownerDb
       .select({ status: projectMembers.status })
       .from(projectMembers)
@@ -206,7 +206,7 @@ describe('app/projects/actions — autorização explícita', () => {
     expect(untouched.status).toBe('active')
 
     auth.userId = admin
-    await removeMember(fd({ project_id: project, member_user_id: evaluator }))
+    await deactivateMember(fd({ project_id: project, member_user_id: evaluator }))
     const [removed] = await ownerDb
       .select({ status: projectMembers.status })
       .from(projectMembers)

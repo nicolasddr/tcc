@@ -284,7 +284,7 @@ export async function setProjectStatus(formData: FormData): Promise<void> {
   revalidatePath('/dashboard')
 }
 
-export async function removeMember(formData: FormData): Promise<void> {
+export async function deactivateMember(formData: FormData): Promise<void> {
   const userId = await requireUserId()
 
   const projectId = String(formData.get('project_id') ?? '')
