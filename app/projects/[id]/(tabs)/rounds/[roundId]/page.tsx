@@ -8,8 +8,9 @@ import {
 import { listRoundResponses } from '../../../pipeline/responses'
 import { responseLabel } from '../../evaluate/queue'
 import { isOpen } from '../rounds'
-import { loadResponseNotes, type ReviewRound } from '../review'
+import { loadResponseNotes, type ResponseNote, type ReviewRound } from '../review'
 import { requireReviewAccess, requireReviewableRound } from '../review-access'
+import { loadRoundOutliers, type OutlierMark } from '../outliers'
 import { divergentCells, ratedCells, reviewGroups, type CellNote } from '../review-groups'
 import { ReviewGroupsList, divergenceSummary } from '../review-groups-list'
 import { QueueNav } from '@/app/components/ui/queue-nav'
@@ -19,6 +20,18 @@ import { BackLink } from '@/app/components/ui/shell'
 import { formatDate } from '@/app/notifications/labels'
 
 type LabeledResponse = { id: string; label: string }
+
+function markOutliers(
+  notes: readonly ResponseNote[],
+  marks: readonly OutlierMark[],
+): CellNote[] {
+  const reasons = new Map(marks.map((mark) => [mark.projectMemberId, mark.reason]))
+
+  return notes.map((note) => {
+    const reason = reasons.get(note.projectMemberId) ?? null
+    return { ...note, isOutlier: reason !== null, outlierReason: reason }
+  })
+}
 
 type ReviewView = {
   round: ReviewRound
@@ -80,7 +93,10 @@ export default async function RoundReviewPage({
       next: labeled[index + 1]?.id ?? null,
       definitions: codebook?.definitions ?? [],
       criteria: codebook?.criteria ?? [],
-      notes: await loadResponseNotes(current.id, tx),
+      notes: markOutliers(
+        await loadResponseNotes(current.id, tx),
+        access.isAdmin ? await loadRoundOutliers(round.id, tx) : [],
+      ),
     }
   })
 

@@ -19,7 +19,14 @@ vi.mock('next/navigation', () => ({
 }))
 
 import RoundReviewPage from '@/app/projects/[id]/(tabs)/rounds/[roundId]/page'
-import { ReviewGroupsList } from '@/app/projects/[id]/(tabs)/rounds/review-groups-list'
+import {
+  ReviewGroupsList,
+  OUTLIER_NOTE_LABEL,
+} from '@/app/projects/[id]/(tabs)/rounds/review-groups-list'
+import type {
+  OutlierNote,
+  ReviewNote,
+} from '@/app/projects/[id]/(tabs)/rounds/review-groups'
 import {
   DIVERGENCE_LEGEND,
   NO_JUSTIFICATION_LABEL,
@@ -42,6 +49,7 @@ import {
   addRound,
   addResponse,
   addEvaluation,
+  addOutlier,
   type CellFixture,
   cleanup,
 } from '@/test/helpers'
@@ -124,6 +132,26 @@ function render(id: string, roundId: string, response?: string) {
     params: Promise.resolve({ id, roundId }),
     searchParams: Promise.resolve(response ? { response } : {}),
   })
+}
+
+function cellNotesOf(
+  tree: unknown,
+  definition: string,
+  criterion: string,
+): ReviewNote[] {
+  const group = listOf(tree).groups.find(
+    (candidate) => candidate.definition.title === definition,
+  )
+  expect(group).toBeTruthy()
+  const cell = group!.cells.find((candidate) => candidate.criterion.name === criterion)
+  expect(cell).toBeTruthy()
+  return cell!.notes
+}
+
+function markOf(notes: readonly ReviewNote[], evaluatorName: string): OutlierNote {
+  const found = notes.find((note) => note.evaluatorName === evaluatorName)
+  expect(found).toBeTruthy()
+  return { isOutlier: found!.isOutlier, outlierReason: found!.outlierReason }
 }
 
 function navOf(tree: unknown): { prev: string | null; next: string | null } {
@@ -394,6 +422,99 @@ describe('app/projects/[id]/rounds/[roundId] — a revisão de discordâncias', 
 
     expect(text).toContain('Bruno Avaliador')
     expect(text).toContain(divergenceLabel('extreme'))
+  })
+
+  it('para o Administrador, a nota de quem está marcado vem identificada e com a justificativa', async () => {
+    const admin = await newUser('Admin')
+    const scene = await roundWith(admin, 1)
+    const ana = await newEvaluator(scene.project, 'Ana Avaliadora')
+    const bruno = await newEvaluator(scene.project, 'Bruno Avaliador')
+
+    await addEvaluation(ownerDb, scene.round, scene.responses[0], ana, {
+      cells: [note(scene, 'Informacional', 'Precisão', 'high')],
+    })
+    await addEvaluation(ownerDb, scene.round, scene.responses[0], bruno, {
+      cells: [note(scene, 'Informacional', 'Precisão', 'low')],
+    })
+    await addOutlier(ownerDb, scene.round, bruno, admin, {
+      reason: 'Notou o oposto do grupo em todas as respostas e não justificou nenhuma.',
+    })
+
+    auth.userId = admin
+    const tree = await render(scene.project, scene.round)
+    const notes = cellNotesOf(tree, 'Informacional', 'Precisão')
+
+    expect(markOf(notes, 'Bruno Avaliador')).toEqual({
+      isOutlier: true,
+      outlierReason:
+        'Notou o oposto do grupo em todas as respostas e não justificou nenhuma.',
+    })
+    expect(markOf(notes, 'Ana Avaliadora')).toEqual({
+      isOutlier: false,
+      outlierReason: null,
+    })
+    expect(listTextOf(tree)).toContain(OUTLIER_NOTE_LABEL)
+  })
+
+  it('o avaliador não vê marca nenhuma na mesma rodada, com o mesmo dado no banco', async () => {
+    const admin = await newUser('Admin')
+    const scene = await roundWith(admin, 1)
+    const ana = await newSignedEvaluator(scene.project, 'Ana Avaliadora')
+    const bruno = await newEvaluator(scene.project, 'Bruno Avaliador')
+
+    await addEvaluation(ownerDb, scene.round, scene.responses[0], ana.member, {
+      cells: [note(scene, 'Informacional', 'Precisão', 'high')],
+    })
+    await addEvaluation(ownerDb, scene.round, scene.responses[0], bruno, {
+      cells: [note(scene, 'Informacional', 'Precisão', 'low')],
+    })
+    await addOutlier(ownerDb, scene.round, bruno, admin, {
+      reason: 'Notou o oposto do grupo em todas as respostas e não justificou nenhuma.',
+    })
+
+    auth.userId = ana.user
+    const tree = await render(scene.project, scene.round)
+    const notes = cellNotesOf(tree, 'Informacional', 'Precisão')
+
+    expect(notes.map((cell) => cell.isOutlier)).toEqual([false, false])
+    expect(notes.map((cell) => cell.outlierReason)).toEqual([null, null])
+
+    const text = listTextOf(tree)
+    expect(text).not.toContain(OUTLIER_NOTE_LABEL)
+    expect(text).not.toContain('Notou o oposto do grupo')
+  })
+
+  it('a nota do marcado continua na célula, com valor, justificativa e divergência, para os dois', async () => {
+    const admin = await newUser('Admin')
+    const scene = await roundWith(admin, 1)
+    const ana = await newSignedEvaluator(scene.project, 'Ana Avaliadora')
+    const bruno = await newEvaluator(scene.project, 'Bruno Avaliador')
+
+    await addEvaluation(ownerDb, scene.round, scene.responses[0], ana.member, {
+      cells: [note(scene, 'Informacional', 'Precisão', 'high')],
+    })
+    await addEvaluation(ownerDb, scene.round, scene.responses[0], bruno, {
+      cells: [
+        note(scene, 'Informacional', 'Precisão', 'low', 'A resposta inventa o número.'),
+      ],
+    })
+    await addOutlier(ownerDb, scene.round, bruno, admin)
+
+    for (const viewer of [admin, ana.user]) {
+      auth.userId = viewer
+      const tree = await render(scene.project, scene.round)
+      const notes = cellNotesOf(tree, 'Informacional', 'Precisão')
+
+      expect(notes.map((cell) => cell.evaluatorName)).toEqual([
+        'Ana Avaliadora',
+        'Bruno Avaliador',
+      ])
+      expect(notes.map((cell) => cell.value)).toEqual(['high', 'low'])
+
+      const text = listTextOf(tree)
+      expect(text).toContain('A resposta inventa o número.')
+      expect(text).toContain(divergenceLabel('extreme'))
+    }
   })
 
   it('o rótulo da resposta segue a ordem de criação, e a navegação anda nessa ordem', async () => {

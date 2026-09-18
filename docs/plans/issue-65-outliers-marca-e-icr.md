@@ -15,7 +15,7 @@ seguinte herda" — anotar ali o que divergiu, como nos planos das #60, #61, #62
 | 1 | A marca no banco: limite, tabela `round_outliers`, migration, leitura e helpers de teste | ☑ |
 | 2 | As actions e a área de membros: marcar com justificativa, desmarcar, e a linguagem de desativação | ☑ |
 | 3 | O número: ICR com todos e sem os outliers, lado a lado, e a lista de esforço honesta | ☑ |
-| 4 | A revisão identifica o outlier, só para o Administrador, e o acerto do glossário | ☐ |
+| 4 | A revisão identifica o outlier, só para o Administrador, e o acerto do glossário | ☑ |
 
 **Nenhuma ADR nova.** A decisão inteira já está registrada na **ADR 0011** (exclusão do cálculo com
 porta única, e ICR invisível ao Avaliador) e a **ADR 0008** já recebeu a emenda que aponta para cá.
@@ -779,6 +779,23 @@ telas: painel da rodada, lista de rodadas, série e matriz).
 ### Pronto quando
 
 `npm run lint`, `npm run typecheck` e `npm test` verdes, e os doze ACs do issue conferidos um a um.
+
+### O que esta Parte fechou
+
+`ReviewNote` ganhou `isOutlier` e `outlierReason` (no tipo `OutlierNote`, reaproveitado pelo teste),
+e `loadResponseNotes` passou a devolver `ResponseNote` — a nota sem a marca. Quem junta as duas é
+`markOutliers`, função local de `[roundId]/page.tsx`, alimentada por `loadRoundOutliers(round.id)`
+**só** quando `access.isAdmin`; para o Avaliador a lista de marcas nasce vazia na mesma linha.
+`reviewGroups` não mudou de lógica. Na lista, `outlierNoteHint(reason)` monta o `title` do `Badge`
+"outlier" ao lado do nome, sem usar as palavras que a #64 proibiu nesta tela (Krippendorff, ICR,
+Alpha, Concordância) — o `deepText` do teste de página lê `title`, e o não-vazamento do coeficiente é
+asserção viva ali.
+
+**Divergência do § 4.2:** a decisão de carregar as marcas só no ramo de Administrador ficou
+registrada aqui e no § 2 ("O que a marca não faz"), e não em comentário no código — o repositório não
+comenta código novo.
+
+`npm test` verde, 808 testes (805 + os 3 da Parte 4).
 
 ---
 

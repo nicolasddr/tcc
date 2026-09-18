@@ -233,8 +233,9 @@ Avalia respostas da LLM de forma independente, seguindo o codebook. Não autora 
 **Administrador-avaliador**
 Administrador que também assumiu o papel de Avaliador no próprio projeto, ganhando um segundo
 vínculo e passando pelo mesmo consentimento e questionário dos demais. Como ele autora o codebook
-e avalia com ele, é fonte conhecida de viés, e os painéis de concordância precisam conseguir
-separá-lo dos demais avaliadores.
+e avalia com ele, continua sendo fonte conhecida de viés, e o instrumento para tratá-lo é a marca
+de Outlier: ele marca a si mesmo na rodada, de forma declarada e justificada, e a rodada passa a
+mostrar o valor com todos ao lado do valor sem os marcados.
 
 **Super-admin**
 Administrador da plataforma; aprova ou rejeita permissão para criar projetos.

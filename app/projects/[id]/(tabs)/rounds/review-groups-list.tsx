@@ -19,6 +19,16 @@ import type { ReviewCell, ReviewGroup, ReviewNote } from './review-groups'
 
 export type DefinitionGroup = ReviewGroup<CodebookDefinition, CodebookCriterion>
 
+export const OUTLIER_NOTE_LABEL = 'outlier'
+
+export function outlierNoteHint(reason: string | null): string {
+  const mark =
+    'Marcado como outlier nesta rodada: as notas desta pessoa ficam fora do cálculo ' +
+    'da rodada, e continuam aqui na revisão, com o mesmo peso das outras.'
+
+  return reason ? `${mark} Justificativa: ${reason}` : mark
+}
+
 export function divergenceSummary(divergent: number, cells: number): string {
   if (cells === 0) return 'sem célula nesta definição'
   if (divergent === 0) return 'nenhuma divergência'
@@ -35,6 +45,11 @@ function Note({ note }: { note: ReviewNote }) {
       <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
         <span className="text-[13px] font-semibold text-ink">{note.evaluatorName}</span>
         <Badge tone={scaleTone(note.value)}>{scaleLabel(note.value)}</Badge>
+        {note.isOutlier ? (
+          <span title={outlierNoteHint(note.outlierReason)}>
+            <Badge tone="warning">{OUTLIER_NOTE_LABEL}</Badge>
+          </span>
+        ) : null}
       </span>
 
       {note.justification ? (

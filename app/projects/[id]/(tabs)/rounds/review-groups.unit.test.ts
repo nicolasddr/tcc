@@ -33,6 +33,8 @@ function note(
     evaluatorName: projectMemberId.toUpperCase(),
     value,
     justification,
+    isOutlier: false,
+    outlierReason: null,
   }
 }
 
@@ -181,12 +183,16 @@ describe('app/projects/[id]/rounds/review-groups — a revisão de uma resposta'
         evaluatorName: 'ANA',
         value: 'high',
         justification: 'o texto responde direto à pergunta',
+        isOutlier: false,
+        outlierReason: null,
       },
       {
         projectMemberId: 'bruno',
         evaluatorName: 'BRUNO',
         value: 'low',
         justification: null,
+        isOutlier: false,
+        outlierReason: null,
       },
     ])
   })

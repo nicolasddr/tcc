@@ -7,12 +7,17 @@ import type { ScaleValue } from '../evaluate/scale'
 import type { CriterionKey } from './agreement-matrix'
 import { classifyDivergence, isDivergent, type CellDivergence } from './divergence'
 
+export type OutlierNote = {
+  isOutlier: boolean
+  outlierReason: string | null
+}
+
 export type ReviewNote = {
   projectMemberId: string
   evaluatorName: string
   value: ScaleValue
   justification: string | null
-}
+} & OutlierNote
 
 export type CellNote = ReviewNote & { definitionId: string; criterionId: string }
 

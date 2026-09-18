@@ -12,7 +12,9 @@ import {
 import { isUuid } from '../../pipeline/versions'
 import { isScaleValue } from '../evaluate/scale'
 import { ROUND_CLOSED } from './rounds'
-import type { CellNote } from './review-groups'
+import type { CellNote, OutlierNote } from './review-groups'
+
+export type ResponseNote = Omit<CellNote, keyof OutlierNote>
 
 export type ReviewRound = {
   id: string
@@ -50,7 +52,7 @@ export async function loadReviewRound(
 export async function loadResponseNotes(
   responseId: string,
   db: DbExecutor = ownerDb,
-): Promise<CellNote[]> {
+): Promise<ResponseNote[]> {
   if (!isUuid(responseId)) return []
 
   const rows = await db
