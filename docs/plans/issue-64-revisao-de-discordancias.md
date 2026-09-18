@@ -14,7 +14,7 @@ seguinte herda" — anotar ali o que divergiu, como nos planos das #60, #61, #62
 |---|---|---|
 | 1 | Classificar divergência e montar a revisão de uma resposta, sem tela e sem banco | ☑ |
 | 2 | A tela da rodada: rota nova, navegação entre respostas, células, notas e justificativas | ☑ |
-| 3 | O acesso do Avaliador: só as rodadas em que avaliou, sem coeficiente nenhum | ☐ |
+| 3 | O acesso do Avaliador: só as rodadas em que avaliou, sem coeficiente nenhum | ☑ |
 
 **Nenhuma ADR nova.** As decisões que esta fatia usa já estão registradas: ADR 0009 (avaliação
 imutável vinculada ao membro — é o que faz a nota ter dono e sobreviver à desativação), ADR 0010
@@ -676,7 +676,59 @@ referência ao commit, como nas fatias anteriores.
 
 ### O que ficou desta Parte
 
-_(preencher ao fim da Parte: o que divergiu, o que ficou de pé e o que foi conferido no navegador.)_
+**Nada divergiu do plano, e o § 3.4 opcional entrou.** `npm test` (772 testes, 9 novos), `npm run
+lint` e `npm run typecheck` verdes.
+
+**As assinaturas finais, como estão no código:**
+
+```ts
+// (tabs)/rounds/review.ts
+export type ReviewableRound = { id: string; roundNumber: number; closedAt: string }
+
+export async function listReviewableRounds(projectId, memberId, db?): Promise<ReviewableRound[]>
+```
+
+```tsx
+// (tabs)/rounds/evaluator-rounds.tsx
+export function EvaluatorRounds({ projectId, rounds }: {
+  projectId: string
+  rounds: ReviewableRound[]
+})
+```
+
+**O que ficou de pé:**
+
+- `listReviewableRounds` é um `selectDistinct` de `rounds` com `innerJoin` em `evaluations`,
+  filtrando `status = 'closed'` e o vínculo, ordenado por `roundNumber`. Rodada fechada sem
+  `closedAt` cai fora no `flatMap` que estreita o tipo — o mesmo desenho de `loadResponseNotes`.
+- `(tabs)/rounds/page.tsx` trocou `loadPipelineAccess` + `requirePipelineAdmin` por
+  `requireReviewAccess`, que já resolve os três destinos (`notFound` para quem não é membro,
+  `redirect` para o onboarding pendente, e o `memberId` do avaliador ativo). As leituras de
+  administração ficaram atrás de `isAdmin`, e o ramo do Avaliador retorna cedo, antes de qualquer
+  cálculo de coeficiente: `ordinalAlpha` e `AgreementPanel` não são sequer alcançados.
+- A aba "Rodadas" virou link para `isAdmin || isEvaluator`. A versão desabilitada com "Ainda não
+  implementado" sobrou para o membro sem nenhum dos dois papéis ativos — hoje, quem está em
+  onboarding pendente.
+- **O § 3.4 entrou**: na tela de avaliar, quando não há rodada aberta, aparece abaixo do aviso de
+  espera um link para a revisão da última rodada revisável. A consulta só roda nesse ramo (`!round`),
+  então a navegação normal de avaliação não paga nada por ela.
+- O teste `o avaliador não alcança a área de rodadas` **deixou de existir**: ele afirmava o contrário
+  do que esta Parte entrega. No lugar entraram quatro, entre eles o de que a tela do Avaliador não
+  traz `NewRound`, `CloseRound`, `GenerateResponses` nem `RoundList`.
+- O `roundWith` de `(tabs)/rounds/[roundId]/page.int.test.ts` passou a derivar o número da versão de
+  codebook e de prompt do `roundNumber`: `cv_unique_project_version` impede duas versões 1 no mesmo
+  projeto, e as cenas de duas rodadas no **mesmo** projeto (que a Parte 3 precisa) esbarravam nisso.
+
+**Conferido no navegador** (`dev:local`, `/dev/login`), com cena semeada e apagada ao fim — a tabela
+`scores` voltou a zero, que é o que `(tabs)/evaluate/actions.int.test.ts` exige:
+
+- Avaliador em projeto com três rodadas fechadas, tendo avaliado a 1 e a 3: a aba "Rodadas" abre a
+  lista com a Rodada 1 e a Rodada 3, sem coeficiente e sem nada de gestão; a Rodada 2 dá 404 na URL
+  direta; a revisão da Rodada 1 mostra as células, os nomes e as justificativas.
+- O mesmo usuário promovido a administrador: a tela de `/rounds` é exatamente a de antes (painel,
+  matriz, lista com ICR) e a Rodada 2, que ele nunca avaliou, abre normalmente.
+- A tela de avaliar, sem rodada aberta, oferece "Abrir a revisão de discordâncias da rodada 3".
+- Em 375px nenhuma das telas rola na horizontal.
 
 ---
 

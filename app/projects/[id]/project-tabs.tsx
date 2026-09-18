@@ -86,7 +86,7 @@ export function ProjectTabs({
         </>
       ) : null}
 
-      {isAdmin ? (
+      {isAdmin || isEvaluator ? (
         <Tab
           icon={<RepeatIcon />}
           href={`/projects/${projectId}/rounds`}

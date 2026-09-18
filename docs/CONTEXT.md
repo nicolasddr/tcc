@@ -127,6 +127,25 @@ que é diferente de **não calculável** (a célula existe, tem nota e não tem 
 nota** (a célula existe e ninguém a avaliou ainda).
 Evitar: confiabilidade, acurácia.
 
+**Divergência**
+Célula sem unanimidade entre os avaliadores considerados. É *adjacente* quando as notas ficam a
+uma distância na escala (Alto com Médio, Médio com Baixo), e costuma indicar fronteira borrada
+entre os pontos da escala: as pessoas entenderam a mesma coisa e discordaram de grau. É *extrema*
+quando Alto e Baixo aparecem na mesma célula — inclusive quando as três notas aparecem —, e
+costuma indicar definição ambígua: duas pessoas leram coisas opostas no mesmo texto, com o mesmo
+codebook. Refinar um caso e o outro é trabalho diferente, e por isso a tela os distingue por
+escrito. Célula com uma nota só não é divergência nem unanimidade: não há com quem discordar.
+Evitar: erro, acerto, e qualquer palavra que trate a divergência como falha de alguém.
+
+**Revisão de discordâncias**
+A leitura das notas de uma rodada, uma resposta por vez, com todas as células da versão de codebook
+que aquela rodada fixou e as divergentes destacadas. Abre no fechamento da rodada e fica presa a
+ela, porque é a clareza do codebook naquela versão que está em discussão, e não a memória do grupo.
+Cada nota aparece com o nome real de quem a deu e com a justificativa, quando existe. O
+Administrador alcança todas as rodadas do projeto; o Avaliador, só aquelas em que enviou
+avaliação, e sem ver coeficiente em lugar nenhum (ver ADR 0011). A anonimização dos avaliadores
+aqui está em "Em aberto".
+
 **Qualidade**
 Quão "boa" é a resposta da LLM segundo os critérios. É uma dimensão independente da
 Concordância, e as duas aparecem separadas na UI. Só é leitura confiável quando o ICR está

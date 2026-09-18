@@ -14,6 +14,7 @@ import {
   type ResponseDetail,
 } from '../../pipeline/responses'
 import { loadOpenRound } from '../rounds/rounds'
+import { listReviewableRounds, type ReviewableRound } from '../rounds/review'
 import { requireEvaluator } from './access'
 import {
   loadEvaluatedResponseIds,
@@ -28,6 +29,7 @@ import { ContextPanel } from './context-panel'
 import { EvaluationForm } from './evaluation-form'
 import { QueueNav } from '@/app/components/ui/queue-nav'
 import { Alert } from '@/app/components/ui/alert'
+import { OpenLink } from '@/app/components/ui/open-link'
 import { EmptyState } from '@/app/components/ui/empty-state'
 import { Section } from '@/app/components/ui/section'
 import { ProgressBar } from '@/app/components/ui/stat'
@@ -44,6 +46,7 @@ type EvaluateView = {
   progress: Progress
   prev: string | null
   next: string | null
+  lastReview: ReviewableRound | null
 }
 
 const empty: Omit<EvaluateView, 'waiting' | 'memberName' | 'roundNumber'> = {
@@ -55,6 +58,7 @@ const empty: Omit<EvaluateView, 'waiting' | 'memberName' | 'roundNumber'> = {
   progress: { evaluated: 0, total: 0 },
   prev: null,
   next: null,
+  lastReview: null,
 }
 
 export default async function ProjectEvaluatePage({
@@ -90,6 +94,7 @@ export default async function ProjectEvaluatePage({
         memberName,
         roundNumber: null,
         ...empty,
+        lastReview: (await listReviewableRounds(id, memberId, tx)).at(-1) ?? null,
       }
     }
 
@@ -129,12 +134,13 @@ export default async function ProjectEvaluatePage({
       submitted: await loadEvaluationOf(currentId, memberId, tx),
       context: await loadEvaluationContext(id, currentId, tx),
       progress,
+      lastReview: null,
       ...neighbours(queue, currentId),
     }
   })
 
   const { waiting, memberName, roundNumber, response, label, cells } = view
-  const { submitted, context, progress, prev, next } = view
+  const { submitted, context, progress, prev, next, lastReview } = view
 
   const held = waiting && waiting.key !== 'finished' ? waiting : null
   const route = `/projects/${id}/evaluate?response=`
@@ -152,7 +158,16 @@ export default async function ProjectEvaluatePage({
       hint="Cada resposta é avaliada uma vez, em cada critério de cada definição do codebook que esta rodada fixou. O envio é definitivo."
     >
       {held ? (
-        <EmptyState>{waitingMessage(held)}</EmptyState>
+        <div className="flex flex-col gap-3">
+          <EmptyState>{waitingMessage(held)}</EmptyState>
+          {lastReview ? (
+            <p className="m-0 text-center text-[13px] text-muted">
+              <OpenLink href={`/projects/${id}/rounds/${lastReview.id}`}>
+                Abrir a revisão de discordâncias da rodada {lastReview.roundNumber}
+              </OpenLink>
+            </p>
+          ) : null}
+        </div>
       ) : !response || cells.length === 0 ? (
         <EmptyState>{waitingMessage({ key: 'codebook' })}</EmptyState>
       ) : (

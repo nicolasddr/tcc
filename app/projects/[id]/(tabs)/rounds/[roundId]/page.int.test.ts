@@ -172,20 +172,21 @@ describe('app/projects/[id]/rounds/[roundId] — a revisão de discordâncias', 
       projs.push(project)
     }
 
-    const codebookVersion = await addCodebookVersion(
-      ownerDb,
-      project,
-      admin,
-      opts.shape ?? TWO_DEFINITIONS,
-    )
-    const promptVersion = await addPromptVersion(ownerDb, project, admin)
+    const roundNumber = opts.roundNumber ?? 1
+    const codebookVersion = await addCodebookVersion(ownerDb, project, admin, {
+      versionNumber: roundNumber,
+      ...(opts.shape ?? TWO_DEFINITIONS),
+    })
+    const promptVersion = await addPromptVersion(ownerDb, project, admin, {
+      versionNumber: roundNumber,
+    })
     const round = await addRound(
       ownerDb,
       project,
       admin,
       codebookVersion,
       promptVersion,
-      { roundNumber: opts.roundNumber ?? 1, status: opts.status ?? 'closed' },
+      { roundNumber, status: opts.status ?? 'closed' },
     )
 
     const responses: string[] = []
@@ -229,6 +230,14 @@ describe('app/projects/[id]/rounds/[roundId] — a revisão de discordâncias', 
 
   async function newEvaluator(project: string, name: string): Promise<string> {
     return addActiveEvaluator(ownerDb, project, await newUser(name))
+  }
+
+  async function newSignedEvaluator(
+    project: string,
+    name: string,
+  ): Promise<{ user: string; member: string }> {
+    const user = await newUser(name)
+    return { user, member: await addActiveEvaluator(ownerDb, project, user) }
   }
 
   beforeEach(() => {
@@ -502,5 +511,73 @@ describe('app/projects/[id]/rounds/[roundId] — a revisão de discordâncias', 
     }
     expect(findElement(tree, AgreementPanel)).toBeNull()
     expect(findElement(tree, AgreementMatrixTable)).toBeNull()
+  })
+
+  it('o avaliador abre a rodada em que avaliou, e não a rodada em que não avaliou', async () => {
+    const admin = await newUser('Admin')
+    const mine = await roundWith(admin, 1)
+    const theirs = await roundWith(admin, 1, {
+      project: mine.project,
+      roundNumber: 2,
+    })
+    const ana = await newSignedEvaluator(mine.project, 'Ana Avaliadora')
+    const bruno = await newEvaluator(mine.project, 'Bruno Avaliador')
+
+    await addEvaluation(ownerDb, mine.round, mine.responses[0], ana.member, {
+      cells: [note(mine, 'Informacional', 'Precisão', 'high')],
+    })
+    await addEvaluation(ownerDb, theirs.round, theirs.responses[0], bruno, {
+      cells: [note(theirs, 'Informacional', 'Precisão', 'low')],
+    })
+
+    auth.userId = ana.user
+    expect(listTextOf(await render(mine.project, mine.round))).toContain(
+      'Ana Avaliadora',
+    )
+    await expect(render(mine.project, theirs.round)).rejects.toThrow('NEXT_NOTFOUND')
+  })
+
+  it('o administrador que nunca avaliou abre qualquer rodada do projeto', async () => {
+    const admin = await newUser('Admin')
+    const mine = await roundWith(admin, 1)
+    const theirs = await roundWith(admin, 1, {
+      project: mine.project,
+      roundNumber: 2,
+    })
+    const ana = await newEvaluator(mine.project, 'Ana Avaliadora')
+
+    await addEvaluation(ownerDb, theirs.round, theirs.responses[0], ana, {
+      cells: [note(theirs, 'Informacional', 'Precisão', 'high')],
+    })
+
+    auth.userId = admin
+    expect(textOf(await render(mine.project, mine.round))).toContain('Resposta 1')
+    expect(listTextOf(await render(mine.project, theirs.round))).toContain(
+      'Ana Avaliadora',
+    )
+  })
+
+  it('a revisão do avaliador não fala de coeficiente', async () => {
+    const admin = await newUser('Admin')
+    const scene = await roundWith(admin, 1)
+    const ana = await newSignedEvaluator(scene.project, 'Ana Avaliadora')
+    const bruno = await newEvaluator(scene.project, 'Bruno Avaliador')
+
+    await addEvaluation(ownerDb, scene.round, scene.responses[0], ana.member, {
+      cells: [note(scene, 'Informacional', 'Precisão', 'high')],
+    })
+    await addEvaluation(ownerDb, scene.round, scene.responses[0], bruno, {
+      cells: [note(scene, 'Informacional', 'Precisão', 'low')],
+    })
+
+    auth.userId = ana.user
+    const tree = await render(scene.project, scene.round)
+    const text = `${textOf(tree)} ${listTextOf(tree)}`
+
+    expect(text).toContain('Bruno Avaliador')
+    expect(text).toContain(divergenceLabel('extreme'))
+    for (const word of ['Krippendorff', 'ICR', 'Alpha', 'Concordância']) {
+      expect(text).not.toContain(word)
+    }
   })
 })

@@ -1,6 +1,5 @@
 import { requireUserId } from '@/lib/supabase/server'
 import { transaction } from '@/lib/db'
-import { loadPipelineAccess, requirePipelineAdmin } from '../../pipeline/access'
 import { loadCodebook, loadCodebookVersion } from '../../pipeline/codebook'
 import { loadPrompt } from '../../pipeline/prompt'
 import { loadItems } from '../../pipeline/items'
@@ -16,6 +15,9 @@ import { NewRound } from './new-round'
 import { CloseRound } from './close-round'
 import { GenerateResponses } from './generate-responses'
 import { RoundList } from './round-list'
+import { EvaluatorRounds } from './evaluator-rounds'
+import { listReviewableRounds } from './review'
+import { requireReviewAccess } from './review-access'
 import { AgreementPanel } from './agreement-panel'
 import { AgreementMatrixTable } from './agreement-matrix-table'
 import { ordinalAlpha, type Agreement } from '@/lib/agreement'
@@ -34,6 +36,7 @@ export default async function ProjectRoundsPage({
 
   const {
     access,
+    reviewable,
     rounds,
     openRound,
     focusRound,
@@ -46,10 +49,11 @@ export default async function ProjectRoundsPage({
     observations,
     effort,
   } = await transaction(async (tx) => {
-    const access = await loadPipelineAccess(id, userId, tx)
-    const projectId = access.project?.id
-    const openRound = projectId ? await loadOpenRound(projectId, tx) : null
-    const rounds = projectId ? await listRounds(projectId, tx) : []
+    const access = await requireReviewAccess(id, userId, tx)
+    const projectId = access.project.id
+    const isAdmin = access.isAdmin
+    const openRound = isAdmin ? await loadOpenRound(projectId, tx) : null
+    const rounds = isAdmin ? await listRounds(projectId, tx) : []
     const focusRound = rounds.find(isOpen) ?? rounds[rounds.length - 1] ?? null
 
     return {
@@ -57,28 +61,41 @@ export default async function ProjectRoundsPage({
       openRound,
       rounds,
       focusRound,
-      codebook: projectId ? await loadCodebook(projectId, tx) : null,
-      focusCodebook:
-        projectId && focusRound
-          ? await loadCodebookVersion(projectId, focusRound.codebookVersionId, tx)
-          : null,
-      prompt: projectId ? await loadPrompt(projectId, tx) : null,
-      evaluatorsNotFinished: projectId
+      reviewable:
+        !isAdmin && access.memberId
+          ? await listReviewableRounds(projectId, access.memberId, tx)
+          : [],
+      codebook: isAdmin ? await loadCodebook(projectId, tx) : null,
+      focusCodebook: focusRound
+        ? await loadCodebookVersion(projectId, focusRound.codebookVersionId, tx)
+        : null,
+      prompt: isAdmin ? await loadPrompt(projectId, tx) : null,
+      evaluatorsNotFinished: isAdmin
         ? await listEvaluatorsNotFinished(projectId, tx)
         : [],
-      items: projectId && openRound ? await loadItems(projectId, tx) : [],
+      items: openRound ? await loadItems(projectId, tx) : [],
       generated: openRound ? await listRoundResponses(openRound.id, tx) : [],
-      observations: projectId
+      observations: isAdmin
         ? await loadProjectObservations(projectId, tx)
         : new Map<string, RoundObservation[]>(),
-      effort:
-        projectId && focusRound
-          ? await listEvaluatorEffort(focusRound.id, projectId, tx)
-          : [],
+      effort: focusRound
+        ? await listEvaluatorEffort(focusRound.id, projectId, tx)
+        : [],
     }
   })
 
-  const project = requirePipelineAdmin(access, id)
+  const project = access.project
+
+  if (!access.isAdmin) {
+    return (
+      <Section
+        title="Rodadas para revisar"
+        hint="As rodadas fechadas em que você enviou avaliação. A revisão mostra, resposta por resposta, como cada avaliador pontuou cada célula do codebook que aquela rodada fixou — e fica presa à rodada, porque é dela que o refinamento sai."
+      >
+        <EvaluatorRounds projectId={project.id} rounds={reviewable} />
+      </Section>
+    )
+  }
 
   const agreement = new Map<string, Agreement>(
     rounds.map((round) => [round.id, ordinalAlpha(observations.get(round.id) ?? [])]),

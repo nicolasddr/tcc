@@ -24,6 +24,7 @@ vi.mock('next/navigation', () => ({
 
 import ProjectRoundsPage from '@/app/projects/[id]/(tabs)/rounds/page'
 import { RoundList } from '@/app/projects/[id]/(tabs)/rounds/round-list'
+import { EvaluatorRounds } from '@/app/projects/[id]/(tabs)/rounds/evaluator-rounds'
 import { NewRound } from '@/app/projects/[id]/(tabs)/rounds/new-round'
 import { CloseRound } from '@/app/projects/[id]/(tabs)/rounds/close-round'
 import { GenerateResponses } from '@/app/projects/[id]/(tabs)/rounds/generate-responses'
@@ -112,6 +113,24 @@ function textOf(node: unknown): string {
   return collectText(node).replace(/\s+/g, ' ').trim()
 }
 
+// O ramo do Avaliador põe texto fora de `children` — a dica da seção é prop —, e é
+// justamente ali que um coeficiente vazaria sem ninguém ver.
+function deepText(node: unknown): string {
+  if (typeof node === 'string' || typeof node === 'number') return ` ${node} `
+  if (Array.isArray(node)) return node.map(deepText).join('')
+  if (isValidElement(node)) {
+    return Object.entries(node.props as Record<string, unknown>)
+      .filter(([key]) => key !== 'className' && key !== 'href')
+      .map(([, value]) => deepText(value))
+      .join('')
+  }
+  return ''
+}
+
+function allTextOf(node: unknown): string {
+  return deepText(node).replace(/\s+/g, ' ').trim()
+}
+
 type CodebookShape = Parameters<typeof addCodebookVersion>[3]
 
 type SceneCell = {
@@ -135,6 +154,7 @@ type CloseRoundProps = Parameters<typeof CloseRound>[0]
 type GenerateProps = Parameters<typeof GenerateResponses>[0]
 type PanelProps = Parameters<typeof AgreementPanel>[0]
 type MatrixProps = Parameters<typeof AgreementMatrixTable>[0]
+type EvaluatorProps = Parameters<typeof EvaluatorRounds>[0]
 
 function render(id: string) {
   return ProjectRoundsPage({ params: Promise.resolve({ id }) })
@@ -174,6 +194,12 @@ function matrixOf(tree: unknown): MatrixProps {
   const element = findElement(tree, AgreementMatrixTable)
   expect(element).toBeTruthy()
   return element!.props as MatrixProps
+}
+
+function evaluatorRoundsOf(tree: unknown): EvaluatorProps {
+  const element = findElement(tree, EvaluatorRounds)
+  expect(element).toBeTruthy()
+  return element!.props as EvaluatorProps
 }
 
 function markupTextOf(element: ReactElement): string {
@@ -744,14 +770,120 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     expect(markupTextOf(matrix)).toContain('Profundidade')
   })
 
-  it('o avaliador não alcança a área de rodadas', async () => {
+  it('a lista do avaliador traz só as rodadas fechadas em que ele avaliou, em ordem', async () => {
     const admin = await newUser('Admin')
-    const evaluator = await newUser('Avaliador')
-    const { project } = await readyProject(admin)
-    await addActiveEvaluator(ownerDb, project, evaluator)
+    const anaUser = await newUser('Ana')
+    const { project, codebookVersion, promptVersion } = await readyProject(admin)
+    const ana = await addActiveEvaluator(ownerDb, project, anaUser)
+    const bruno = await newEvaluator(project, 'Bruno')
+    const item = await addInputItem(ownerDb, project, admin, { name: 'Item 1' })
 
-    auth.userId = evaluator
-    await expect(render(project)).rejects.toThrow('NEXT_NOTFOUND')
+    const made: string[] = []
+    const responses: string[] = []
+    for (const [roundNumber, status] of [
+      [1, 'closed'],
+      [2, 'closed'],
+      [3, 'closed'],
+      [4, 'open'],
+    ] as const) {
+      const round = await addRound(
+        ownerDb,
+        project,
+        admin,
+        codebookVersion,
+        promptVersion,
+        { roundNumber, status },
+      )
+      made.push(round)
+      responses.push(await addResponse(ownerDb, round, item, admin))
+    }
+
+    for (const index of [0, 2, 3]) {
+      await addEvaluation(ownerDb, made[index], responses[index], ana)
+    }
+    await addEvaluation(ownerDb, made[1], responses[1], bruno)
+
+    auth.userId = anaUser
+    const tree = await render(project)
+
+    const props = evaluatorRoundsOf(tree)
+    expect(props.rounds.map((round) => round.roundNumber)).toEqual([1, 3])
+    expect(props.projectId).toBe(project)
+
+    const text = markupTextOf(createElement(EvaluatorRounds, props))
+    expect(text).toContain('Rodada 1')
+    expect(text).toContain('Rodada 3')
+    expect(text).not.toContain('Rodada 2')
+    expect(text).not.toContain('Rodada 4')
+    expect(text).toContain(`Fechada em ${formatDate(props.rounds[0].closedAt)}`)
+  })
+
+  it('o avaliador que ainda não avaliou nada vê o aviso, e nenhum link', async () => {
+    const admin = await newUser('Admin')
+    const anaUser = await newUser('Ana')
+    const { project, codebookVersion, promptVersion } = await readyProject(admin)
+    await addActiveEvaluator(ownerDb, project, anaUser)
+    await addRound(ownerDb, project, admin, codebookVersion, promptVersion, {
+      roundNumber: 1,
+      status: 'closed',
+    })
+
+    auth.userId = anaUser
+    const props = evaluatorRoundsOf(await render(project))
+    expect(props.rounds).toEqual([])
+
+    const rendered = renderToStaticMarkup(createElement(EvaluatorRounds, props))
+    expect(rendered).not.toContain('href')
+    expect(markupTextOf(createElement(EvaluatorRounds, props))).toContain(
+      'Nenhuma rodada para revisar ainda',
+    )
+  })
+
+  it('a área de rodadas do avaliador não traz nada da gestão de rodada', async () => {
+    const admin = await newUser('Admin')
+    const anaUser = await newUser('Ana')
+    const { project, codebookVersion, promptVersion } = await readyProject(admin)
+    await addActiveEvaluator(ownerDb, project, anaUser)
+    await addRound(ownerDb, project, admin, codebookVersion, promptVersion, {
+      roundNumber: 1,
+    })
+
+    auth.userId = anaUser
+    const tree = await render(project)
+
+    for (const component of [NewRound, CloseRound, GenerateResponses, RoundList]) {
+      expect(findElement(tree, component)).toBeNull()
+    }
+    expect(evaluatorRoundsOf(tree).rounds).toEqual([])
+  })
+
+  it('a área de rodadas do avaliador não fala de coeficiente', async () => {
+    const admin = await newUser('Admin')
+    const anaUser = await newUser('Ana')
+    const scene = await roundWith(admin, 2, { status: 'closed' })
+    const ana = await addActiveEvaluator(ownerDb, scene.project, anaUser)
+    const bruno = await newEvaluator(scene.project, 'Bruno')
+
+    const values = ['low', 'high'] as const
+    for (const [index, value] of values.entries()) {
+      for (const evaluator of [ana, bruno]) {
+        await addEvaluation(ownerDb, scene.round, scene.responses[index], evaluator, {
+          cells: filled(scene.cells, value),
+        })
+      }
+    }
+
+    auth.userId = anaUser
+    const tree = await render(scene.project)
+    const props = evaluatorRoundsOf(tree)
+    const text = `${allTextOf(tree)} ${markupTextOf(createElement(EvaluatorRounds, props))}`
+
+    expect(props.rounds.map((round) => round.roundNumber)).toEqual([1])
+    for (const word of ['Krippendorff', 'ICR', 'Alpha', 'Concordância']) {
+      expect(text).not.toContain(word)
+    }
+    expect(findElement(tree, AgreementPanel)).toBeNull()
+    expect(findElement(tree, AgreementMatrixTable)).toBeNull()
   })
 
   it('o membro em onboarding é mandado concluir o onboarding', async () => {

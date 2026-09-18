@@ -1,4 +1,4 @@
-import { and, eq } from 'drizzle-orm'
+import { and, asc, eq } from 'drizzle-orm'
 import {
   ownerDb,
   type DbExecutor,
@@ -11,6 +11,7 @@ import {
 } from '@/lib/db'
 import { isUuid } from '../../pipeline/versions'
 import { isScaleValue } from '../evaluate/scale'
+import { ROUND_CLOSED } from './rounds'
 import type { CellNote } from './review-groups'
 
 export type ReviewRound = {
@@ -69,6 +70,41 @@ export async function loadResponseNotes(
 
   return rows.flatMap((row) =>
     isScaleValue(row.value) ? [{ ...row, value: row.value }] : [],
+  )
+}
+
+export type ReviewableRound = {
+  id: string
+  roundNumber: number
+  closedAt: string
+}
+
+export async function listReviewableRounds(
+  projectId: string,
+  memberId: string,
+  db: DbExecutor = ownerDb,
+): Promise<ReviewableRound[]> {
+  if (!isUuid(projectId) || !isUuid(memberId)) return []
+
+  const rows = await db
+    .selectDistinct({
+      id: rounds.id,
+      roundNumber: rounds.roundNumber,
+      closedAt: rounds.closedAt,
+    })
+    .from(rounds)
+    .innerJoin(evaluations, eq(evaluations.roundId, rounds.id))
+    .where(
+      and(
+        eq(rounds.projectId, projectId),
+        eq(rounds.status, ROUND_CLOSED),
+        eq(evaluations.projectMemberId, memberId),
+      ),
+    )
+    .orderBy(asc(rounds.roundNumber))
+
+  return rows.flatMap((row) =>
+    row.closedAt ? [{ ...row, closedAt: row.closedAt }] : [],
   )
 }
 

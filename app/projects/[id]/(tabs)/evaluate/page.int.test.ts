@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { createElement, isValidElement, type ReactElement } from 'react'
+import { eq } from 'drizzle-orm'
 import { renderToStaticMarkup } from 'react-dom/server'
 
 const auth = vi.hoisted(() => ({ userId: null as string | null }))
@@ -33,7 +34,7 @@ import { listRoundResponses } from '@/app/projects/[id]/pipeline/responses'
 import { PHASE_1, PHASE_2 } from '@/app/projects/[id]/pipeline/preconditions'
 import { Section } from '@/app/components/ui/section'
 import { ProgressBar } from '@/app/components/ui/stat'
-import { ownerDb } from '@/lib/db'
+import { ownerDb, rounds } from '@/lib/db'
 import {
   createUser,
   createProject as seedProject,
@@ -88,6 +89,14 @@ function deepText(node: unknown): string {
       .join('')
   }
   return ''
+}
+
+function hasProp(node: unknown, key: string, value: unknown): boolean {
+  if (Array.isArray(node)) return node.some((child) => hasProp(child, key, value))
+  if (!isValidElement(node)) return false
+  const props = node.props as Record<string, unknown>
+  if (props[key] === value) return true
+  return Object.values(props).some((child) => hasProp(child, key, value))
 }
 
 type FormProps = Parameters<typeof EvaluationForm>[0]
@@ -665,6 +674,46 @@ describe('app/projects/[id]/evaluate — a tela do avaliador', () => {
     const tree = await render(scene.project)
     expect(findElement(tree, EvaluationForm)).toBeNull()
     expect(textOf(tree)).toContain('abrir uma rodada')
+  })
+
+  it('fechada a rodada, a espera oferece a revisão da última rodada que eu avaliei', async () => {
+    const admin = await newUser('Admin')
+    const scene = await scenario(admin, { responses: 1 })
+    const evaluator = await newEvaluator(scene.project)
+    const member = await memberIdOf(ownerDb, scene.project, evaluator)
+    await addEvaluation(ownerDb, scene.round, scene.responses[0], member)
+
+    auth.userId = evaluator
+    expect(
+      hasProp(
+        await render(scene.project, scene.responses[0]),
+        'href',
+        `/projects/${scene.project}/rounds/${scene.round}`,
+      ),
+    ).toBe(false)
+
+    await ownerDb
+      .update(rounds)
+      .set({ status: 'closed', closedAt: new Date().toISOString() })
+      .where(eq(rounds.id, scene.round))
+
+    const tree = await render(scene.project)
+    expect(textOf(tree)).toContain('abrir uma rodada')
+    expect(textOf(tree)).toContain('revisão de discordâncias')
+    expect(
+      hasProp(tree, 'href', `/projects/${scene.project}/rounds/${scene.round}`),
+    ).toBe(true)
+  })
+
+  it('a espera de quem não avaliou nada não oferece revisão nenhuma', async () => {
+    const admin = await newUser('Admin')
+    const scene = await scenario(admin, { openRound: false })
+    const evaluator = await newEvaluator(scene.project)
+
+    auth.userId = evaluator
+    expect(textOf(await render(scene.project))).not.toContain(
+      'revisão de discordâncias',
+    )
   })
 
   it('com rodada aberta e nenhuma resposta gerada, a tela espera as respostas', async () => {

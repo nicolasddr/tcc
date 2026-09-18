@@ -46,6 +46,7 @@ import {
   createUser,
   createProject as seedProject,
   addActiveEvaluator,
+  addPendingMember,
   addPendingInvitation,
   addCodebookVersion,
   addPromptVersion,
@@ -500,5 +501,19 @@ describe('app/projects/[id]/page — escopo de visibilidade', () => {
       auth.userId = userId
       expect(hasProp(await renderLayout(project), 'href', members)).toBe(true)
     }
+  })
+
+  it('a aba Rodadas é link para o Administrador e para o Avaliador, e só para eles', async () => {
+    const admin = await newUser('Admin')
+    const evaluator = await newUser('Avaliador')
+    const invited = await newUser('Convidado')
+    const project = await newProject(admin)
+    await addActiveEvaluator(ownerDb, project, evaluator)
+    await addPendingMember(ownerDb, project, invited)
+
+    const href = `/projects/${project}/rounds`
+    expect(hasProp(await tabsOf(project, admin), 'href', href)).toBe(true)
+    expect(hasProp(await tabsOf(project, evaluator), 'href', href)).toBe(true)
+    expect(hasProp(await tabsOf(project, invited), 'href', href)).toBe(false)
   })
 })
