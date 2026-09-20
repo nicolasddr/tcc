@@ -10,6 +10,33 @@ export type ReviewAccess = {
   memberId: string | null
 }
 
+export type ReviewMemberships = {
+  adminMemberId: string | null
+  evaluatorMemberId: string | null
+}
+
+export async function loadReviewMemberships(
+  projectId: string,
+  userId: string,
+  db: DbExecutor = ownerDb,
+): Promise<ReviewMemberships> {
+  const rows = await db
+    .select({ id: projectMembers.id, role: projectMembers.role })
+    .from(projectMembers)
+    .where(
+      and(
+        eq(projectMembers.projectId, projectId),
+        eq(projectMembers.userId, userId),
+        eq(projectMembers.status, 'active'),
+      ),
+    )
+
+  return {
+    adminMemberId: rows.find((row) => row.role === 'administrator')?.id ?? null,
+    evaluatorMemberId: rows.find((row) => row.role === 'evaluator')?.id ?? null,
+  }
+}
+
 export async function requireReviewAccess(
   projectId: string,
   userId: string,

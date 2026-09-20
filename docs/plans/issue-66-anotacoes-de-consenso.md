@@ -11,7 +11,7 @@ seguinte herda" — anotar ali o que divergiu, como nos planos das #60 a #65.
 | Parte | Entrega | Estado |
 |---|---|---|
 | 1 | A anotação no banco: limite, tabela `consensus_notes`, migration, leituras e helpers de teste | ☑ |
-| 2 | A action: quem escreve o quê, onde, e o que apagar um texto significa | ☐ |
+| 2 | A action: quem escreve o quê, onde, e o que apagar um texto significa | ☑ |
 | 3 | A ata na revisão: o Administrador escreve por célula, os membros da rodada leem | ☐ |
 | 4 | O espaço privado do Avaliador, o glossário e a varredura dos ACs | ☐ |
 
@@ -479,8 +479,67 @@ visibilidade e recorte já estão provados.
 
 ### O que a Parte 3 herda
 
-*(preencher: assinatura final da action, nomes das mensagens, e como o vínculo do autor foi resolvido —
-a Parte 3 precisa da mesma resolução para saber qual `authorMemberId` passar a `consensusByCell`.)*
+**`saveConsensusNote` é como o § 2.1**, e `ConsensusState` também. Campos do form, todos obrigatórios:
+`project_id`, `round_id`, `response_id`, `definition_id`, `criterion_id`, `text`. Os cinco ids são
+validados com `isUuid` **antes** de qualquer query (formData forjado com lixo devolve a mensagem de
+inválido em vez de estourar um `22P02`), e `text` vai sempre com `trim`.
+
+**`loadReviewMemberships` já existe, e mora em `review-access.ts`** — o § 3.1 antecipava que ela
+nasceria na Parte 3, mas a action precisou dela primeiro, e escrevê-la duas vezes era o que o plano
+queria evitar. Assinatura como no § 3.1:
+
+```ts
+loadReviewMemberships(projectId, userId, db?): Promise<{ adminMemberId: string | null; evaluatorMemberId: string | null }>
+```
+
+Uma consulta só a `project_members`, filtrando `status = 'active'`, devolvendo os dois papéis. **A
+Parte 3 chama exatamente esta função** e monta `authorMemberId = adminMemberId ?? evaluatorMemberId`,
+que é o mesmo critério da action. `isProjectAdmin` **não** é usada pela action: ela devolve booleano, e
+o que a action precisa é do **id do vínculo** — a consulta única cobre as duas coisas, e sem ela seriam
+duas idas ao banco para a mesma linha. `canWriteMinutes` do § 3.2 é, literalmente,
+`adminMemberId !== null`.
+
+**Ordem das checagens**, como no § 2.1, e ela importa para as mensagens: autor → rodada (existe, é do
+projeto, está fechada) → resposta (é da rodada) → recorte por rodada (só para Avaliador) → célula →
+texto. O **limite de tamanho ficou dentro da transação**, depois de todas as checagens: quem não é
+membro leva `DENIED` mesmo mandando 5001 caracteres, em vez de a action confirmar o tamanho do texto
+para quem não podia escrever.
+
+**Nomes das mensagens** (constantes do módulo, não exportadas): `INVALID`, `DENIED`, `ROUND_MISSING`,
+`ROUND_OPEN`, `RESPONSE_MISSING`, `ROUND_DENIED`, `CELL_MISSING`, e `textTooLongMessage(length)`.
+Trechos estáveis para os testes da Parte 3 casarem: `'participa deste projeto'`,
+`'A revisão abre quando a rodada fecha'`, `'não pertence a esta rodada'`, `'não avaliou nesta rodada'`,
+`'versão de codebook'`.
+
+**A célula é conferida sem `loadCodebookVersion`:** duas consultas diretas (a definição é da versão da
+rodada; o critério é da versão da rodada), e a pertinência sai de `isGeneral(criterion)` de
+`pipeline/criteria.ts` — critério geral vale para qualquer definição daquela versão, critério
+específico só para a dele. Carregar o codebook inteiro para conferir uma célula seria caro na tela, que
+salva por célula.
+
+**`revalidatePath` é uma só**, `/projects/{id}/rounds/{roundId}`, como manda o § 2.1.
+
+**`saved: false`** sai tanto quando havia linha e ela foi apagada quanto quando não havia nada — a
+action não distingue, e a Parte 3 mostra a mesma confirmação de remoção nos dois casos.
+
+**Nenhum `pgErrorCode` foi preciso.** O `onConflictDoUpdate` na chave `cn_unique_cell_author` tira o
+`23505` do caminho, e as CHECKs do banco ficam como backstop de verdade: a action nunca deixa chegar
+nelas texto vazio nem acima do teto.
+
+**Testes:** `(tabs)/rounds/consensus-actions.int.test.ts`, 16 casos, `ownerDb` + `cleanup()`, sem
+rollback (a action commita). Três casos a mais do que o § 2.2 pedia, e a Parte 3 herda o que eles já
+provam: o **vínculo inativo é barrado** (o avaliador desativado cai no mesmo `DENIED` de quem não é
+membro); **editar uma célula não encosta na vizinha** da mesma pessoa; e **apagar apaga só a própria
+anotação** — o rascunho do Avaliador sai e a ata do Administrador fica. O mock de `next/navigation`
+precisa de **`notFound` além de `redirect`**, porque a action importa `review-access.ts`.
+
+**Fixture:** o cenário é o mesmo da Parte 1 (uma definição com dois critérios, ids das células por
+`loadCodebookVersion` + `resolveCells`). O Administrador-avaliador se monta com
+`addActiveEvaluator(ownerDb, project, adminUserId)` — `pm_unique_role` é `(project, user, role)`, então
+os dois vínculos convivem.
+
+**Nada de tela ainda.** `review-groups-list.tsx`, `[roundId]/page.tsx` e `consensus-cells.ts` não foram
+tocados.
 
 ---
 
