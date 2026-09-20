@@ -1,4 +1,4 @@
-import { and, asc, desc, eq } from 'drizzle-orm'
+import { and, asc, count, desc, eq } from 'drizzle-orm'
 import {
   ownerDb,
   type DbExecutor,
@@ -58,6 +58,18 @@ export async function loadOpenRound(
     .limit(1)
 
   return round ?? null
+}
+
+export async function countClosedRounds(
+  projectId: string,
+  db: DbExecutor = ownerDb,
+): Promise<number> {
+  const [row] = await db
+    .select({ value: count() })
+    .from(rounds)
+    .where(and(eq(rounds.projectId, projectId), eq(rounds.status, ROUND_CLOSED)))
+
+  return row?.value ?? 0
 }
 
 export function listRounds(

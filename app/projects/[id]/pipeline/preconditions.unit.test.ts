@@ -3,11 +3,20 @@ import {
   EMPTY_PIPELINE,
   PHASE_1,
   PHASE_2,
+  PHASE_3,
   PIPELINE_REQUIREMENTS,
   canAdvanceFromPhase1,
+  canAdvanceFromPhase2,
   missingInputsList,
   missingInputsMessage,
   pendingRequirements,
+  phase2BlockedMessage,
+  phase2BlockerMessage,
+  phase2Blockers,
+  phase3ConfirmationLines,
+  wrongPhaseMessage,
+  type Phase2Blocker,
+  type Phase2Inputs,
   type PipelineInputKey,
   type PipelineInputs,
 } from './preconditions'
@@ -160,5 +169,124 @@ describe('as fases que esta trava conhece', () => {
   it('a configuração é a Fase 1 e o avanço leva à Fase 2', () => {
     expect(PHASE_1).toBe(1)
     expect(PHASE_2).toBe(2)
+  })
+})
+
+describe('phase2Blockers', () => {
+  function blockerKeys(inputs: Phase2Inputs): Phase2Blocker['key'][] {
+    return phase2Blockers(inputs).map((b) => b.key)
+  }
+
+  it('bloqueia por rodada fechada quando o projeto não tem rodada nenhuma', () => {
+    const inputs: Phase2Inputs = { openRoundNumber: null, closedRounds: 0 }
+    expect(blockerKeys(inputs)).toEqual(['no_closed_round'])
+    expect(canAdvanceFromPhase2(inputs)).toBe(false)
+  })
+
+  it('bloqueia pelos dois, na ordem do gesto, com rodada aberta e nenhuma fechada', () => {
+    const inputs: Phase2Inputs = { openRoundNumber: 1, closedRounds: 0 }
+    expect(blockerKeys(inputs)).toEqual(['open_round', 'no_closed_round'])
+    expect(canAdvanceFromPhase2(inputs)).toBe(false)
+  })
+
+  it('bloqueia só pela rodada aberta quando já existe uma fechada', () => {
+    const inputs: Phase2Inputs = { openRoundNumber: 2, closedRounds: 1 }
+    expect(phase2Blockers(inputs)).toEqual([{ key: 'open_round', roundNumber: 2 }])
+    expect(canAdvanceFromPhase2(inputs)).toBe(false)
+  })
+
+  it('libera com uma rodada fechada e nenhuma aberta', () => {
+    const inputs: Phase2Inputs = { openRoundNumber: null, closedRounds: 1 }
+    expect(phase2Blockers(inputs)).toEqual([])
+    expect(canAdvanceFromPhase2(inputs)).toBe(true)
+  })
+
+  it('libera com várias rodadas fechadas: a pré-condição é ao menos uma', () => {
+    const inputs: Phase2Inputs = { openRoundNumber: null, closedRounds: 4 }
+    expect(phase2Blockers(inputs)).toEqual([])
+    expect(canAdvanceFromPhase2(inputs)).toBe(true)
+  })
+})
+
+describe('phase2BlockerMessage', () => {
+  it('nomeia a rodada aberta e manda fechá-la', () => {
+    const message = phase2BlockerMessage({ key: 'open_round', roundNumber: 3 })
+    expect(message).toContain('rodada 3')
+    expect(message).toContain('aberta')
+    expect(message).toContain(`Fase ${PHASE_3}`)
+  })
+
+  it('diz que falta fechar uma rodada, e por quê', () => {
+    const message = phase2BlockerMessage({ key: 'no_closed_round' })
+    expect(message).toContain('Feche ao menos uma rodada')
+    expect(message).toContain(`Fase ${PHASE_3}`)
+  })
+})
+
+describe('phase2BlockedMessage', () => {
+  it('não produz mensagem quando o avanço está liberado', () => {
+    expect(
+      phase2BlockedMessage(phase2Blockers({ openRoundNumber: null, closedRounds: 1 })),
+    ).toBe('')
+  })
+
+  it('prefixa a recusa e repete a mensagem do primeiro bloqueio', () => {
+    const blockers = phase2Blockers({ openRoundNumber: null, closedRounds: 0 })
+    const message = phase2BlockedMessage(blockers)
+    expect(message).toContain(`Não foi possível avançar para a Fase ${PHASE_3}.`)
+    expect(message).toContain(phase2BlockerMessage({ key: 'no_closed_round' }))
+  })
+
+  it('oferece o gesto único quando os dois bloqueios estão presentes', () => {
+    const message = phase2BlockedMessage(
+      phase2Blockers({ openRoundNumber: 1, closedRounds: 0 }),
+    )
+    expect(message).toContain('rodada 1')
+    expect(message).toContain('fechar a rodada aberta resolve as duas pendências')
+  })
+
+  it('não oferece o gesto único quando só a rodada aberta bloqueia', () => {
+    const message = phase2BlockedMessage(
+      phase2Blockers({ openRoundNumber: 2, closedRounds: 1 }),
+    )
+    expect(message).not.toContain('as duas pendências')
+  })
+})
+
+describe('wrongPhaseMessage', () => {
+  it('nomeia a fase recebida e manda recarregar', () => {
+    expect(wrongPhaseMessage(PHASE_3)).toContain(`Fase ${PHASE_3}`)
+    expect(wrongPhaseMessage(4)).toContain('Fase 4')
+    expect(wrongPhaseMessage(PHASE_3)).toContain('Recarregue a página')
+  })
+})
+
+describe('phase3ConfirmationLines', () => {
+  const lines = phase3ConfirmationLines()
+  const text = lines.join(' ')
+
+  it('diz que a decisão é do Administrador e que a métrica não trava', () => {
+    expect(text).toContain('A decisão de avançar é do Administrador.')
+    expect(text).toContain('Nenhum valor de concordância libera nem impede o avanço')
+  })
+
+  it('descreve o que a Fase 3 é no processo, sem prometer tela nova', () => {
+    expect(text).toContain(`Na Fase ${PHASE_3}`)
+    expect(text).toContain('codebook completo')
+  })
+
+  it('avisa que não existe voltar da Fase 3 para a Fase 2', () => {
+    expect(text).toContain(`Não existe voltar da Fase ${PHASE_3} para a Fase ${PHASE_2}`)
+  })
+
+  it('termina dizendo que cancelar não muda nada', () => {
+    expect(lines[lines.length - 1]).toBe('Cancelar não muda nada.')
+  })
+})
+
+describe('a fase de destino deste avanço', () => {
+  it('a validação do codebook é a Fase 2 e o avanço leva à Fase 3', () => {
+    expect(PHASE_2).toBe(2)
+    expect(PHASE_3).toBe(3)
   })
 })
