@@ -2,7 +2,7 @@ import { CONSENSUS_SHARED, type ConsensusNote } from './consensus'
 
 export type CellConsensus = { minutes: ConsensusNote[]; mine: ConsensusNote | null }
 
-function cellKey(definitionId: string, criterionId: string): string {
+export function consensusCellKey(definitionId: string, criterionId: string): string {
   return `${definitionId}:${criterionId}`
 }
 
@@ -20,7 +20,7 @@ export function consensusByCell(
   const byCell = new Map<string, CellConsensus>()
 
   for (const note of notes) {
-    const key = cellKey(note.definitionId, note.criterionId)
+    const key = consensusCellKey(note.definitionId, note.criterionId)
     const cell = byCell.get(key) ?? { minutes: [], mine: null }
     if (note.visibility === CONSENSUS_SHARED) cell.minutes.push(note)
     if (authorMemberId !== null && note.projectMemberId === authorMemberId) {

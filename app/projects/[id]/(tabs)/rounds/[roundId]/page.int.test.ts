@@ -21,6 +21,7 @@ vi.mock('next/navigation', () => ({
 import RoundReviewPage from '@/app/projects/[id]/(tabs)/rounds/[roundId]/page'
 import {
   ReviewGroupsList,
+  MINUTES_LABEL,
   OUTLIER_NOTE_LABEL,
 } from '@/app/projects/[id]/(tabs)/rounds/review-groups-list'
 import type {
@@ -50,6 +51,8 @@ import {
   addResponse,
   addEvaluation,
   addOutlier,
+  addConsensusNote,
+  memberId,
   type CellFixture,
   cleanup,
 } from '@/test/helpers'
@@ -258,6 +261,26 @@ describe('app/projects/[id]/rounds/[roundId] — a revisão de discordâncias', 
 
   async function newEvaluator(project: string, name: string): Promise<string> {
     return addActiveEvaluator(ownerDb, project, await newUser(name))
+  }
+
+  async function minutes(
+    scene: Scene,
+    author: string,
+    response: number,
+    definition: string,
+    criterion: string,
+    text: string,
+  ): Promise<void> {
+    const { definitionId, criterionId } = cellOf(scene, definition, criterion)
+    await addConsensusNote(ownerDb, {
+      roundId: scene.round,
+      responseId: scene.responses[response],
+      definitionId,
+      criterionId,
+      projectMemberId: await memberId(ownerDb, scene.project, author),
+      visibility: 'shared',
+      text,
+    })
   }
 
   async function newSignedEvaluator(
@@ -678,6 +701,105 @@ describe('app/projects/[id]/rounds/[roundId] — a revisão de discordâncias', 
     )
   })
 
+  it('a ata aparece para o Administrador e para quem avaliou na rodada, com o autor', async () => {
+    const admin = await newUser('Admin')
+    const scene = await roundWith(admin, 1)
+    const ana = await newSignedEvaluator(scene.project, 'Ana Avaliadora')
+
+    await addEvaluation(ownerDb, scene.round, scene.responses[0], ana.member, {
+      cells: [note(scene, 'Informacional', 'Precisão', 'high')],
+    })
+    await minutes(
+      scene,
+      admin,
+      0,
+      'Informacional',
+      'Precisão',
+      'Ficamos com alto: a resposta cita a fonte e não inventa número.',
+    )
+
+    for (const viewer of [admin, ana.user]) {
+      auth.userId = viewer
+      const text = listTextOf(await render(scene.project, scene.round))
+
+      expect(text).toContain(MINUTES_LABEL)
+      expect(text).toContain(
+        'Ficamos com alto: a resposta cita a fonte e não inventa número.',
+      )
+      expect(text).toContain('por Admin,')
+    }
+  })
+
+  it('o formulário da ata só existe para o Administrador', async () => {
+    const admin = await newUser('Admin')
+    const scene = await roundWith(admin, 1)
+    const ana = await newSignedEvaluator(scene.project, 'Ana Avaliadora')
+
+    await addEvaluation(ownerDb, scene.round, scene.responses[0], ana.member, {
+      cells: [note(scene, 'Informacional', 'Precisão', 'high')],
+    })
+    await minutes(scene, admin, 0, 'Informacional', 'Precisão', 'Ficamos com alto.')
+
+    auth.userId = admin
+    const mine = await render(scene.project, scene.round)
+    expect(listOf(mine).consensus?.canWriteMinutes).toBe(true)
+    expect(listTextOf(mine)).toContain('Salvar ata')
+
+    auth.userId = ana.user
+    const theirs = await render(scene.project, scene.round)
+    expect(listOf(theirs).consensus?.canWriteMinutes).toBe(false)
+    expect(listTextOf(theirs)).not.toContain('Salvar ata')
+    expect(listTextOf(theirs)).toContain('Ficamos com alto.')
+  })
+
+  it('a ata de outra resposta não aparece na resposta em foco', async () => {
+    const admin = await newUser('Admin')
+    const scene = await roundWith(admin, 2)
+
+    await minutes(
+      scene,
+      admin,
+      1,
+      'Informacional',
+      'Precisão',
+      'Esta ata é da segunda resposta.',
+    )
+
+    auth.userId = admin
+
+    expect(
+      listTextOf(await render(scene.project, scene.round, scene.responses[0])),
+    ).not.toContain('Esta ata é da segunda resposta.')
+    expect(
+      listTextOf(await render(scene.project, scene.round, scene.responses[1])),
+    ).toContain('Esta ata é da segunda resposta.')
+  })
+
+  it('a ata sobrevive: dois renders seguidos devolvem o mesmo texto', async () => {
+    const admin = await newUser('Admin')
+    const scene = await roundWith(admin, 2)
+
+    await minutes(
+      scene,
+      admin,
+      0,
+      'Informacional',
+      'Precisão',
+      'A equipe decidiu manter a definição como está.',
+    )
+
+    auth.userId = admin
+    const first = await render(scene.project, scene.round, scene.responses[0])
+    const away = await render(scene.project, scene.round, scene.responses[1])
+    const back = await render(scene.project, scene.round, scene.responses[0])
+
+    expect(listTextOf(first)).toContain('A equipe decidiu manter a definição como está.')
+    expect(listTextOf(away)).not.toContain(
+      'A equipe decidiu manter a definição como está.',
+    )
+    expect(listTextOf(back)).toContain('A equipe decidiu manter a definição como está.')
+  })
+
   it('a revisão do avaliador não fala de coeficiente', async () => {
     const admin = await newUser('Admin')
     const scene = await roundWith(admin, 1)
@@ -690,6 +812,7 @@ describe('app/projects/[id]/rounds/[roundId] — a revisão de discordâncias', 
     await addEvaluation(ownerDb, scene.round, scene.responses[0], bruno, {
       cells: [note(scene, 'Informacional', 'Precisão', 'low')],
     })
+    await minutes(scene, admin, 0, 'Informacional', 'Precisão', 'Ficamos com alto.')
 
     auth.userId = ana.user
     const tree = await render(scene.project, scene.round)

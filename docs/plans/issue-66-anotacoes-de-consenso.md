@@ -12,7 +12,7 @@ seguinte herda" — anotar ali o que divergiu, como nos planos das #60 a #65.
 |---|---|---|
 | 1 | A anotação no banco: limite, tabela `consensus_notes`, migration, leituras e helpers de teste | ☑ |
 | 2 | A action: quem escreve o quê, onde, e o que apagar um texto significa | ☑ |
-| 3 | A ata na revisão: o Administrador escreve por célula, os membros da rodada leem | ☐ |
+| 3 | A ata na revisão: o Administrador escreve por célula, os membros da rodada leem | ☑ |
 | 4 | O espaço privado do Avaliador, o glossário e a varredura dos ACs | ☐ |
 
 **Nenhuma ADR nova.** A decisão de método já está na spec do Épico 2 ("Revisão de discordâncias e
@@ -631,8 +631,73 @@ resolve os dois, sem estado local e sem `useEffect`.
 
 ### O que a Parte 4 herda
 
-*(preencher: forma final de `ConsensusContext`, onde o bloco entrou em `Cell`, e o que mudou nos testes
-da #64 que já liam a árvore da célula.)*
+**`ConsensusContext` é como o § 3.2**, exportado de `review-groups-list.tsx`, e
+`ReviewGroupsList({ groups, consensus })` recebe `consensus: ConsensusContext | null` como prop
+**obrigatória e nullable**. A página monta o contexto fora da transação e passa `null` quando não há
+resposta em foco; como a lista só é renderizada com `cells > 0`, na prática o `null` nunca chega à
+tela — ele existe para a lista não depender de a página ter resolvido a anotação.
+
+**A cadeia de props desceu até a célula:** `ReviewGroupsList` → `Group` → `Cell` → `ConsensusCell`.
+`Cell` ganhou `definitionId` (a `ReviewCell` não carrega a definição, só o critério), e `Group` o
+passa de `group.definition.id`. O bloco entra **dentro do `Card` da célula**, depois da lista de
+notas, separado por `border-t`. A Parte 4 acrescenta a segunda caixa dentro de `ConsensusCell`, e
+não precisa mexer em `Cell` nem em `Group` de novo.
+
+**`consensusCellKey(definitionId, criterionId)` virou export de `consensus-cells.ts`** — a chave da
+célula existia como função privada lá e como literal em `review-groups.ts`; a lista usa a exportada
+em vez de montar um terceiro `${a}:${b}`.
+
+**`ConsensusForm` (`consensus-form.tsx`, cliente) já está parametrizado para a Parte 4.** Props:
+`projectId`, `roundId`, `responseId`, `definitionId`, `criterionId`, `note`, `label`, `hint`,
+`placeholder`, `submitLabel`, `savedMessage`, `removedMessage`. A caixa privada é **outra chamada do
+mesmo componente**, trocando esses últimos seis. O `key={note?.updatedAt ?? 'empty'}` no `Textarea`
+está lá e foi conferido na tela: depois de remover, a caixa volta vazia sem estado local.
+
+**Rótulos e constantes exportados** (`review-groups-list.tsx`), para a Parte 4 reusar e para os
+testes casarem: `MINUTES_LABEL` (`'Ata da discussão'`, o rótulo da ata em leitura),
+`MINUTES_FIELD_LABEL` (`'O que a equipe decidiu nesta célula'`) e `MINUTES_HINT`. **O rótulo do campo
+é diferente do rótulo da leitura de propósito:** com os dois iguais, a célula do Administrador
+mostrava "Ata da discussão" duas vezes seguidas, uma na caixa lida e outra no formulário logo abaixo.
+A caixa privada da Parte 4 deve manter essa separação.
+
+**`minutesByline(note)`** → `por {autor}, {data}`, com `formatDate`. O nome vem de
+`profiles.name`, então na cena local ele aparece como o e-mail do usuário de `/dev/login` — é o dado
+do perfil, não um bug da tela.
+
+**O resumo do `Disclosure` da ata alterna** entre `'Registrar a decisão'` e `'Editar a ata'` conforme
+`cell.mine`. Sem ata e sem `canWriteMinutes`, `ConsensusCell` devolve `null` — a célula fica
+exatamente como estava antes desta fatia.
+
+**A página (`[roundId]/page.tsx`)** chama `loadReviewMemberships(id, userId, tx)` **depois** de
+resolver a resposta em foco, e não nos ramos vazios (rodada aberta, rodada sem resposta): lá não há
+o que ler. `memberIds` sai de `[adminMemberId, evaluatorMemberId].filter((m) => m !== null)`,
+`authorMemberId = adminMemberId ?? evaluatorMemberId` e `canWriteMinutes = adminMemberId !== null`,
+como o § 3.1 e a action. `consensusByCell` roda fora da transação.
+
+**Testes:** `page.int.test.ts` foi de 18 para 22 casos. Os quatro novos usam um helper local
+`minutes(scene, autor, índice da resposta, definição, critério, texto)`, que grava direto por
+`addConsensusNote` com `visibility: 'shared'` — a Parte 4 deve espelhá-lo para `'private'`. Nenhum
+teste da #64 precisou mudar de asserção: `listOf(tree)` já devolve as props inteiras da lista, então
+`consensus` entrou de carona. O caso "a revisão do avaliador não fala de coeficiente" **ganhou uma ata
+gravada**, para que a varredura das palavras proibidas passe pelo bloco novo — a Parte 4 deve
+acrescentar ali também um rascunho, pelo mesmo motivo.
+
+**`renderToStaticMarkup` renderiza o `ConsensusForm` sem tropeçar no `'use client'`** — `useActionState`
+e `useFormStatus` funcionam no SSR síncrono do teste. É por isso que `listTextOf(tree)` consegue
+afirmar `toContain('Salvar ata')` para o Administrador e `not.toContain` para o Avaliador.
+
+**Conferido na tela** (`npm run dev:local` na porta 3100 + `/dev/login`, rodada fechada, célula com
+divergência extrema): a ata grava com a confirmação "Ata salva.", sobrevive ao recarregar, e salvar
+com o campo vazio responde "Ata removida.", some com a caixa lida e devolve o formulário vazio. **A
+cena foi apagada do banco local depois** (`scores`, `consensus_notes` e `projects` zerados).
+
+**Gotcha do ambiente:** `npm run dev` (porta 3000) aponta para o Supabase de **produção**, e
+`/dev/login` responde 404 lá por desenho. A conferência de tela vai por `npm run dev:local` (porta
+3100). E, no painel de preview, `Backspace`/`Delete` não chegam ao `textarea`: para esvaziar o campo
+use `form_input` com `''`.
+
+**Nada da Parte 4 existe ainda:** `ConsensusCell` não mostra a anotação privada, `docs/CONTEXT.md`
+não tem o verbete, e os ACs não foram varridos.
 
 ---
 

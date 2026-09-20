@@ -4,8 +4,13 @@ import { cx } from '@/app/components/ui/cx'
 import { Disclosure } from '@/app/components/ui/disclosure'
 import { preWrapClass, scrollBoxClass } from '@/app/components/ui/prose'
 import { definitionTypeLabel } from '@/app/projects/definition-types'
+import { formatDate } from '@/app/notifications/labels'
+import { CONSENSUS_NOTE_MAX } from '@/lib/limits'
 import type { CodebookCriterion, CodebookDefinition } from '../../pipeline/codebook'
 import { scaleLabel, scaleTone } from '../evaluate/scale'
+import type { ConsensusNote } from './consensus'
+import { consensusCellKey, type CellConsensus } from './consensus-cells'
+import { ConsensusForm } from './consensus-form'
 import {
   DIVERGENCE_LEGEND,
   NO_JUSTIFICATION_HINT,
@@ -20,6 +25,26 @@ import type { ReviewCell, ReviewGroup, ReviewNote } from './review-groups'
 export type DefinitionGroup = ReviewGroup<CodebookDefinition, CodebookCriterion>
 
 export const OUTLIER_NOTE_LABEL = 'outlier'
+
+export const MINUTES_LABEL = 'Ata da discussão'
+
+export const MINUTES_FIELD_LABEL = 'O que a equipe decidiu nesta célula'
+
+export const MINUTES_HINT =
+  'A ata registra o que a equipe decidiu nesta célula, e fica visível para quem avaliou ' +
+  `nesta rodada. Até ${CONSENSUS_NOTE_MAX} caracteres. Salvar com o campo vazio remove a ata.`
+
+export type ConsensusContext = {
+  projectId: string
+  roundId: string
+  responseId: string
+  canWriteMinutes: boolean
+  byCell: ReadonlyMap<string, CellConsensus>
+}
+
+export function minutesByline(note: ConsensusNote): string {
+  return `por ${note.authorName}, ${formatDate(note.updatedAt)}`
+}
 
 export function outlierNoteHint(reason: string | null): string {
   const mark =
@@ -74,7 +99,80 @@ function Note({ note }: { note: ReviewNote }) {
   )
 }
 
-function Cell({ cell }: { cell: ReviewCell<CodebookCriterion> }) {
+function Minutes({ note }: { note: ConsensusNote }) {
+  return (
+    <li className="flex flex-col gap-1">
+      <span className="text-[12.5px] font-semibold text-label">{MINUTES_LABEL}</span>
+      <p
+        className={cx(
+          'm-0 rounded-card border border-line bg-surface-subtle px-3 py-2',
+          'text-[13px] text-ink',
+          scrollBoxClass,
+          preWrapClass,
+        )}
+      >
+        {note.text}
+      </p>
+      <span className="text-[12px] text-muted">{minutesByline(note)}</span>
+    </li>
+  )
+}
+
+function ConsensusCell({
+  consensus,
+  definitionId,
+  criterionId,
+}: {
+  consensus: ConsensusContext
+  definitionId: string
+  criterionId: string
+}) {
+  const cell = consensus.byCell.get(consensusCellKey(definitionId, criterionId))
+  const minutes = cell?.minutes ?? []
+
+  if (minutes.length === 0 && !consensus.canWriteMinutes) return null
+
+  return (
+    <div className="mt-3 flex flex-col gap-2 border-t border-line pt-2.5">
+      {minutes.length > 0 ? (
+        <ul className="m-0 flex list-none flex-col gap-2.5 p-0">
+          {minutes.map((note) => (
+            <Minutes key={note.id} note={note} />
+          ))}
+        </ul>
+      ) : null}
+
+      {consensus.canWriteMinutes ? (
+        <Disclosure summary={cell?.mine ? 'Editar a ata' : 'Registrar a decisão'}>
+          <ConsensusForm
+            projectId={consensus.projectId}
+            roundId={consensus.roundId}
+            responseId={consensus.responseId}
+            definitionId={definitionId}
+            criterionId={criterionId}
+            note={cell?.mine ?? null}
+            label={MINUTES_FIELD_LABEL}
+            hint={MINUTES_HINT}
+            placeholder="Ex.: mantivemos alto; a divergência era sobre o que conta como fonte."
+            submitLabel="Salvar ata"
+            savedMessage="Ata salva."
+            removedMessage="Ata removida."
+          />
+        </Disclosure>
+      ) : null}
+    </div>
+  )
+}
+
+function Cell({
+  cell,
+  definitionId,
+  consensus,
+}: {
+  cell: ReviewCell<CodebookCriterion>
+  definitionId: string
+  consensus: ConsensusContext | null
+}) {
   return (
     <li>
       <Card padding="sm" tone={isDivergent(cell.divergence) ? 'accent' : 'default'}>
@@ -101,12 +199,26 @@ function Cell({ cell }: { cell: ReviewCell<CodebookCriterion> }) {
             ))}
           </ul>
         )}
+
+        {consensus ? (
+          <ConsensusCell
+            consensus={consensus}
+            definitionId={definitionId}
+            criterionId={cell.criterion.id}
+          />
+        ) : null}
       </Card>
     </li>
   )
 }
 
-function Group({ group }: { group: DefinitionGroup }) {
+function Group({
+  group,
+  consensus,
+}: {
+  group: DefinitionGroup
+  consensus: ConsensusContext | null
+}) {
   const { definition } = group
 
   return (
@@ -133,7 +245,12 @@ function Group({ group }: { group: DefinitionGroup }) {
         ) : (
           <ul className="m-0 mt-2 flex list-none flex-col gap-2 p-0">
             {group.cells.map((cell) => (
-              <Cell key={cell.criterion.id} cell={cell} />
+              <Cell
+                key={cell.criterion.id}
+                cell={cell}
+                definitionId={definition.id}
+                consensus={consensus}
+              />
             ))}
           </ul>
         )}
@@ -142,12 +259,18 @@ function Group({ group }: { group: DefinitionGroup }) {
   )
 }
 
-export function ReviewGroupsList({ groups }: { groups: DefinitionGroup[] }) {
+export function ReviewGroupsList({
+  groups,
+  consensus,
+}: {
+  groups: DefinitionGroup[]
+  consensus: ConsensusContext | null
+}) {
   return (
     <div className="flex flex-col gap-3">
       <ul className="m-0 flex list-none flex-col gap-3 p-0">
         {groups.map((group) => (
-          <Group key={group.definition.id} group={group} />
+          <Group key={group.definition.id} group={group} consensus={consensus} />
         ))}
       </ul>
 

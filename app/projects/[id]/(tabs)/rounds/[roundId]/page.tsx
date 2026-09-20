@@ -9,10 +9,20 @@ import { listRoundResponses } from '../../../pipeline/responses'
 import { responseLabel } from '../../evaluate/queue'
 import { isOpen } from '../rounds'
 import { loadResponseNotes, type ResponseNote, type ReviewRound } from '../review'
-import { requireReviewAccess, requireReviewableRound } from '../review-access'
+import {
+  loadReviewMemberships,
+  requireReviewAccess,
+  requireReviewableRound,
+} from '../review-access'
 import { loadRoundOutliers, type OutlierMark } from '../outliers'
+import { loadResponseConsensus, type ConsensusNote } from '../consensus'
+import { consensusByCell } from '../consensus-cells'
 import { divergentCells, ratedCells, reviewGroups, type CellNote } from '../review-groups'
-import { ReviewGroupsList, divergenceSummary } from '../review-groups-list'
+import {
+  ReviewGroupsList,
+  divergenceSummary,
+  type ConsensusContext,
+} from '../review-groups-list'
 import { QueueNav } from '@/app/components/ui/queue-nav'
 import { EmptyState } from '@/app/components/ui/empty-state'
 import { Section } from '@/app/components/ui/section'
@@ -41,6 +51,9 @@ type ReviewView = {
   definitions: CodebookDefinition[]
   criteria: CodebookCriterion[]
   notes: CellNote[]
+  consensus: ConsensusNote[]
+  authorMemberId: string | null
+  canWriteMinutes: boolean
 }
 
 export default async function RoundReviewPage({
@@ -67,6 +80,9 @@ export default async function RoundReviewPage({
       definitions: [],
       criteria: [],
       notes: [],
+      consensus: [],
+      authorMemberId: null,
+      canWriteMinutes: false,
     }
 
     if (isOpen(round)) return empty
@@ -86,6 +102,15 @@ export default async function RoundReviewPage({
 
     const codebook = await loadCodebookVersion(id, round.codebookVersionId, tx)
 
+    const { adminMemberId, evaluatorMemberId } = await loadReviewMemberships(
+      id,
+      userId,
+      tx,
+    )
+    const memberIds = [adminMemberId, evaluatorMemberId].filter(
+      (memberId) => memberId !== null,
+    )
+
     return {
       round,
       current,
@@ -97,15 +122,29 @@ export default async function RoundReviewPage({
         await loadResponseNotes(current.id, tx),
         access.isAdmin ? await loadRoundOutliers(round.id, tx) : [],
       ),
+      consensus: await loadResponseConsensus(current.id, memberIds, tx),
+      authorMemberId: adminMemberId ?? evaluatorMemberId,
+      canWriteMinutes: adminMemberId !== null,
     }
   })
 
   const { round, current, prev, next, definitions, criteria, notes } = view
+  const { consensus, authorMemberId, canWriteMinutes } = view
 
   const groups = reviewGroups(definitions, criteria, notes)
   const cells = groups.reduce((total, group) => total + group.cells.length, 0)
   const unrated = cells - ratedCells(groups)
   const route = `/projects/${id}/rounds/${roundId}?response=`
+
+  const consensusContext: ConsensusContext | null = current
+    ? {
+        projectId: id,
+        roundId,
+        responseId: current.id,
+        canWriteMinutes,
+        byCell: consensusByCell(consensus, authorMemberId),
+      }
+    : null
 
   return (
     <>
@@ -159,7 +198,7 @@ export default async function RoundReviewPage({
               />
             </div>
 
-            <ReviewGroupsList groups={groups} />
+            <ReviewGroupsList groups={groups} consensus={consensusContext} />
           </div>
         )}
       </Section>
