@@ -23,11 +23,14 @@ import {
   ReviewGroupsList,
   MINUTES_LABEL,
   OUTLIER_NOTE_LABEL,
+  PRIVATE_LABEL,
 } from '@/app/projects/[id]/(tabs)/rounds/review-groups-list'
+import type { ConsensusNote } from '@/app/projects/[id]/(tabs)/rounds/consensus'
 import type {
   OutlierNote,
   ReviewNote,
 } from '@/app/projects/[id]/(tabs)/rounds/review-groups'
+import { consensusCellKey } from '@/app/projects/[id]/(tabs)/rounds/consensus-cells'
 import {
   DIVERGENCE_LEGEND,
   NO_JUSTIFICATION_LABEL,
@@ -157,6 +160,13 @@ function markOf(notes: readonly ReviewNote[], evaluatorName: string): OutlierNot
   return { isOutlier: found!.isOutlier, outlierReason: found!.outlierReason }
 }
 
+function mineOf(tree: unknown, cell: SceneCell): ConsensusNote | null {
+  const context = listOf(tree).consensus
+  expect(context).toBeTruthy()
+  const key = consensusCellKey(cell.definitionId, cell.criterionId)
+  return context!.byCell.get(key)?.mine ?? null
+}
+
 function navOf(tree: unknown): { prev: string | null; next: string | null } {
   const nav = findElement(tree, QueueNav)
   expect(nav).toBeTruthy()
@@ -263,9 +273,10 @@ describe('app/projects/[id]/rounds/[roundId] — a revisão de discordâncias', 
     return addActiveEvaluator(ownerDb, project, await newUser(name))
   }
 
-  async function minutes(
+  async function consensus(
     scene: Scene,
-    author: string,
+    member: string,
+    visibility: 'shared' | 'private',
     response: number,
     definition: string,
     criterion: string,
@@ -277,10 +288,33 @@ describe('app/projects/[id]/rounds/[roundId] — a revisão de discordâncias', 
       responseId: scene.responses[response],
       definitionId,
       criterionId,
-      projectMemberId: await memberId(ownerDb, scene.project, author),
-      visibility: 'shared',
+      projectMemberId: member,
+      visibility,
       text,
     })
+  }
+
+  async function minutes(
+    scene: Scene,
+    author: string,
+    response: number,
+    definition: string,
+    criterion: string,
+    text: string,
+  ): Promise<void> {
+    const member = await memberId(ownerDb, scene.project, author)
+    await consensus(scene, member, 'shared', response, definition, criterion, text)
+  }
+
+  async function draft(
+    scene: Scene,
+    member: string,
+    response: number,
+    definition: string,
+    criterion: string,
+    text: string,
+  ): Promise<void> {
+    await consensus(scene, member, 'private', response, definition, criterion, text)
   }
 
   async function newSignedEvaluator(
@@ -813,6 +847,14 @@ describe('app/projects/[id]/rounds/[roundId] — a revisão de discordâncias', 
       cells: [note(scene, 'Informacional', 'Precisão', 'low')],
     })
     await minutes(scene, admin, 0, 'Informacional', 'Precisão', 'Ficamos com alto.')
+    await draft(
+      scene,
+      ana.member,
+      0,
+      'Informacional',
+      'Precisão',
+      'Levar à reunião: o que conta como fonte.',
+    )
 
     auth.userId = ana.user
     const tree = await render(scene.project, scene.round)
@@ -820,8 +862,137 @@ describe('app/projects/[id]/rounds/[roundId] — a revisão de discordâncias', 
 
     expect(text).toContain('Bruno Avaliador')
     expect(text).toContain(divergenceLabel('extreme'))
+    expect(text).toContain('Levar à reunião: o que conta como fonte.')
     for (const word of ['Krippendorff', 'ICR', 'Alpha', 'Concordância']) {
       expect(text).not.toContain(word)
     }
+  })
+
+  it('o rascunho de um avaliador não aparece na página do outro avaliador', async () => {
+    const admin = await newUser('Admin')
+    const scene = await roundWith(admin, 1)
+    const ana = await newSignedEvaluator(scene.project, 'Ana Avaliadora')
+    const bruno = await newSignedEvaluator(scene.project, 'Bruno Avaliador')
+
+    for (const member of [ana.member, bruno.member]) {
+      await addEvaluation(ownerDb, scene.round, scene.responses[0], member, {
+        cells: [note(scene, 'Informacional', 'Precisão', 'high')],
+      })
+    }
+    await draft(
+      scene,
+      ana.member,
+      0,
+      'Informacional',
+      'Precisão',
+      'Rascunho da Ana: perguntar se citar a fonte exige link.',
+    )
+
+    auth.userId = ana.user
+    expect(listTextOf(await render(scene.project, scene.round))).toContain(
+      'Rascunho da Ana: perguntar se citar a fonte exige link.',
+    )
+
+    auth.userId = bruno.user
+    const theirs = await render(scene.project, scene.round)
+    expect(listTextOf(theirs)).not.toContain('Rascunho da Ana')
+    expect(mineOf(theirs, cellOf(scene, 'Informacional', 'Precisão'))).toBeNull()
+  })
+
+  it('o rascunho do avaliador não aparece na página do Administrador', async () => {
+    const admin = await newUser('Admin')
+    const scene = await roundWith(admin, 1)
+    const ana = await newSignedEvaluator(scene.project, 'Ana Avaliadora')
+
+    await addEvaluation(ownerDb, scene.round, scene.responses[0], ana.member, {
+      cells: [note(scene, 'Informacional', 'Precisão', 'high')],
+    })
+    await draft(
+      scene,
+      ana.member,
+      0,
+      'Informacional',
+      'Precisão',
+      'Rascunho da Ana: a escala está apertada demais.',
+    )
+
+    auth.userId = admin
+    const tree = await render(scene.project, scene.round)
+
+    expect(listTextOf(tree)).not.toContain('Rascunho da Ana')
+    expect(listOf(tree).consensus?.canWritePrivate).toBe(false)
+    expect(mineOf(tree, cellOf(scene, 'Informacional', 'Precisão'))).toBeNull()
+  })
+
+  it('o próprio autor vê o seu rascunho preenchido no formulário', async () => {
+    const admin = await newUser('Admin')
+    const scene = await roundWith(admin, 1)
+    const ana = await newSignedEvaluator(scene.project, 'Ana Avaliadora')
+
+    await addEvaluation(ownerDb, scene.round, scene.responses[0], ana.member, {
+      cells: [note(scene, 'Informacional', 'Precisão', 'high')],
+    })
+    await draft(
+      scene,
+      ana.member,
+      0,
+      'Informacional',
+      'Precisão',
+      'Minha dúvida: resposta sem número conta como precisa?',
+    )
+
+    auth.userId = ana.user
+    const tree = await render(scene.project, scene.round)
+    const text = listTextOf(tree)
+
+    expect(listOf(tree).consensus?.canWritePrivate).toBe(true)
+    expect(mineOf(tree, cellOf(scene, 'Informacional', 'Precisão'))?.text).toBe(
+      'Minha dúvida: resposta sem número conta como precisa?',
+    )
+    expect(text).toContain(PRIVATE_LABEL)
+    expect(text).toContain('Salvar anotação')
+    expect(text).toContain('Minha dúvida: resposta sem número conta como precisa?')
+    expect(text).not.toContain('Salvar ata')
+  })
+
+  it('o avaliador não alcança a ata nem o rascunho de rodada em que não avaliou', async () => {
+    const admin = await newUser('Admin')
+    const mine = await roundWith(admin, 1)
+    const theirs = await roundWith(admin, 1, {
+      project: mine.project,
+      roundNumber: 2,
+    })
+    const ana = await newSignedEvaluator(mine.project, 'Ana Avaliadora')
+    const bruno = await newEvaluator(mine.project, 'Bruno Avaliador')
+
+    await addEvaluation(ownerDb, mine.round, mine.responses[0], ana.member, {
+      cells: [note(mine, 'Informacional', 'Precisão', 'high')],
+    })
+    await addEvaluation(ownerDb, theirs.round, theirs.responses[0], bruno, {
+      cells: [note(theirs, 'Informacional', 'Precisão', 'low')],
+    })
+    await minutes(
+      theirs,
+      admin,
+      0,
+      'Informacional',
+      'Precisão',
+      'Ata da rodada 2, que a Ana não avaliou.',
+    )
+    await draft(
+      theirs,
+      ana.member,
+      0,
+      'Informacional',
+      'Precisão',
+      'Rascunho da Ana na rodada 2.',
+    )
+
+    auth.userId = ana.user
+    await expect(render(mine.project, theirs.round)).rejects.toThrow('NEXT_NOTFOUND')
+
+    const text = listTextOf(await render(mine.project, mine.round))
+    expect(text).not.toContain('Ata da rodada 2, que a Ana não avaliou.')
+    expect(text).not.toContain('Rascunho da Ana na rodada 2.')
   })
 })

@@ -13,7 +13,7 @@ seguinte herda" — anotar ali o que divergiu, como nos planos das #60 a #65.
 | 1 | A anotação no banco: limite, tabela `consensus_notes`, migration, leituras e helpers de teste | ☑ |
 | 2 | A action: quem escreve o quê, onde, e o que apagar um texto significa | ☑ |
 | 3 | A ata na revisão: o Administrador escreve por célula, os membros da rodada leem | ☑ |
-| 4 | O espaço privado do Avaliador, o glossário e a varredura dos ACs | ☐ |
+| 4 | O espaço privado do Avaliador, o glossário e a varredura dos ACs | ☑ |
 
 **Nenhuma ADR nova.** A decisão de método já está na spec do Épico 2 ("Revisão de discordâncias e
 anotações") e o recorte por rodada é o mesmo da **ADR 0011** e da #64. O que esta fatia acrescenta é
@@ -768,6 +768,81 @@ banco).
 
 `npm run lint`, `npm run typecheck` e `npm test` verdes, os sete ACs conferidos, o glossário atualizado
 e a cena de teste apagada do banco local (`scores` vazia — cena remanescente quebra `npm test`).
+
+### O que a Parte 4 entregou
+
+**`canWritePrivate` é campo próprio de `ConsensusContext`**, e não derivado de `canWriteMinutes` na
+lista. A página o calcula junto dos outros: `adminMemberId === null && evaluatorMemberId !== null`.
+Derivar por negação (`!canWriteMinutes`) daria caixa privada a quem não tem vínculo nenhum, e
+`ConsensusForm` sem autor é formulário que a action recusa depois de o usuário digitar.
+
+**A caixa privada ficou com a mesma forma da ata: leitura + formulário**, e não um `Disclosure` só
+com o formulário dentro, como o § 4.1 imaginava. O motivo apareceu na tela: com o rascunho só dentro
+do `Disclosure`, ou ele nasce aberto — e aí o formulário inteiro fica expandido em toda célula,
+alongando a página — ou nasce fechado, e o Avaliador não vê o próprio rascunho sem clicar. Pior: com
+`defaultOpen={Boolean(cell.mine)}`, **remover a anotação fechava o bloco junto com a confirmação**,
+porque o `Disclosure` mapeia `defaultOpen` para o atributo `open` e o React o retira no render
+seguinte. Com o texto numa caixa de leitura acima e o formulário num `Disclosure` que o leitor abre,
+os três casos ficam certos: o rascunho é visível sem clique, a página fica curta quando não há nada
+escrito, e "Anotação removida." continua na tela depois de apagar.
+
+**O contraste entre as duas caixas é de fundo, não de `Card`:** o bloco privado é um painel
+`bg-brand-tint` com `border-brand-border` dentro da célula, e a ata segue solta sobre o fundo dela.
+Usar `Card tone="accent"` — a sugestão do § 4.1 — teria emprestado a cor que a tela já usa para
+**divergência**, e a célula divergente passaria a ter o mesmo sinal em dois níveis.
+
+**`NoteText` é o corpo de leitura das duas** (`scrollBoxClass` + `preWrapClass`), extraído de
+`Minutes`. O rascunho não tem assinatura: `minutesByline` diz "por {autor}", e o autor do rascunho é
+quem está lendo.
+
+**Rótulos exportados de `review-groups-list.tsx`:** `PRIVATE_LABEL`
+(`'Minha anotação (só você vê)'`, o título do painel), `PRIVATE_FIELD_LABEL`
+(`'O que você quer levar para a reunião'`) e `PRIVATE_HINT`. O resumo do `Disclosure` alterna entre
+`'Escrever uma anotação'` e `'Editar a anotação'`, como o da ata.
+
+**Consequência conhecida do desenho (§ 5):** um Avaliador que vira Administrador deixa de enxergar os
+próprios rascunhos — eles continuam gravados e visíveis a mais ninguém, mas a tela não os mostra,
+porque o Administrador não tem espaço privado nesta fatia. Ficou registrado em "Em aberto" no
+glossário.
+
+**Glossário:** o verbete **Anotação de consenso** entrou em "Pipeline e avaliação", logo depois de
+**Revisão de discordâncias** — e não perto de **Nota** e **Outlier** como dizia o § 4.3, porque esses
+dois moram em "Projeto e processo". **Rodada fechada** ganhou a frase do registro da discussão, e "Em
+aberto" ganhou duas linhas do § 5: histórico de edição da anotação e espaço privado do Administrador.
+
+**Testes:** `page.int.test.ts` foi de 22 para 26 casos. O helper `minutes` da Parte 3 e o novo `draft`
+saem de um `consensus(scene, member, visibility, …)` comum; `minutes` recebe **user id** (resolve por
+`memberId`) e `draft` recebe **member id**, que é o que as fixtures de avaliador já devolvem.
+`mineOf(tree, cell)` lê `consensus.byCell.get(consensusCellKey(…))?.mine` para afirmar o que **não**
+chegou à página, e não só o que não foi renderizado. O caso "a revisão do avaliador não fala de
+coeficiente" ganhou um rascunho, como a Parte 3 pediu.
+
+**Gotcha dos testes:** `renderToStaticMarkup` escapa aspas (`&quot;`), então texto de fixture com
+aspas duplas nunca casa num `toContain`. Escrever as fixturas sem aspas.
+
+**Conferido na tela** (`npm run dev:local` na 3100 + `/dev/login`, dev como Avaliador de uma rodada
+fechada com duas divergências extremas): o Avaliador lê a ata e não recebe "Salvar ata"; o rascunho
+grava com "Anotação salva.", **sobrevive a ir ao `/dashboard` e voltar** e a trocar de resposta pela
+`QueueNav` (a Resposta 2 vem vazia); apagar responde "Anotação removida.", some com a caixa de leitura
+e devolve o campo vazio. Para o limite, o `maxlength` do `textarea` foi removido por JS e o envio de
+5001 caracteres voltou com **a mensagem da action** ("A anotação tem 5001 caracteres e o limite é
+5000"), não com erro de banco — as três camadas conferidas. **A cena foi apagada do banco local
+depois** (`scores`, `consensus_notes`, `projects` e os usuários semeados zerados), porque cena
+remanescente quebra `evaluate/actions.int.test.ts`.
+
+**Varredura dos sete ACs:**
+
+| AC | Onde vive | Prova |
+|---|---|---|
+| Por critério dentro da resposta, salva no servidor | `consensus_notes` (chave `(resposta, definição, critério, vínculo)`), `saveConsensusNote` | `consensus.int.test.ts`, `consensus-actions.int.test.ts` |
+| Sobrevive a recarregar e a sair e voltar | nada mora em estado de componente | `page.int.test.ts` ("a ata sobrevive") + tela |
+| A ata é visível para os membros da rodada | `visibility = 'shared'` + `visibleTo` | `page.int.test.ts`, `consensus.int.test.ts` |
+| O rascunho é privado do Avaliador | `visibility = 'private'` + `visibleTo` | os três casos novos da Parte 4 |
+| Respeita `CONSENSUS_NOTE_MAX` | `maxLength`, `textTooLongMessage`, CHECK `cn_text_len` | `consensus.int.test.ts` (23514), `consensus-actions.int.test.ts` + tela |
+| Presa à rodada; o Avaliador não alcança rodada em que não avaliou | `requireReviewableRound` (leitura) e `ROUND_DENIED` (escrita) | `page.int.test.ts` (caso novo, com ata e rascunho gravados na rodada) |
+| O Administrador vê tudo | todas as rodadas do projeto, todas as atas — **e nenhum rascunho** (§ 3) | `page.int.test.ts` ("o administrador que nunca avaliou abre qualquer rodada", "o rascunho não aparece na página do Administrador") |
+
+**Falta só o deploy** (§ 6): `db push` em prod junto desta fatia.
 
 ---
 

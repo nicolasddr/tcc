@@ -146,6 +146,14 @@ Administrador alcança todas as rodadas do projeto; o Avaliador, só aquelas em 
 avaliação, e sem ver coeficiente em lugar nenhum (ver ADR 0011). A anonimização dos avaliadores
 aqui está em "Em aberto".
 
+**Anotação de consenso**
+Texto que registra, por célula de uma resposta, o que se decidiu na revisão de discordâncias.
+Existem duas: a **ata**, escrita pelo Administrador e visível para quem avaliou naquela rodada, que é
+o registro da decisão da equipe e a razão pela qual o codebook mudou de uma rodada para a seguinte;
+e a **anotação privada** do Avaliador, que só ele vê e serve para preparar a reunião. As duas ficam
+presas à rodada em que foram escritas e são persistidas no servidor — não são estado de tela.
+Evitar: "comentário" (sugere uma conversa com respostas, que não é o que existe).
+
 **Qualidade**
 Quão "boa" é a resposta da LLM segundo os critérios. É uma dimensão independente da
 Concordância, e as duas aparecem separadas na UI. Só é leitura confiável quando o ICR está
@@ -199,8 +207,9 @@ pode mudar debaixo deles.
 
 **Rodada fechada**
 A rodada encerrada pelo Administrador. Não aceita mais resposta nem avaliação, libera a revisão
-de discordâncias e destrava a edição do codebook, cuja próxima alteração cria versão nova.
-Fechar é irreversível, e não avança a fase.
+de discordâncias e destrava a edição do codebook, cuja próxima alteração cria versão nova. É a
+partir do fechamento que a discussão passa a ser registrada, em anotação de consenso presa a esta
+rodada. Fechar é irreversível, e não avança a fase.
 
 **Avaliação**
 O conjunto das notas que um Avaliador enviou sobre uma Resposta, de uma vez só. É a unidade de
@@ -251,3 +260,8 @@ Administrador da plataforma; aprova ou rejeita permissão para criar projetos.
 - Saída estruturada da Resposta: hoje a saída da LLM é texto livre e opaco. Estruturá-la por
   definição facilitaria a tela de avaliação, mas prende a ferramenta a um formato e quebra quando
   a LLM desobedece. Reavaliar quando a tela de avaliação existir.
+- Histórico de edição da anotação de consenso: hoje a ata é editada no lugar, e o que está na tela é
+  o que está no servidor. Se a evolução da decisão entre uma versão e outra virar dado de pesquisa,
+  vira tabela de versões, e aí merece ADR.
+- Espaço privado do Administrador: hoje ele escreve a ata e não tem onde rascunhar. Provavelmente
+  útil, e mexe em como a anotação resolve o vínculo de quem escreve.

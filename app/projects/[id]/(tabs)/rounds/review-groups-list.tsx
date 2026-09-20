@@ -34,11 +34,20 @@ export const MINUTES_HINT =
   'A ata registra o que a equipe decidiu nesta célula, e fica visível para quem avaliou ' +
   `nesta rodada. Até ${CONSENSUS_NOTE_MAX} caracteres. Salvar com o campo vazio remove a ata.`
 
+export const PRIVATE_LABEL = 'Minha anotação (só você vê)'
+
+export const PRIVATE_FIELD_LABEL = 'O que você quer levar para a reunião'
+
+export const PRIVATE_HINT =
+  'Este espaço é só seu: nem os outros avaliadores nem o Administrador leem o que está ' +
+  `aqui. Até ${CONSENSUS_NOTE_MAX} caracteres. Salvar com o campo vazio remove a anotação.`
+
 export type ConsensusContext = {
   projectId: string
   roundId: string
   responseId: string
   canWriteMinutes: boolean
+  canWritePrivate: boolean
   byCell: ReadonlyMap<string, CellConsensus>
 }
 
@@ -99,20 +108,26 @@ function Note({ note }: { note: ReviewNote }) {
   )
 }
 
+function NoteText({ children }: { children: string }) {
+  return (
+    <p
+      className={cx(
+        'm-0 rounded-card border border-line bg-surface-subtle px-3 py-2',
+        'text-[13px] text-ink',
+        scrollBoxClass,
+        preWrapClass,
+      )}
+    >
+      {children}
+    </p>
+  )
+}
+
 function Minutes({ note }: { note: ConsensusNote }) {
   return (
     <li className="flex flex-col gap-1">
       <span className="text-[12.5px] font-semibold text-label">{MINUTES_LABEL}</span>
-      <p
-        className={cx(
-          'm-0 rounded-card border border-line bg-surface-subtle px-3 py-2',
-          'text-[13px] text-ink',
-          scrollBoxClass,
-          preWrapClass,
-        )}
-      >
-        {note.text}
-      </p>
+      <NoteText>{note.text}</NoteText>
       <span className="text-[12px] text-muted">{minutesByline(note)}</span>
     </li>
   )
@@ -129,11 +144,12 @@ function ConsensusCell({
 }) {
   const cell = consensus.byCell.get(consensusCellKey(definitionId, criterionId))
   const minutes = cell?.minutes ?? []
+  const writes = consensus.canWriteMinutes || consensus.canWritePrivate
 
-  if (minutes.length === 0 && !consensus.canWriteMinutes) return null
+  if (minutes.length === 0 && !writes) return null
 
   return (
-    <div className="mt-3 flex flex-col gap-2 border-t border-line pt-2.5">
+    <div className="mt-3 flex flex-col gap-2.5 border-t border-line pt-2.5">
       {minutes.length > 0 ? (
         <ul className="m-0 flex list-none flex-col gap-2.5 p-0">
           {minutes.map((note) => (
@@ -159,6 +175,31 @@ function ConsensusCell({
             removedMessage="Ata removida."
           />
         </Disclosure>
+      ) : null}
+
+      {consensus.canWritePrivate ? (
+        <div className="flex flex-col gap-1.5 rounded-card border border-brand-border bg-brand-tint px-3 py-2.5">
+          <span className="text-[12.5px] font-semibold text-label">{PRIVATE_LABEL}</span>
+
+          {cell?.mine ? <NoteText>{cell.mine.text}</NoteText> : null}
+
+          <Disclosure summary={cell?.mine ? 'Editar a anotação' : 'Escrever uma anotação'}>
+            <ConsensusForm
+              projectId={consensus.projectId}
+              roundId={consensus.roundId}
+              responseId={consensus.responseId}
+              definitionId={definitionId}
+              criterionId={criterionId}
+              note={cell?.mine ?? null}
+              label={PRIVATE_FIELD_LABEL}
+              hint={PRIVATE_HINT}
+              placeholder="Ex.: perguntar se citar a fonte sem link conta como fonte."
+              submitLabel="Salvar anotação"
+              savedMessage="Anotação salva."
+              removedMessage="Anotação removida."
+            />
+          </Disclosure>
+        </div>
       ) : null}
     </div>
   )

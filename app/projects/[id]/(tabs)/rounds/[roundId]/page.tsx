@@ -54,6 +54,7 @@ type ReviewView = {
   consensus: ConsensusNote[]
   authorMemberId: string | null
   canWriteMinutes: boolean
+  canWritePrivate: boolean
 }
 
 export default async function RoundReviewPage({
@@ -83,6 +84,7 @@ export default async function RoundReviewPage({
       consensus: [],
       authorMemberId: null,
       canWriteMinutes: false,
+      canWritePrivate: false,
     }
 
     if (isOpen(round)) return empty
@@ -125,11 +127,12 @@ export default async function RoundReviewPage({
       consensus: await loadResponseConsensus(current.id, memberIds, tx),
       authorMemberId: adminMemberId ?? evaluatorMemberId,
       canWriteMinutes: adminMemberId !== null,
+      canWritePrivate: adminMemberId === null && evaluatorMemberId !== null,
     }
   })
 
   const { round, current, prev, next, definitions, criteria, notes } = view
-  const { consensus, authorMemberId, canWriteMinutes } = view
+  const { consensus, authorMemberId, canWriteMinutes, canWritePrivate } = view
 
   const groups = reviewGroups(definitions, criteria, notes)
   const cells = groups.reduce((total, group) => total + group.cells.length, 0)
@@ -142,6 +145,7 @@ export default async function RoundReviewPage({
         roundId,
         responseId: current.id,
         canWriteMinutes,
+        canWritePrivate,
         byCell: consensusByCell(consensus, authorMemberId),
       }
     : null
