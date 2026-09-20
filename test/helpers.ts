@@ -27,6 +27,7 @@ import {
   evaluations,
   scores,
   roundOutliers,
+  consensusNotes,
 } from '@/lib/db'
 
 const ROLLBACK = Symbol('rollback')
@@ -484,6 +485,33 @@ export async function addOutlier(
   return row.id
 }
 
+export async function addConsensusNote(
+  tx: DbExecutor,
+  opts: {
+    roundId: string
+    responseId: string
+    definitionId: string
+    criterionId: string
+    projectMemberId: string
+    visibility: 'shared' | 'private'
+    text?: string
+  },
+): Promise<string> {
+  const [row] = await tx
+    .insert(consensusNotes)
+    .values({
+      roundId: opts.roundId,
+      responseId: opts.responseId,
+      definitionId: opts.definitionId,
+      criterionId: opts.criterionId,
+      projectMemberId: opts.projectMemberId,
+      visibility: opts.visibility,
+      text: opts.text ?? 'Anotação de teste',
+    })
+    .returning({ id: consensusNotes.id })
+  return row.id
+}
+
 /** Cria uma notificação para `userId` (não lida) e devolve o id. */
 export async function addNotification(
   tx: DbExecutor,
@@ -541,6 +569,7 @@ export async function cleanup(projectIds: string[], userIds: string[]): Promise<
       .select({ id: rounds.id })
       .from(rounds)
       .where(inArray(rounds.projectId, projectIds))
+    await ownerDb.delete(consensusNotes).where(inArray(consensusNotes.roundId, roundIds))
     await ownerDb.delete(roundOutliers).where(inArray(roundOutliers.roundId, roundIds))
     await ownerDb.delete(evaluations).where(inArray(evaluations.roundId, roundIds))
     await ownerDb.delete(responses).where(inArray(responses.roundId, roundIds))

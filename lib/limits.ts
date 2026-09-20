@@ -25,3 +25,4 @@ export const ITEM_FILE_BYTES_MAX = 2 * 1024 * 1024
 export const RESPONSE_TEXT_MAX = 50000
 export const JUSTIFICATION_MAX = 2000
 export const OUTLIER_REASON_MAX = 2000
+export const CONSENSUS_NOTE_MAX = 5000

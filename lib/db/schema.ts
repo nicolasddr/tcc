@@ -434,6 +434,7 @@ export const responses = pgTable("responses", {
 			name: "responses_created_by_fkey"
 		}).onDelete("restrict"),
 	unique("rs_unique_round_item").on(table.roundId, table.inputItemId),
+	unique("rs_unique_id_round").on(table.id, table.roundId),
 	check("responses_source_check", sql`source = ANY (ARRAY['generated'::text, 'pasted'::text])`),
 	check("rs_text_len", sql`char_length("text") <= 50000`),
 	check("rs_text_not_blank", sql`btrim("text") <> ''`),
@@ -529,4 +530,44 @@ export const roundOutliers = pgTable("round_outliers", {
 	check("ro_removal_paired", sql`(removed_at IS NULL AND removed_by IS NULL) OR (removed_at IS NOT NULL AND removed_by IS NOT NULL)`),
 	check("ro_reason_len", sql`char_length(reason) <= 2000`),
 	check("ro_reason_not_blank", sql`btrim(reason) <> ''`),
+]);
+
+export const consensusNotes = pgTable("consensus_notes", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	roundId: uuid("round_id").notNull(),
+	responseId: uuid("response_id").notNull(),
+	definitionId: uuid("definition_id").notNull(),
+	criterionId: uuid("criterion_id").notNull(),
+	projectMemberId: uuid("project_member_id").notNull(),
+	visibility: text().notNull(),
+	text: text().notNull(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	index("cn_response_visibility").using("btree", table.responseId.asc().nullsLast(), table.visibility.asc().nullsLast()),
+	index("cn_round_member").using("btree", table.roundId.asc().nullsLast(), table.projectMemberId.asc().nullsLast()),
+	foreignKey({
+			columns: [table.responseId, table.roundId],
+			foreignColumns: [responses.id, responses.roundId],
+			name: "consensus_notes_response_round_fkey"
+		}).onDelete("restrict"),
+	foreignKey({
+			columns: [table.definitionId],
+			foreignColumns: [codebookDefinitions.id],
+			name: "consensus_notes_definition_id_fkey"
+		}).onDelete("restrict"),
+	foreignKey({
+			columns: [table.criterionId],
+			foreignColumns: [codebookCriteria.id],
+			name: "consensus_notes_criterion_id_fkey"
+		}).onDelete("restrict"),
+	foreignKey({
+			columns: [table.projectMemberId],
+			foreignColumns: [projectMembers.id],
+			name: "consensus_notes_project_member_id_fkey"
+		}).onDelete("restrict"),
+	unique("cn_unique_cell_author").on(table.responseId, table.definitionId, table.criterionId, table.projectMemberId),
+	check("cn_visibility_check", sql`visibility = ANY (ARRAY['shared'::text, 'private'::text])`),
+	check("cn_text_len", sql`char_length("text") <= 5000`),
+	check("cn_text_not_blank", sql`btrim("text") <> ''`),
 ]);
