@@ -9,14 +9,19 @@ import { groupMembers } from '../../members'
 import { LeaveProjectButton } from '../member-actions'
 import { PhaseBar } from '../phase-bar'
 import { PipelineChecklist } from '../pipeline/pipeline-checklist'
-import { EMPTY_PIPELINE, PHASE_1 } from '../pipeline/preconditions'
+import {
+  Phase2Checklist,
+  type LastClosedRound,
+} from '../pipeline/phase-2-checklist'
+import { EMPTY_PIPELINE, PHASE_1, PHASE_2 } from '../pipeline/preconditions'
 import { loadCodebook } from '../pipeline/codebook'
 import { loadPrompt } from '../pipeline/prompt'
 import { countItems } from '../pipeline/items'
-import { listRounds } from './rounds/rounds'
+import { listRounds, isOpen } from './rounds/rounds'
 import { loadProjectObservations } from './rounds/agreement'
 import { loadProjectOutliers } from './rounds/outliers'
 import { agreementSeries } from './rounds/agreement-series'
+import { agreementPair } from './rounds/agreement-pair'
 import { AgreementSeriesChart } from './rounds/agreement-series-chart'
 import { SubmitButton } from '@/app/components/submit-button'
 import { ButtonLink } from '@/app/components/ui/button'
@@ -125,6 +130,20 @@ export default async function ProjectPage({
     ? agreementSeries(agreement.rounds, agreement.observations, agreement.outliers)
     : null
 
+  const closed = agreement ? agreement.rounds.filter((round) => !isOpen(round)) : []
+  const latest = closed[closed.length - 1]
+  const lastRound: LastClosedRound | null =
+    agreement && latest
+      ? {
+          roundNumber: latest.roundNumber,
+          closedAt: latest.closedAt,
+          pair: agreementPair(
+            agreement.observations.get(latest.id) ?? [],
+            agreement.outliers.get(latest.id) ?? new Set(),
+          ),
+        }
+      : null
+
   const members = groupMembers(memberRows)
   const activeEvaluators = members.filter(
     (m) => m.roles.includes('evaluator') && m.status === 'active',
@@ -180,7 +199,9 @@ export default async function ProjectPage({
             className="mt-4"
             current={project.phase}
             action={
-              isAdmin && project.status === 'active' && project.phase === PHASE_1 ? (
+              isAdmin &&
+              project.status === 'active' &&
+              (project.phase === PHASE_1 || project.phase === PHASE_2) ? (
                 <ButtonLink href="#avancar">
                   Avançar fase
                   <ArrowRightIcon />
@@ -276,6 +297,20 @@ export default async function ProjectPage({
                   items: artifacts.items,
                 }}
               />
+
+              {agreement && project.phase >= PHASE_2 ? (
+                <Phase2Checklist
+                  className="mt-3"
+                  projectId={project.id}
+                  phase={project.phase}
+                  inputs={{
+                    openRoundNumber:
+                      agreement.rounds.find(isOpen)?.roundNumber ?? null,
+                    closedRounds: closed.length,
+                  }}
+                  lastRound={lastRound}
+                />
+              ) : null}
             </div>
           ) : null}
         </>

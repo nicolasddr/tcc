@@ -31,14 +31,23 @@ import ProjectPage from '@/app/projects/[id]/(tabs)/page'
 import ProjectTabsLayout from '@/app/projects/[id]/(tabs)/layout'
 import { ProjectTabs } from '@/app/projects/[id]/project-tabs'
 import { PipelineChecklist } from '@/app/projects/[id]/pipeline/pipeline-checklist'
+import { Phase2Checklist } from '@/app/projects/[id]/pipeline/phase-2-checklist'
 import { AdvancePhase } from '@/app/projects/[id]/pipeline/advance-phase'
 import {
   PHASE_1,
   PHASE_2,
+  PHASE_3,
   pendingRequirements,
 } from '@/app/projects/[id]/pipeline/preconditions'
 import { AgreementSeriesChart } from '@/app/projects/[id]/(tabs)/rounds/agreement-series-chart'
-import { formatAlpha } from '@/app/projects/[id]/(tabs)/rounds/agreement-labels'
+import {
+  AGREEMENT_BANDS,
+  BAND_REFERENCE,
+  NOT_CALCULABLE_LABEL,
+  agreementBand,
+  bandLabel,
+  formatAlpha,
+} from '@/app/projects/[id]/(tabs)/rounds/agreement-labels'
 import { loadCodebookVersion } from '@/app/projects/[id]/pipeline/codebook'
 import { resolveCells } from '@/app/projects/[id]/pipeline/criteria'
 import { ownerDb } from '@/lib/db'
@@ -95,6 +104,7 @@ function hasProp(node: unknown, key: string, value: unknown): boolean {
 }
 
 type ChecklistProps = Parameters<typeof PipelineChecklist>[0]
+type Phase2Props = Parameters<typeof Phase2Checklist>[0]
 type TabsProps = Parameters<typeof ProjectTabs>[0]
 type AdvanceProps = Parameters<typeof AdvancePhase>[0]
 type SeriesProps = Parameters<typeof AgreementSeriesChart>[0]
@@ -118,6 +128,27 @@ function advanceOf(tree: unknown): ReactElement | null {
   const props = checklistOf(tree)
   if (!props) return null
   return findElement(PipelineChecklist(props), AdvancePhase)
+}
+
+function phase2Of(tree: unknown): Phase2Props | null {
+  const element = findElement(tree, Phase2Checklist)
+  return element ? (element.props as Phase2Props) : null
+}
+
+function phase2AdvanceOf(tree: unknown): AdvanceProps | null {
+  const props = phase2Of(tree)
+  if (!props) return null
+  const element = findElement(Phase2Checklist(props), AdvancePhase)
+  return element ? (element.props as AdvanceProps) : null
+}
+
+function phase2TextOf(tree: unknown): string {
+  const props = phase2Of(tree)
+  expect(props).toBeTruthy()
+  return renderToStaticMarkup(createElement(Phase2Checklist, props!))
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
 }
 
 function seriesOf(tree: unknown): SeriesProps {
@@ -290,12 +321,14 @@ describe('app/projects/[id]/page — escopo de visibilidade', () => {
     }
 
     auth.userId = admin
-    const liberado = advanceOf(await render(phase1))!.props as AdvanceProps
-    expect(liberado.phase).toBe(PHASE_1)
-    expect(liberado.pending).toEqual([])
+    const tree = await render(phase1)
+    expect(checklistOf(tree)!.phase).toBe(PHASE_1)
 
-    const avancado = advanceOf(await render(phase2))!.props as AdvanceProps
-    expect(avancado.phase).toBe(PHASE_2)
+    const liberado = advanceOf(tree)!.props as AdvanceProps
+    expect(liberado.target).toBe(PHASE_2)
+    expect(liberado.blocked).toBe(false)
+
+    expect(advanceOf(await render(phase2))).toBeNull()
   })
 
   it('o botão de avançar fase da barra leva ao checklist da própria tela', async () => {
@@ -303,6 +336,7 @@ describe('app/projects/[id]/page — escopo de visibilidade', () => {
     const evaluator = await newUser('Avaliador')
     const phase1 = await newProject(admin)
     const phase2 = await newProject(admin, PHASE_2)
+    const phase3 = await newProject(admin, PHASE_3)
     await addActiveEvaluator(ownerDb, phase1, evaluator)
 
     async function overview(id: string, userId: string) {
@@ -310,9 +344,162 @@ describe('app/projects/[id]/page — escopo de visibilidade', () => {
       return render(id)
     }
 
+    await addActiveEvaluator(ownerDb, phase2, evaluator)
+
     expect(hasProp(await overview(phase1, admin), 'href', '#avancar')).toBe(true)
-    expect(hasProp(await overview(phase2, admin), 'href', '#avancar')).toBe(false)
+    expect(hasProp(await overview(phase2, admin), 'href', '#avancar')).toBe(true)
+    expect(hasProp(await overview(phase3, admin), 'href', '#avancar')).toBe(false)
     expect(hasProp(await overview(phase1, evaluator), 'href', '#avancar')).toBe(false)
+    expect(hasProp(await overview(phase2, evaluator), 'href', '#avancar')).toBe(false)
+  })
+
+  it('na Fase 2, com uma rodada fechada, o avanço para a Fase 3 aparece liberado e mostra o ICR da última rodada', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin, PHASE_2)
+    const ana = await addActiveEvaluator(ownerDb, project, await newUser('Ana'))
+    const bruno = await addActiveEvaluator(ownerDb, project, await newUser('Bruno'))
+    const promptVersion = await addPromptVersion(ownerDb, project, admin)
+
+    await roundWith(project, admin, promptVersion, {
+      roundNumber: 1,
+      versionNumber: 1,
+      byEvaluator: {
+        [ana]: ['low', 'medium', 'high'],
+        [bruno]: ['low', 'medium', 'high'],
+      },
+    })
+
+    auth.userId = admin
+    const tree = await render(project)
+
+    const advance = phase2AdvanceOf(tree)
+    expect(advance).toBeTruthy()
+    expect(advance!.target).toBe(PHASE_3)
+    expect(advance!.blocked).toBe(false)
+
+    const last = phase2Of(tree)!.lastRound
+    expect(last?.roundNumber).toBe(1)
+    if (!last?.pair.all.calculable) throw new Error('a rodada deveria ter coeficiente')
+
+    const text = phase2TextOf(tree)
+    expect(text).toContain('Última rodada fechada: rodada 1')
+    expect(text).toContain(formatAlpha(last.pair.all.alpha))
+    expect(text).toContain(bandLabel(agreementBand(last.pair.all.alpha)))
+    expect(text).toContain(BAND_REFERENCE)
+    expect(text).toContain('A decisão de avançar é do Administrador.')
+  })
+
+  it('na Fase 2, a rodada aberta trava o avanço e o painel a nomeia', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin, PHASE_2)
+    const promptVersion = await addPromptVersion(ownerDb, project, admin)
+    await roundWith(project, admin, promptVersion, { roundNumber: 1, versionNumber: 1 })
+    await roundWith(project, admin, promptVersion, {
+      roundNumber: 2,
+      versionNumber: 2,
+      status: 'open',
+    })
+
+    auth.userId = admin
+    const tree = await render(project)
+
+    expect(phase2Of(tree)!.inputs).toEqual({ openRoundNumber: 2, closedRounds: 1 })
+    expect(phase2AdvanceOf(tree)!.blocked).toBe(true)
+
+    const text = phase2TextOf(tree)
+    expect(text).toContain('A rodada 2 ainda está aberta')
+    expect(text).not.toContain('Nenhuma rodada foi fechada nesta fase')
+  })
+
+  it('na Fase 2 sem nenhuma rodada, o avanço trava pela rodada fechada que falta', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin, PHASE_2)
+
+    auth.userId = admin
+    const tree = await render(project)
+
+    expect(phase2Of(tree)!.lastRound).toBeNull()
+    expect(phase2AdvanceOf(tree)!.blocked).toBe(true)
+    expect(phase2TextOf(tree)).toContain('Nenhuma rodada foi fechada nesta fase')
+  })
+
+  it('o ICR não calculável da última rodada não trava o avanço', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin, PHASE_2)
+    const ana = await addActiveEvaluator(ownerDb, project, await newUser('Ana'))
+    const promptVersion = await addPromptVersion(ownerDb, project, admin)
+
+    await roundWith(project, admin, promptVersion, {
+      roundNumber: 1,
+      versionNumber: 1,
+      byEvaluator: { [ana]: ['low', 'medium', 'high'] },
+    })
+
+    auth.userId = admin
+    const tree = await render(project)
+
+    expect(phase2Of(tree)!.lastRound!.pair.all.calculable).toBe(false)
+    expect(phase2AdvanceOf(tree)!.blocked).toBe(false)
+    expect(phase2TextOf(tree)).toContain(NOT_CALCULABLE_LABEL)
+  })
+
+  it('o ICR baixo da última rodada aparece como questionável e não trava o avanço', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin, PHASE_2)
+    const ana = await addActiveEvaluator(ownerDb, project, await newUser('Ana'))
+    const bruno = await addActiveEvaluator(ownerDb, project, await newUser('Bruno'))
+    const promptVersion = await addPromptVersion(ownerDb, project, admin)
+
+    await roundWith(project, admin, promptVersion, {
+      roundNumber: 1,
+      versionNumber: 1,
+      byEvaluator: {
+        [ana]: ['low', 'medium', 'high'],
+        [bruno]: ['high', 'medium', 'low'],
+      },
+    })
+
+    auth.userId = admin
+    const tree = await render(project)
+
+    const all = phase2Of(tree)!.lastRound!.pair.all
+    if (!all.calculable) throw new Error('a rodada deveria ter coeficiente')
+    expect(all.alpha).toBeLessThan(AGREEMENT_BANDS.acceptable)
+
+    expect(phase2AdvanceOf(tree)!.blocked).toBe(false)
+
+    const text = phase2TextOf(tree)
+    expect(text).toContain(formatAlpha(all.alpha))
+    expect(text).toContain(bandLabel('questionable'))
+  })
+
+  it('na Fase 3 o painel diz que a Fase 2 foi concluída e não oferece avanço', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin, PHASE_3)
+    const promptVersion = await addPromptVersion(ownerDb, project, admin)
+    await roundWith(project, admin, promptVersion, { roundNumber: 1, versionNumber: 1 })
+
+    auth.userId = admin
+    const tree = await render(project)
+
+    expect(phase2Of(tree)).toBeTruthy()
+    expect(phase2AdvanceOf(tree)).toBeNull()
+    expect(phase2TextOf(tree)).toContain(`Fase ${PHASE_2} concluída`)
+  })
+
+  it('o avaliador não vê o painel de avanço para a Fase 3, nem na Fase 2 nem na Fase 3', async () => {
+    const admin = await newUser('Admin')
+    const evaluator = await newUser('Avaliador')
+
+    for (const phase of [PHASE_2, PHASE_3]) {
+      const project = await newProject(admin, phase)
+      await addActiveEvaluator(ownerDb, project, evaluator)
+
+      auth.userId = evaluator
+      const tree = await render(project)
+      expect(phase2Of(tree)).toBeNull()
+      expect(deepText(tree)).not.toContain('Concordância')
+    }
   })
 
   it('o avaliador não vê o checklist nem os resumos dos artefatos', async () => {

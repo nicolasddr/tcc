@@ -5,8 +5,11 @@ import { Panel } from '@/app/components/ui/panel'
 import { CheckCircleIcon, CircleIcon } from '@/app/components/ui/icons'
 import {
   PHASE_1,
+  PHASE_2,
   PIPELINE_REQUIREMENTS,
+  missingInputsList,
   pendingRequirements,
+  phase2ConfirmationLines,
   type PipelineInputs,
 } from './preconditions'
 import { AdvancePhase } from './advance-phase'
@@ -24,6 +27,12 @@ export function PipelineChecklist({
 }) {
   const pending = pendingRequirements(inputs)
   const pendingKeys = new Set(pending.map((r) => r.key))
+  const hint =
+    pending.length > 0
+      ? `${pending.length === 1 ? 'Falta' : 'Faltam'} ${missingInputsList(pending)} ` +
+        'para liberar o avanço.'
+      : 'A configuração está completa. O avanço pede confirmação antes de mudar ' +
+        'qualquer coisa.'
 
   return (
     <Panel
@@ -83,7 +92,20 @@ export function PipelineChecklist({
         })}
       </ul>
 
-      <AdvancePhase projectId={projectId} phase={phase} pending={pending} />
+      {phase === PHASE_1 ? (
+        <AdvancePhase
+          projectId={projectId}
+          target={PHASE_2}
+          blocked={pending.length > 0}
+          hint={hint}
+          lines={phase2ConfirmationLines()}
+        />
+      ) : (
+        <p className="mt-4 border-t border-line pt-4 text-[13px] text-muted">
+          A Fase 1 já foi concluída: o projeto está na Fase {phase}. O que foi
+          configurado continua aqui para consulta.
+        </p>
+      )}
     </Panel>
   )
 }

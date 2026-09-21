@@ -13,7 +13,7 @@ seguinte herda" — anotar ali o que divergiu, como nos planos das #60 a #66.
 |---|---|---|
 | 1 | As pré-condições da Fase 2, puras, e a contagem de rodadas fechadas | ☑ |
 | 2 | A action: um mecanismo de avanço, pré-condição por fase, e a prova de que métrica não trava | ☑ |
-| 3 | A tela: painel de avanço, confirmação com o ICR da última rodada e a varredura dos ACs | ☐ |
+| 3 | A tela: painel de avanço, confirmação com o ICR da última rodada e a varredura dos ACs | ☑ |
 
 **Nenhuma ADR nova.** A decisão inteira já está na **ADR 0004**, inclusive a distinção que este
 issue cobra: métrica não trava, pré-condição estrutural trava. O glossário (`docs/CONTEXT.md`,
@@ -438,7 +438,7 @@ nos testes de avanço da Fase 1**, e um teste de `actions.int.test.ts` teve de m
 ser "fase errada" — passa a ser um avanço legítimo, recusado por rodada. O teste foi semeado em
 `PHASE_3` e afirma `wrongPhaseMessage(PHASE_3)`, o que preserva a intenção ("já saiu da Fase 1, não
 há o que avançar aqui") e cobre a troca de `ADVANCE_WRONG_PHASE` por `wrongPhaseMessage`. Nenhum
-outro teste de Fase 1 foi tocado. Os demais 10 testes daquele `describe` passaram sem edição,
+outro teste de Fase 1 foi tocado. Os demais 13 testes daquele `describe` passaram sem edição,
 inclusive o do segundo avanço seguido.
 
 **`npm run lint`, `npm run typecheck` e `npm test` verdes** — 70 arquivos, 874 testes (eram 69 e 863
@@ -587,8 +587,58 @@ com uma fatia só em aberto (#67).
 
 ### O que esta Parte fechou
 
-Anotar aqui, no fim: nomes finais dos arquivos e componentes, o que divergiu do plano e a contagem de
-testes.
+**`npm run lint`, `npm run typecheck` e `npm test` verdes** — 70 arquivos, 881 testes (eram 70 e 874
+no fim da Parte 2): +7 testes, nenhum arquivo novo de teste. Os sete ACs do issue estão cobertos
+pela varredura do § 3.5, e o Épico 2 fica com a #67 como única fatia em aberto.
+
+**Arquivos e componentes finais:**
+
+- `pipeline/advance-phase.tsx` — `AdvancePhase({ projectId, target, blocked, hint, lines, summary })`,
+  exatamente as props do § 3.1. `lines` é `readonly string[]`; `summary` é `React.ReactNode`
+  opcional. O `id` do diálogo passou a ser `avancar-fase-${target}-titulo`, para os dois painéis
+  poderem conviver na mesma tela.
+- `pipeline/phase-2-checklist.tsx` — novo, `Phase2Checklist({ projectId, phase, inputs, lastRound,
+  className })` e o tipo exportado `LastClosedRound = { roundNumber, closedAt, pair }`. Recebe o
+  `Phase2Inputs` da Parte 1 e chama `phase2Blockers` sozinho, espelhando `PipelineChecklist`, que
+  também chama `pendingRequirements` a partir de `inputs`. O resumo da última rodada é o
+  `LastRoundSummary` local, que reusa `AgreementValue` de `rounds/agreement-panel.tsx` — o par com e
+  sem outliers, os rótulos e os `Badge` de faixa saem todos de lá, sem segundo cálculo.
+- `pipeline/pipeline-checklist.tsx` — só se adaptou às props novas: monta `hint` a partir de
+  `missingInputsList` e passa `lines={phase2ConfirmationLines()}`.
+- `(tabs)/page.tsx` — calcula `closed`, `latest` e `lastRound` da lista que já carregava, sem
+  consulta nova, e renderiza `Phase2Checklist` abaixo do checklist da Fase 1, dentro da mesma âncora
+  `#avancar`.
+
+**Divergiu em três pontos:**
+
+1. **O `summary` vai dentro do diálogo, acima das linhas** (§ 3.1), e não no corpo do painel acima do
+   botão (§ 3.2). Os dois parágrafos do plano diziam coisas diferentes; o AC é *"a **confirmação**
+   mostra o ICR da última rodada com a faixa ao lado"*, então o diálogo ganhou. Quem quiser o número
+   sem abrir o diálogo já o tem na série de concordância, logo acima na mesma tela.
+2. **Nasceu `phase2ConfirmationLines()`** em `pipeline/preconditions.ts`, ao lado de
+   `phase3ConfirmationLines()`. `AdvancePhase` genérico recebe as linhas prontas, e as três frases
+   que estavam em JSX dentro do componente precisavam de um lugar; o texto foi preservado palavra
+   por palavra.
+3. **O painel da Fase 2 só aparece a partir da Fase 2** (`phase >= PHASE_2`), empilhado sob o
+   checklist da Fase 1. Na Fase 1 ele não teria o que dizer — rodada só existe da Fase 2 em diante.
+
+**Os dois gotchas herdados vieram como previsto**, em `(tabs)/page.int.test.ts`: o teste das props de
+`AdvancePhase` passou a afirmar `target`/`blocked` (e que a Fase 2 não oferece mais avanço *pelo
+checklist da Fase 1*), e o teste da âncora `#avancar` passou a esperar `true` na Fase 2. Foi
+acrescentada ali uma terceira asserção — Fase 3 não mostra a âncora — e um segundo Avaliador, na
+Fase 2, para provar que a barra continua sendo só do Administrador.
+
+**Consequência do § 3.1 que vale registrar:** com o ramo "a fase já passou" fora de `AdvancePhase`,
+cada painel deixa de renderizar o componente assim que a fase avança, e o `Alert` de sucesso dele só
+aparece enquanto o painel ainda o renderiza. O retorno visível do avanço passa a ser a `PhaseBar`
+mudando de fase e o `Badge` "Fase N concluída" no painel — que é o mesmo par de sinais que o
+Administrador já lia.
+
+**A tela não trava por métrica**, conferido item a item como o § 3.5 pede: `blocked` sai de
+`phase2Blockers(inputs)` e de mais nada; `inputs` é só `{ openRoundNumber, closedRounds }`; o
+coeficiente entra na árvore por um caminho só, o `lastRound.pair` que o `LastRoundSummary` exibe, e
+nenhum `if`, `disabled` ou texto do painel o consulta para decidir. O único `if` sobre o valor é
+`all.calculable ? BAND_REFERENCE : notCalculableMessage(...)`, que escolhe qual frase mostrar.
 
 ---
 

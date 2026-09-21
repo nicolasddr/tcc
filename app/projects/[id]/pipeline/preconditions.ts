@@ -81,6 +81,14 @@ export function missingInputsMessage(pending: readonly PipelineRequirement[]): s
   )
 }
 
+export function phase2ConfirmationLines(): string[] {
+  return [
+    `Na Fase ${PHASE_2}, as definições que você cadastrou recebem descrição e viram os critérios do codebook, e o texto do prompt vigente passa a ser usado sobre os itens de entrada do projeto para gerar as respostas que os avaliadores vão avaliar.`,
+    'Nada é congelado agora: as versões do codebook e do prompt continuam editáveis até serem usadas numa rodada, e esta aba de configuração continua acessível depois do avanço.',
+    'Cancelar não muda nada.',
+  ]
+}
+
 export type Phase2Inputs = {
   openRoundNumber: number | null
   closedRounds: number
