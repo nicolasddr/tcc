@@ -34,13 +34,17 @@ import { composeLlmInput } from './llm-input'
 import {
   PHASE_1,
   PHASE_2,
+  PHASE_3,
   canAdvanceFromPhase1,
   missingInputsMessage,
   pendingRequirements,
+  phase2BlockedMessage,
+  phase2Blockers,
+  wrongPhaseMessage,
 } from './preconditions'
 import { loadPipelineInputs } from './inputs'
 import { itemContentError, normalizeItemContent } from './item-content'
-import { loadOpenRound } from '../(tabs)/rounds/rounds'
+import { countClosedRounds, loadOpenRound } from '../(tabs)/rounds/rounds'
 import { codebookLockedMessage } from '../(tabs)/rounds/preconditions'
 import {
   CODEBOOK_NOTE_MAX,
@@ -827,13 +831,10 @@ export type AdvancePhaseState =
 const ADVANCE_DENIED =
   'Não foi possível avançar a fase. Apenas o administrador do projeto pode avançá-la.'
 
-const ADVANCE_WRONG_PHASE =
-  'Este projeto não está mais na Fase 1, então não há o que avançar aqui. Recarregue a página para ver a fase atual.'
-
 type AdvanceOutcome =
-  | { status: 'advanced' }
+  | { status: 'advanced'; phase: number }
   | { status: 'denied' }
-  | { status: 'wrong_phase' }
+  | { status: 'wrong_phase'; phase: number }
   | { status: 'incomplete'; message: string }
 
 export async function advancePhase(
@@ -856,21 +857,39 @@ export async function advancePhase(
       .for('update')
 
     if (!project) return { status: 'denied' }
-    if (project.phase !== PHASE_1) return { status: 'wrong_phase' }
 
-    const pending = pendingRequirements(await loadPipelineInputs(projectId, tx))
-    if (pending.length > 0) {
-      return { status: 'incomplete', message: missingInputsMessage(pending) }
+    if (project.phase === PHASE_1) {
+      const pending = pendingRequirements(await loadPipelineInputs(projectId, tx))
+      if (pending.length > 0) {
+        return { status: 'incomplete', message: missingInputsMessage(pending) }
+      }
+
+      await tx.update(projects).set({ phase: PHASE_2 }).where(eq(projects.id, projectId))
+      return { status: 'advanced', phase: PHASE_2 }
     }
 
-    await tx.update(projects).set({ phase: PHASE_2 }).where(eq(projects.id, projectId))
-    return { status: 'advanced' }
+    if (project.phase === PHASE_2) {
+      const open = await loadOpenRound(projectId, tx)
+      const blockers = phase2Blockers({
+        openRoundNumber: open?.roundNumber ?? null,
+        closedRounds: await countClosedRounds(projectId, tx),
+      })
+      if (blockers.length > 0) {
+        return { status: 'incomplete', message: phase2BlockedMessage(blockers) }
+      }
+
+      await tx.update(projects).set({ phase: PHASE_3 }).where(eq(projects.id, projectId))
+      return { status: 'advanced', phase: PHASE_3 }
+    }
+
+    return { status: 'wrong_phase', phase: project.phase }
   })
 
   if (outcome.status === 'denied') return { error: ADVANCE_DENIED }
-  if (outcome.status === 'wrong_phase') return { error: ADVANCE_WRONG_PHASE }
+  if (outcome.status === 'wrong_phase') return { error: wrongPhaseMessage(outcome.phase) }
   if (outcome.status === 'incomplete') return { error: outcome.message }
 
   revalidatePath(`/projects/${projectId}`)
-  return { ok: true, nonce: Date.now(), phase: PHASE_2 }
+  revalidatePath(`/projects/${projectId}/rounds`)
+  return { ok: true, nonce: Date.now(), phase: outcome.phase }
 }

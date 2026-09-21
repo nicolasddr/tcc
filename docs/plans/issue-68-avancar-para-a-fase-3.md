@@ -12,7 +12,7 @@ seguinte herda" — anotar ali o que divergiu, como nos planos das #60 a #66.
 | Parte | Entrega | Estado |
 |---|---|---|
 | 1 | As pré-condições da Fase 2, puras, e a contagem de rodadas fechadas | ☑ |
-| 2 | A action: um mecanismo de avanço, pré-condição por fase, e a prova de que métrica não trava | ☐ |
+| 2 | A action: um mecanismo de avanço, pré-condição por fase, e a prova de que métrica não trava | ☑ |
 | 3 | A tela: painel de avanço, confirmação com o ICR da última rodada e a varredura dos ACs | ☐ |
 
 **Nenhuma ADR nova.** A decisão inteira já está na **ADR 0004**, inclusive a distinção que este
@@ -287,7 +287,7 @@ teste antigo alterado.
 
 **Nada divergiu do plano.** Assinaturas, nomes e ordem dos bloqueios saíram exatamente como o § 1.1
 previa. `npm run lint`, `npm run typecheck` e `npm test` verdes (69 arquivos, 863 testes); nenhum
-teste antigo foi alterado, e os 20 testes novos moram todos em
+teste antigo foi alterado, e os 17 testes novos moram todos em
 `pipeline/preconditions.unit.test.ts`.
 
 **O que existe agora, em `pipeline/preconditions.ts`** (nada mais do arquivo foi tocado):
@@ -431,8 +431,62 @@ Gotcha: a action commita, então usar `cleanup` no `afterEach` como os testes de
 
 ### O que a Parte 3 herda
 
-Anotar aqui: forma final de `AdvanceOutcome`, as mensagens que a action devolve (a tela não as
-reescreve) e o que divergiu.
+**Divergiu em um ponto, e era inevitável.** O "Pronto quando" prometia `npm test` verde **sem edição
+nos testes de avanço da Fase 1**, e um teste de `actions.int.test.ts` teve de mudar:
+`recusa avançar um projeto que já saiu da Fase 1, e a fase não muda` semeava o projeto em
+`PHASE_2` e afirmava `stringContaining('Fase 1')`. Com o ramo novo, um projeto na Fase 2 deixa de
+ser "fase errada" — passa a ser um avanço legítimo, recusado por rodada. O teste foi semeado em
+`PHASE_3` e afirma `wrongPhaseMessage(PHASE_3)`, o que preserva a intenção ("já saiu da Fase 1, não
+há o que avançar aqui") e cobre a troca de `ADVANCE_WRONG_PHASE` por `wrongPhaseMessage`. Nenhum
+outro teste de Fase 1 foi tocado. Os demais 10 testes daquele `describe` passaram sem edição,
+inclusive o do segundo avanço seguido.
+
+**`npm run lint`, `npm run typecheck` e `npm test` verdes** — 70 arquivos, 874 testes (eram 69 e 863
+no fim da Parte 1): +1 arquivo, +11 testes, todos em `pipeline/advance-phase-2.int.test.ts`.
+
+**Forma final de `AdvanceOutcome`** (interna a `pipeline/actions.ts`, não exportada):
+
+```ts
+type AdvanceOutcome =
+  | { status: 'advanced'; phase: number }
+  | { status: 'denied' }
+  | { status: 'wrong_phase'; phase: number }
+  | { status: 'incomplete'; message: string }
+```
+
+`AdvancePhaseState` **não mudou de forma** — continua `{ error } | { ok: true; nonce; phase } | null`
+—, mas `phase` agora é `outcome.phase` e não a constante `PHASE_2`: numa confirmação vinda da Fase 2
+ele vale `3`. É o que a Parte 3 usa para escrever o alerta de sucesso a partir de `target`.
+
+**Mensagens que a action devolve** (a tela não reescreve nenhuma):
+
+- autorização: `ADVANCE_DENIED`, constante local, sem mudança. Avaliador e não-membro recebem a
+  mesma string, e há teste afirmando que as duas recusas são iguais.
+- fase sem ramo de avanço (Fase 3 em diante): `wrongPhaseMessage(project.phase)`.
+  `ADVANCE_WRONG_PHASE` **foi apagado** — não havia outro chamador.
+- Fase 1 incompleta: `missingInputsMessage(pending)`, sem mudança.
+- Fase 2 bloqueada: `phase2BlockedMessage(blockers)`, exatamente como a Parte 1 a escreveu.
+
+**Revalidação**: `/projects/${projectId}` e, novo, `/projects/${projectId}/rounds`. Nada mais.
+
+**A ordem do corpo ficou como o § 2.1 previa**: `authz` fora da transação, `select ... for update`,
+`if (!project) → denied`, ramo `PHASE_1`, ramo `PHASE_2`, e `wrong_phase` como saída final. O ramo da
+Fase 2 lê `loadOpenRound(projectId, tx)` e `countClosedRounds(projectId, tx)` **dentro** da
+transação que já trava a linha do projeto — é o que fecha a corrida com `createRound` de graça.
+
+**O arquivo de teste novo é `pipeline/advance-phase-2.int.test.ts`**, com um `describe` só
+(`app/projects/[id]/pipeline/actions — avanço da Fase 2 para a Fase 3`) e os 11 casos do § 2.2, na
+ordem em que o plano os lista. Helpers locais que a Parte 3 pode copiar se precisar:
+`seedArtifacts` (versão de codebook com uma célula + versão de prompt, as duas já com `usedAt`,
+como ficam depois de uma rodada), `seedRound` (rodada por número/status, com N respostas) e `rate`
+(um avaliador notando N respostas). O teste de concordância baixa afirma sobre `ordinalAlpha` das
+observações reais da rodada, e não sobre um valor cravado.
+
+**O que a Parte 2 deliberadamente NÃO fez:** nenhum arquivo `.tsx` foi tocado. `AdvancePhase`
+continua com as props antigas (`{ projectId, phase, pending }`) e continua sem saber avançar da Fase
+2 — hoje a Fase 2 cai no ramo `phase !== PHASE_1`, que mostra "A Fase 1 já foi concluída". A action
+já aceita o avanço, mas **não há tela que o dispare**; é a Parte 3 que fecha isso, junto do gotcha
+de `(tabs)/page.int.test.ts` anotado no § 3.3.
 
 ---
 
