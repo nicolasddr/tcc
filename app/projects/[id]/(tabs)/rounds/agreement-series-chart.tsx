@@ -2,6 +2,7 @@ import { Badge } from '@/app/components/ui/badge'
 import { Card } from '@/app/components/ui/card'
 import { EmptyState } from '@/app/components/ui/empty-state'
 import { OpenLink } from '@/app/components/ui/open-link'
+import { InfoTooltip } from '@/app/components/ui/tooltip'
 import { formatDate } from '@/app/notifications/labels'
 import { AgreementValue } from './agreement-panel'
 import {
@@ -176,16 +177,20 @@ export function AgreementSeriesChart({
         ))}
       </ul>
 
-      <p className="m-0 text-xs text-muted">
-        {points.length === 1
-          ? 'Um ponto por rodada, e nenhum valor que junte rodadas: a comparação começa na segunda rodada. '
-          : 'Um ponto por rodada, e nenhum valor que junte rodadas: cada coeficiente mede a versão de codebook indicada ao lado dele. '}
-        {BAND_REFERENCE}
+      <p className="m-0 flex flex-wrap items-center gap-2 text-xs text-muted">
+        <span>
+          {points.length === 1
+            ? 'Um ponto por rodada, e nenhum valor que junte rodadas: a comparação começa na segunda rodada.'
+            : 'Um ponto por rodada, e nenhum valor que junte rodadas: cada coeficiente mede a versão de codebook indicada ao lado dele.'}
+        </span>
+        <InfoTooltip
+          text={
+            points.some((point) => point.hasOutlier)
+              ? `${BAND_REFERENCE}\n\n${OUTLIER_SERIES_NOTE}`
+              : BAND_REFERENCE
+          }
+        />
       </p>
-
-      {points.some((point) => point.hasOutlier) ? (
-        <p className="m-0 text-xs text-muted">{OUTLIER_SERIES_NOTE}</p>
-      ) : null}
 
       <p className="m-0 text-xs">
         <OpenLink href={roundsHref}>Abrir rodadas</OpenLink>

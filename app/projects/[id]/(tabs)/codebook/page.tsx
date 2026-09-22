@@ -57,7 +57,8 @@ export default async function ProjectCodebookPage({
 
       <Section
         title="Histórico de versões"
-        hint="Da mais recente para a mais antiga, com a contagem de definições e de critérios de cada uma. Abrir uma versão mostra as definições e a ordem como estavam nela, em leitura: versão congelada não é editável nem apagável."
+        hint="Da mais recente para a mais antiga, com a contagem de definições e de critérios de cada uma."
+        help="Abrir uma versão mostra as definições e a ordem como estavam nela, em leitura: versão congelada não é editável nem apagável."
       >
         <CodebookHistory projectId={project.id} versions={versions} />
       </Section>

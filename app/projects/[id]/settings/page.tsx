@@ -68,7 +68,8 @@ export default async function ProjectSettingsPage({
       <Section
         divider={false}
         title="Onboarding dos avaliadores"
-        hint="Defina as perguntas (abertas ou de múltipla escolha) que os avaliadores respondem ao entrar no projeto."
+        hint="As perguntas que os avaliadores respondem ao entrar no projeto."
+        help="Cada pergunta pode ser aberta ou de múltipla escolha, e todas são obrigatórias para o avaliador concluir o onboarding."
       >
         <ButtonLink href={`/projects/${id}/questions`} variant="secondary">
           Gerenciar perguntas de onboarding
@@ -77,7 +78,8 @@ export default async function ProjectSettingsPage({
 
       <Section
         title="Equipe do projeto"
-        hint="Convidar avaliadores, acompanhar quem participa e dar a si mesmo o papel de Avaliador acontece na tela de Membros."
+        hint="Quem participa do projeto se gerencia na tela de Membros."
+        help="É lá que se convida avaliador, se acompanha quem participa e se dá a si mesmo o papel de Avaliador."
       >
         <ButtonLink href={`/projects/${id}/members`} variant="secondary">
           Gerenciar membros

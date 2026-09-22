@@ -10,6 +10,7 @@ import {
   BAND_REFERENCE,
   NOT_CALCULABLE_LABEL,
   OUTLIER_PAIR_HINT,
+  OUTLIER_PAIR_SUMMARY,
   agreementBand,
   bandLabel,
   bandTone,
@@ -23,6 +24,7 @@ import { Badge } from '@/app/components/ui/badge'
 import { Card } from '@/app/components/ui/card'
 import { Disclosure } from '@/app/components/ui/disclosure'
 import { StatCard } from '@/app/components/ui/stat'
+import { InfoTooltip } from '@/app/components/ui/tooltip'
 import { cx } from '@/app/components/ui/cx'
 import { preWrapClass, scrollBoxClass } from '@/app/components/ui/prose'
 import { formatDate } from '@/app/notifications/labels'
@@ -31,6 +33,11 @@ export type ResponseCounts = { all: number; withoutOutliers: number }
 
 const reasonClass =
   'm-0 mt-1.5 rounded-card border border-line bg-surface px-3 py-2 text-[13px] text-ink'
+
+const DEACTIVATED_HELP =
+  'O avaliador desativado continua nesta lista porque as notas que ele enviou nesta ' +
+  'rodada continuam gravadas e continuam no cálculo. Desativar é sobre acesso, e só ' +
+  'tira a pessoa do acompanhamento de quem ainda falta terminar.'
 
 function BandBadge({ alpha }: { alpha: number }) {
   const band = agreementBand(alpha)
@@ -73,8 +80,9 @@ function EffortList({
 
   return (
     <Card tone="subtle" padding="sm">
-      <span className="text-[13px] font-semibold text-label">
+      <span className="flex flex-wrap items-center gap-2 text-[13px] font-semibold text-label">
         Avaliações enviadas por avaliador
+        {deactivated ? <InfoTooltip text={DEACTIVATED_HELP} /> : null}
       </span>
       <ul className="m-0 mt-2 flex list-none flex-col gap-1 p-0">
         {effort.map((evaluator) => (
@@ -97,13 +105,6 @@ function EffortList({
           </li>
         ))}
       </ul>
-      {deactivated ? (
-        <p className="m-0 mt-2 text-xs text-muted">
-          O avaliador desativado continua nesta lista porque as notas que ele enviou
-          nesta rodada continuam gravadas e continuam no cálculo. Desativar é sobre
-          acesso, e só tira a pessoa do acompanhamento de quem ainda falta terminar.
-        </p>
-      ) : null}
     </Card>
   )
 }
@@ -219,7 +220,10 @@ export function AgreementPanel({
             />
           </div>
 
-          <p className="m-0 text-xs text-muted">{OUTLIER_PAIR_HINT}</p>
+          <p className="m-0 flex flex-wrap items-center gap-2 text-xs text-muted">
+            <span>{OUTLIER_PAIR_SUMMARY}</span>
+            <InfoTooltip text={OUTLIER_PAIR_HINT} />
+          </p>
 
           <ExcludedList outliers={outliers} />
         </>

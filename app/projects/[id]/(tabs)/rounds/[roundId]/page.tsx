@@ -160,8 +160,13 @@ export default async function RoundReviewPage({
         title={`Revisão de discordâncias da rodada ${round.roundNumber}`}
         hint={
           round.closedAt
-            ? `Uma resposta por vez, sobre a versão de codebook que esta rodada fixou (Codebook v${round.codebookVersionNumber}). A rodada fechou em ${formatDate(round.closedAt)}, e a discussão fica presa a ela: o que se refina aqui vale para a próxima.`
-            : 'Uma resposta por vez, com todas as células da versão de codebook que esta rodada fixou e as divergentes destacadas.'
+            ? `Uma resposta por vez, sobre a versão de codebook que esta rodada fixou (Codebook v${round.codebookVersionNumber}).`
+            : 'Uma resposta por vez, sobre a versão de codebook que esta rodada fixou.'
+        }
+        help={
+          round.closedAt
+            ? `A revisão mostra todas as células dessa versão, com as divergentes destacadas. A rodada fechou em ${formatDate(round.closedAt)}, e a discussão fica presa a ela: o que se refina aqui vale para a próxima.`
+            : 'A revisão mostra todas as células dessa versão, com as divergentes destacadas.'
         }
       >
         {isOpen(round) ? (

@@ -115,8 +115,13 @@ export default async function ProjectMembersPage({
         title="Equipe do projeto"
         hint={
           isAdmin
-            ? 'Acompanhe quem participa, veja as respostas de onboarding e desative avaliadores. Desativar é sobre acesso: a pessoa deixa de entrar no projeto, e as avaliações que ela já enviou continuam gravadas e continuam no cálculo de concordância. Tirar notas do cálculo é a outra porta, e se faz marcando a pessoa como outlier em uma rodada.'
+            ? 'Acompanhe quem participa, veja as respostas de onboarding e desative avaliadores.'
             : 'Quem participa do projeto e em que papel.'
+        }
+        help={
+          isAdmin
+            ? 'Desativar é sobre acesso: a pessoa deixa de entrar no projeto, e as avaliações que ela já enviou continuam gravadas e continuam no cálculo de concordância. Tirar notas do cálculo é a outra porta, e se faz marcando a pessoa como outlier em uma rodada.'
+            : undefined
         }
       >
         {members.length > 0 ? (
@@ -134,7 +139,8 @@ export default async function ProjectMembersPage({
       {isAdmin ? (
         <Section
           title="Outliers por rodada"
-          hint="Marcar uma pessoa como outlier tira as notas dela do cálculo de concordância daquela rodada, e só daquela rodada. A marca não altera o acesso dela ao projeto, não apaga nenhuma avaliação, e a ferramenta não avisa o avaliador."
+          hint="Marcar uma pessoa como outlier tira as notas dela do cálculo de concordância daquela rodada, e só daquela rodada."
+          help="A marca não altera o acesso da pessoa ao projeto, não apaga nenhuma avaliação, e a ferramenta não avisa o avaliador."
         >
           <OutlierPanel projectId={project.id} {...outliers} />
         </Section>
@@ -152,7 +158,8 @@ export default async function ProjectMembersPage({
       {isAdmin ? (
         <Section
           title="Avaliar neste projeto"
-          hint="Como Administrador, você pode se dar também o papel de Avaliador. O vínculo novo passa pelo mesmo consentimento e pelo mesmo questionário de perfil dos demais avaliadores, e os painéis de concordância separam o Administrador-avaliador do restante da equipe."
+          hint="Como Administrador, você pode se dar também o papel de Avaliador."
+          help="O vínculo novo passa pelo mesmo consentimento e pelo mesmo questionário de perfil dos demais avaliadores, e os painéis de concordância separam o Administrador-avaliador do restante da equipe."
         >
           <EvaluatorRolePanel
             projectId={project.id}

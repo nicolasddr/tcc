@@ -1,5 +1,6 @@
 import { Badge } from '@/app/components/ui/badge'
 import { EmptyState } from '@/app/components/ui/empty-state'
+import { InfoTooltip } from '@/app/components/ui/tooltip'
 import type {
   CodebookCriterion,
   CodebookDefinition,
@@ -123,14 +124,13 @@ export function AgreementMatrixTable({
         </table>
       </div>
 
-      <p className="m-0 text-xs text-muted">
-        A matriz é da versão de codebook que a rodada fixou, Codebook v
-        {codebookVersionNumber}, e não da versão vigente do projeto.
+      <p className="m-0 flex flex-wrap items-center gap-2 text-xs text-muted">
+        <span>
+          A matriz é da versão de codebook que a rodada fixou, Codebook v
+          {codebookVersionNumber}, e não da versão vigente do projeto.
+        </span>
+        <InfoTooltip text={`${MATRIX_SCOPE_NOTE}\n\n${MATRIX_LEGEND}`} />
       </p>
-
-      <p className="m-0 text-xs text-muted">{MATRIX_SCOPE_NOTE}</p>
-
-      <p className="m-0 text-xs text-muted">{MATRIX_LEGEND}</p>
     </div>
   )
 }

@@ -17,12 +17,18 @@ import { PROJECT_DESCRIPTION_MAX, PROJECT_NAME_MAX } from '@/lib/limits'
 const initialState: UpdateProjectState = null
 
 const statusHint: Record<string, string> = {
+  active: 'O projeto está ativo e editável.',
+  completed: 'O projeto está concluído e somente leitura.',
+  archived: 'O projeto está arquivado e somente leitura.',
+}
+
+const statusHelp: Record<string, string> = {
   active:
     'Concluir ou arquivar deixa o projeto somente leitura. Você pode reativá-lo depois.',
   completed:
-    'O projeto está concluído e somente leitura. Reative para voltar a editá-lo, ou arquive para tirá-lo da lista padrão.',
+    'Reative para voltar a editá-lo, ou arquive para tirá-lo da lista padrão do dashboard.',
   archived:
-    'O projeto está arquivado e fora da lista padrão do dashboard. Reative para voltar a editá-lo.',
+    'Arquivado, o projeto também fica fora da lista padrão do dashboard. Reative para voltar a editá-lo.',
 }
 
 type ManageProjectProps = {
@@ -182,7 +188,11 @@ export function ManageProject({ projectId, status, name, description }: ManagePr
         )}
       </Section>
 
-      <Section title="Status do projeto" hint={statusHint[status]}>
+      <Section
+        title="Status do projeto"
+        hint={statusHint[status]}
+        help={statusHelp[status]}
+      >
         <div className="flex flex-wrap gap-3">
           {status === 'active' ? (
             <>

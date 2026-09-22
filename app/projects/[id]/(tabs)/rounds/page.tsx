@@ -105,7 +105,8 @@ export default async function ProjectRoundsPage({
     return (
       <Section
         title="Rodadas para revisar"
-        hint="As rodadas fechadas em que você enviou avaliação. A revisão mostra, resposta por resposta, como cada avaliador pontuou cada célula do codebook que aquela rodada fixou — e fica presa à rodada, porque é dela que o refinamento sai."
+        hint="As rodadas fechadas em que você enviou avaliação."
+        help="A revisão mostra, resposta por resposta, como cada avaliador pontuou cada célula do codebook que aquela rodada fixou — e fica presa à rodada, porque é dela que o refinamento sai."
       >
         <EvaluatorRounds projectId={project.id} rounds={reviewable} />
       </Section>
@@ -149,7 +150,8 @@ export default async function ProjectRoundsPage({
         <>
           <Section
             title={`Gerar respostas na rodada ${openRound.roundNumber}`}
-            hint="De 1 a 5 itens por geração, cada item produzindo exatamente uma resposta, que grava origem, modelo, versão do modelo e as versões de codebook e de prompt que esta rodada fixou."
+            hint="De 1 a 5 itens por geração, e cada item produz exatamente uma resposta."
+            help="Cada resposta grava origem, modelo, versão do modelo e as versões de codebook e de prompt que esta rodada fixou."
           >
             <GenerateResponses
               projectId={project.id}
@@ -164,7 +166,8 @@ export default async function ProjectRoundsPage({
 
           <Section
             title={`Rodada ${openRound.roundNumber} aberta`}
-            hint="Só existe uma rodada aberta por projeto. Fechar é ação sua, é irreversível e não depende de todos terem terminado."
+            hint="Só existe uma rodada aberta por projeto."
+            help="Fechar é ação sua, é irreversível e não depende de todos terem terminado."
           >
             <CloseRound
               projectId={project.id}
@@ -199,8 +202,13 @@ export default async function ProjectRoundsPage({
           }
           hint={
             focusRound.closedAt
-              ? `Krippendorff's Alpha ordinal da rodada ${focusRound.roundNumber}, fechada em ${formatDate(focusRound.closedAt)}, sobre a versão de codebook que ela fixou. É a última rodada do projeto, e a leitura continua aqui depois do fechamento: é com ela que se decide onde refinar o codebook antes da próxima rodada.`
-              : "Krippendorff's Alpha ordinal desta rodada, sobre a versão de codebook que ela fixou. O valor aparece desde a primeira avaliação e não trava nada: fechar a rodada e avançar de fase continuam sendo decisão sua."
+              ? `Krippendorff's Alpha ordinal da rodada ${focusRound.roundNumber}, fechada em ${formatDate(focusRound.closedAt)}.`
+              : "Krippendorff's Alpha ordinal desta rodada."
+          }
+          help={
+            focusRound.closedAt
+              ? 'O coeficiente é sobre a versão de codebook que esta rodada fixou. É a última rodada do projeto, e a leitura continua aqui depois do fechamento: é com ela que se decide onde refinar o codebook antes da próxima rodada.'
+              : 'O coeficiente é sobre a versão de codebook que esta rodada fixou. O valor aparece desde a primeira avaliação e não trava nada: fechar a rodada e avançar de fase continuam sendo decisão sua.'
           }
         >
           <div className="flex flex-col gap-4">
@@ -223,7 +231,8 @@ export default async function ProjectRoundsPage({
 
       <Section
         title="Rodadas do projeto"
-        hint="Em ordem cronológica, com o estado de cada uma, as versões de codebook e de prompt que ela fixou e a concordância alcançada sobre elas."
+        hint="Em ordem cronológica, com o estado de cada uma."
+        help="Cada rodada aparece com as versões de codebook e de prompt que ela fixou e a concordância alcançada sobre elas."
       >
         <RoundList projectId={project.id} rounds={rounds} agreement={agreement} />
       </Section>

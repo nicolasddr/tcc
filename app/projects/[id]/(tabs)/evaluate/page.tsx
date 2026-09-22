@@ -155,7 +155,8 @@ export default async function ProjectEvaluatePage({
           </span>
         </>
       }
-      hint="Cada resposta é avaliada uma vez, em cada critério de cada definição do codebook que esta rodada fixou. O envio é definitivo."
+      hint="Cada resposta é avaliada uma vez, e o envio é definitivo."
+      help="A avaliação cobre cada critério de cada definição do codebook que esta rodada fixou, e o envio é definitivo: a avaliação enviada não volta para edição."
     >
       {held ? (
         <div className="flex flex-col gap-3">

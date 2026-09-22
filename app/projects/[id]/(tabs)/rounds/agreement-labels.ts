@@ -36,6 +36,10 @@ export const MATRIX_LEGEND =
   `por todas as notas no mesmo ponto da escala; e “${CELL_NOT_APPLICABLE}” é ` +
   `${CELL_NOT_APPLICABLE_TITLE}, que não se aplica a esta. Nenhum desses casos vale zero.`
 
+export const OUTLIER_PAIR_SUMMARY =
+  'Os dois valores saem do mesmo dado desta rodada, e o resultado da rodada continua ' +
+  `sendo o ${AGREEMENT_ALL_LABEL}.`
+
 export const OUTLIER_PAIR_HINT =
   `Os dois valores saem do mesmo dado desta rodada. O primeiro, ${AGREEMENT_ALL_LABEL}, ` +
   'é o resultado da rodada e continua sendo ele. O segundo, ' +

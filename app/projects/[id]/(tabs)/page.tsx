@@ -278,7 +278,8 @@ export default async function ProjectPage({
           {series ? (
             <Section
               title="Concordância por rodada"
-              hint="Um ponto por rodada, em ordem cronológica, com a versão de codebook que cada uma fixou. A curva é a leitura da fase: o codebook refinado entre rodadas deve aparecer aqui como concordância maior na rodada seguinte."
+              hint="Um ponto por rodada, em ordem cronológica."
+              help="Cada ponto traz a versão de codebook que a rodada fixou. A curva é a leitura da fase: o codebook refinado entre rodadas deve aparecer aqui como concordância maior na rodada seguinte."
             >
               <AgreementSeriesChart points={series} projectId={project.id} />
             </Section>
@@ -320,7 +321,8 @@ export default async function ProjectPage({
       {canLeave ? (
         <Section
           title="Sair do projeto"
-          hint="Você deixa de participar como avaliador. Suas avaliações são preservadas, mas só o administrador poderá readmiti-lo depois."
+          hint="Você deixa de participar como avaliador."
+          help="Suas avaliações são preservadas, mas só o administrador poderá readmiti-lo depois."
         >
           <LeaveProjectButton projectId={project.id} />
         </Section>
