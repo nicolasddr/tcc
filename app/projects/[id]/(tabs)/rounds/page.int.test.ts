@@ -49,6 +49,7 @@ import { formatDate } from '@/app/notifications/labels'
 import { PHASE_1, PHASE_2 } from '@/app/projects/[id]/pipeline/preconditions'
 import {
   closeConfirmationLines,
+  pendingEvaluatorsTitle,
   roundBlockerMessage,
 } from '@/app/projects/[id]/(tabs)/rounds/preconditions'
 import { itemUsageLabel } from '@/app/projects/[id]/pipeline/item-usage'
@@ -425,13 +426,12 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     expect(props.round.roundNumber).toBe(1)
     expect(props.evaluatorsNotFinished).toEqual(['Bia Avaliadora'])
 
-    const confirmation = closeConfirmationLines(
-      props.round.roundNumber,
-      props.evaluatorsNotFinished,
-    ).join(' ')
-    expect(confirmation).toContain('irreversível')
-    expect(confirmation).toContain('Ainda não terminaram: Bia Avaliadora')
-    expect(confirmation).toContain('não depende de todos terem terminado')
+    expect(closeConfirmationLines(props.round.roundNumber)[0]).toContain(
+      'irreversível',
+    )
+    expect(pendingEvaluatorsTitle(props.evaluatorsNotFinished.length)).toBe(
+      '1 avaliador ainda não terminou:',
+    )
   })
 
   it('com rodada aberta, o seletor recebe os itens, o modelo em uso e as respostas da rodada', async () => {

@@ -4,6 +4,8 @@ import {
   canOpenRound,
   ceilingReachedMessage,
   closeConfirmationLines,
+  pendingEvaluatorsTitle,
+  openRoundSummary,
   codebookLockedMessage,
   generationMax,
   responsesLeftMessage,
@@ -123,19 +125,33 @@ describe('app/projects/[id]/rounds/preconditions — o que trava a abertura de u
     expect(keys(input)).toEqual(['phase', 'definition', 'prompt'])
   })
 
-  it('a confirmação de fechamento diz que é irreversível e nomeia quem não terminou', () => {
-    const lines = closeConfirmationLines(2, ['Ana', 'Bia']).join(' ')
-    expect(lines).toContain('Fechar a rodada 2 é irreversível')
-    expect(lines).toContain('não existe reabrir')
-    expect(lines).toContain('Fechar não depende de todos terem terminado')
-    expect(lines).toContain('Ainda não terminaram: Ana, Bia.')
-    expect(lines).toContain('destrava a edição do codebook')
+  it('a confirmação de fechamento cabe em poucas linhas curtas', () => {
+    const lines = closeConfirmationLines(2)
+    expect(lines).toHaveLength(3)
+    expect(lines[0]).toContain('Fechar a rodada 2 é irreversível')
+    expect(lines[0]).toContain('não existe reabrir')
+    expect(lines[1]).toContain('codebook volta a ser editável')
+    expect(lines[2]).toContain('não espera quem ainda não terminou')
+    expect(lines.every((line) => line.length <= 120)).toBe(true)
   })
 
-  it('a confirmação sem nenhum avaliador ativo diz isso em vez de deixar a lista vazia', () => {
-    const lines = closeConfirmationLines(1, []).join(' ')
-    expect(lines).toContain('nenhum avaliador ativo')
-    expect(lines).not.toContain('Ainda não terminaram')
+  it('a confirmação não repete os nomes de quem não terminou no corpo do texto', () => {
+    expect(closeConfirmationLines(1).join(' ')).not.toContain('Ainda não terminaram')
+  })
+
+  it('o título dos pendentes conta os avaliadores, em vez de listá-los no texto', () => {
+    expect(pendingEvaluatorsTitle(1)).toBe('1 avaliador ainda não terminou:')
+    expect(pendingEvaluatorsTitle(3)).toBe('3 avaliadores ainda não terminaram:')
+  })
+
+  it('sem nenhum avaliador ativo, o título diz isso em vez de anunciar lista vazia', () => {
+    expect(pendingEvaluatorsTitle(0)).toBe('Nenhum avaliador ativo no projeto.')
+  })
+
+  it('o resumo da rodada aberta nomeia as versões congeladas', () => {
+    expect(openRoundSummary(2, 3, 4)).toBe(
+      'A rodada 2 está aberta sobre o codebook v3 e o prompt v4.',
+    )
   })
 
   it('a mensagem da trava do codebook nomeia a rodada aberta e diz como destravar', () => {

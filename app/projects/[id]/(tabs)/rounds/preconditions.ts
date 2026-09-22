@@ -273,19 +273,28 @@ export function codebookLockedMessage(roundNumber: number): string {
   )
 }
 
-export function closeConfirmationLines(
-  roundNumber: number,
-  evaluatorsNotFinished: readonly string[],
-): string[] {
-  const pending =
-    evaluatorsNotFinished.length === 0
-      ? 'Este projeto ainda não tem nenhum avaliador ativo, então não há avaliação a esperar.'
-      : `Ainda não terminaram: ${evaluatorsNotFinished.join(', ')}.`
-
+export function closeConfirmationLines(roundNumber: number): string[] {
   return [
-    `Fechar a rodada ${roundNumber} é irreversível: ela não volta a aceitar resposta nem avaliação, e não existe reabrir. A rodada continua visível, com tudo o que produziu.`,
-    `Fechar não depende de todos terem terminado. ${pending}`,
-    'Fechar destrava a edição do codebook, e a primeira alteração depois disso cria a versão seguinte.',
-    'Cancelar não muda nada.',
+    `Fechar a rodada ${roundNumber} é irreversível: ela deixa de aceitar resposta e avaliação, e não existe reabrir.`,
+    'O codebook volta a ser editável, e a rodada continua visível com tudo o que produziu.',
+    'Fechar não espera quem ainda não terminou.',
   ]
+}
+
+export function pendingEvaluatorsTitle(count: number): string {
+  if (count === 0) return 'Nenhum avaliador ativo no projeto.'
+  return count === 1
+    ? '1 avaliador ainda não terminou:'
+    : `${count} avaliadores ainda não terminaram:`
+}
+
+export function openRoundSummary(
+  roundNumber: number,
+  codebookVersionNumber: number | null,
+  promptVersionNumber: number | null,
+): string {
+  return (
+    `A rodada ${roundNumber} está aberta sobre o codebook v${codebookVersionNumber} e ` +
+    `o prompt v${promptVersionNumber}.`
+  )
 }
