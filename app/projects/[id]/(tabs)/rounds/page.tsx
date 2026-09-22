@@ -178,7 +178,8 @@ export default async function ProjectRoundsPage({
       ) : (
         <Section
           title="Nova rodada"
-          hint="Criar a rodada é o momento em que o projeto passa a produzir dado de pesquisa: a versão vigente do codebook e a do prompt congelam na mesma operação."
+          hint="A unidade de coleta do projeto."
+          help="A rodada é a unidade de coleta: é dentro dela que as respostas são geradas e avaliadas, e criá-la é o momento em que o projeto passa a produzir dado de pesquisa. Só existe uma rodada aberta por projeto, e abrir uma exige o codebook completo e uma versão de prompt escrita."
         >
           <NewRound
             projectId={project.id}

@@ -53,6 +53,23 @@ export function canOpenRound(inputs: RoundInputs): boolean {
   return roundBlockers(inputs).length === 0
 }
 
+export function roundBlockerSummary(blocker: RoundBlocker): string {
+  switch (blocker.key) {
+    case 'phase':
+      return `As rodadas começam na Fase ${PHASE_2}, e o projeto está na Fase ${blocker.phase}.`
+    case 'open_round':
+      return `A rodada ${blocker.roundNumber} ainda está aberta.`
+    case 'definition':
+      return 'O codebook ainda não tem nenhuma definição.'
+    case 'criteria':
+      return blocker.titles.length === 1
+        ? `A definição ${quotedList(blocker.titles)} está sem nenhum critério.`
+        : `${blocker.titles.length} definições estão sem nenhum critério.`
+    case 'prompt':
+      return 'Não há versão de prompt para esta rodada congelar.'
+  }
+}
+
 export function roundBlockerMessage(blocker: RoundBlocker): string {
   switch (blocker.key) {
     case 'phase':

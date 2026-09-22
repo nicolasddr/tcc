@@ -2,12 +2,24 @@
 
 import { useActionState } from 'react'
 import { createRound, type NewRoundState } from './actions'
-import { roundBlockerMessage, type RoundBlocker } from './preconditions'
+import {
+  codebookLockedMessage,
+  roundBlockerMessage,
+  roundBlockerSummary,
+  type RoundBlocker,
+} from './preconditions'
 import { Alert } from '@/app/components/ui/alert'
 import { Button } from '@/app/components/ui/button'
 import { Card } from '@/app/components/ui/card'
+import { InfoTooltip } from '@/app/components/ui/tooltip'
 
 const initialState: NewRoundState = null
+
+const FREEZE_HELP =
+  'As duas versões congelam na mesma operação que cria a rodada: a partir dali elas ' +
+  'não mudam mais, e a alteração seguinte cria a versão seguinte. É por isso que a ' +
+  'rodada é a unidade de dado de pesquisa: tudo o que ela produz aponta para um ' +
+  'codebook e um prompt que não se mexem mais.'
 
 export function NewRound({
   projectId,
@@ -29,17 +41,21 @@ export function NewRound({
         <div className="flex flex-col gap-2">
           {blockers.map((blocker) => (
             <Alert key={blocker.key} tone="notice">
-              {roundBlockerMessage(blocker)}
+              <span className="inline-flex flex-wrap items-center gap-2">
+                <span>{roundBlockerSummary(blocker)}</span>
+                <InfoTooltip text={roundBlockerMessage(blocker)} />
+              </span>
             </Alert>
           ))}
         </div>
       ) : (
         <Card tone="subtle" padding="sm">
-          <p className="m-0 text-[13px] text-muted">
-            Esta rodada vai fixar o codebook v{codebookVersionNumber} e o prompt v
-            {promptVersionNumber}. As duas versões congelam na mesma operação que cria a
-            rodada: a partir dali elas não mudam mais, e a alteração seguinte cria a
-            versão seguinte.
+          <p className="m-0 flex flex-wrap items-center gap-2 text-[13px] text-muted">
+            <span>
+              Esta rodada vai congelar o codebook v{codebookVersionNumber} e o prompt v
+              {promptVersionNumber}.
+            </span>
+            <InfoTooltip text={FREEZE_HELP} />
           </p>
         </Card>
       )}
@@ -47,8 +63,10 @@ export function NewRound({
       {state && 'error' in state ? <Alert tone="error">{state.error}</Alert> : null}
       {state && 'ok' in state ? (
         <Alert tone="success">
-          Rodada {state.roundNumber} aberta. O codebook fica em leitura enquanto ela
-          estiver aberta.
+          <span className="inline-flex flex-wrap items-center gap-2">
+            <span>Rodada {state.roundNumber} aberta.</span>
+            <InfoTooltip text={codebookLockedMessage(state.roundNumber)} />
+          </span>
         </Alert>
       ) : null}
 
