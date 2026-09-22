@@ -105,6 +105,8 @@ export function RowActions({
           }}
         >
           <div
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={close}
             className={cx(
               'absolute top-full right-0 z-20 mt-1 flex min-w-[176px] flex-col gap-0.5',
               'rounded-card border border-line-strong bg-surface p-1',

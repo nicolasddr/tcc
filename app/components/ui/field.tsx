@@ -1,4 +1,5 @@
 import { cx } from './cx'
+import { InfoTooltip } from './tooltip'
 
 export const labelClass = 'text-[13px] font-semibold text-label'
 
@@ -11,6 +12,7 @@ export function Field({
   label,
   required,
   hint,
+  tooltip,
   error,
   className,
   children,
@@ -18,14 +20,18 @@ export function Field({
   label: React.ReactNode
   required?: boolean
   hint?: React.ReactNode
+  tooltip?: string
   error?: React.ReactNode
   className?: string
   children: React.ReactNode
 }) {
   return (
     <label className={cx('flex flex-col gap-1.5', className)}>
-      <span className={labelClass}>
-        {label} {required ? <span className="text-danger-fg-strong">*</span> : null}
+      <span className={cx(labelClass, 'flex flex-wrap items-center gap-1.5')}>
+        <span>
+          {label} {required ? <span className="text-danger-fg-strong">*</span> : null}
+        </span>
+        {tooltip ? <InfoTooltip text={tooltip} /> : null}
       </span>
       {children}
       {hint ? <span className="text-xs text-muted">{hint}</span> : null}

@@ -21,6 +21,7 @@ import { Field, Input, Select, Textarea } from '@/app/components/ui/field'
 import { Form, FormActions } from '@/app/components/ui/form'
 import { SaveBar } from '@/app/components/ui/save-bar'
 import { Card } from '@/app/components/ui/card'
+import { InfoTooltip } from '@/app/components/ui/tooltip'
 import { preWrapClass } from '@/app/components/ui/prose'
 import { Alert } from '@/app/components/ui/alert'
 import { VersionStatus } from './version-status'
@@ -153,6 +154,26 @@ function TypeLegend() {
         </dl>
       </Card>
     </Disclosure>
+  )
+}
+
+const ORDER_HELP =
+  'A ordem desta lista é a ordem em que as definições aparecem para a equipe e são ' +
+  'enviadas à LLM. Use as setas para reordenar; a ordem é salva junto com a versão.'
+
+const DESCRIPTION_HELP =
+  'O texto que o avaliador lê para entender o que o título quis dizer. Salvar sem ' +
+  'descrição é permitido.'
+
+const NOTE_HELP =
+  'Fica presa a esta versão e aparece no histórico. Salvar sem observação é permitido.'
+
+function SectionTitle({ title, help }: { title: string; help: string }) {
+  return (
+    <h3 className="m-0 flex flex-wrap items-center gap-1.5 text-sm font-bold text-ink">
+      {title}
+      <InfoTooltip text={help} />
+    </h3>
   )
 }
 
@@ -466,186 +487,184 @@ function CodebookFields({
         />
       ) : null}
 
+      <Card padding="sm">
+        <SectionTitle title="Definições" help={ORDER_HELP} />
+
+        {rows.length === 0 ? (
+          <EmptyState className="mt-3">
+            Nenhuma definição na lista. Adicione ao menos uma para poder salvar.
+          </EmptyState>
+        ) : (
+          <ul className="m-0 mt-3 flex list-none flex-col gap-3 p-0">
+            {rows.map((row, index) => {
+              const expanded = expandedKey === row.key
+              const id = String(row.key)
+              const scopes = definitionScopes(id, row.criteria, general)
+              const own = ownCriteria(id, scopes).length
+              const applicable = criteriaOfDefinition(id, scopes).length
+              const typeLabel = row.type ? definitionTypeLabel(row.type) : null
+
+              return (
+                <li key={row.key}>
+                  <EditableRow
+                    expanded={expanded}
+                    onToggle={() => toggle(row.key)}
+                    title={
+                      <>
+                        <span className="mr-2 tabular-nums text-muted">{index + 1}</span>
+                        {row.title.trim() || 'Definição sem título'}
+                      </>
+                    }
+                    meta={
+                      inPhase2
+                        ? plural(own, 'critério próprio', 'critérios próprios')
+                        : null
+                    }
+                    badges={
+                      <>
+                        {inPhase2 && own === 0 && applicable > 0 ? (
+                          <Badge tone="warning">sem critério próprio</Badge>
+                        ) : null}
+                        {typeLabel ? <Badge tone="accent">{typeLabel}</Badge> : null}
+                      </>
+                    }
+                    actions={
+                      <RowActions
+                        menuLabel={`Mais ações da definição ${index + 1}`}
+                        up={{
+                          label: `Mover a definição ${index + 1} para cima`,
+                          disabled: index === 0,
+                          onClick: () => move(index, -1),
+                        }}
+                        down={{
+                          label: `Mover a definição ${index + 1} para baixo`,
+                          disabled: index === rows.length - 1,
+                          onClick: () => move(index, 1),
+                        }}
+                      >
+                        <RowMenuItem onClick={() => remove(row.key)}>Remover</RowMenuItem>
+                      </RowActions>
+                    }
+                    footer={inPhase2 ? notesLabel(own, applicable - own) : null}
+                  >
+                    <div className="flex flex-wrap items-end gap-3">
+                      <Field
+                        label={`Título da definição ${index + 1}`}
+                        required={expanded}
+                        className="min-w-[220px] flex-[2]"
+                      >
+                        <Input
+                          type="text"
+                          name="definition_title"
+                          required={expanded}
+                          maxLength={DEFINITION_TITLE_MAX}
+                          value={row.title}
+                          onChange={(e) => update(row.key, { title: e.target.value })}
+                          placeholder="Ex.: Informacional"
+                        />
+                      </Field>
+
+                      <Field
+                        label="Tipo"
+                        required={expanded}
+                        className="min-w-[200px] flex-1"
+                      >
+                        <Select
+                          name="definition_type"
+                          required={expanded}
+                          value={row.type}
+                          onChange={(e) =>
+                            update(row.key, { type: e.target.value as DefinitionType })
+                          }
+                        >
+                          <option value="">Escolha um tipo…</option>
+                          {DEFINITION_TYPE_OPTIONS.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </Select>
+                      </Field>
+                    </div>
+
+                    {inPhase2 ? (
+                      <>
+                        <Field
+                          label={`Descrição da definição ${index + 1} (opcional)`}
+                          tooltip={DESCRIPTION_HELP}
+                        >
+                          <Textarea
+                            name="definition_description"
+                            rows={3}
+                            maxLength={DEFINITION_DESCRIPTION_MAX}
+                            value={row.description}
+                            onChange={(e) =>
+                              update(row.key, { description: e.target.value })
+                            }
+                            placeholder="Ex.: a resposta busca informação sobre um assunto, sem intenção de compra."
+                          />
+                        </Field>
+
+                        <div className="border-t border-line pt-3">
+                          <CriterionFields
+                            scope={String(index)}
+                            criteria={row.criteria}
+                            label="Nome do critério"
+                            addLabel="Adicionar critério"
+                            emptyHint="Nenhum critério próprio nesta definição. Ela também recebe os critérios gerais da versão."
+                            required={expanded}
+                            onChange={(next) => update(row.key, { criteria: next })}
+                          />
+                        </div>
+
+                        <InheritedCriteria criteria={general} />
+                      </>
+                    ) : null}
+                  </EditableRow>
+                </li>
+              )
+            })}
+          </ul>
+        )}
+
+        <FormActions align="start" className="mt-3">
+          <Button variant="secondary" size="sm" onClick={add}>
+            Adicionar definição
+          </Button>
+        </FormActions>
+
+        {inPhase2 && uncovered.length > 0 ? (
+          <Alert tone="notice" className="mt-3">
+            {missingCriteriaMessage(
+              uncovered.map((row, index) => row.title || `sem título ${index + 1}`),
+            )}
+          </Alert>
+        ) : null}
+      </Card>
+
       {inPhase2 ? (
         <div id={GENERAL_ANCHOR} className="scroll-mt-4">
           <Card padding="sm">
-            <h3 className="m-0 text-sm font-bold text-ink">Critérios gerais</h3>
-            <p className="m-0 mt-1 mb-3 text-[13px] text-muted">
-              {generalScopeLabel(rows.length)}
-            </p>
-            <CriterionFields
-              scope="general"
-              criteria={general}
-              label="Nome do critério geral"
-              addLabel="Adicionar critério geral"
-              emptyHint="Nenhum critério geral nesta versão."
-              required
-              onChange={setGeneral}
+            <SectionTitle
+              title="Critérios gerais"
+              help={generalScopeLabel(rows.length)}
             />
+            <div className="mt-3">
+              <CriterionFields
+                scope="general"
+                criteria={general}
+                label="Nome do critério geral"
+                addLabel="Adicionar critério geral"
+                emptyHint="Nenhum critério geral nesta versão."
+                required
+                onChange={setGeneral}
+              />
+            </div>
           </Card>
         </div>
       ) : null}
 
-      <p className="m-0 text-[13px] text-muted">
-        A ordem desta lista é a ordem em que as definições aparecem para a equipe e são
-        enviadas à LLM. Use as setas para reordenar; a ordem é salva junto com a versão.
-      </p>
-
-      {rows.length === 0 ? (
-        <EmptyState>
-          Nenhuma definição na lista. Adicione ao menos uma para poder salvar.
-        </EmptyState>
-      ) : (
-        <ul className="m-0 flex list-none flex-col gap-3 p-0">
-          {rows.map((row, index) => {
-            const expanded = expandedKey === row.key
-            const id = String(row.key)
-            const scopes = definitionScopes(id, row.criteria, general)
-            const own = ownCriteria(id, scopes).length
-            const applicable = criteriaOfDefinition(id, scopes).length
-            const typeLabel = row.type ? definitionTypeLabel(row.type) : null
-
-            return (
-              <li key={row.key}>
-                <EditableRow
-                  expanded={expanded}
-                  onToggle={() => toggle(row.key)}
-                  title={
-                    <>
-                      <span className="mr-2 tabular-nums text-muted">{index + 1}</span>
-                      {row.title.trim() || 'Definição sem título'}
-                    </>
-                  }
-                  meta={
-                    inPhase2
-                      ? plural(own, 'critério próprio', 'critérios próprios')
-                      : null
-                  }
-                  badges={
-                    <>
-                      {inPhase2 && own === 0 && applicable > 0 ? (
-                        <Badge tone="warning">sem critério próprio</Badge>
-                      ) : null}
-                      {typeLabel ? <Badge tone="accent">{typeLabel}</Badge> : null}
-                    </>
-                  }
-                  actions={
-                    <RowActions
-                      menuLabel={`Mais ações da definição ${index + 1}`}
-                      up={{
-                        label: `Mover a definição ${index + 1} para cima`,
-                        disabled: index === 0,
-                        onClick: () => move(index, -1),
-                      }}
-                      down={{
-                        label: `Mover a definição ${index + 1} para baixo`,
-                        disabled: index === rows.length - 1,
-                        onClick: () => move(index, 1),
-                      }}
-                    >
-                      <RowMenuItem onClick={() => remove(row.key)}>Remover</RowMenuItem>
-                    </RowActions>
-                  }
-                  footer={inPhase2 ? notesLabel(own, applicable - own) : null}
-                >
-                  <div className="flex flex-wrap items-end gap-3">
-                    <Field
-                      label={`Título da definição ${index + 1}`}
-                      required={expanded}
-                      className="min-w-[220px] flex-[2]"
-                    >
-                      <Input
-                        type="text"
-                        name="definition_title"
-                        required={expanded}
-                        maxLength={DEFINITION_TITLE_MAX}
-                        value={row.title}
-                        onChange={(e) => update(row.key, { title: e.target.value })}
-                        placeholder="Ex.: Informacional"
-                      />
-                    </Field>
-
-                    <Field
-                      label="Tipo"
-                      required={expanded}
-                      className="min-w-[200px] flex-1"
-                    >
-                      <Select
-                        name="definition_type"
-                        required={expanded}
-                        value={row.type}
-                        onChange={(e) =>
-                          update(row.key, { type: e.target.value as DefinitionType })
-                        }
-                      >
-                        <option value="">Escolha um tipo…</option>
-                        {DEFINITION_TYPE_OPTIONS.map((option) => (
-                          <option key={option.value} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </Select>
-                    </Field>
-                  </div>
-
-                  {inPhase2 ? (
-                    <>
-                      <Field
-                        label={`Descrição da definição ${index + 1} (opcional)`}
-                        hint="O texto que o avaliador lê para entender o que o título quis dizer. Salvar sem descrição é permitido."
-                      >
-                        <Textarea
-                          name="definition_description"
-                          rows={3}
-                          maxLength={DEFINITION_DESCRIPTION_MAX}
-                          value={row.description}
-                          onChange={(e) =>
-                            update(row.key, { description: e.target.value })
-                          }
-                          placeholder="Ex.: a resposta busca informação sobre um assunto, sem intenção de compra."
-                        />
-                      </Field>
-
-                      <div className="border-t border-line pt-3">
-                        <CriterionFields
-                          scope={String(index)}
-                          criteria={row.criteria}
-                          label="Nome do critério"
-                          addLabel="Adicionar critério"
-                          emptyHint="Nenhum critério próprio nesta definição. Ela também recebe os critérios gerais da versão."
-                          required={expanded}
-                          onChange={(next) => update(row.key, { criteria: next })}
-                        />
-                      </div>
-
-                      <InheritedCriteria criteria={general} />
-                    </>
-                  ) : null}
-                </EditableRow>
-              </li>
-            )
-          })}
-        </ul>
-      )}
-
-      <FormActions align="start">
-        <Button variant="secondary" size="sm" onClick={add}>
-          Adicionar definição
-        </Button>
-      </FormActions>
-
-      {inPhase2 && uncovered.length > 0 ? (
-        <Alert tone="notice">
-          {missingCriteriaMessage(
-            uncovered.map((row, index) => row.title || `sem título ${index + 1}`),
-          )}
-        </Alert>
-      ) : null}
-
-      <Field
-        label="Observação desta versão (opcional)"
-        hint="Fica presa a esta versão e aparece no histórico. Salvar sem observação é permitido."
-      >
+      <Field label="Observação desta versão (opcional)" tooltip={NOTE_HELP}>
         <Textarea
           name="note"
           rows={2}
