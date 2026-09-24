@@ -33,9 +33,9 @@ type Group = { definition: CodebookDefinition; cells: Cell[] }
 const initialState: EvaluationState = null
 
 const selected: Record<ScaleValue, string> = {
-  high: 'border-current bg-success-bg text-success-fg',
-  medium: 'border-current bg-warning-bg text-warning-fg',
-  low: 'border-current bg-danger-bg text-danger-fg',
+  high: 'border-current! bg-success-bg! text-success-fg!',
+  medium: 'border-current! bg-warning-bg! text-warning-fg!',
+  low: 'border-current! bg-danger-bg! text-danger-fg!',
 }
 
 function keyOf(cell: Cell): string {
