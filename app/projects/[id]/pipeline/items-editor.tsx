@@ -378,7 +378,7 @@ export function ItemsEditor({
       <Panel
         title={
           <>
-            Trazer itens
+            Upload de itens
             <InfoTooltip text={fileHint} />
           </>
         }

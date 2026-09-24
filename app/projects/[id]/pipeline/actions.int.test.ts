@@ -1500,6 +1500,7 @@ describe('app/projects/[id]/pipeline/actions — item cadastrado a partir de arq
       'tabela.tsv',
       'dados.json',
       'feed.xml',
+      'processo.bpmn',
       'pagina.html',
       'config.yaml',
       'servidor.log',

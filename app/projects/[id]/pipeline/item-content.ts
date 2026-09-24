@@ -8,6 +8,7 @@ const TEXT_EXTENSIONS = [
   '.tsv',
   '.json',
   '.xml',
+  '.bpmn',
   '.html',
   '.htm',
   '.yaml',
@@ -64,7 +65,7 @@ export const TEXT_FILE_EXTENSIONS: string[] = [...TEXT_EXTENSIONS, ...CODE_EXTEN
 
 export const TEXT_FILE_ACCEPT = TEXT_FILE_EXTENSIONS.join(',')
 
-export const TEXT_FILE_EXAMPLES = '.txt, .md, .csv, .tsv, .json, .xml, .html, .yaml, .log'
+export const TEXT_FILE_EXAMPLES = '.txt, .md, .csv, .tsv, .json, .xml, .bpmn, .html, .yaml, .log'
 
 const DOCUMENT_EXTENSIONS = ['.pdf', '.doc', '.docx', '.odt', '.rtf', '.pages']
 

@@ -219,7 +219,7 @@ que a ferramenta leia como texto, para que itens longos entrem sem copiar e cola
 converter tudo para `.txt`.
 
 - O seletor aceita uma lista explícita de formatos de texto: `.txt`, `.md`, `.csv`, `.tsv`, `.json`,
-  `.xml`, `.html`, `.yaml`, `.log` e arquivos de código
+  `.xml`, `.bpmn`, `.html`, `.yaml`, `.log` e arquivos de código
 - O conteúdo do arquivo aparece no campo, editável antes de salvar
 - O que é gravado é o texto, não o arquivo: não há download depois nem gestão de arquivos
 - Imagem, vídeo, áudio e qualquer arquivo binário são recusados, com mensagem dizendo quais formatos
@@ -566,7 +566,7 @@ pronta com a suíte vermelha.
   navegador e o texto vai para o campo. Não há Supabase Storage envolvido, e o arquivo original não
   é guardado nem fica disponível para download.
 - Formatos aceitos por lista de permissão, numa constante única compartilhada entre o atributo
-  `accept` do seletor e a validação: `.txt`, `.md`, `.csv`, `.tsv`, `.json`, `.xml`, `.html`,
+  `accept` do seletor e a validação: `.txt`, `.md`, `.csv`, `.tsv`, `.json`, `.xml`, `.bpmn`, `.html`,
   `.yaml`, `.log` e extensões de código. Como o critério real é "decodifica como texto", a validação
   final é a própria leitura: se o resultado não for texto legível, o arquivo é recusado.
 - PDF e DOCX ficam de fora porque exigiriam biblioteca de extração no servidor, e extração de PDF é
