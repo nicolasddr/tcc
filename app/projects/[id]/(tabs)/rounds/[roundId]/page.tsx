@@ -5,10 +5,15 @@ import {
   type CodebookCriterion,
   type CodebookDefinition,
 } from '../../../pipeline/codebook'
-import { listRoundResponses } from '../../../pipeline/responses'
+import {
+  listRoundResponses,
+  loadResponseForAdmin,
+  type ResponseForAdmin,
+} from '../../../pipeline/responses'
 import { responseLabel } from '../../evaluate/queue'
 import { isOpen } from '../rounds'
 import { roundInputSummary } from '../preconditions'
+import { AdminResponseCard } from '../sent-input'
 import { loadResponseNotes, type ResponseNote, type ReviewRound } from '../review'
 import {
   loadReviewMemberships,
@@ -48,6 +53,7 @@ type ReviewView = {
   round: ReviewRound
   isAdmin: boolean
   current: LabeledResponse | null
+  adminResponse: ResponseForAdmin | null
   prev: string | null
   next: string | null
   definitions: CodebookDefinition[]
@@ -79,6 +85,7 @@ export default async function RoundReviewPage({
       round,
       isAdmin: access.isAdmin,
       current: null,
+      adminResponse: null,
       prev: null,
       next: null,
       definitions: [],
@@ -120,6 +127,9 @@ export default async function RoundReviewPage({
       round,
       isAdmin: access.isAdmin,
       current,
+      adminResponse: access.isAdmin
+        ? await loadResponseForAdmin(round.id, current.id, tx)
+        : null,
       prev: labeled[index - 1]?.id ?? null,
       next: labeled[index + 1]?.id ?? null,
       definitions: codebook?.definitions ?? [],
@@ -135,7 +145,8 @@ export default async function RoundReviewPage({
     }
   })
 
-  const { round, isAdmin, current, prev, next, definitions, criteria, notes } = view
+  const { round, isAdmin, current, adminResponse, prev, next } = view
+  const { definitions, criteria, notes } = view
   const { consensus, authorMemberId, canWriteMinutes, canWritePrivate } = view
 
   const groups = reviewGroups(definitions, criteria, notes)
@@ -214,6 +225,8 @@ export default async function RoundReviewPage({
                 next={next ? `${route}${next}` : null}
               />
             </div>
+
+            {adminResponse ? <AdminResponseCard response={adminResponse} /> : null}
 
             <ReviewGroupsList groups={groups} consensus={consensusContext} />
           </div>

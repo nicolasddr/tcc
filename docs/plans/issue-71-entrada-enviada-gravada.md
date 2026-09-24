@@ -14,7 +14,7 @@ seguinte herda". Anotar ali o que divergiu, como no plano da #70.
 |---|---|---|
 | 1 | A coluna `responses.sent_input`: schema, migration, helper de teste e uma leitura isolada | ✅ |
 | 2 | A geração grava a entrada na mesma escrita do texto | ✅ |
-| 3 | A tela: o Administrador lê a entrada, recolhida; o Avaliador não; varredura dos ACs | ☐ |
+| 3 | A tela: o Administrador lê a entrada, recolhida; o Avaliador não; varredura dos ACs | ✅ |
 
 **Nenhuma ADR nova.** A decisão já está na **emenda de 2026-09-22 da ADR 0002** ("A Resposta grava a
 entrada enviada"). O glossário (`docs/CONTEXT.md`, verbetes **Resposta** e **Entrada enviada**) diz
@@ -428,7 +428,31 @@ aberto, glossário corrigido, checkboxes do issue marcados.
 
 ### O que esta Parte fechou
 
-_(preencher ao terminar.)_
+- **D1 ficou em (a):** a tela da rodada (`[roundId]/page.tsx`). `ReviewView` ganhou
+  `adminResponse: ResponseForAdmin | null` (e não `sentInput: SentInputView | null`: o tipo da
+  Parte 1 já é esse formato, e o campo carrega também o texto da resposta). A consulta
+  `loadResponseForAdmin` só roda com `access.isAdmin`; no `empty` e para o Avaliador o campo é `null`.
+- **O bloco** mora em `rounds/sent-input.tsx`: `AdminResponseCard` (o cartão com o texto da resposta
+  e, abaixo de um divisor, a entrada) e `SentInput` (o `Disclosure` fechado com a entrada num `<pre>`
+  monoespaçado em `preWrapClass` + `scrollBoxClass`, ou a frase no lugar dele). Constantes
+  exportadas: `SENT_INPUT_SUMMARY` ("Entrada enviada à LLM") e `SENT_INPUT_MISSING`. A #72 pode
+  reaproveitar `SentInput` direto. Posição: entre o `QueueNav` e o `ReviewGroupsList`.
+- **Glossário (D8)** corrigido nos verbetes **Resposta** e **Entrada enviada**.
+- **Testes** em `[roundId]/page.int.test.ts` (`roundWith` aceita `texts` e `sentInputs`): entrada
+  recolhida e `toBe` o gravado (com `\r\n`, recuo, linha em branco e espaço no fim); texto da resposta
+  ao lado; resposta antiga com a frase e sem `Disclosure`; navegação troca texto e entrada (incluindo
+  uma antiga); o Avaliador, nas duas respostas, sem o cartão na árvore e sem entrada, texto do bloco,
+  frase ou título no markup da página inteira (`renderToStaticMarkup` do `Fragment`). Em
+  `evaluate/page.int.test.ts` (`scenario` aceita `sentInput`): nem o avaliador nem o
+  Administrador-avaliador recebem a entrada no markup, e `response` não tem a chave `sentInput`.
+- **Mutação conferida:** carregar `loadResponseForAdmin` para todos derruba o teste do Avaliador.
+- **Navegador (§ 3.5):** rodada da Fase 3 fechada, semeada no banco local e apagada depois. O painel
+  vem fechado, abre com quebras e recuo intactos, a linha longa quebra dentro da caixa (sem rolagem
+  horizontal no `<pre>`, também em 375 px), a navegação troca para a antiga e mostra a frase. A barra
+  de abas do projeto já estoura a largura em 375 px, antes desta fatia.
+- **Varredura dos ACs:** a tabela de § 3.6 fecha sem linha em aberto.
+- Suíte: 70 arquivos, 930 testes verdes; lint e typecheck verdes.
+- **Pendente fora do código:** marcar os checkboxes do issue #71 e, no deploy, seguir § 7.
 
 ---
 

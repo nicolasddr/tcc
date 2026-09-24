@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { createElement, isValidElement, type ReactElement } from 'react'
+import { Fragment, createElement, isValidElement, type ReactElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { eq } from 'drizzle-orm'
 
@@ -38,7 +38,14 @@ import {
 } from '@/app/projects/[id]/(tabs)/rounds/divergence'
 import { AgreementPanel } from '@/app/projects/[id]/(tabs)/rounds/agreement-panel'
 import { AgreementMatrixTable } from '@/app/projects/[id]/(tabs)/rounds/agreement-matrix-table'
+import {
+  AdminResponseCard,
+  SentInput,
+  SENT_INPUT_MISSING,
+  SENT_INPUT_SUMMARY,
+} from '@/app/projects/[id]/(tabs)/rounds/sent-input'
 import { QueueNav } from '@/app/components/ui/queue-nav'
+import { Disclosure } from '@/app/components/ui/disclosure'
 import { loadCodebookVersion } from '@/app/projects/[id]/pipeline/codebook'
 import { resolveCells } from '@/app/projects/[id]/pipeline/criteria'
 import { PHASE_2, PHASE_3 } from '@/app/projects/[id]/pipeline/preconditions'
@@ -168,6 +175,28 @@ function mineOf(tree: unknown, cell: SceneCell): ConsensusNote | null {
   return context!.byCell.get(key)?.mine ?? null
 }
 
+type CardProps = Parameters<typeof AdminResponseCard>[0]
+
+function adminCardOf(tree: unknown): CardProps {
+  const card = findElement(tree, AdminResponseCard)
+  expect(card).toBeTruthy()
+  return card!.props as CardProps
+}
+
+function sentInputTreeOf(tree: unknown): unknown {
+  const inner = findElement(AdminResponseCard(adminCardOf(tree)), SentInput)
+  expect(inner).toBeTruthy()
+  return SentInput(inner!.props as Parameters<typeof SentInput>[0])
+}
+
+function sentInputTextOf(tree: unknown): string {
+  const disclosure = findElement(sentInputTreeOf(tree), Disclosure)
+  expect(disclosure).toBeTruthy()
+  const pre = findElement((disclosure!.props as { children: unknown }).children, 'pre')
+  expect(pre).toBeTruthy()
+  return (pre!.props as { children: string }).children
+}
+
 function navOf(tree: unknown): { prev: string | null; next: string | null } {
   const nav = findElement(tree, QueueNav)
   expect(nav).toBeTruthy()
@@ -205,6 +234,8 @@ describe('app/projects/[id]/rounds/[roundId] — a revisão de discordâncias', 
       project?: string
       roundNumber?: number
       phase?: number
+      texts?: string[]
+      sentInputs?: (string | null)[]
     } = {},
   ): Promise<Scene> {
     const phase = opts.phase ?? PHASE_2
@@ -236,7 +267,12 @@ describe('app/projects/[id]/rounds/[roundId] — a revisão de discordâncias', 
       const item = await addInputItem(ownerDb, project, admin, {
         name: `Item ${index + 1}`,
       })
-      responses.push(await addResponse(ownerDb, round, item, admin))
+      responses.push(
+        await addResponse(ownerDb, round, item, admin, {
+          text: opts.texts?.[index],
+          sentInput: opts.sentInputs?.[index],
+        }),
+      )
     }
 
     const codebook = await loadCodebookVersion(project, codebookVersion)
@@ -722,6 +758,117 @@ describe('app/projects/[id]/rounds/[roundId] — a revisão de discordâncias', 
     expect(text).toContain('Ana Avaliadora')
     expect(text).not.toContain('Fase')
     expect(text).not.toContain('LLM')
+  })
+
+  const SENT =
+    'Classifique a intenção.\r\n\nDefinições:\n  - Informacional  \n\nItem de entrada:\ncomo plantar manjericão  '
+
+  it('o Administrador lê a entrada enviada da resposta, recolhida e sem transformação', async () => {
+    const admin = await newUser('Admin')
+    const scene = await roundWith(admin, 1, { sentInputs: [SENT] })
+
+    auth.userId = admin
+    const tree = await render(scene.project, scene.round)
+
+    const disclosure = findElement(sentInputTreeOf(tree), Disclosure)
+    expect(disclosure).toBeTruthy()
+    const props = disclosure!.props as Parameters<typeof Disclosure>[0]
+    expect(props.summary).toBe(SENT_INPUT_SUMMARY)
+    expect(props.defaultOpen).toBeUndefined()
+    expect(sentInputTextOf(tree)).toBe(SENT)
+
+    const markup = renderToStaticMarkup(createElement(AdminResponseCard, adminCardOf(tree)))
+    expect(markup).toContain('<details')
+    expect(markup).not.toContain('open=""')
+    expect(markup).not.toContain(SENT_INPUT_MISSING)
+  })
+
+  it('o Administrador lê o texto da resposta corrente ao lado da entrada', async () => {
+    const admin = await newUser('Admin')
+    const scene = await roundWith(admin, 1, {
+      texts: ['Intenção informacional.\n\nO usuário quer aprender.'],
+      sentInputs: [SENT],
+    })
+
+    auth.userId = admin
+    const tree = await render(scene.project, scene.round)
+
+    expect(adminCardOf(tree).response).toEqual({
+      text: 'Intenção informacional.\n\nO usuário quer aprender.',
+      sentInput: SENT,
+    })
+    expect(
+      renderToStaticMarkup(createElement(AdminResponseCard, adminCardOf(tree))),
+    ).toMatch(/class="[^"]*whitespace-pre-wrap[^"]*"[^>]*>Intenção informacional/)
+  })
+
+  it('a resposta sem entrada gravada diz isso no lugar do painel', async () => {
+    const admin = await newUser('Admin')
+    const scene = await roundWith(admin, 1)
+
+    auth.userId = admin
+    const tree = await render(scene.project, scene.round)
+    const sent = sentInputTreeOf(tree)
+
+    expect(textOf(sent)).toBe(SENT_INPUT_MISSING)
+    expect(findElement(sent, Disclosure)).toBeNull()
+
+    const markup = renderToStaticMarkup(createElement(AdminResponseCard, adminCardOf(tree)))
+    expect(markup).toContain(SENT_INPUT_MISSING)
+    expect(markup).not.toContain('<details')
+  })
+
+  it('a navegação troca a resposta e a entrada mostradas', async () => {
+    const admin = await newUser('Admin')
+    const scene = await roundWith(admin, 3, {
+      texts: ['Texto 1', 'Texto 2', 'Texto 3'],
+      sentInputs: ['Entrada 1', 'Entrada 2', null],
+    })
+
+    auth.userId = admin
+    const second = await render(scene.project, scene.round, scene.responses[1])
+    expect(adminCardOf(second).response.text).toBe('Texto 2')
+    expect(sentInputTextOf(second)).toBe('Entrada 2')
+
+    const first = await render(scene.project, scene.round, scene.responses[0])
+    expect(adminCardOf(first).response.text).toBe('Texto 1')
+    expect(sentInputTextOf(first)).toBe('Entrada 1')
+
+    const third = await render(scene.project, scene.round, scene.responses[2])
+    expect(adminCardOf(third).response.text).toBe('Texto 3')
+    expect(textOf(sentInputTreeOf(third))).toBe(SENT_INPUT_MISSING)
+  })
+
+  it('o avaliador na mesma rodada não recebe a entrada, nem o texto do bloco, nem a frase', async () => {
+    const admin = await newUser('Admin')
+    const scene = await roundWith(admin, 2, {
+      texts: ['Texto que só o Administrador lê aqui.', 'Outro texto do bloco.'],
+      sentInputs: [SENT, null],
+    })
+    const ana = await newSignedEvaluator(scene.project, 'Ana Avaliadora')
+    for (const response of scene.responses) {
+      await addEvaluation(ownerDb, scene.round, response, ana.member, {
+        cells: [note(scene, 'Informacional', 'Precisão', 'high')],
+      })
+    }
+
+    auth.userId = ana.user
+    for (const response of scene.responses) {
+      const tree = await render(scene.project, scene.round, response)
+      const markup = renderToStaticMarkup(createElement(Fragment, null, tree))
+      const text = `${textOf(tree)} ${listTextOf(tree)}`
+
+      expect(text).toContain('Ana Avaliadora')
+      expect(findElement(tree, AdminResponseCard)).toBeNull()
+      for (const found of [markup, text]) {
+        expect(found).not.toContain('Classifique a intenção')
+        expect(found).not.toContain('como plantar manjericão')
+        expect(found).not.toContain('Texto que só o Administrador lê aqui.')
+        expect(found).not.toContain('Outro texto do bloco.')
+        expect(found).not.toContain(SENT_INPUT_MISSING)
+        expect(found).not.toContain(SENT_INPUT_SUMMARY)
+      }
+    }
   })
 
   it('o avaliador abre a rodada em que avaliou, e não a rodada em que não avaliou', async () => {

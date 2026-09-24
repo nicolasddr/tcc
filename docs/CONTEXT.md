@@ -86,7 +86,7 @@ Não confundir com as respostas do questionário de perfil, que um Avaliador dá
 projeto: aquelas são de outro conceito e não devem usar esta palavra.
 Junto do texto, toda resposta grava o que permite reproduzi-la e compará-la: a origem (gerada
 pela ferramenta ou colada manualmente), o modelo e a versão usados, as versões de prompt e
-codebook que a produziram e, a partir da Fase 3, a *entrada enviada*. É o que a promessa de
+codebook que a produziram e, a partir do Épico 3, a *entrada enviada*. É o que a promessa de
 replicabilidade do Shah exige.
 Evitar: um nome coletivo para esses campos, *proveniência* inclusive. Eles são concretos e
 poucos; citá-los diz mais do que o rótulo.
@@ -95,7 +95,7 @@ poucos; citá-los diz mais do que o rótulo.
 O texto exato que foi à LLM para produzir uma Resposta: prompt, codebook na forma da fase da rodada
 e item de entrada, já compostos. Fica gravado na Resposta porque as versões dizem *o que* foi usado,
 mas não *como* foi montado, e a forma de montar pode mudar com o tempo. As respostas geradas antes
-da Fase 3 não o têm.
+do Épico 3 não o têm.
 
 **Fila do avaliador**
 A sequência em que um Avaliador vê as Respostas de uma Rodada. É própria de cada vínculo,

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { createElement, isValidElement, type ReactElement } from 'react'
+import { Fragment, createElement, isValidElement, type ReactElement } from 'react'
 import { eq } from 'drizzle-orm'
 import { renderToStaticMarkup } from 'react-dom/server'
 
@@ -186,6 +186,7 @@ describe('app/projects/[id]/evaluate — a tela do avaliador', () => {
       prompt?: { text?: string; name?: string; description?: string }
       item?: { name?: string; content?: string }
       responseText?: string
+      sentInput?: string
     } = {},
   ): Promise<Scene> {
     const project = await seedProject(ownerDb, admin, 'Projeto de Teste', {
@@ -226,6 +227,7 @@ describe('app/projects/[id]/evaluate — a tela do avaliador', () => {
       responses.push(
         await addResponse(ownerDb, round, item, admin, {
           text: (first ? opts.responseText : undefined) ?? `Resposta ${index + 1}`,
+          sentInput: first ? opts.sentInput : undefined,
         }),
       )
     }
@@ -784,6 +786,31 @@ describe('app/projects/[id]/evaluate — a tela do avaliador', () => {
 
     auth.userId = admin
     expect(formOf(await open(scene.project)).response.id).toBe(scene.responses[0])
+  })
+
+  it('a tela de avaliação não recebe a entrada enviada, nem quando quem avalia é o Administrador', async () => {
+    const admin = await newUser('Admin')
+    const scene = await scenario(admin, {
+      sentInput: 'Entrada gravada da resposta.\nDefinições:\n  - Informacional',
+    })
+    const evaluator = await newEvaluator(scene.project)
+    await addActiveEvaluator(ownerDb, scene.project, admin)
+
+    for (const user of [evaluator, admin]) {
+      auth.userId = user
+      const tree = await open(scene.project)
+      const markup = [
+        renderToStaticMarkup(createElement(Fragment, null, tree)),
+        markupOf(formOf(tree)),
+        panelMarkupOf(tree),
+      ].join(' ')
+
+      expect(formOf(tree).response.id).toBe(scene.responses[0])
+      expect(Object.keys(formOf(tree).response)).not.toContain('sentInput')
+      expect(markup).toContain('Resposta 1')
+      expect(markup).not.toContain('Entrada gravada da resposta')
+      expect(deepText(tree)).not.toContain('Entrada gravada da resposta')
+    }
   })
 
   it('quem não é membro não alcança a tela', async () => {
