@@ -17,6 +17,7 @@ vi.mock('next/navigation', () => ({
 import { createRound, closeRound } from '@/app/projects/[id]/(tabs)/rounds/actions'
 import { listRounds, loadOpenRound } from '@/app/projects/[id]/(tabs)/rounds/rounds'
 import { loadRoundObservations } from '@/app/projects/[id]/(tabs)/rounds/agreement'
+import { codebookLockedMessage } from '@/app/projects/[id]/(tabs)/rounds/preconditions'
 import { advancePhase, saveCodebook } from '@/app/projects/[id]/pipeline/actions'
 import { loadCodebook, loadCodebookVersion } from '@/app/projects/[id]/pipeline/codebook'
 import { resolveCells } from '@/app/projects/[id]/pipeline/criteria'
@@ -113,7 +114,7 @@ function promptVersionsOf(projectId: string) {
     .orderBy(desc(promptVersions.versionNumber))
 }
 
-function definitionTitlesOf(versionId: string) {
+function titlesOfVersion(versionId: string) {
   return ownerDb
     .select({ title: codebookDefinitions.title })
     .from(codebookDefinitions)
@@ -344,57 +345,66 @@ describe('app/projects/[id]/rounds/actions — criar, fechar e travar o codebook
     expect(list.find((round) => round.id === first)!.status).toBe('closed')
   })
 
-  it('com rodada aberta, salvar o codebook é recusado e nada muda', async () => {
-    const admin = await newUser('Admin')
-    const { project, codebookVersion, promptVersion } = await readyProject(admin)
-    await addRound(ownerDb, project, admin, codebookVersion, promptVersion, {
-      roundNumber: 1,
-    })
+  it.each([PHASE_2, PHASE_3])(
+    'na Fase %i, com rodada aberta, salvar o codebook é recusado e nada muda',
+    async (phase) => {
+      const admin = await newUser('Admin')
+      const { project, codebookVersion, promptVersion } = await readyProject(admin, phase)
+      await addRound(ownerDb, project, admin, codebookVersion, promptVersion, {
+        roundNumber: 1,
+        phase,
+      })
 
-    auth.userId = admin
-    const result = await saveCodebook(
-      null,
-      codebookForm(project, [{ title: 'Outra', criterion: 'Clareza' }]),
-    )
-    expect(result).toMatchObject({ error: expect.stringContaining('rodada 1') })
+      auth.userId = admin
+      const result = await saveCodebook(
+        null,
+        codebookForm(project, [{ title: 'Outra', criterion: 'Clareza' }]),
+      )
+      expect(result).toEqual({ error: codebookLockedMessage(1) })
 
-    expect(await codebookVersionsOf(project)).toHaveLength(1)
-    expect((await definitionTitlesOf(codebookVersion)).map((d) => d.title)).toEqual([
-      'Informacional',
-    ])
-  })
+      expect(await codebookVersionsOf(project)).toHaveLength(1)
+      expect((await titlesOfVersion(codebookVersion)).map((d) => d.title)).toEqual([
+        'Informacional',
+      ])
+    },
+  )
 
-  it('fechar destrava o codebook, e o salvamento seguinte cria a versão seguinte', async () => {
-    const admin = await newUser('Admin')
-    const { project, codebookVersion, promptVersion } = await readyProject(admin)
+  it.each([PHASE_2, PHASE_3])(
+    'na Fase %i, fechar destrava o codebook, e o salvamento seguinte cria a versão seguinte',
+    async (phase) => {
+      const admin = await newUser('Admin')
+      const { project, codebookVersion, promptVersion } = await readyProject(admin, phase)
 
-    auth.userId = admin
-    await createRound(null, newRoundForm(project))
+      auth.userId = admin
+      await createRound(null, newRoundForm(project))
 
-    const open = await loadOpenRound(project)
-    expect(open).not.toBeNull()
+      const open = await loadOpenRound(project)
+      expect(open).not.toBeNull()
 
-    const closed = await closeRound(null, closeRoundForm(project, open!.id))
-    expect(closed).toMatchObject({ ok: true, roundNumber: 1 })
+      const closed = await closeRound(null, closeRoundForm(project, open!.id))
+      expect(closed).toMatchObject({ ok: true, roundNumber: 1 })
 
-    const saved = await saveCodebook(
-      null,
-      codebookForm(project, [{ title: 'Informacional revisada', criterion: 'Clareza' }]),
-    )
-    expect(saved).toMatchObject({ ok: true })
+      const saved = await saveCodebook(
+        null,
+        codebookForm(project, [{ title: 'Informacional revisada', criterion: 'Clareza' }]),
+      )
+      expect(saved).toMatchObject({ ok: true })
 
-    const versions = await codebookVersionsOf(project)
-    expect(versions.map((version) => version.versionNumber)).toEqual([2, 1])
-    expect(versions.find((version) => version.id === codebookVersion)!.usedAt).not.toBeNull()
+      const versions = await codebookVersionsOf(project)
+      expect(versions.map((version) => version.versionNumber)).toEqual([2, 1])
+      expect(versions.find((version) => version.id === codebookVersion)!.usedAt).not.toBeNull()
 
-    const codebook = await loadCodebook(project)
-    expect(codebook.version!.versionNumber).toBe(2)
-    expect(codebook.definitions.map((d) => d.title)).toEqual(['Informacional revisada'])
-    expect((await definitionTitlesOf(codebookVersion)).map((d) => d.title)).toEqual([
-      'Informacional',
-    ])
-    expect(promptVersion).toBeTruthy()
-  })
+      const codebook = await loadCodebook(project)
+      expect(codebook.version!.versionNumber).toBe(2)
+      expect(codebook.definitions.map((d) => d.title)).toEqual(['Informacional revisada'])
+      expect((await titlesOfVersion(codebookVersion)).map((d) => d.title)).toEqual([
+        'Informacional',
+      ])
+      const [round] = await roundsOf(project)
+      expect(round).toMatchObject({ phase, codebookVersionId: codebookVersion })
+      expect(promptVersion).toBeTruthy()
+    },
+  )
 
   it('fechar registra a data e não depende de nenhum avaliador ter terminado', async () => {
     const admin = await newUser('Admin')

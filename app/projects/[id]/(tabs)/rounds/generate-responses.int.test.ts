@@ -45,10 +45,15 @@ import {
 } from '@/app/projects/[id]/(tabs)/rounds/actions'
 import { SELECTION_MAX } from '@/app/projects/[id]/(tabs)/rounds/preconditions'
 import { loadItemRoundUsage } from '@/app/projects/[id]/pipeline/responses'
+import { loadCodebookVersion } from '@/app/projects/[id]/pipeline/codebook'
 import {
+  composeLlmInput,
+  CODEBOOK_HEADING,
   DEFINITIONS_HEADING,
+  GENERAL_CRITERIA_HEADING,
   ITEM_HEADING,
 } from '@/app/projects/[id]/pipeline/llm-input'
+import { PHASE_2, PHASE_3 } from '@/app/projects/[id]/pipeline/preconditions'
 import type { LlmFailure } from '@/lib/ai/failure'
 import { resetProjectResponses } from '@/lib/ai/quota'
 import { RESPONSE_TEXT_MAX } from '@/lib/limits'
@@ -88,6 +93,10 @@ const DEFINITIONS = [
   },
 ]
 
+const GENERAL_CRITERIA = [
+  { name: 'Critério geral secreto', description: 'Vale para todas as definições.' },
+]
+
 function fd(projectId: string, roundId: string, itemIds: string[] = []): FormData {
   const form = new FormData()
   form.set('project_id', projectId)
@@ -118,12 +127,20 @@ describe('app/projects/[id]/rounds/actions — gerar respostas na rodada aberta'
 
   async function openRound(
     admin: string,
-    opts: { items?: number; status?: 'open' | 'closed' } = {},
+    opts: {
+      items?: number
+      status?: 'open' | 'closed'
+      projectPhase?: number
+      roundPhase?: number
+    } = {},
   ) {
-    const project = await seedProject(ownerDb, admin)
+    const project = await seedProject(ownerDb, admin, 'Projeto de Teste', {
+      phase: opts.projectPhase ?? PHASE_2,
+    })
     projs.push(project)
     const codebookVersion = await addCodebookVersion(ownerDb, project, admin, {
       definitions: DEFINITIONS,
+      generalCriteria: GENERAL_CRITERIA,
     })
     const promptVersion = await addPromptVersion(ownerDb, project, admin, {
       text: PROMPT_TEXT,
@@ -134,7 +151,7 @@ describe('app/projects/[id]/rounds/actions — gerar respostas na rodada aberta'
       admin,
       codebookVersion,
       promptVersion,
-      { status: opts.status ?? 'open' },
+      { status: opts.status ?? 'open', phase: opts.roundPhase ?? PHASE_2 },
     )
 
     const items: string[] = []
@@ -269,6 +286,37 @@ describe('app/projects/[id]/rounds/actions — gerar respostas na rodada aberta'
     expect(llm.inputs[0]).not.toContain('Prompt novo, posterior à rodada.')
   })
 
+  async function expectedInput(
+    phase: number,
+    project: string,
+    codebookVersion: string,
+    itemContent: string,
+  ): Promise<string> {
+    const codebook = await loadCodebookVersion(project, codebookVersion)
+    return composeLlmInput({
+      phase,
+      promptText: PROMPT_TEXT,
+      definitions: codebook!.definitions,
+      criteria: codebook!.criteria,
+      itemContent,
+    })
+  }
+
+  function expectOnlyTitles(input: string) {
+    expect(input).not.toContain(CODEBOOK_HEADING)
+    expect(input).not.toContain(GENERAL_CRITERIA_HEADING)
+    for (const definition of DEFINITIONS) {
+      expect(input).toContain(definition.title)
+      expect(input).not.toContain(definition.description)
+      for (const criterion of definition.criteria) {
+        expect(input).not.toContain(criterion.name)
+      }
+    }
+    for (const criterion of GENERAL_CRITERIA) {
+      expect(input).not.toContain(criterion.name)
+    }
+  }
+
   it('o envio é prompt mais títulos mais item, sem nenhuma descrição e sem nenhum critério', async () => {
     const admin = await newUser('Admin')
     const { project, round, items } = await openRound(admin)
@@ -288,12 +336,80 @@ describe('app/projects/[id]/rounds/actions — gerar respostas na rodada aberta'
     expect(positions.every((position) => position > 0)).toBe(true)
     expect([...positions].sort((a, b) => a - b)).toEqual(positions)
 
+    expectOnlyTitles(input)
+  })
+
+  it('a rodada da Fase 2 manda exatamente a entrada da Fase 2, com o codebook completo no banco', async () => {
+    const admin = await newUser('Admin')
+    const { project, round, items, codebookVersion } = await openRound(admin)
+
+    auth.userId = admin
+    okOf(await generateResponses(null, fd(project, round, items)))
+
+    expect(llm.inputs).toEqual([
+      await expectedInput(PHASE_2, project, codebookVersion, 'conteúdo do item 1'),
+    ])
+    expectOnlyTitles(llm.inputs[0])
+  })
+
+  it('a rodada da Fase 3 manda o codebook completo da versão congelada, não o da vigente', async () => {
+    const admin = await newUser('Admin')
+    const { project, round, items, codebookVersion } = await openRound(admin, {
+      projectPhase: PHASE_3,
+      roundPhase: PHASE_3,
+    })
+
+    await addCodebookVersion(ownerDb, project, admin, {
+      versionNumber: 2,
+      definitions: [
+        {
+          title: 'Navegacional',
+          type: 'category',
+          description: 'Descrição da versão 2.',
+          criteria: [{ name: 'Critério da versão 2', description: 'Só na versão 2.' }],
+        },
+      ],
+      generalCriteria: [{ name: 'Geral da versão 2' }],
+    })
+
+    auth.userId = admin
+    okOf(await generateResponses(null, fd(project, round, items)))
+
+    expect(llm.inputs).toEqual([
+      await expectedInput(PHASE_3, project, codebookVersion, 'conteúdo do item 1'),
+    ])
+    const input = llm.inputs[0]
+
+    expect(input).toContain(CODEBOOK_HEADING)
     for (const definition of DEFINITIONS) {
-      expect(input).not.toContain(definition.description)
+      expect(input).toContain(definition.title)
+      expect(input).toContain(definition.description)
       for (const criterion of definition.criteria) {
-        expect(input).not.toContain(criterion.name)
+        expect(input).toContain(criterion.name)
       }
     }
+    expect(input).toContain(GENERAL_CRITERIA_HEADING)
+    expect(input).toContain(GENERAL_CRITERIA[0].name)
+
+    expect(input).not.toContain('Descrição da versão 2.')
+    expect(input).not.toContain('Critério da versão 2')
+    expect(input).not.toContain('Geral da versão 2')
+  })
+
+  it('a rodada da Fase 2 continua mandando só os títulos com o projeto já na Fase 3', async () => {
+    const admin = await newUser('Admin')
+    const { project, round, items, codebookVersion } = await openRound(admin, {
+      projectPhase: PHASE_3,
+      roundPhase: PHASE_2,
+    })
+
+    auth.userId = admin
+    okOf(await generateResponses(null, fd(project, round, items)))
+
+    expect(llm.inputs).toEqual([
+      await expectedInput(PHASE_2, project, codebookVersion, 'conteúdo do item 1'),
+    ])
+    expectOnlyTitles(llm.inputs[0])
   })
 
   it('a primeira resposta congela o item, e o congelamento não se desfaz na segunda rodada', async () => {

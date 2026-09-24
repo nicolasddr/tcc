@@ -25,10 +25,15 @@ const DEFINITIONS = [
 
 async function seedRound(
   tx: Transaction,
-  opts: { promptText?: string; status?: 'open' | 'closed'; roundNumber?: number } = {},
+  opts: {
+    promptText?: string
+    status?: 'open' | 'closed'
+    roundNumber?: number
+    phase?: number
+  } = {},
 ) {
   const admin = await createUser(tx, 'Admin')
-  const project = await createProject(tx, admin)
+  const project = await createProject(tx, admin, 'Projeto de Teste', { phase: opts.phase })
   const codebookVersion = await addCodebookVersion(tx, project, admin, {
     definitions: DEFINITIONS,
   })
@@ -38,12 +43,13 @@ async function seedRound(
   const round = await addRound(tx, project, admin, codebookVersion, promptVersion, {
     roundNumber: opts.roundNumber ?? 1,
     status: opts.status ?? 'open',
+    phase: opts.phase,
   })
   return { admin, project, codebookVersion, promptVersion, round }
 }
 
 describe('app/projects/[id]/pipeline/responses — a leitura que alimenta a geração', () => {
-  it('loadRoundComposition devolve o texto do prompt e os títulos na ordem salva', async () => {
+  it('loadRoundComposition devolve a fase, o prompt e o codebook da rodada na ordem salva', async () => {
     await inRollbackTx(async (tx) => {
       const { project, round, codebookVersion, promptVersion } = await seedRound(tx, {
         promptText: 'Prompt da rodada',
@@ -51,12 +57,30 @@ describe('app/projects/[id]/pipeline/responses — a leitura que alimenta a gera
 
       const composition = await loadRoundComposition(project, round, tx)
 
-      expect(composition).toEqual({
+      expect(composition).toMatchObject({
+        phase: 2,
         promptVersionId: promptVersion,
         codebookVersionId: codebookVersion,
         promptText: 'Prompt da rodada',
-        definitionTitles: ['Navegacional', 'Informacional', 'Transacional'],
       })
+      expect(composition!.definitions.map((d) => d.title)).toEqual([
+        'Navegacional',
+        'Informacional',
+        'Transacional',
+      ])
+      expect(composition!.criteria.map((c) => c.name).sort()).toEqual([
+        'Clareza',
+        'Escopo',
+        'Precisão',
+      ])
+    })
+  })
+
+  it('loadRoundComposition devolve a fase gravada na rodada', async () => {
+    await inRollbackTx(async (tx) => {
+      const { project, round } = await seedRound(tx, { phase: 3 })
+
+      expect((await loadRoundComposition(project, round, tx))?.phase).toBe(3)
     })
   })
 
@@ -79,11 +103,12 @@ describe('app/projects/[id]/pipeline/responses — a leitura que alimenta a gera
       const composition = await loadRoundComposition(project, round, tx)
 
       expect(composition?.promptText).toBe('Prompt da versão 1')
-      expect(composition?.definitionTitles).toEqual([
+      expect(composition?.definitions.map((d) => d.title)).toEqual([
         'Navegacional',
         'Informacional',
         'Transacional',
       ])
+      expect(composition?.criteria.map((c) => c.name)).not.toContain('X')
       expect(composition?.promptVersionId).toBe(promptVersion)
       expect(composition?.codebookVersionId).toBe(codebookVersion)
     })

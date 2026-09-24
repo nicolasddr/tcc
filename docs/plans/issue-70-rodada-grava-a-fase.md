@@ -13,7 +13,7 @@ seguinte herda" — anotar ali o que divergiu, como nos planos das #60 a #68.
 |---|---|---|
 | 1 | A composição pura: Fase 2 byte a byte, Fase 3 com o codebook completo | ☑ |
 | 2 | A coluna `rounds.phase`: schema, migration, gravação na criação e leitura | ☑ |
-| 3 | A geração monta pela fase e pela versão congelada da rodada | ☐ |
+| 3 | A geração monta pela fase e pela versão congelada da rodada | ☑ |
 | 4 | A tela: fase na lista, a frase do que foi à LLM e a varredura dos ACs | ☐ |
 
 **Nenhuma ADR nova.** A decisão já está escrita na **emenda de 2026-09-22 da ADR 0002** (a forma do
@@ -489,7 +489,28 @@ Lint, typecheck e `npm test` verdes. `grep -rn definitionTitles app` não devolv
 
 ### O que a Parte 4 herda
 
-_(preencher ao terminar a Parte)_
+- **`RoundComposition`** agora é `{ phase, promptVersionId, codebookVersionId, promptText,
+  definitions, criteria }`; `definitionTitles` saiu. `loadRoundComposition` lê `rounds.phase` e a
+  versão congelada por `loadCodebookVersion`. `generateResponses` passa `composition.phase`,
+  `definitions` e `criteria` direto a `composeLlmInput`; o provisório da Parte 1 e o import de
+  `PHASE_2` em `(tabs)/rounds/actions.ts` saíram. Nenhuma leitura de `projects.phase` na geração.
+- **Testes novos em `generate-responses.int.test.ts`**: `openRound` ganhou `projectPhase` e
+  `roundPhase` (os dois `PHASE_2` por padrão) e o codebook da fixture ganhou um critério geral
+  (`GENERAL_CRITERIA`). Os três testes do § 3.3 comparam `llm.inputs` com `composeLlmInput` sobre
+  `loadCodebookVersion` da versão da rodada; o da Fase 3 insere a v2 com `addCodebookVersion` e
+  confere que nenhum texto dela aparece. O teste antigo "o envio é prompt mais títulos mais item"
+  passou a usar o helper `expectOnlyTitles`.
+- **Trava na Fase 3**: os dois testes de trava do codebook em `(tabs)/rounds/actions.int.test.ts`
+  viraram `it.each([PHASE_2, PHASE_3])`. O de recusa confere `codebookLockedMessage(1)` exato; o de
+  destravar confere que a rodada fechada mantém `phase` e a `codebookVersionId` anterior. O helper
+  local `definitionTitlesOf` foi renomeado para `titlesOfVersion`, para que
+  `grep -rn definitionTitles app` volte vazio.
+- **`responses.int.test.ts`**: `seedRound` aceita `phase`; os testes conferem `phase`,
+  `definitions` e `criteria` no lugar de `definitionTitles`, e há um teste de que a fase lida é a
+  gravada na rodada. A ordem global de `criteria` entre definições não é garantida (cada critério
+  tem `orderIndex` próprio da definição), então o teste compara os nomes ordenados; a composição
+  agrupa por definição e não depende disso.
+- Nada divergiu do plano.
 
 ---
 

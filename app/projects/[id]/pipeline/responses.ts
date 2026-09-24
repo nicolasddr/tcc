@@ -1,14 +1,20 @@
 import { and, asc, eq } from 'drizzle-orm'
 import { ownerDb, type DbExecutor, inputItems, responses, rounds } from '@/lib/db'
-import { loadCodebookVersion } from './codebook'
+import {
+  loadCodebookVersion,
+  type CodebookCriterion,
+  type CodebookDefinition,
+} from './codebook'
 import { loadPromptVersion } from './prompt'
 import { isUuid } from './versions'
 
 export type RoundComposition = {
+  phase: number
   promptVersionId: string
   codebookVersionId: string
   promptText: string
-  definitionTitles: string[]
+  definitions: CodebookDefinition[]
+  criteria: CodebookCriterion[]
 }
 
 export type ItemRoundUsage = Map<string, number[]>
@@ -31,6 +37,7 @@ export async function loadRoundComposition(
 
   const [round] = await db
     .select({
+      phase: rounds.phase,
       promptVersionId: rounds.promptVersionId,
       codebookVersionId: rounds.codebookVersionId,
     })
@@ -45,10 +52,12 @@ export async function loadRoundComposition(
   if (!prompt || !codebook) return null
 
   return {
+    phase: round.phase,
     promptVersionId: round.promptVersionId,
     codebookVersionId: round.codebookVersionId,
     promptText: prompt.text,
-    definitionTitles: codebook.definitions.map((definition) => definition.title),
+    definitions: codebook.definitions,
+    criteria: codebook.criteria,
   }
 }
 
