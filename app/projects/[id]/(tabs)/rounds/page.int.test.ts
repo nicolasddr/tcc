@@ -46,11 +46,12 @@ import { Section } from '@/app/components/ui/section'
 import { loadCodebookVersion } from '@/app/projects/[id]/pipeline/codebook'
 import { resolveCells } from '@/app/projects/[id]/pipeline/criteria'
 import { formatDate } from '@/app/notifications/labels'
-import { PHASE_1, PHASE_2 } from '@/app/projects/[id]/pipeline/preconditions'
+import { PHASE_1, PHASE_2, PHASE_3 } from '@/app/projects/[id]/pipeline/preconditions'
 import {
   closeConfirmationLines,
   pendingEvaluatorsTitle,
   roundBlockerMessage,
+  roundInputSummary,
 } from '@/app/projects/[id]/(tabs)/rounds/preconditions'
 import { itemUsageLabel } from '@/app/projects/[id]/pipeline/item-usage'
 import { llmModel } from '@/lib/ai'
@@ -370,6 +371,38 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     expect(text).toContain('Codebook v1 · Prompt v1')
     expect(text).toContain(formatDate(list.rounds[1].createdAt))
     expect(text).toContain('Ana Pesquisadora')
+  })
+
+  it('a lista mostra a fase de cada rodada, e o painel da rodada aberta diz o que vai à LLM', async () => {
+    const admin = await newUser('Admin')
+    const { project, codebookVersion, promptVersion } = await readyProject(
+      admin,
+      PHASE_3,
+    )
+    await addRound(ownerDb, project, admin, codebookVersion, promptVersion, {
+      roundNumber: 1,
+      status: 'closed',
+      phase: PHASE_2,
+    })
+    await addRound(ownerDb, project, admin, codebookVersion, promptVersion, {
+      roundNumber: 2,
+      phase: PHASE_3,
+    })
+
+    auth.userId = admin
+    const tree = await render(project)
+
+    const list = listOf(tree)
+    expect(list.rounds.map((round) => round.phase)).toEqual([PHASE_2, PHASE_3])
+    const text = markupTextOf(createElement(RoundList, list))
+    expect(text).toContain(`Rodada 1 · Fase ${PHASE_2}`)
+    expect(text).toContain(`Rodada 2 · Fase ${PHASE_3}`)
+
+    const close = closeRoundOf(tree)
+    expect(close.round.phase).toBe(PHASE_3)
+    const panel = markupTextOf(createElement(CloseRound, close))
+    expect(panel).toContain(roundInputSummary(PHASE_3))
+    expect(panel).not.toContain(roundInputSummary(PHASE_2))
   })
 
   it('a tela diz qual definição está sem critério em vez de só desabilitar o botão', async () => {
@@ -954,6 +987,26 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
       expect(findElement(tree, component)).toBeNull()
     }
     expect(evaluatorRoundsOf(tree).rounds).toEqual([])
+  })
+
+  it('a área de rodadas do avaliador não traz a fase da rodada nem o que foi à LLM', async () => {
+    const admin = await newUser('Admin')
+    const anaUser = await newUser('Ana')
+    const scene = await roundWith(admin, 1, { status: 'closed' })
+    const ana = await addActiveEvaluator(ownerDb, scene.project, anaUser)
+    await addEvaluation(ownerDb, scene.round, scene.responses[0], ana, {
+      cells: filled(scene.cells, 'high'),
+    })
+
+    auth.userId = anaUser
+    const tree = await render(scene.project)
+    const props = evaluatorRoundsOf(tree)
+    const text = `${allTextOf(tree)} ${markupTextOf(createElement(EvaluatorRounds, props))}`
+
+    expect(props.rounds.map((round) => round.roundNumber)).toEqual([1])
+    expect(props.rounds[0]).not.toHaveProperty('phase')
+    expect(text).not.toContain('Fase')
+    expect(text).not.toContain('LLM')
   })
 
   it('a área de rodadas do avaliador não fala de coeficiente', async () => {

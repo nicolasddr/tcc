@@ -41,7 +41,8 @@ import { AgreementMatrixTable } from '@/app/projects/[id]/(tabs)/rounds/agreemen
 import { QueueNav } from '@/app/components/ui/queue-nav'
 import { loadCodebookVersion } from '@/app/projects/[id]/pipeline/codebook'
 import { resolveCells } from '@/app/projects/[id]/pipeline/criteria'
-import { PHASE_2 } from '@/app/projects/[id]/pipeline/preconditions'
+import { PHASE_2, PHASE_3 } from '@/app/projects/[id]/pipeline/preconditions'
+import { roundInputSummary } from '@/app/projects/[id]/(tabs)/rounds/preconditions'
 import { ownerDb, projectMembers } from '@/lib/db'
 import {
   createUser,
@@ -203,13 +204,13 @@ describe('app/projects/[id]/rounds/[roundId] — a revisão de discordâncias', 
       status?: 'open' | 'closed'
       project?: string
       roundNumber?: number
+      phase?: number
     } = {},
   ): Promise<Scene> {
+    const phase = opts.phase ?? PHASE_2
     let project = opts.project
     if (!project) {
-      project = await seedProject(ownerDb, admin, 'Projeto de Teste', {
-        phase: PHASE_2,
-      })
+      project = await seedProject(ownerDb, admin, 'Projeto de Teste', { phase })
       projs.push(project)
     }
 
@@ -227,7 +228,7 @@ describe('app/projects/[id]/rounds/[roundId] — a revisão de discordâncias', 
       admin,
       codebookVersion,
       promptVersion,
-      { roundNumber, status: opts.status ?? 'closed' },
+      { roundNumber, status: opts.status ?? 'closed', phase },
     )
 
     const responses: string[] = []
@@ -689,6 +690,38 @@ describe('app/projects/[id]/rounds/[roundId] — a revisão de discordâncias', 
     }
     expect(findElement(tree, AgreementPanel)).toBeNull()
     expect(findElement(tree, AgreementMatrixTable)).toBeNull()
+  })
+
+  it('o Administrador lê o que a rodada mandou à LLM, pela fase da rodada', async () => {
+    const admin = await newUser('Admin')
+    const first = await roundWith(admin, 1, { phase: PHASE_2 })
+    const second = await roundWith(admin, 1, { phase: PHASE_3 })
+
+    auth.userId = admin
+    const phase2 = textOf(await render(first.project, first.round))
+    expect(phase2).toContain(roundInputSummary(PHASE_2))
+    expect(phase2).not.toContain(roundInputSummary(PHASE_3))
+
+    const phase3 = textOf(await render(second.project, second.round))
+    expect(phase3).toContain(roundInputSummary(PHASE_3))
+    expect(phase3).not.toContain(roundInputSummary(PHASE_2))
+  })
+
+  it('o avaliador na mesma rodada não lê a fase nem o que foi à LLM', async () => {
+    const admin = await newUser('Admin')
+    const scene = await roundWith(admin, 1, { phase: PHASE_3 })
+    const ana = await newSignedEvaluator(scene.project, 'Ana Avaliadora')
+    await addEvaluation(ownerDb, scene.round, scene.responses[0], ana.member, {
+      cells: [note(scene, 'Informacional', 'Precisão', 'high')],
+    })
+
+    auth.userId = ana.user
+    const tree = await render(scene.project, scene.round)
+    const text = `${textOf(tree)} ${listTextOf(tree)}`
+
+    expect(text).toContain('Ana Avaliadora')
+    expect(text).not.toContain('Fase')
+    expect(text).not.toContain('LLM')
   })
 
   it('o avaliador abre a rodada em que avaliou, e não a rodada em que não avaliou', async () => {

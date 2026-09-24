@@ -11,6 +11,7 @@ import {
   responsesLeftMessage,
   retryLabel,
   roundBlockerMessage,
+  roundInputSummary,
   roundBlockers,
   selectionBlockerMessage,
   selectionBlockers,
@@ -18,7 +19,8 @@ import {
   type RoundInputs,
   type SelectionInputs,
 } from '@/app/projects/[id]/(tabs)/rounds/preconditions'
-import { PHASE_1, PHASE_2 } from '@/app/projects/[id]/pipeline/preconditions'
+import { PHASE_1, PHASE_2, PHASE_3 } from '@/app/projects/[id]/pipeline/preconditions'
+import { SCALE, scaleLabel } from '@/app/projects/[id]/(tabs)/evaluate/scale'
 
 function inputs(patch: Partial<RoundInputs> = {}): RoundInputs {
   return {
@@ -289,5 +291,37 @@ describe('app/projects/[id]/rounds/preconditions — o teto do projeto no seleto
   it('a retentativa nomeia quantos itens ela vai selecionar', () => {
     expect(retryLabel(1)).toBe('Tentar de novo só este item')
     expect(retryLabel(3)).toBe('Tentar de novo só estes 3 itens')
+  })
+})
+
+describe('app/projects/[id]/rounds/preconditions — o que a rodada manda à LLM', () => {
+  it('a rodada da Fase 2 fala em títulos, e não em descrição nem critério', () => {
+    const summary = roundInputSummary(PHASE_2)
+    expect(summary).toContain(`Fase ${PHASE_2}`)
+    expect(summary).toContain('títulos das definições')
+    expect(summary).not.toContain('descrição')
+    expect(summary).not.toContain('critério')
+    expect(summary).not.toContain('codebook')
+  })
+
+  it('a rodada da Fase 3 fala em codebook completo, descrição e critérios', () => {
+    const summary = roundInputSummary(PHASE_3)
+    expect(summary).toContain(`Fase ${PHASE_3}`)
+    expect(summary).toContain('codebook completo')
+    expect(summary).toContain('descrição')
+    expect(summary).toContain('critérios gerais')
+  })
+
+  it('a partir da Fase 3 a frase é a da Fase 3', () => {
+    expect(roundInputSummary(4)).toBe(roundInputSummary(PHASE_3))
+  })
+
+  it('nenhuma das frases fala da escala', () => {
+    for (const phase of [PHASE_2, PHASE_3]) {
+      const summary = roundInputSummary(phase)
+      for (const value of SCALE) {
+        expect(summary).not.toContain(scaleLabel(value))
+      }
+    }
   })
 })

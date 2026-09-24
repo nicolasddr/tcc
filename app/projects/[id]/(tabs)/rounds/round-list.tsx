@@ -33,6 +33,7 @@ export function RoundList({
             <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
               <span className="text-sm font-semibold text-ink">
                 Rodada {round.roundNumber}
+                <span className="font-normal text-muted"> · Fase {round.phase}</span>
               </span>
               {isOpen(round) ? (
                 <Badge tone="info">aberta</Badge>

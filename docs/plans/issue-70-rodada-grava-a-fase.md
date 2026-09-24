@@ -14,7 +14,7 @@ seguinte herda" — anotar ali o que divergiu, como nos planos das #60 a #68.
 | 1 | A composição pura: Fase 2 byte a byte, Fase 3 com o codebook completo | ☑ |
 | 2 | A coluna `rounds.phase`: schema, migration, gravação na criação e leitura | ☑ |
 | 3 | A geração monta pela fase e pela versão congelada da rodada | ☑ |
-| 4 | A tela: fase na lista, a frase do que foi à LLM e a varredura dos ACs | ☐ |
+| 4 | A tela: fase na lista, a frase do que foi à LLM e a varredura dos ACs | ☑ |
 
 **Nenhuma ADR nova.** A decisão já está escrita na **emenda de 2026-09-22 da ADR 0002** (a forma do
 codebook na Fase 3, a fase da rodada e a entrada enviada) e no glossário (`docs/CONTEXT.md`,
@@ -595,7 +595,28 @@ aberto, checkboxes do issue marcados.
 
 ### O que esta Parte fechou
 
-_(preencher ao terminar a Parte)_
+- **`roundInputSummary(phase)`** em `(tabs)/rounds/preconditions.ts`, com a redação do § 4.1 e
+  `PHASE_2`/`PHASE_3` nas strings; `phase >= PHASE_3` usa a frase da Fase 3.
+- **Lista (`round-list.tsx`)**: divergiu do § 4.2. O `Badge` da fase ficou parecido demais com o de
+  estado (dois selos lado a lado, e a fase lida como um segundo estado), então a fase virou texto
+  discreto no título: "Rodada 1 · Fase 2", com o badge aberta/fechada depois. Conferido no navegador.
+- **Painel da rodada aberta**: a frase entrou no cartão do `CloseRound`, sob o resumo de versões
+  (`round` passou a exigir `phase`; `OpenRound` já trazia). Fica na seção "Rodada N aberta", como o
+  § 4.3 pede.
+- **Tela da rodada**: `ReviewView` ganhou `isAdmin`, e a frase aparece sob o `BackLink` só para o
+  Administrador (D8). A frase já começa por "Rodada da Fase N", então não há linha separada de fase.
+- **Testes**: `preconditions.unit.test.ts` (Fase 2 só títulos, Fase 3 codebook completo, Fase 4 igual
+  à 3, nenhum `scaleLabel`); `page.int.test.ts` (projeto na Fase 3 com uma rodada de cada fase: lista
+  com as duas fases, `CloseRound` com a frase da Fase 3; o Avaliador não recebe `phase` nem texto com
+  "Fase" ou "LLM"); `[roundId]/page.int.test.ts` (`roundWith` aceita `phase`; o Administrador lê a
+  frase da fase da rodada, o Avaliador na mesma rodada não). O teste do Avaliador foi conferido por
+  mutação (renderizar a frase para todos o derruba).
+- **Conferência no navegador** (§ 4.6): lista com Fase 2 e Fase 3, painel da rodada aberta e tela da
+  rodada fechada como Administrador. **Não feitas**: a tela como Avaliador (o `/dev/login` só emite a
+  conta de dev; coberto pelos testes) e a geração com a LLM real (não há `OPENAI_API_KEY` no
+  ambiente local) — fica para a primeira geração da Fase 3 em prod.
+- **D7** lido como está: nenhuma trava nova no prompt; a versão congelada pela rodada não muda.
+- Checkboxes do issue ainda por marcar no GitHub.
 
 ---
 

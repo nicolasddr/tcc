@@ -7,6 +7,7 @@ import {
   codebookLockedMessage,
   openRoundSummary,
   pendingEvaluatorsTitle,
+  roundInputSummary,
 } from './preconditions'
 import { Alert } from '@/app/components/ui/alert'
 import { Button } from '@/app/components/ui/button'
@@ -28,7 +29,7 @@ export function CloseRound({
   promptVersionNumber,
 }: {
   projectId: string
-  round: { id: string; roundNumber: number }
+  round: { id: string; roundNumber: number; phase: number }
   evaluatorsNotFinished: string[]
   codebookVersionNumber: number | null
   promptVersionNumber: number | null
@@ -52,6 +53,9 @@ export function CloseRound({
             )}
           </span>
           <InfoTooltip text={codebookLockedMessage(round.roundNumber)} />
+        </p>
+        <p className="m-0 mt-1.5 text-[13px] text-muted">
+          {roundInputSummary(round.phase)}
         </p>
       </Card>
 

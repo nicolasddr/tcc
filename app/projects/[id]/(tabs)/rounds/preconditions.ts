@@ -7,7 +7,7 @@ import {
   type CriterionScope,
   type DefinitionKey,
 } from '../../pipeline/criteria'
-import { PHASE_2 } from '../../pipeline/preconditions'
+import { PHASE_2, PHASE_3 } from '../../pipeline/preconditions'
 
 export type RoundDefinition = DefinitionKey & { title: string }
 
@@ -297,4 +297,10 @@ export function openRoundSummary(
     `A rodada ${roundNumber} está aberta sobre o codebook v${codebookVersionNumber} e ` +
     `o prompt v${promptVersionNumber}.`
   )
+}
+
+export function roundInputSummary(phase: number): string {
+  return phase >= PHASE_3
+    ? `Rodada da Fase ${PHASE_3}: a LLM recebe o prompt, o codebook completo — título, descrição e critérios de cada definição, e os critérios gerais — e o item de entrada.`
+    : `Rodada da Fase ${PHASE_2}: a LLM recebe o prompt, os títulos das definições e o item de entrada.`
 }

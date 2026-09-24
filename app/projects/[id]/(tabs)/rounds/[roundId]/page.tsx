@@ -8,6 +8,7 @@ import {
 import { listRoundResponses } from '../../../pipeline/responses'
 import { responseLabel } from '../../evaluate/queue'
 import { isOpen } from '../rounds'
+import { roundInputSummary } from '../preconditions'
 import { loadResponseNotes, type ResponseNote, type ReviewRound } from '../review'
 import {
   loadReviewMemberships,
@@ -45,6 +46,7 @@ function markOutliers(
 
 type ReviewView = {
   round: ReviewRound
+  isAdmin: boolean
   current: LabeledResponse | null
   prev: string | null
   next: string | null
@@ -75,6 +77,7 @@ export default async function RoundReviewPage({
 
     const empty = {
       round,
+      isAdmin: access.isAdmin,
       current: null,
       prev: null,
       next: null,
@@ -115,6 +118,7 @@ export default async function RoundReviewPage({
 
     return {
       round,
+      isAdmin: access.isAdmin,
       current,
       prev: labeled[index - 1]?.id ?? null,
       next: labeled[index + 1]?.id ?? null,
@@ -131,7 +135,7 @@ export default async function RoundReviewPage({
     }
   })
 
-  const { round, current, prev, next, definitions, criteria, notes } = view
+  const { round, isAdmin, current, prev, next, definitions, criteria, notes } = view
   const { consensus, authorMemberId, canWriteMinutes, canWritePrivate } = view
 
   const groups = reviewGroups(definitions, criteria, notes)
@@ -155,6 +159,10 @@ export default async function RoundReviewPage({
       <div className="mt-6">
         <BackLink href={`/projects/${id}/rounds`}>Voltar às rodadas</BackLink>
       </div>
+
+      {isAdmin ? (
+        <p className="m-0 mt-4 text-[13px] text-muted">{roundInputSummary(round.phase)}</p>
+      ) : null}
 
       <Section
         title={`Revisão de discordâncias da rodada ${round.roundNumber}`}
