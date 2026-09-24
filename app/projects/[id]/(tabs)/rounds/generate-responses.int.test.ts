@@ -185,6 +185,20 @@ describe('app/projects/[id]/rounds/actions — gerar respostas na rodada aberta'
       .orderBy(asc(responses.createdAt))
   }
 
+  async function sentInputsOf(roundId: string): Promise<Map<string, string | null>> {
+    const rows = await ownerDb
+      .select({ inputItemId: responses.inputItemId, sentInput: responses.sentInput })
+      .from(responses)
+      .where(eq(responses.roundId, roundId))
+    return new Map(rows.map((row) => [row.inputItemId, row.sentInput]))
+  }
+
+  function receivedInputFor(content: string): string {
+    const matches = llm.inputs.filter((input) => input.endsWith(`${ITEM_HEADING}\n${content}`))
+    expect(matches).toHaveLength(1)
+    return matches[0]
+  }
+
   async function usedAtOf(itemId: string): Promise<string | null> {
     const [row] = await ownerDb
       .select({ usedAt: inputItems.usedAt })
@@ -237,6 +251,71 @@ describe('app/projects/[id]/rounds/actions — gerar respostas na rodada aberta'
         createdBy: admin,
       })
     }
+
+    const sent = await sentInputsOf(round)
+    expect(sent.size).toBe(3)
+    for (const item of items) expect(sent.get(item)).not.toBeNull()
+  })
+
+  it.each([PHASE_2, PHASE_3])(
+    'rodada da Fase %i: a entrada gravada é a mesma que a LLM recebeu',
+    async (phase) => {
+      const admin = await newUser('Admin')
+      const { project, round, items } = await openRound(admin, {
+        items: 2,
+        projectPhase: phase,
+        roundPhase: phase,
+      })
+
+      auth.userId = admin
+      okOf(await generateResponses(null, fd(project, round, [...items].reverse())))
+
+      const sent = await sentInputsOf(round)
+      expect(sent.size).toBe(2)
+      for (const [index, item] of items.entries()) {
+        const stored = sent.get(item)
+        expect(stored).toBe(receivedInputFor(`conteúdo do item ${index + 1}`))
+        if (phase === PHASE_3) expect(stored).toContain(CODEBOOK_HEADING)
+        else expect(stored).not.toContain(CODEBOOK_HEADING)
+      }
+    },
+  )
+
+  it('a entrada gravada não é normalizada: quebras \\r\\n, espaços no fim e linhas em branco ficam', async () => {
+    const admin = await newUser('Admin')
+    const { project, round } = await openRound(admin, { items: 0 })
+    const content = 'primeira linha  \r\n\r\nterceira linha   \r\n\r\n'
+    const item = await addInputItem(ownerDb, project, admin, {
+      name: 'Consulta com espaços',
+      content,
+    })
+
+    auth.userId = admin
+    okOf(await generateResponses(null, fd(project, round, [item])))
+
+    const stored = (await sentInputsOf(round)).get(item)
+    expect(stored).toBe(llm.inputs[0])
+    expect(stored).toBe(receivedInputFor(content))
+    expect(stored).toContain('primeira linha  \r\n\r\nterceira linha   \r\n')
+    expect(stored!.endsWith('\r\n\r\n')).toBe(true)
+  })
+
+  it('na falha parcial, a entrada só é gravada nas respostas que deram certo', async () => {
+    const admin = await newUser('Admin')
+    const { project, round, items } = await openRound(admin, { items: 3 })
+
+    auth.userId = admin
+    llm.failWhen = (input) => (input.includes('conteúdo do item 2') ? 'unavailable' : null)
+    const result = okOf(await generateResponses(null, fd(project, round, items)))
+
+    expect(result.failed).toEqual([{ itemId: items[1], failure: 'unavailable' }])
+    expect(llm.inputs).toHaveLength(3)
+
+    const sent = await sentInputsOf(round)
+    expect([...sent.keys()].sort()).toEqual([items[0], items[2]].sort())
+    expect(sent.get(items[0])).toBe(receivedInputFor('conteúdo do item 1'))
+    expect(sent.get(items[2])).toBe(receivedInputFor('conteúdo do item 3'))
+    expect(sent.has(items[1])).toBe(false)
   })
 
   it('a resposta grava o modelo PEDIDO e a versão RESOLVIDA, que são diferentes', async () => {

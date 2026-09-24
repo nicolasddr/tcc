@@ -13,7 +13,7 @@ seguinte herda". Anotar ali o que divergiu, como no plano da #70.
 | Parte | Entrega | Estado |
 |---|---|---|
 | 1 | A coluna `responses.sent_input`: schema, migration, helper de teste e uma leitura isolada | ✅ |
-| 2 | A geração grava a entrada na mesma escrita do texto | ☐ |
+| 2 | A geração grava a entrada na mesma escrita do texto | ✅ |
 | 3 | A tela: o Administrador lê a entrada, recolhida; o Avaliador não; varredura dos ACs | ☐ |
 
 **Nenhuma ADR nova.** A decisão já está na **emenda de 2026-09-22 da ADR 0002** ("A Resposta grava a
@@ -304,7 +304,23 @@ mostra só a linha do `insert`.
 
 ### O que a Parte 3 herda
 
-_(preencher ao terminar.)_
+- **`generateResponses`** grava `sentInput: input` no mesmo `insert` de `text`. `grep` confirma que
+  essa é a única ocorrência em `actions.ts`.
+- **Testes** em `generate-responses.int.test.ts`, com dois helpers locais: `sentInputsOf(roundId)`
+  (mapa `inputItemId → sentInput`) e `receivedInputFor(content)` (a entrada de `llm.inputs` que
+  termina com `ITEM_HEADING\n<conteúdo>`. Casa pelo conteúdo do item, não pela ordem):
+  - `it.each([PHASE_2, PHASE_3])` "a entrada gravada é a mesma que a LLM recebeu", com a seleção em
+    ordem invertida. A Fase 3 contém `CODEBOOK_HEADING` e a Fase 2 não.
+  - "não é normalizada": item inserido com `addInputItem` direto, com `\r\n`, espaços no fim e
+    linhas em branco (também no fim do conteúdo, que fecha a entrada).
+  - "na falha parcial": três itens, `failWhen` no item 2. Só as outras duas linhas existem, cada uma
+    com a própria entrada.
+  - O teste "cada item selecionado produz uma resposta..." confere `sentInput` não nulo nas três.
+  - A falha que não vem da LLM (vazia, acima do teto) já estava coberta pelo teste existente, que
+    exige zero linhas. Não foi duplicado.
+- **Mutação conferida:** tirar a linha do `insert` derruba 5 testes.
+- `openRound(admin, { items: 0 })` funciona para montar uma rodada e inserir o item à mão depois.
+- Suíte: 70 arquivos, 924 testes verdes.
 
 ---
 

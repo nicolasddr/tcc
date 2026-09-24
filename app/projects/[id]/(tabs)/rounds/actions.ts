@@ -370,6 +370,7 @@ export async function generateResponses(
             roundId,
             inputItemId: itemId,
             text,
+            sentInput: input,
             model,
             modelVersion,
             promptVersionId: composition.promptVersionId,
