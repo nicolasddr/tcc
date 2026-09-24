@@ -98,7 +98,7 @@ export default async function ProjectTabsLayout({
         </div>
 
         <div className="mt-3 flex flex-wrap gap-1.5">
-          <Chip icon={<TagIcon />}>{taskType ?? 'Não declarado'}</Chip>
+          {taskType ? <Chip icon={<TagIcon />}>{taskType}</Chip> : null}
           {roles.length > 0 ? (
             <Chip icon={<UserIcon />}>{roles.join(' · ')}</Chip>
           ) : null}
