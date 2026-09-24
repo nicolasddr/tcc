@@ -17,10 +17,10 @@ vi.mock('next/navigation', () => ({
 import { createRound, closeRound } from '@/app/projects/[id]/(tabs)/rounds/actions'
 import { listRounds, loadOpenRound } from '@/app/projects/[id]/(tabs)/rounds/rounds'
 import { loadRoundObservations } from '@/app/projects/[id]/(tabs)/rounds/agreement'
-import { saveCodebook } from '@/app/projects/[id]/pipeline/actions'
+import { advancePhase, saveCodebook } from '@/app/projects/[id]/pipeline/actions'
 import { loadCodebook, loadCodebookVersion } from '@/app/projects/[id]/pipeline/codebook'
 import { resolveCells } from '@/app/projects/[id]/pipeline/criteria'
-import { PHASE_1, PHASE_2 } from '@/app/projects/[id]/pipeline/preconditions'
+import { PHASE_1, PHASE_2, PHASE_3 } from '@/app/projects/[id]/pipeline/preconditions'
 import { ordinalAlpha } from '@/lib/agreement'
 import {
   ownerDb,
@@ -77,6 +77,7 @@ function roundsOf(projectId: string) {
       id: rounds.id,
       roundNumber: rounds.roundNumber,
       status: rounds.status,
+      phase: rounds.phase,
       codebookVersionId: rounds.codebookVersionId,
       promptVersionId: rounds.promptVersionId,
       createdBy: rounds.createdBy,
@@ -193,6 +194,59 @@ describe('app/projects/[id]/rounds/actions — criar, fechar e travar o codebook
     const [promptAfter] = await promptVersionsOf(project)
     expect(codebookAfter.usedAt).not.toBeNull()
     expect(promptAfter.usedAt).not.toBeNull()
+  })
+
+  it('criar rodada na Fase 2 grava a fase 2', async () => {
+    const admin = await newUser('Admin')
+    const { project } = await readyProject(admin, PHASE_2)
+
+    auth.userId = admin
+    expect(await createRound(null, newRoundForm(project))).toMatchObject({ ok: true })
+
+    const [round] = await roundsOf(project)
+    expect(round.phase).toBe(PHASE_2)
+  })
+
+  it('criar rodada na Fase 3 grava a fase 3', async () => {
+    const admin = await newUser('Admin')
+    const { project } = await readyProject(admin, PHASE_3)
+
+    auth.userId = admin
+    expect(await createRound(null, newRoundForm(project))).toMatchObject({ ok: true })
+
+    const [round] = await roundsOf(project)
+    expect(round.phase).toBe(PHASE_3)
+  })
+
+  it('a fase da rodada não muda quando o projeto avança', async () => {
+    const admin = await newUser('Admin')
+    const { project } = await readyProject(admin, PHASE_2)
+
+    auth.userId = admin
+    await createRound(null, newRoundForm(project))
+    const [created] = await roundsOf(project)
+    expect(await closeRound(null, closeRoundForm(project, created.id))).toMatchObject({
+      ok: true,
+    })
+
+    const advanceForm = new FormData()
+    advanceForm.set('project_id', project)
+    expect(await advancePhase(null, advanceForm)).toMatchObject({ ok: true, phase: PHASE_3 })
+
+    const [round] = await roundsOf(project)
+    expect(round.phase).toBe(PHASE_2)
+  })
+
+  it('o banco recusa rodada com fase fora da faixa', async () => {
+    const admin = await newUser('Admin')
+    const { project, codebookVersion, promptVersion } = await readyProject(admin)
+
+    const invalid = addRound(ownerDb, project, admin, codebookVersion, promptVersion, {
+      phase: PHASE_1,
+    })
+    await expect(invalid).rejects.toSatisfy(
+      (err: unknown) => pgErrorCode(err) === '23514',
+    )
   })
 
   it('a criação com o codebook incompleto é recusada e a mensagem nomeia a definição sem critério', async () => {
@@ -450,20 +504,23 @@ describe('app/projects/[id]/rounds/actions — criar, fechar e travar o codebook
     expect((await roundsOf(other.project))[0].status).toBe('open')
   })
 
-  it('a lista traz número, estado, versões usadas e datas, em ordem cronológica', async () => {
+  it('a lista traz número, estado, fase, versões usadas e datas, em ordem cronológica', async () => {
     const admin = await newUser('Ana Pesquisadora')
-    const { project, codebookVersion, promptVersion } = await readyProject(admin)
+    const { project, codebookVersion, promptVersion } = await readyProject(admin, PHASE_3)
     await addRound(ownerDb, project, admin, codebookVersion, promptVersion, {
       roundNumber: 1,
       status: 'closed',
+      phase: PHASE_2,
     })
     await addRound(ownerDb, project, admin, codebookVersion, promptVersion, {
       roundNumber: 2,
+      phase: PHASE_3,
     })
 
     const list = await listRounds(project)
     expect(list.map((round) => round.roundNumber)).toEqual([1, 2])
     expect(list.map((round) => round.status)).toEqual(['closed', 'open'])
+    expect(list.map((round) => round.phase)).toEqual([PHASE_2, PHASE_3])
     expect(list[1]).toMatchObject({
       authorName: 'Ana Pesquisadora',
       codebookVersionNumber: 1,

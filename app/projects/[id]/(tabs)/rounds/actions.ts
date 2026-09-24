@@ -138,6 +138,7 @@ export async function createRound(
         projectId,
         roundNumber,
         status: ROUND_OPEN,
+        phase: project.phase,
         codebookVersionId: codebook.version.id,
         promptVersionId: prompt.version.id,
         createdBy: userId,

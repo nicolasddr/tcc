@@ -20,6 +20,7 @@ export type ReviewRound = {
   id: string
   roundNumber: number
   status: string
+  phase: number
   closedAt: string | null
   codebookVersionId: string
   codebookVersionNumber: number
@@ -37,6 +38,7 @@ export async function loadReviewRound(
       id: rounds.id,
       roundNumber: rounds.roundNumber,
       status: rounds.status,
+      phase: rounds.phase,
       closedAt: rounds.closedAt,
       codebookVersionId: rounds.codebookVersionId,
       codebookVersionNumber: codebookVersions.versionNumber,

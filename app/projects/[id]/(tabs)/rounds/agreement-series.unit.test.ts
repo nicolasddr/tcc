@@ -14,6 +14,7 @@ function round(
     id,
     roundNumber,
     status: closedAt ? 'closed' : 'open',
+    phase: 2,
     createdAt: '2026-01-01T00:00:00.000Z',
     closedAt,
     authorName: 'Ana Pesquisadora',

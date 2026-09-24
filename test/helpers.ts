@@ -343,6 +343,7 @@ export async function addRound(
     roundNumber?: number
     status?: 'open' | 'closed'
     closedAt?: string | null
+    phase?: number
   } = {},
 ): Promise<string> {
   const status = opts.status ?? 'open'
@@ -352,6 +353,7 @@ export async function addRound(
       projectId,
       roundNumber: opts.roundNumber ?? 1,
       status,
+      phase: opts.phase ?? 2,
       codebookVersionId,
       promptVersionId,
       createdBy,

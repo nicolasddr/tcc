@@ -12,7 +12,7 @@ seguinte herda" — anotar ali o que divergiu, como nos planos das #60 a #68.
 | Parte | Entrega | Estado |
 |---|---|---|
 | 1 | A composição pura: Fase 2 byte a byte, Fase 3 com o codebook completo | ☑ |
-| 2 | A coluna `rounds.phase`: schema, migration, gravação na criação e leitura | ☐ |
+| 2 | A coluna `rounds.phase`: schema, migration, gravação na criação e leitura | ☑ |
 | 3 | A geração monta pela fase e pela versão congelada da rodada | ☐ |
 | 4 | A tela: fase na lista, a frase do que foi à LLM e a varredura dos ACs | ☐ |
 
@@ -395,7 +395,24 @@ Lint, typecheck e `npm test` verdes; migration conferida (§ 2.2); nenhuma tela 
 
 ### O que a Parte 3 herda
 
-_(preencher ao terminar a Parte)_
+- **A migration é `supabase/migrations/0015_mushy_loki.sql`**, com as três instruções do § 2.2 nessa
+  ordem. O `generate` não emitiu nada além da coluna e do CHECK (sem ruído de `pg_net`). O backfill
+  foi conferido à mão: três rodadas inseridas antes, `supabase migration up`, todas com `phase = 2`
+  e a coluna sem default; depois, `db reset`.
+- **`rounds.phase` é `integer NOT NULL` sem default** no `schema.ts`, então todo insert de `rounds`
+  precisa dizer a fase. Só há dois: `createRound` (grava `project.phase`) e `addRound` em
+  `test/helpers.ts` (`opts.phase`, `2` quando omitido).
+- **`Round` ganhou `phase`**, e com ele `OpenRound` e `RoundSummary`; `loadOpenRound` e `listRounds`
+  selecionam a coluna. `ReviewRound`/`loadReviewRound` também. `EvaluatedRound` e `ReviewableRound`
+  não mudaram (D8). A fixture `round()` de `agreement-series.unit.test.ts` passou a declarar
+  `phase: 2` por causa do tipo.
+- **Testes novos** em `(tabs)/rounds/actions.int.test.ts`: grava 2, grava 3, a fase não muda depois
+  de fechar e avançar por `advancePhase`, e o CHECK recusa `phase: 1` com `23514`. O teste da lista
+  agora usa um projeto na Fase 3 com uma rodada de cada fase e confere `phase`. O helper `roundsOf`
+  do arquivo seleciona `phase`.
+- **O provisório da Parte 1 em `generateResponses` continua** (`phase: PHASE_2`, títulos só): é a
+  Parte 3 que o troca por `composition.phase`.
+- Nada divergiu do plano.
 
 ---
 

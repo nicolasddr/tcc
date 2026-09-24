@@ -362,6 +362,7 @@ export const rounds = pgTable("rounds", {
 	status: text().default('open').notNull(),
 	codebookVersionId: uuid("codebook_version_id").notNull(),
 	promptVersionId: uuid("prompt_version_id").notNull(),
+	phase: integer().notNull(),
 	createdBy: uuid("created_by").notNull(),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	closedAt: timestamp("closed_at", { withTimezone: true, mode: 'string' }),
@@ -392,6 +393,7 @@ export const rounds = pgTable("rounds", {
 	check("rounds_status_check", sql`status = ANY (ARRAY['open'::text, 'closed'::text])`),
 	check("rd_round_number_positive", sql`round_number >= 1`),
 	check("rd_closed_at_matches_status", sql`(status = 'open'::text AND closed_at IS NULL) OR (status = 'closed'::text AND closed_at IS NOT NULL)`),
+	check("rd_phase_range", sql`phase >= 2 AND phase <= 4`),
 ]);
 
 export const responses = pgTable("responses", {

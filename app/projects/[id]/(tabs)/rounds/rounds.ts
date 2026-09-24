@@ -17,6 +17,7 @@ export type Round = {
   id: string
   roundNumber: number
   status: string
+  phase: number
   createdAt: string
   closedAt: string | null
 }
@@ -49,6 +50,7 @@ export async function loadOpenRound(
       id: rounds.id,
       roundNumber: rounds.roundNumber,
       status: rounds.status,
+      phase: rounds.phase,
       createdAt: rounds.createdAt,
       closedAt: rounds.closedAt,
       codebookVersionId: rounds.codebookVersionId,
@@ -81,6 +83,7 @@ export function listRounds(
       id: rounds.id,
       roundNumber: rounds.roundNumber,
       status: rounds.status,
+      phase: rounds.phase,
       createdAt: rounds.createdAt,
       closedAt: rounds.closedAt,
       authorName: profiles.name,
