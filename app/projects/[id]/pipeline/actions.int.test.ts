@@ -1803,8 +1803,10 @@ describe('app/projects/[id]/pipeline/actions — ordenação das definições', 
 
     const codebook = await loadCodebook(project)
     const input = composeLlmInput({
+      phase: PHASE_2,
       promptText: 'Classifique a consulta.',
-      definitionTitles: codebook.definitions.map((d) => d.title),
+      definitions: codebook.definitions,
+      criteria: codebook.criteria,
       itemContent: 'como trocar pneu',
     })
     expect(input.indexOf('Transacional')).toBeLessThan(input.indexOf('Informacional'))
@@ -3138,8 +3140,10 @@ describe('app/projects/[id]/pipeline/actions — critérios do codebook', () => 
 
     const codebook = await loadCodebook(project)
     const input = composeLlmInput({
+      phase: PHASE_2,
       promptText: 'Classifique a consulta.',
-      definitionTitles: codebook.definitions.map((d) => d.title),
+      definitions: codebook.definitions,
+      criteria: codebook.criteria,
       itemContent: 'como trocar pneu',
     })
 

@@ -807,8 +807,10 @@ export async function testPrompt(
   }
 
   const input = composeLlmInput({
+    phase: PHASE_2,
     promptText,
-    definitionTitles: codebook.definitions.map((definition) => definition.title),
+    definitions: codebook.definitions,
+    criteria: codebook.criteria,
     itemContent: item.content,
   })
 

@@ -26,6 +26,7 @@ import { loadCodebook } from '../../pipeline/codebook'
 import { loadPrompt } from '../../pipeline/prompt'
 import { loadItems } from '../../pipeline/items'
 import { composeLlmInput } from '../../pipeline/llm-input'
+import { PHASE_2 } from '../../pipeline/preconditions'
 import {
   loadItemsUsedInRound,
   loadRoundComposition,
@@ -331,8 +332,14 @@ export async function generateResponses(
     }
 
     const input = composeLlmInput({
+      phase: PHASE_2,
       promptText: composition.promptText,
-      definitionTitles: composition.definitionTitles,
+      definitions: composition.definitionTitles.map((title) => ({
+        id: '',
+        title,
+        description: null,
+      })),
+      criteria: [],
       itemContent: contents.get(itemId)!,
     })
 

@@ -40,7 +40,7 @@ por resposta, porque a mesma regra pode ser clara numa definição e ambígua em
 A régua com que o Avaliador julga um critério, ordinal e de três pontos: Alto, Médio e Baixo.
 É fixa na ferramenta e não configurável por projeto, porque o nível de mensuração da métrica
 de concordância, o diff entre versões do codebook e a comparabilidade entre rodadas dependem
-dela ser a mesma sempre.
+dela ser a mesma sempre. A escala nunca vai à LLM, nem na Fase 3: a LLM não se avalia.
 
 ## Pipeline e avaliação
 
@@ -65,9 +65,10 @@ salvar sobre ela cria a versão seguinte. A única exceção são os metadados d
 (nome, descrição e registro de mudanças), que não vão à LLM e não são versionados.
 
 **Teste de prompt**
-A verificação que fecha a Fase 1: chama a LLM com o prompt, os títulos das definições e um item de
-entrada, e mostra a saída na tela sem gravar nada. Não produz Resposta nem Rodada, e não congela
-versão.
+A verificação que fecha a Fase 1: chama a LLM com a mesma entrada que uma rodada da fase atual
+enviaria para um item de entrada escolhido, mostra essa entrada e a saída na tela, e não grava nada.
+Nas Fases 1 e 2 a entrada é o prompt com os títulos das definições; na Fase 3, o prompt com o
+codebook completo. Não produz Resposta nem Rodada, e não congela versão.
 Evitar: smoke test, que era o nome antigo e sugeria persistência (ver ADR 0001).
 
 **Item de entrada**
@@ -84,10 +85,17 @@ A saída da LLM para um item de entrada, produzida pelo pipeline (prompt + defin
 Não confundir com as respostas do questionário de perfil, que um Avaliador dá ao entrar no
 projeto: aquelas são de outro conceito e não devem usar esta palavra.
 Junto do texto, toda resposta grava o que permite reproduzi-la e compará-la: a origem (gerada
-pela ferramenta ou colada manualmente), o modelo e a versão usados, e as versões de prompt e
-codebook que a produziram. É o que a promessa de replicabilidade do Shah exige.
-Evitar: um nome coletivo para esses cinco campos, *proveniência* inclusive. Eles são concretos e
+pela ferramenta ou colada manualmente), o modelo e a versão usados, as versões de prompt e
+codebook que a produziram e, a partir da Fase 3, a *entrada enviada*. É o que a promessa de
+replicabilidade do Shah exige.
+Evitar: um nome coletivo para esses campos, *proveniência* inclusive. Eles são concretos e
 poucos; citá-los diz mais do que o rótulo.
+
+**Entrada enviada**
+O texto exato que foi à LLM para produzir uma Resposta: prompt, codebook na forma da fase da rodada
+e item de entrada, já compostos. Fica gravado na Resposta porque as versões dizem *o que* foi usado,
+mas não *como* foi montado, e a forma de montar pode mudar com o tempo. As respostas geradas antes
+da Fase 3 não o têm.
 
 **Fila do avaliador**
 A sequência em que um Avaliador vê as Respostas de uma Rodada. É própria de cada vínculo,
@@ -108,8 +116,15 @@ Ato do Avaliador de aplicar o codebook a uma resposta, atribuindo escala e justi
 Medir, via ICR, se os avaliadores aplicam o codebook de forma consistente (Fase 2).
 
 **Refinar**
-Mudar o número ou a descrição de itens entre rodadas. Na Fase 2 refina-se o codebook; na
-Fase 3, primeiro o codebook (até o ICR subir) e depois o prompt (pela qualidade).
+Mudar o codebook (definições e critérios) ou o texto do prompt entre uma rodada e a seguinte. Na
+Fase 2 refina-se o codebook. Na Fase 3 a leitura segue uma ordem: com ICR baixo, os avaliadores não
+estão entendendo as definições da mesma forma, e refina-se o codebook; com ICR alto, olha-se a
+Qualidade, e se as notas estão concentradas em Médio e Baixo, os avaliadores concordam entre si mas a
+LLM não está seguindo o codebook, e refina-se o prompt, o codebook ou os dois, a critério do
+Administrador. Mexer no codebook para ajudar a LLM muda também o que os avaliadores leem, e por isso
+cada rodada mostra o que mudou em relação à anterior. A ferramenta orienta essa leitura e nunca a
+impõe.
+Evitar: "refinar itens", porque *item* é o item de entrada, que não se refina.
 
 **Concordância (ICR)**
 Grau em que avaliadores independentes chegam à mesma conclusão. Medida por Krippendorff's
@@ -121,7 +136,8 @@ não existe é dado faltante, nunca exclusão de avaliador — a unidade sem par
 pessoa continua nele. E o coeficiente é **não calculável**, nunca zero e nunca 1, em três casos:
 menos de dois avaliadores, nenhuma unidade avaliada por dois deles, e nenhuma variação nas notas.
 Não existe média, soma nem "ICR do projeto" em tela nenhuma: a leitura entre rodadas é a série, um
-ponto por rodada com a sua versão de codebook ao lado. E na matriz por célula, **não aplicável** é o
+ponto por rodada com a sua versão de codebook e a sua fase ao lado. A série é uma só para as Fases 2
+e 3, porque a passagem de uma para a outra com a mesma versão de codebook é uma comparação legítima. E na matriz por célula, **não aplicável** é o
 par definição × critério que não existe naquela versão — critério específico de outra definição —, o
 que é diferente de **não calculável** (a célula existe, tem nota e não tem coeficiente) e de **sem
 nota** (a célula existe e ninguém a avaliou ainda).
@@ -155,9 +171,15 @@ presas à rodada em que foram escritas e são persistidas no servidor — não s
 Evitar: "comentário" (sugere uma conversa com respostas, que não é o que existe).
 
 **Qualidade**
-Quão "boa" é a resposta da LLM segundo os critérios. É uma dimensão independente da
-Concordância, e as duas aparecem separadas na UI. Só é leitura confiável quando o ICR está
-alto.
+Quanto as notas dos avaliadores ficam em Alto: a distribuição de Alto, Médio e Baixo sobre as notas
+de uma rodada da Fase 3, lida como porcentagem, na rodada inteira, por célula e na série das rodadas
+da Fase 3. Não existe meta de qualidade. É uma dimensão independente da Concordância, e as
+duas aparecem separadas na UI. A ferramenta mostra a distribuição e **não diz se a qualidade está
+boa**: não há regra de "resposta que atinge os critérios", nem veredito, nem cor de aprovado. Quem
+decide se o padrão foi atingido é o Administrador. Só é leitura confiável quando o ICR está alto,
+porque notas em que os avaliadores discordam não dizem nada sobre a LLM. Como o ICR, respeita a marca
+de Outlier (com todos e sem os marcados, juntos) e não aparece para o Avaliador. Não aparece nas
+rodadas da Fase 2, em que a pergunta é outra.
 
 ## Projeto e processo
 
@@ -185,8 +207,10 @@ para a Fase 3.
   pelos avaliadores, avalia-se, calcula-se o ICR e refina-se o codebook até a concordância
   subir. A pergunta da fase é se o codebook está ambíguo; qualidade ainda não importa.
 - *Fase 3, validar o prompt*: o codebook completo passa a ir à LLM junto com o prompt ("o
-  codebook é o prompt"), e por isso as respostas mudam. Com ICR baixo, refina-se o codebook;
-  com ICR alto, refina-se o prompt para empurrar a qualidade.
+  codebook é o prompt"), e por isso as respostas mudam. O codebook completo, para a LLM, é o título
+  e a descrição de cada definição com os critérios específicos dela, mais os critérios gerais uma
+  vez só; o tipo da definição e a escala não vão. Com ICR baixo, refina-se o codebook; com ICR alto,
+  olha-se a Qualidade, e é o Administrador quem julga se ela basta para seguir à Fase 4.
 - *Fase 4, testar a replicação*: repete a avaliação com itens de entrada novos e avaliadores
   novos, sobre codebook e prompt congelados. Responde se o codebook generaliza ou se só funcionava
   com aquelas pessoas e aqueles dados. Se o resultado reprovar, o Administrador pode voltar à
@@ -194,7 +218,9 @@ para a Fase 3.
 
 **Rodada**
 Um ciclo de gerar respostas, avaliar e calcular ICR dentro de uma fase. Existe da Fase 2 em
-diante, já que a Fase 1 não persiste resposta nenhuma. É a unidade contável: uma fase é feita de
+diante, já que a Fase 1 não persiste resposta nenhuma. A rodada pertence à fase em que foi criada,
+e é essa fase, e não a fase atual do projeto, que decide o que vai à LLM: a forma de compor a entrada
+congela com a rodada, junto com as versões. É a unidade contável: uma fase é feita de
 várias rodadas. Entre uma rodada e a próxima, o Administrador refina (o
 codebook na Fase 2, o codebook ou o prompt na Fase 3).
 Evitar: iteração como unidade contável ("iterativo" só como adjetivo do processo).
@@ -253,7 +279,7 @@ Administrador da plataforma; aprova ou rejeita permissão para criar projetos.
 
 - LLM como avaliadora (*could-have*): se for construída, decidir se conta no ICR principal ou
   se aparece como lente separada (LLM contra consenso humano). A recomendação em registro é a
-  lente separada. Resolver no Épico 3 ou depois.
+  lente separada. Fica fora do Épico 3 e pede épico próprio.
 - Anonimização dos avaliadores na revisão de discordâncias: hoje todos veem os nomes reais.
   Exibir pseudônimos estáveis ("Avaliador 1") para reduzir pressão de conformidade fica como
   funcionalidade futura.
