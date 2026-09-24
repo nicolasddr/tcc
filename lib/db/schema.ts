@@ -401,6 +401,7 @@ export const responses = pgTable("responses", {
 	roundId: uuid("round_id").notNull(),
 	inputItemId: uuid("input_item_id").notNull(),
 	text: text().notNull(),
+	sentInput: text("sent_input"),
 	source: text().default('generated').notNull(),
 	model: text().notNull(),
 	modelVersion: text("model_version").notNull(),

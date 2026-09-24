@@ -3,7 +3,9 @@ import {
   listRoundResponses,
   loadItemRoundUsage,
   loadItemsUsedInRound,
+  loadResponseForAdmin,
   loadRoundComposition,
+  loadRoundResponse,
 } from '@/app/projects/[id]/pipeline/responses'
 import { type Transaction } from '@/lib/db'
 import {
@@ -220,6 +222,71 @@ describe('app/projects/[id]/pipeline/responses — a ordem canônica da rodada',
       expect(listed.map((response) => response.id)).toEqual(
         (await listRoundResponses(round, tx)).map((response) => response.id),
       )
+    })
+  })
+})
+
+describe('app/projects/[id]/pipeline/responses — a entrada enviada, só na leitura do Administrador', () => {
+  const SENT_INPUT = 'Prompt da rodada\r\n\r\nDefinições:\n  - Navegacional   \n\n\nConsulta: onde fica  \r\n'
+
+  it('devolve o texto da resposta e a entrada exatamente como gravada', async () => {
+    await inRollbackTx(async (tx) => {
+      const { admin, project, round } = await seedRound(tx)
+      const item = await addInputItem(tx, project, admin)
+      const response = await addResponse(tx, round, item, admin, {
+        text: 'Navegacional',
+        sentInput: SENT_INPUT,
+      })
+
+      const loaded = await loadResponseForAdmin(round, response, tx)
+
+      expect(loaded).toEqual({ text: 'Navegacional', sentInput: SENT_INPUT })
+      expect(loaded!.sentInput).toBe(SENT_INPUT)
+    })
+  })
+
+  it('resposta antiga devolve a entrada como null, não como string vazia', async () => {
+    await inRollbackTx(async (tx) => {
+      const { admin, project, round } = await seedRound(tx)
+      const item = await addInputItem(tx, project, admin)
+      const response = await addResponse(tx, round, item, admin)
+
+      const loaded = await loadResponseForAdmin(round, response, tx)
+
+      expect(loaded).not.toBeNull()
+      expect(loaded!.sentInput).toBeNull()
+    })
+  })
+
+  it('não devolve resposta de outra rodada nem id inválido', async () => {
+    await inRollbackTx(async (tx) => {
+      const { admin, project, codebookVersion, promptVersion, round } = await seedRound(
+        tx,
+        { status: 'closed' },
+      )
+      const round2 = await addRound(tx, project, admin, codebookVersion, promptVersion, {
+        roundNumber: 2,
+      })
+      const item = await addInputItem(tx, project, admin)
+      const response = await addResponse(tx, round, item, admin, { sentInput: SENT_INPUT })
+
+      expect(await loadResponseForAdmin(round2, response, tx)).toBeNull()
+      expect(await loadResponseForAdmin(round, 'nem-uuid', tx)).toBeNull()
+      expect(await loadResponseForAdmin('nem-uuid', response, tx)).toBeNull()
+    })
+  })
+
+  it('loadRoundResponse, que alimenta a tela do Avaliador, não traz a entrada', async () => {
+    await inRollbackTx(async (tx) => {
+      const { admin, project, round } = await seedRound(tx)
+      const item = await addInputItem(tx, project, admin)
+      const response = await addResponse(tx, round, item, admin, { sentInput: SENT_INPUT })
+
+      const detail = await loadRoundResponse(round, response, tx)
+
+      expect(detail).not.toBeNull()
+      expect(Object.keys(detail!)).not.toContain('sentInput')
+      expect(Object.values(detail!)).not.toContain(SENT_INPUT)
     })
   })
 })

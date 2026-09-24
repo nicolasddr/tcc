@@ -28,6 +28,8 @@ export type RoundResponse = {
 
 export type ResponseDetail = RoundResponse & { text: string }
 
+export type ResponseForAdmin = { text: string; sentInput: string | null }
+
 export async function loadRoundComposition(
   projectId: string,
   roundId: string,
@@ -133,6 +135,22 @@ export async function loadRoundResponse(
     })
     .from(responses)
     .innerJoin(inputItems, eq(inputItems.id, responses.inputItemId))
+    .where(and(eq(responses.id, responseId), eq(responses.roundId, roundId)))
+    .limit(1)
+
+  return response ?? null
+}
+
+export async function loadResponseForAdmin(
+  roundId: string,
+  responseId: string,
+  db: DbExecutor = ownerDb,
+): Promise<ResponseForAdmin | null> {
+  if (!isUuid(roundId) || !isUuid(responseId)) return null
+
+  const [response] = await db
+    .select({ text: responses.text, sentInput: responses.sentInput })
+    .from(responses)
     .where(and(eq(responses.id, responseId), eq(responses.roundId, roundId)))
     .limit(1)
 

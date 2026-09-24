@@ -378,6 +378,7 @@ export async function addResponse(
     modelVersion?: string
     promptVersionId?: string
     codebookVersionId?: string
+    sentInput?: string | null
   } = {},
 ): Promise<string> {
   const [round] = await tx
@@ -394,6 +395,7 @@ export async function addResponse(
       roundId,
       inputItemId,
       text: opts.text ?? 'Resposta de teste',
+      sentInput: opts.sentInput ?? null,
       source: opts.source ?? 'generated',
       model: opts.model ?? 'modelo-de-teste',
       modelVersion: opts.modelVersion ?? 'modelo-de-teste-2026-01-01',
