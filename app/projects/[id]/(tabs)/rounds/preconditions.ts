@@ -281,8 +281,25 @@ export function closeConfirmationLines(roundNumber: number): string[] {
   ]
 }
 
-export function pendingEvaluatorsTitle(count: number): string {
-  if (count === 0) return 'Nenhum avaliador ativo no projeto.'
+export type EvaluatorProgress = { name: string; status: string; submitted: number }
+
+export function isActiveEvaluator(evaluator: { status: string }): boolean {
+  return evaluator.status === 'active'
+}
+
+export function evaluatorsNotFinished(
+  evaluators: readonly EvaluatorProgress[],
+  responses: number,
+): string[] {
+  return evaluators
+    .filter(isActiveEvaluator)
+    .filter((evaluator) => responses === 0 || evaluator.submitted < responses)
+    .map((evaluator) => evaluator.name)
+}
+
+export function pendingEvaluatorsTitle(count: number, active: number): string {
+  if (active === 0) return 'Nenhum avaliador ativo no projeto.'
+  if (count === 0) return 'Todos os avaliadores ativos terminaram.'
   return count === 1
     ? '1 avaliador ainda não terminou:'
     : `${count} avaliadores ainda não terminaram:`

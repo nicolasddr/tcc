@@ -4,7 +4,7 @@ import { loadCodebook, loadCodebookVersion } from '../../pipeline/codebook'
 import { loadPrompt } from '../../pipeline/prompt'
 import { loadItems } from '../../pipeline/items'
 import { listRoundResponses } from '../../pipeline/responses'
-import { isOpen, listEvaluatorsNotFinished, listRounds, loadOpenRound } from './rounds'
+import { isOpen, listRounds, loadOpenRound } from './rounds'
 import {
   listEvaluatorEffort,
   loadProjectObservations,
@@ -17,7 +17,7 @@ import {
   type AgreementPair,
 } from './agreement-pair'
 import { loadProjectOutliers, loadRoundOutliers } from './outliers'
-import { roundBlockers } from './preconditions'
+import { evaluatorsNotFinished, isActiveEvaluator, roundBlockers } from './preconditions'
 import { NewRound } from './new-round'
 import { CloseRound } from './close-round'
 import { GenerateResponses } from './generate-responses'
@@ -51,7 +51,6 @@ export default async function ProjectRoundsPage({
     focusCodebook,
     codebook,
     prompt,
-    evaluatorsNotFinished,
     items,
     generated,
     observations,
@@ -80,9 +79,6 @@ export default async function ProjectRoundsPage({
         ? await loadCodebookVersion(projectId, focusRound.codebookVersionId, tx)
         : null,
       prompt: isAdmin ? await loadPrompt(projectId, tx) : null,
-      evaluatorsNotFinished: isAdmin
-        ? await listEvaluatorsNotFinished(projectId, tx)
-        : [],
       items: openRound ? await loadItems(projectId, tx) : [],
       generated: openRound ? await listRoundResponses(openRound.id, tx) : [],
       observations: isAdmin
@@ -172,7 +168,8 @@ export default async function ProjectRoundsPage({
             <CloseRound
               projectId={project.id}
               round={openRound}
-              evaluatorsNotFinished={evaluatorsNotFinished}
+              evaluatorsNotFinished={evaluatorsNotFinished(effort, generated.length)}
+              activeEvaluators={effort.filter(isActiveEvaluator).length}
               codebookVersionNumber={codebookVersionNumber}
               promptVersionNumber={promptVersionNumber}
             />

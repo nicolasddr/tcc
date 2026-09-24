@@ -4,6 +4,7 @@ import {
   canOpenRound,
   ceilingReachedMessage,
   closeConfirmationLines,
+  evaluatorsNotFinished,
   pendingEvaluatorsTitle,
   openRoundSummary,
   codebookLockedMessage,
@@ -142,12 +143,34 @@ describe('app/projects/[id]/rounds/preconditions — o que trava a abertura de u
   })
 
   it('o título dos pendentes conta os avaliadores, em vez de listá-los no texto', () => {
-    expect(pendingEvaluatorsTitle(1)).toBe('1 avaliador ainda não terminou:')
-    expect(pendingEvaluatorsTitle(3)).toBe('3 avaliadores ainda não terminaram:')
+    expect(pendingEvaluatorsTitle(1, 2)).toBe('1 avaliador ainda não terminou:')
+    expect(pendingEvaluatorsTitle(3, 3)).toBe('3 avaliadores ainda não terminaram:')
   })
 
   it('sem nenhum avaliador ativo, o título diz isso em vez de anunciar lista vazia', () => {
-    expect(pendingEvaluatorsTitle(0)).toBe('Nenhum avaliador ativo no projeto.')
+    expect(pendingEvaluatorsTitle(0, 0)).toBe('Nenhum avaliador ativo no projeto.')
+  })
+
+  it('com todos os ativos terminados, o título diz isso em vez de anunciar lista vazia', () => {
+    expect(pendingEvaluatorsTitle(0, 2)).toBe('Todos os avaliadores ativos terminaram.')
+  })
+
+  it('terminou quem avaliou todas as respostas da rodada, e só avaliador ativo conta', () => {
+    const evaluators = [
+      { name: 'Ana', status: 'active', submitted: 2 },
+      { name: 'Bruno', status: 'active', submitted: 1 },
+      { name: 'Caio', status: 'active', submitted: 0 },
+      { name: 'Duda', status: 'inactive', submitted: 0 },
+    ]
+    expect(evaluatorsNotFinished(evaluators, 2)).toEqual(['Bruno', 'Caio'])
+  })
+
+  it('rodada sem resposta não deixa ninguém terminado por vacuidade', () => {
+    const evaluators = [
+      { name: 'Ana', status: 'active', submitted: 0 },
+      { name: 'Duda', status: 'inactive', submitted: 0 },
+    ]
+    expect(evaluatorsNotFinished(evaluators, 0)).toEqual(['Ana'])
   })
 
   it('o resumo da rodada aberta nomeia as versões congeladas', () => {

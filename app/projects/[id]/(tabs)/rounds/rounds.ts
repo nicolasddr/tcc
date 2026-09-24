@@ -4,7 +4,6 @@ import {
   type DbExecutor,
   evaluations,
   profiles,
-  projectMembers,
   codebookVersions,
   promptVersions,
   rounds,
@@ -114,24 +113,4 @@ export function listRoundsWithEvaluations(
     .innerJoin(evaluations, eq(evaluations.roundId, rounds.id))
     .where(eq(rounds.projectId, projectId))
     .orderBy(desc(rounds.roundNumber))
-}
-
-export async function listEvaluatorsNotFinished(
-  projectId: string,
-  db: DbExecutor = ownerDb,
-): Promise<string[]> {
-  const rows = await db
-    .select({ name: profiles.name })
-    .from(projectMembers)
-    .innerJoin(profiles, eq(profiles.id, projectMembers.userId))
-    .where(
-      and(
-        eq(projectMembers.projectId, projectId),
-        eq(projectMembers.role, 'evaluator'),
-        eq(projectMembers.status, 'active'),
-      ),
-    )
-    .orderBy(asc(profiles.name))
-
-  return rows.map((row) => row.name)
 }

@@ -462,8 +462,60 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     expect(closeConfirmationLines(props.round.roundNumber)[0]).toContain(
       'irreversível',
     )
-    expect(pendingEvaluatorsTitle(props.evaluatorsNotFinished.length)).toBe(
-      '1 avaliador ainda não terminou:',
+    expect(props.activeEvaluators).toBe(1)
+    expect(
+      pendingEvaluatorsTitle(props.evaluatorsNotFinished.length, props.activeEvaluators),
+    ).toBe('1 avaliador ainda não terminou:')
+
+    const markup = renderToStaticMarkup(createElement(CloseRound, props))
+    expect(markup).toContain('name="project_id"')
+    expect(markup).toContain(`name="round_id" value="${round}"`)
+  })
+
+  it('quem avaliou todas as respostas da rodada aberta sai da lista de quem não terminou', async () => {
+    const admin = await newUser('Admin')
+    const ana = await newUser('Ana')
+    const bruno = await newUser('Bruno')
+    const { project, codebookVersion, promptVersion } = await readyProject(admin)
+    const anaMember = await addActiveEvaluator(ownerDb, project, ana)
+    const brunoMember = await addActiveEvaluator(ownerDb, project, bruno)
+    const round = await addRound(
+      ownerDb,
+      project,
+      admin,
+      codebookVersion,
+      promptVersion,
+      { roundNumber: 1 },
+    )
+    const first = await addResponse(
+      ownerDb,
+      round,
+      await addInputItem(ownerDb, project, admin, { name: 'Item 1' }),
+      admin,
+    )
+    const second = await addResponse(
+      ownerDb,
+      round,
+      await addInputItem(ownerDb, project, admin, { name: 'Item 2' }),
+      admin,
+    )
+
+    auth.userId = admin
+    expect(closeRoundOf(await render(project)).evaluatorsNotFinished).toEqual([
+      'Ana',
+      'Bruno',
+    ])
+
+    await addEvaluation(ownerDb, round, first, anaMember)
+    await addEvaluation(ownerDb, round, second, anaMember)
+    await addEvaluation(ownerDb, round, first, brunoMember)
+    expect(closeRoundOf(await render(project)).evaluatorsNotFinished).toEqual(['Bruno'])
+
+    await addEvaluation(ownerDb, round, second, brunoMember)
+    const props = closeRoundOf(await render(project))
+    expect(props.evaluatorsNotFinished).toEqual([])
+    expect(markupTextOf(createElement(CloseRound, props))).toContain(
+      'Todos os avaliadores ativos terminaram.',
     )
   })
 

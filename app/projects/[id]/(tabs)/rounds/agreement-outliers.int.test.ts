@@ -23,7 +23,6 @@ import {
   markOutlier,
   unmarkOutlier,
 } from '@/app/projects/[id]/(tabs)/rounds/outlier-actions'
-import { listEvaluatorsNotFinished } from '@/app/projects/[id]/(tabs)/rounds/rounds'
 import { loadCodebookVersion } from '@/app/projects/[id]/pipeline/codebook'
 import { resolveCells } from '@/app/projects/[id]/pipeline/criteria'
 import { PHASE_2 } from '@/app/projects/[id]/pipeline/preconditions'
@@ -251,8 +250,6 @@ describe('app/projects/[id]/rounds — a marca de outlier no coeficiente da roda
 
     const after = await pairOf(scene.round, project)
     expect(after).toEqual(before)
-
-    expect(await listEvaluatorsNotFinished(project, ownerDb)).toEqual(['Ana'])
 
     expect(await listEvaluatorEffort(scene.round, project, ownerDb)).toEqual([
       { projectMemberId: ana, name: 'Ana', status: 'active', submitted: 3 },

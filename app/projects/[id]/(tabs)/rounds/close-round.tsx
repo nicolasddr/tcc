@@ -25,12 +25,14 @@ export function CloseRound({
   projectId,
   round,
   evaluatorsNotFinished,
+  activeEvaluators,
   codebookVersionNumber,
   promptVersionNumber,
 }: {
   projectId: string
   round: { id: string; roundNumber: number; phase: number }
   evaluatorsNotFinished: string[]
+  activeEvaluators: number
   codebookVersionNumber: number | null
   promptVersionNumber: number | null
 }) {
@@ -88,7 +90,7 @@ export function CloseRound({
 
           <div className="flex flex-col gap-2">
             <p className="m-0 text-[13px] font-semibold text-ink">
-              {pendingEvaluatorsTitle(evaluatorsNotFinished.length)}
+              {pendingEvaluatorsTitle(evaluatorsNotFinished.length, activeEvaluators)}
             </p>
 
             {evaluatorsNotFinished.length > 0 ? (
@@ -113,6 +115,7 @@ export function CloseRound({
 
             <form action={action}>
               <input type="hidden" name="project_id" value={projectId} />
+              <input type="hidden" name="round_id" value={round.id} />
               <Button
                 type="submit"
                 variant="dangerSolid"
