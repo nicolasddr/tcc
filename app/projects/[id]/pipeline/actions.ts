@@ -778,7 +778,13 @@ export async function testPrompt(
 
   if (!(await isProjectAdmin(userId, projectId))) return { error: TEST_DENIED }
 
-  const { codebook, prompt, item } = await transaction(async (tx) => {
+  const { phase, codebook, prompt, item } = await transaction(async (tx) => {
+    const [project] = await tx
+      .select({ phase: projects.phase })
+      .from(projects)
+      .where(eq(projects.id, projectId))
+      .limit(1)
+
     const [item] = await tx
       .select({ content: inputItems.content })
       .from(inputItems)
@@ -786,12 +792,14 @@ export async function testPrompt(
       .limit(1)
 
     return {
+      phase: project?.phase,
       codebook: await loadCodebook(projectId, tx),
       prompt: await loadPrompt(projectId, tx),
       item,
     }
   })
 
+  if (phase === undefined) return { error: TEST_DENIED }
   if (!item) return { error: TEST_ITEM_MISSING }
 
   const promptText = prompt.version?.text ?? ''
@@ -807,7 +815,7 @@ export async function testPrompt(
   }
 
   const input = composeLlmInput({
-    phase: PHASE_2,
+    phase,
     promptText,
     definitions: codebook.definitions,
     criteria: codebook.criteria,
