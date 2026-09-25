@@ -13,7 +13,7 @@ seguinte herda", e é ali que se anota o que divergiu.
 | Parte | Entrega | Estado |
 |---|---|---|
 | 1 | A série de ICR com a fase: o ponto carrega a fase, as rodadas agrupadas por fase no gráfico e nos cards | ☑ |
-| 2 | O cálculo puro de "o que mudou" e as palavras | ☐ |
+| 2 | O cálculo puro de "o que mudou" e as palavras | ☑ |
 | 3 | "O que mudou" na tela da rodada e na lista de rodadas, a prova de que nada trava, e a varredura dos ACs | ☐ |
 
 As Partes 1 e 2 são independentes (uma não usa nada da outra); a 3 depende da 2.
@@ -455,7 +455,27 @@ As constantes e funções de texto do D9. A frase de `ENTERS_PHASE_3_NOTE` tem d
 
 ### O que a Parte 3 herda
 
-(preencher ao terminar: nomes finais das exportações, textos definitivos, números da suíte.)
+- **Nomes finais** como no D6/D9. `round-changes.ts` exporta `RoundVersions`, `Change`,
+  `RoundChanges`, `previousRoundOf`, `roundChanges`; `RoundSummary` entra direto nas duas funções
+  (há teste disso). `previousRoundOf` também acha a anterior de uma rodada que não está na lista.
+- **Textos definitivos** em `round-changes-labels.ts`:
+  - `changesHeading(3)` → "Em relação à rodada 3";
+  - linhas: "Codebook: v3 → v4" / "Codebook: v4, o mesmo", "Prompt: v1 → v2" / "Prompt: v2, o
+    mesmo", "Fase: 2 → 3" / "Fase: 3, a mesma";
+  - `CODEBOOK_AND_PROMPT_NOTICE`: "O codebook e o prompt mudaram juntos em relação à rodada
+    anterior: uma diferença no ICR ou na Qualidade desta rodada não se atribui a um nem ao outro.";
+  - `CODEBOOK_AND_PROMPT_WITH_INPUT_NOTICE`: "Além da forma de montar a entrada, mudou também a
+    versão de codebook, a de prompt ou as duas: uma diferença no ICR ou na Qualidade desta rodada
+    não se atribui a um nem ao outro, nem só à forma de montar a entrada." Foi escrita para valer
+    quando `entersPhase3` e **pelo menos um** de codebook/prompt mudou (D8), não só com os dois;
+    a Parte 3 escolhe essa variante no lugar de `CODEBOOK_AND_PROMPT_NOTICE` sempre que
+    `entersPhase3 && (codebook.changed || prompt.changed)`;
+  - `ENTERS_PHASE_3_NOTE`: "Primeira rodada da Fase 3: a mudança principal foi a forma de montar
+    a entrada, que passou a levar o codebook completo à LLM junto com o prompt e o item de
+    entrada." ("o codebook completo" com as palavras de `roundInputSummary(PHASE_3)`, com teste).
+- **Testes**: `round-changes.unit.test.ts` com 16 e `round-changes-labels.unit.test.ts` com 9 (a
+  varredura cobre as constantes e as funções chamadas com e sem mudança). Suíte: 77 arquivos,
+  1056 testes. Nenhum arquivo existente mudou.
 
 ---
 
