@@ -966,6 +966,141 @@ describe('app/projects/[id]/page — escopo de visibilidade', () => {
     expect(seriesMarkupOf(tree)).toContain(`href="/projects/${project}/rounds"`)
   })
 
+  async function phaseSeriesScene(admin: string): Promise<string> {
+    const project = await newProject(admin, PHASE_3)
+    const promptVersion = await addPromptVersion(ownerDb, project, admin)
+    const codebook = new Map<number, string>()
+    for (const versionNumber of [1, 2, 3]) {
+      codebook.set(
+        versionNumber,
+        await addCodebookVersion(ownerDb, project, admin, { versionNumber }),
+      )
+    }
+    const scene = [
+      { roundNumber: 1, version: 1, phase: PHASE_2, status: 'closed' },
+      { roundNumber: 2, version: 2, phase: PHASE_2, status: 'closed' },
+      { roundNumber: 3, version: 2, phase: PHASE_3, status: 'closed' },
+      { roundNumber: 4, version: 3, phase: PHASE_3, status: 'open' },
+    ] as const
+    for (const round of scene) {
+      await addRound(ownerDb, project, admin, codebook.get(round.version)!, promptVersion, {
+        roundNumber: round.roundNumber,
+        status: round.status,
+        phase: round.phase,
+      })
+    }
+    return project
+  }
+
+  function markupText(markup: string): string {
+    return markup
+      .replace(/<[^>]*>/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+  }
+
+  function phaseDividers(markup: string): number {
+    return [...markup.matchAll(/<line x1="([^"]+)" x2="\1" y1="0"/g)].length
+  }
+
+  function phaseLabels(markup: string): string {
+    return markupText(markup.slice(0, markup.indexOf('<h3')))
+  }
+
+  it('cada card da série diz a fase ao lado da versão de codebook', async () => {
+    const admin = await newUser('Admin')
+    const project = await phaseSeriesScene(admin)
+
+    auth.userId = admin
+    const tree = await render(project)
+
+    expect(seriesOf(tree).points.map((point) => point.phase)).toEqual([2, 2, 3, 3])
+
+    const text = seriesTextOf(tree)
+    expect(text).toContain('Codebook v1 · Fase 2')
+    expect(text).toContain('Codebook v2 · Fase 2')
+    expect(text).toContain('Codebook v2 · Fase 3')
+    expect(text).toContain('Codebook v3 · Fase 3')
+    expect(text).toContain('a versão de codebook e a fase indicadas ao lado dele')
+
+    const help = (sectionWith(tree, AgreementSeriesChart)!.props as { help: string }).help
+    expect(help).toContain('As Fases 2 e 3 ficam na mesma série')
+    expect(help).toContain('a LLM passar a receber o codebook')
+  })
+
+  it('as rodadas de cada fase ficam agrupadas, na ordem cronológica, sob o subtítulo da fase', async () => {
+    const admin = await newUser('Admin')
+    const project = await phaseSeriesScene(admin)
+
+    auth.userId = admin
+    const markup = seriesMarkupOf(await render(project))
+
+    const groups = markup.split('<h3').slice(1)
+    expect(groups).toHaveLength(2)
+
+    const [phase2, phase3] = groups.map((group) =>
+      markupText(`<h3${group.slice(0, group.indexOf('</ul>'))}`),
+    )
+    expect(phase2.startsWith('Fase 2')).toBe(true)
+    expect(phase2).toContain('Rodada 1')
+    expect(phase2).toContain('Rodada 2')
+    expect(phase2).not.toContain('Rodada 3')
+    expect(phase2).not.toContain('Rodada 4')
+    expect(phase3.startsWith('Fase 3')).toBe(true)
+    expect(phase3).toContain('Rodada 3')
+    expect(phase3).toContain('Rodada 4')
+    expect(phase3).not.toContain('Rodada 1')
+    expect(phase3).not.toContain('Rodada 2')
+
+    const text = markupText(markup)
+    expect(text.indexOf('Rodada 2')).toBeLessThan(text.lastIndexOf('Fase 3 Rodada 3'))
+  })
+
+  it('o gráfico separa as fases com uma divisória e rotula cada grupo embaixo das colunas', async () => {
+    const admin = await newUser('Admin')
+    const project = await phaseSeriesScene(admin)
+
+    auth.userId = admin
+    const markup = seriesMarkupOf(await render(project))
+
+    expect(phaseDividers(markup)).toBe(1)
+    expect(markup).toContain('<line x1="50" x2="50" y1="0"')
+    expect(phaseLabels(markup)).toBe('Fase 2 Fase 3')
+  })
+
+  it('a série de uma fase só não tem divisória, e o rótulo diz de que fase ela é', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin, PHASE_2)
+    const promptVersion = await addPromptVersion(ownerDb, project, admin)
+    for (const roundNumber of [1, 2]) {
+      await roundWith(project, admin, promptVersion, { roundNumber, versionNumber: roundNumber })
+    }
+
+    auth.userId = admin
+    const markup = seriesMarkupOf(await render(project))
+
+    expect(phaseDividers(markup)).toBe(0)
+    expect(phaseLabels(markup)).toBe('Fase 2')
+    expect(markup.split('<h3')).toHaveLength(2)
+  })
+
+  it('agrupar por fase não junta rodadas: um card por rodada e nenhum valor por fase', async () => {
+    const admin = await newUser('Admin')
+    const project = await phaseSeriesScene(admin)
+
+    auth.userId = admin
+    const tree = await render(project)
+    const markup = seriesMarkupOf(tree)
+
+    expect(seriesOf(tree).points).toHaveLength(4)
+
+    const text = markupText(markup)
+    expect(text.match(/Rodada \d/g)).toEqual(['Rodada 1', 'Rodada 2', 'Rodada 3', 'Rodada 4'])
+    expect(text).not.toContain('média')
+    expect(text).not.toContain('total')
+    expect(text.match(new RegExp(NOT_CALCULABLE_LABEL, 'g'))).toHaveLength(4)
+  })
+
   it('a visão geral resume codebook, prompt e itens com link para cada tela', async () => {
     const admin = await newUser('Admin')
     const project = await newProject(admin)

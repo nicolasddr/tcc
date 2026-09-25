@@ -1,6 +1,9 @@
 import { describe, it, expect } from 'vitest'
 import * as series from '@/app/projects/[id]/(tabs)/rounds/agreement-series'
-import { agreementSeries } from '@/app/projects/[id]/(tabs)/rounds/agreement-series'
+import {
+  agreementSeries,
+  phaseRuns,
+} from '@/app/projects/[id]/(tabs)/rounds/agreement-series'
 import type { RoundObservation } from '@/app/projects/[id]/(tabs)/rounds/agreement'
 import type { RoundSummary } from '@/app/projects/[id]/(tabs)/rounds/rounds'
 
@@ -9,12 +12,13 @@ function round(
   roundNumber: number,
   codebookVersionNumber: number,
   closedAt: string | null = null,
+  phase = 2,
 ): RoundSummary {
   return {
     id,
     roundNumber,
     status: closedAt ? 'closed' : 'open',
-    phase: 2,
+    phase,
     createdAt: '2026-01-01T00:00:00.000Z',
     closedAt,
     authorName: 'Ana Pesquisadora',
@@ -112,6 +116,92 @@ describe('agreementSeries — um ponto por rodada, sem agregação', () => {
   })
 
   it('o módulo não exporta nenhuma função de agregação entre rodadas', () => {
-    expect(Object.keys(series)).toEqual(['agreementSeries'])
+    expect(Object.keys(series)).toEqual(['agreementSeries', 'phaseRuns'])
+
+    const points = agreementSeries(
+      [round('a', 1, 1, null, 2), round('b', 2, 2, null, 3)],
+      new Map(),
+    )
+    const grouped = phaseRuns(points).flatMap((run) => run.points)
+
+    expect(grouped).toHaveLength(points.length)
+    grouped.forEach((point, index) => expect(point).toBe(points[index]))
+  })
+})
+
+describe('agreementSeries — a fase de cada rodada', () => {
+  const acrossPhases = () => [
+    round('a', 1, 1, '2026-02-01T00:00:00.000Z', 2),
+    round('b', 2, 2, '2026-03-01T00:00:00.000Z', 2),
+    round('c', 3, 2, '2026-04-01T00:00:00.000Z', 3),
+    round('d', 4, 3, null, 3),
+  ]
+
+  it('a série carrega a fase de cada rodada, na ordem recebida', () => {
+    const points = agreementSeries(acrossPhases(), new Map())
+
+    expect(points.map((point) => point.phase)).toEqual([2, 2, 3, 3])
+    expect(points.map((point) => point.roundNumber)).toEqual([1, 2, 3, 4])
+  })
+
+  it('as duas fases ficam numa série só, com um ponto por rodada', () => {
+    const rounds = acrossPhases()
+
+    expect(agreementSeries(rounds, new Map())).toHaveLength(rounds.length)
+  })
+})
+
+describe('phaseRuns — agrupa por sequência, sem valor próprio', () => {
+  function pointsIn(phases: readonly number[]) {
+    return agreementSeries(
+      phases.map((phase, index) => round(`r${index + 1}`, index + 1, 1, null, phase)),
+      new Map(),
+    )
+  }
+
+  it('abre um grupo novo cada vez que a fase muda', () => {
+    const runs = phaseRuns(pointsIn([2, 2, 3, 3]))
+
+    expect(runs.map((run) => run.phase)).toEqual([2, 3])
+    expect(runs.map((run) => run.points.map((point) => point.roundNumber))).toEqual([
+      [1, 2],
+      [3, 4],
+    ])
+  })
+
+  it('todas as rodadas da mesma fase formam um grupo só', () => {
+    const runs = phaseRuns(pointsIn([2, 2, 2]))
+
+    expect(runs).toHaveLength(1)
+    expect(runs[0].phase).toBe(2)
+    expect(runs[0].points).toHaveLength(3)
+  })
+
+  it('a série vazia não tem grupo', () => {
+    expect(phaseRuns([])).toEqual([])
+  })
+
+  it('não reordena rodadas: a volta a uma fase abre um grupo novo', () => {
+    const runs = phaseRuns(pointsIn([2, 3, 4, 3]))
+
+    expect(runs.map((run) => run.phase)).toEqual([2, 3, 4, 3])
+    expect(runs.map((run) => run.points.map((point) => point.roundNumber))).toEqual([
+      [1],
+      [2],
+      [3],
+      [4],
+    ])
+  })
+
+  it('o grupo só tem a fase e os mesmos pontos, sem cópia nem número novo', () => {
+    const points = pointsIn([2, 2, 3])
+    const runs = phaseRuns(points)
+
+    for (const run of runs) {
+      expect(Object.keys(run)).toEqual(['phase', 'points'])
+    }
+    const grouped = runs.flatMap((run) => run.points)
+    expect(grouped).toHaveLength(points.length)
+    grouped.forEach((point, index) => expect(point).toBe(points[index]))
   })
 })
