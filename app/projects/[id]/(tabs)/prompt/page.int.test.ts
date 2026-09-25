@@ -30,6 +30,7 @@ import { PromptTest } from '@/app/projects/[id]/pipeline/prompt-test'
 import type { PromptVersionSummary } from '@/app/projects/[id]/pipeline/prompt'
 import { Button } from '@/app/components/ui/button'
 import { formatDate } from '@/app/notifications/labels'
+import { PHASE_2, PHASE_3 } from '@/app/projects/[id]/pipeline/preconditions'
 import { llmModel } from '@/lib/ai'
 import { ownerDb } from '@/lib/db'
 import {
@@ -341,6 +342,20 @@ describe('app/projects/[id]/prompt — a tela do prompt', () => {
     expect(props.ready).toBe(true)
     expect(props.model).toBe(llmModel())
     expect(props.items.map((item) => item.name)).toEqual(['Consulta 001'])
+  })
+
+  it.each([PHASE_2, PHASE_3])('a página passa ao teste a fase do projeto (Fase %i)', async (phase) => {
+    const admin = await newUser('Admin')
+    const project = await seedProject(ownerDb, admin, 'Projeto de Teste', { phase })
+    projs.push(project)
+    await addCodebookVersion(ownerDb, project, admin)
+    await addPromptVersion(ownerDb, project, admin, { text: 'Classifique a consulta.' })
+    await addInputItem(ownerDb, project, admin, { name: 'Consulta 001' })
+
+    auth.userId = admin
+    const props = findElement(await renderPrompt(project), PromptTest)!
+      .props as Parameters<typeof PromptTest>[0]
+    expect(props.phase).toBe(phase)
   })
 
   it('o Avaliador não acessa a tela nem a versão', async () => {

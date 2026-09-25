@@ -13,7 +13,7 @@ seguinte herda", e é ali que se anota o que divergiu.
 |---|---|---|
 | 1 | A action monta a entrada pela fase atual do projeto | ✅ |
 | 2 | A action devolve a entrada com a saída, com prova de que é a mesma de uma rodada | ✅ |
-| 3 | A tela mostra a entrada recolhida acima da saída; varredura dos ACs | ⬜ |
+| 3 | A tela mostra a entrada recolhida acima da saída; varredura dos ACs | ✅ |
 
 **Sem migration, sem ADR nova.** A decisão já está na emenda de 2026-09-22 da ADR 0002 e no
 glossário (`docs/CONTEXT.md`, verbete **Teste de prompt**), que **já descreve o comportamento
@@ -392,7 +392,28 @@ aberto, checkboxes do issue marcados. Commit sugerido:
 
 ### O que esta Parte fechou
 
-- (preencher)
+- `prompt-test.tsx` exporta `promptTestHint(phase)` e `PromptTestResult({ answer, pending })`, com
+  `SentInput` importado de `(tabs)/rounds/sent-input` (D4). O tipo da resposta é
+  `Extract<PromptTestState, { ok: true }>`, sem tipo novo exportado. A página passa
+  `phase={project.phase}`.
+- O `<pre>` do `SentInput` não precisou de `max-h` extra: o `scrollBoxClass` já limita a caixa
+  (~307 px) dentro do painel do teste.
+- Os testes da tela ficaram em `pipeline/prompt-test.unit.test.ts` (ambiente `node`, sem esbarrar
+  em configuração). Além dos casos de § 3.3, um caso confere que fora de uma chamada o contêiner não
+  escurece. Mutações conferidas: `SentInput` abaixo do `Card` derruba o caso de ordem; trocar o
+  `SentInput` por texto solto derruba ordem, conteúdo e escurecimento.
+- Conferência no navegador sem LLM de verdade: não há `OPENAI_API_KEY` local, então o dev local
+  subiu com `OPENAI_API_KEY=fake` e um `fetch` falso para `api.openai.com` via
+  `NODE_OPTIONS=--require` (script no scratchpad, config temporária no `launch.json`, ambos
+  desfeitos). Fase 2: dica com "títulos", painel fechado acima da resposta, só títulos, recuo
+  intacto. Fase 3: dica com "codebook completo", codebook com descrições, critérios e critérios
+  gerais. Re-teste: o contêiner ganha `opacity-60` e `aria-busy` com entrada e resposta dentro, e
+  as duas são trocadas no fim. Em 375 px a linha longa quebra dentro da caixa. Nenhuma rodada nem
+  versão congelada nos projetos da conferência, que foram apagados; `scores` vazia.
+- Fora do escopo, visto na conferência: em 375 px a barra de abas do projeto (Visão geral,
+  Codebook, Prompt, Itens...) passa da largura da tela e a página rola na horizontal. Não é desta
+  fatia.
+- Checkboxes do issue não marcados daqui: ficam para quem fizer o commit.
 
 ---
 

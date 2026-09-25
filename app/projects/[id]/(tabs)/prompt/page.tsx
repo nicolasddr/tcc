@@ -88,6 +88,7 @@ export default async function ProjectPromptPage({
             items={items}
             model={llmModel()}
             ready={canAdvanceFromPhase1(inputs)}
+            phase={project.phase}
           />
         </Panel>
       </div>
