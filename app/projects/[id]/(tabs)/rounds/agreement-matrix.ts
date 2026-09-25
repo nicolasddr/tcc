@@ -52,11 +52,22 @@ export function matrixColumns<C extends CriterionKey>(
   return ordered.map((criterion) => ({ criterion, isGeneral: isGeneral(criterion) }))
 }
 
-export function agreementMatrix<D extends DefinitionKey, C extends CriterionKey>(
+export type MeasuredCell<V> =
+  | { state: 'not_applicable' }
+  | { state: 'unrated' }
+  | { state: 'measured'; value: V }
+
+export type MeasuredRow<D, C, V> = {
+  definition: D
+  cells: { column: MatrixColumn<C>; cell: MeasuredCell<V> }[]
+}
+
+export function measuredMatrix<D extends DefinitionKey, C extends CriterionKey, V>(
   definitions: readonly D[],
   criteria: readonly C[],
   observations: readonly RoundObservation[],
-): MatrixRow<D, C>[] {
+  measure: (group: readonly RoundObservation[]) => V,
+): MeasuredRow<D, C, V>[] {
   const columns = matrixColumns(definitions, criteria)
   const byCell = groupByCell(observations)
 
@@ -75,8 +86,24 @@ export function agreementMatrix<D extends DefinitionKey, C extends CriterionKey>
         const group = byCell.get(cellKey(definition.id, column.criterion.id))
         if (!group) return { column, cell: { state: 'unrated' } as const }
 
-        return { column, cell: { state: 'calculated', agreement: ordinalAlpha(group) } as const }
+        return { column, cell: { state: 'measured', value: measure(group) } as const }
       }),
     }
   })
+}
+
+function agreementCell(cell: MeasuredCell<Agreement>): MatrixCell {
+  if (cell.state !== 'measured') return cell
+  return { state: 'calculated', agreement: cell.value }
+}
+
+export function agreementMatrix<D extends DefinitionKey, C extends CriterionKey>(
+  definitions: readonly D[],
+  criteria: readonly C[],
+  observations: readonly RoundObservation[],
+): MatrixRow<D, C>[] {
+  return measuredMatrix(definitions, criteria, observations, ordinalAlpha).map((row) => ({
+    definition: row.definition,
+    cells: row.cells.map(({ column, cell }) => ({ column, cell: agreementCell(cell) })),
+  }))
 }
