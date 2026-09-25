@@ -35,12 +35,21 @@ import {
 } from '@/app/projects/[id]/(tabs)/rounds/agreement-panel'
 import { AgreementMatrixTable } from '@/app/projects/[id]/(tabs)/rounds/agreement-matrix-table'
 import {
+  QualityPanel,
+  QualityValue,
+} from '@/app/projects/[id]/(tabs)/rounds/quality-panel'
+import {
+  QUALITY_UNRATED,
+  QUALITY_UNRATED_WITHOUT_OUTLIERS,
+} from '@/app/projects/[id]/(tabs)/rounds/quality-labels'
+import {
   AGREEMENT_ALL_LABEL,
   AGREEMENT_SOURCE,
   AGREEMENT_WITHOUT_OUTLIERS_LABEL,
   CELL_NOT_APPLICABLE,
   CELL_NOT_APPLICABLE_TITLE,
   MATRIX_SCOPE_NOTE,
+  OUTLIER_PAIR_SUMMARY,
 } from '@/app/projects/[id]/(tabs)/rounds/agreement-labels'
 import { Section } from '@/app/components/ui/section'
 import { loadCodebookVersion } from '@/app/projects/[id]/pipeline/codebook'
@@ -162,6 +171,7 @@ type GenerateProps = Parameters<typeof GenerateResponses>[0]
 type PanelProps = Parameters<typeof AgreementPanel>[0]
 type MatrixProps = Parameters<typeof AgreementMatrixTable>[0]
 type EvaluatorProps = Parameters<typeof EvaluatorRounds>[0]
+type QualityProps = Parameters<typeof QualityPanel>[0]
 
 function render(id: string) {
   return ProjectRoundsPage({ params: Promise.resolve({ id }) })
@@ -209,6 +219,12 @@ function evaluatorRoundsOf(tree: unknown): EvaluatorProps {
   return element!.props as EvaluatorProps
 }
 
+function qualityPanelOf(tree: unknown): QualityProps {
+  const element = findElement(tree, QualityPanel)
+  expect(element).toBeTruthy()
+  return element!.props as QualityProps
+}
+
 function markupTextOf(element: ReactElement): string {
   return renderToStaticMarkup(element)
     .replace(/<[^>]*>/g, ' ')
@@ -218,6 +234,16 @@ function markupTextOf(element: ReactElement): string {
 
 function panelTextOf(tree: unknown): string {
   return markupTextOf(createElement(AgreementPanel, panelOf(tree)))
+}
+
+function qualityTextOf(tree: unknown): string {
+  return markupTextOf(createElement(QualityPanel, qualityPanelOf(tree)))
+}
+
+function classNamesOf(element: ReactElement): string[] {
+  return [...renderToStaticMarkup(element).matchAll(/class="([^"]*)"/g)].map(
+    (match) => match[1],
+  )
 }
 
 function matrixTextOf(tree: unknown): string {
@@ -273,11 +299,12 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
   async function roundWith(
     admin: string,
     responseCount: number,
-    opts: { shape?: CodebookShape; status?: 'open' | 'closed' } = {},
+    opts: { shape?: CodebookShape; status?: 'open' | 'closed'; phase?: number } = {},
   ): Promise<Scene> {
+    const phase = opts.phase ?? PHASE_2
     const { project, codebookVersion, promptVersion } = await readyProject(
       admin,
-      PHASE_2,
+      phase,
       opts.shape ?? ONE_DEFINITION,
     )
     const round = await addRound(
@@ -286,7 +313,7 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
       admin,
       codebookVersion,
       promptVersion,
-      { roundNumber: 1, status: opts.status ?? 'open' },
+      { roundNumber: 1, status: opts.status ?? 'open', phase },
     )
 
     const responses: string[] = []
@@ -314,6 +341,29 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
       criterionId: cell.criterionId,
       value,
     }))
+  }
+
+  async function qualityScene(
+    admin: string,
+    phase: number,
+  ): Promise<{ scene: Scene; ana: string; bruno: string }> {
+    const scene = await roundWith(admin, 4, { phase, status: 'closed' })
+    const ana = await newEvaluator(scene.project, 'Ana')
+    const bruno = await newEvaluator(scene.project, 'Bruno')
+
+    const notes = {
+      [ana]: ['high', 'high', 'high', 'medium'],
+      [bruno]: ['high', 'high', 'medium', 'low'],
+    } as const
+    for (const evaluator of [ana, bruno]) {
+      for (const [index, value] of notes[evaluator].entries()) {
+        await addEvaluation(ownerDb, scene.round, scene.responses[index], evaluator, {
+          cells: filled(scene.cells, value),
+        })
+      }
+    }
+
+    return { scene, ana, bruno }
   }
 
   function cellsOf(scene: Scene, definitionTitle: string): SceneCell[] {
@@ -829,6 +879,219 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     expect(text).toContain('2 unidades · 2 avaliadores')
   })
 
+  it('numa rodada da Fase 3, o Administrador vê a Qualidade com porcentagem e contagem', async () => {
+    const admin = await newUser('Admin')
+    const { scene } = await qualityScene(admin, PHASE_3)
+
+    auth.userId = admin
+    const tree = await render(scene.project)
+
+    const pair = qualityPanelOf(tree).pair
+    expect(pair.withoutOutliers).toBeNull()
+    expect(pair.all).toEqual({
+      rated: true,
+      total: 8,
+      levels: [
+        { value: 'high', count: 5, share: 0.625 },
+        { value: 'medium', count: 2, share: 0.25 },
+        { value: 'low', count: 1, share: 0.125 },
+      ],
+    })
+
+    const text = qualityTextOf(tree)
+    expect(text).toContain('Qualidade')
+    expect(text).toContain('8 notas')
+    expect(text).toContain('Alto 62,5% · 5 notas')
+    expect(text).toContain('Médio 25% · 2 notas')
+    expect(text).toContain('Baixo 12,5% · 1 nota')
+
+    const section = findSection(tree, QualityPanel)
+    expect(textOf((section!.props as { title: ReactNode }).title)).toBe(
+      'Qualidade na rodada 1, fechada',
+    )
+  })
+
+  it('numa rodada da Fase 2, a Qualidade não aparece e o ICR continua', async () => {
+    const admin = await newUser('Admin')
+    const { scene } = await qualityScene(admin, PHASE_2)
+
+    auth.userId = admin
+    const tree = await render(scene.project)
+
+    expect(findElement(tree, QualityPanel)).toBeNull()
+    expect(panelOf(tree).pair.all).toMatchObject({ calculable: true })
+
+    const list = listOf(tree)
+    expect(list.quality.has(scene.round)).toBe(false)
+    expect(allTextOf(tree)).not.toContain('Qualidade')
+    expect(markupTextOf(createElement(RoundList, list))).not.toContain('Qualidade')
+  })
+
+  it('a Qualidade é um bloco separado do ICR, e o painel do ICR não recebe nada dela', async () => {
+    const admin = await newUser('Admin')
+    const { scene } = await qualityScene(admin, PHASE_3)
+
+    auth.userId = admin
+    const tree = await render(scene.project)
+
+    const qualitySection = findSection(tree, QualityPanel)
+    const agreementSection = findSection(tree, AgreementPanel)
+    expect(qualitySection).toBeTruthy()
+    expect(agreementSection).toBeTruthy()
+    expect(qualitySection).not.toBe(agreementSection)
+    expect(findElement(agreementSection, QualityPanel)).toBeNull()
+    expect(findElement(qualitySection, AgreementPanel)).toBeNull()
+
+    expect(Object.keys(panelOf(tree)).sort()).toEqual([
+      'effort',
+      'outliers',
+      'pair',
+      'responses',
+    ])
+    expect(Object.keys(panelOf(tree).pair).sort()).toEqual([
+      'all',
+      'excluded',
+      'withoutOutliers',
+    ])
+  })
+
+  it('a rodada da Fase 3 sem nota diz que não há notas, e nunca 0%', async () => {
+    const admin = await newUser('Admin')
+    const scene = await roundWith(admin, 2, { phase: PHASE_3 })
+
+    auth.userId = admin
+    const tree = await render(scene.project)
+
+    expect(qualityPanelOf(tree).pair).toEqual({
+      all: { rated: false, total: 0 },
+      withoutOutliers: null,
+      excluded: 0,
+    })
+    const text = qualityTextOf(tree)
+    expect(text).toContain(QUALITY_UNRATED)
+    expect(text).not.toContain('0%')
+
+    const value = findElement(RoundList(listOf(tree)), QualityValue)
+    expect(markupTextOf(value!)).toContain(`Qualidade: ${QUALITY_UNRATED}`)
+    expect(markupTextOf(value!)).not.toContain('0%')
+  })
+
+  it('com alguém marcado, a Qualidade mostra os dois valores, o com todos primeiro', async () => {
+    const admin = await newUser('Admin')
+    const { scene, bruno } = await qualityScene(admin, PHASE_3)
+    await addOutlier(ownerDb, scene.round, bruno, admin)
+
+    auth.userId = admin
+    const tree = await render(scene.project)
+
+    const pair = qualityPanelOf(tree).pair
+    expect(pair.excluded).toBe(1)
+    expect(pair.all).toMatchObject({ rated: true, total: 8 })
+    expect(pair.withoutOutliers).toEqual({
+      rated: true,
+      total: 4,
+      levels: [
+        { value: 'high', count: 3, share: 0.75 },
+        { value: 'medium', count: 1, share: 0.25 },
+        { value: 'low', count: 0, share: 0 },
+      ],
+    })
+
+    const text = qualityTextOf(tree)
+    const allAt = text.indexOf(`Qualidade — ${AGREEMENT_ALL_LABEL}`)
+    const withoutAt = text.indexOf(`Qualidade — ${AGREEMENT_WITHOUT_OUTLIERS_LABEL}`)
+    expect(allAt).toBeGreaterThanOrEqual(0)
+    expect(withoutAt).toBeGreaterThan(allAt)
+    expect(text).toContain('Alto 75% · 3 notas')
+    expect(text).toContain('1 avaliador fora')
+    expect(text).toContain(OUTLIER_PAIR_SUMMARY)
+
+    const value = markupTextOf(findElement(RoundList(listOf(tree)), QualityValue)!)
+    expect(value).toContain(
+      `Qualidade ${AGREEMENT_ALL_LABEL}: Alto 62,5% (5) · Médio 25% (2) · Baixo 12,5% (1)`,
+    )
+    expect(value).toContain(
+      `${AGREEMENT_WITHOUT_OUTLIERS_LABEL}: Alto 75% (3) · Médio 25% (1) · Baixo 0% (0)`,
+    )
+  })
+
+  it('com todo mundo marcado, a Qualidade diz que não sobra nota e mantém o com todos', async () => {
+    const admin = await newUser('Admin')
+    const { scene, ana, bruno } = await qualityScene(admin, PHASE_3)
+    await addOutlier(ownerDb, scene.round, ana, admin)
+    await addOutlier(ownerDb, scene.round, bruno, admin)
+
+    auth.userId = admin
+    const tree = await render(scene.project)
+
+    const pair = qualityPanelOf(tree).pair
+    expect(pair.all).toMatchObject({ rated: true, total: 8 })
+    expect(pair.withoutOutliers).toEqual({ rated: false, total: 0 })
+
+    const text = qualityTextOf(tree)
+    expect(text).toContain('Alto 62,5% · 5 notas')
+    expect(text).toContain(QUALITY_UNRATED_WITHOUT_OUTLIERS)
+  })
+
+  it('a Qualidade não usa cor de juízo em nenhum elemento', async () => {
+    const admin = await newUser('Admin')
+    const { scene, bruno } = await qualityScene(admin, PHASE_3)
+    await addOutlier(ownerDb, scene.round, bruno, admin)
+
+    auth.userId = admin
+    const tree = await render(scene.project)
+
+    const classes = [
+      ...classNamesOf(createElement(QualityPanel, qualityPanelOf(tree))),
+      ...classNamesOf(findElement(RoundList(listOf(tree)), QualityValue)!),
+    ]
+    expect(classes.length).toBeGreaterThan(0)
+    for (const className of classes) {
+      for (const tone of ['success', 'warning', 'danger', 'brand']) {
+        expect(className).not.toContain(tone)
+      }
+    }
+
+    const bars = renderToStaticMarkup(createElement(QualityPanel, qualityPanelOf(tree)))
+      .match(/class="h-full rounded-full [^"]*"/g)
+    expect(bars).toHaveLength(6)
+    expect(new Set(bars).size).toBe(1)
+  })
+
+  it('a lista de rodadas mostra a Qualidade só nas rodadas da Fase 3', async () => {
+    const admin = await newUser('Admin')
+    const { project, codebookVersion, promptVersion } = await readyProject(
+      admin,
+      PHASE_3,
+    )
+    const phase2 = await addRound(ownerDb, project, admin, codebookVersion, promptVersion, {
+      roundNumber: 1,
+      status: 'closed',
+      phase: PHASE_2,
+    })
+    const phase3 = await addRound(ownerDb, project, admin, codebookVersion, promptVersion, {
+      roundNumber: 2,
+      status: 'closed',
+      phase: PHASE_3,
+    })
+
+    auth.userId = admin
+    const list = listOf(await render(project))
+
+    expect([...list.quality.keys()]).toEqual([phase3])
+    expect(list.agreement.has(phase2)).toBe(true)
+
+    const rendered = RoundList(list)
+    const values: ReactElement[] = []
+    const cards = (rendered.props as { children: ReactElement[] }).children
+    for (const card of cards) {
+      const value = findElement(card, QualityValue)
+      if (value) values.push(value)
+    }
+    expect(values).toHaveLength(1)
+    expect(textOf(cards[0])).not.toContain('Qualidade')
+  })
+
   it('a célula sem dado suficiente mostra a falta de dado, e nunca um zero', async () => {
     const admin = await newUser('Admin')
     const scene = await roundWith(admin, 2, { shape: TWO_DEFINITIONS })
@@ -1061,10 +1324,10 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     expect(text).not.toContain('LLM')
   })
 
-  it('a área de rodadas do avaliador não fala de coeficiente', async () => {
+  it('a área de rodadas do avaliador não fala de coeficiente nem de Qualidade', async () => {
     const admin = await newUser('Admin')
     const anaUser = await newUser('Ana')
-    const scene = await roundWith(admin, 2, { status: 'closed' })
+    const scene = await roundWith(admin, 2, { status: 'closed', phase: PHASE_3 })
     const ana = await addActiveEvaluator(ownerDb, scene.project, anaUser)
     const bruno = await newEvaluator(scene.project, 'Bruno')
 
@@ -1083,10 +1346,11 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     const text = `${allTextOf(tree)} ${markupTextOf(createElement(EvaluatorRounds, props))}`
 
     expect(props.rounds.map((round) => round.roundNumber)).toEqual([1])
-    for (const word of ['Krippendorff', 'ICR', 'Alpha', 'Concordância']) {
+    for (const word of ['Krippendorff', 'ICR', 'Alpha', 'Concordância', 'Qualidade', '%']) {
       expect(text).not.toContain(word)
     }
     expect(findElement(tree, AgreementPanel)).toBeNull()
+    expect(findElement(tree, QualityPanel)).toBeNull()
     expect(findElement(tree, AgreementMatrixTable)).toBeNull()
   })
 

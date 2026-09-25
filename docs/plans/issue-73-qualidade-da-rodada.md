@@ -13,7 +13,7 @@ seguinte herda", e é ali que se anota o que divergiu.
 | Parte | Entrega | Estado |
 |---|---|---|
 | 1 | O cálculo puro e as palavras: distribuição, par com e sem outliers, formatação sem juízo | ☑ |
-| 2 | A tela de rodadas: o bloco da Qualidade ao lado do ICR e a linha na lista de rodadas | ☐ |
+| 2 | A tela de rodadas: o bloco da Qualidade ao lado do ICR e a linha na lista de rodadas | ☑ |
 | 3 | A visão geral, a prova de que o Avaliador não vê nada, e a varredura dos ACs | ☐ |
 
 **Sem migration, sem ADR nova.** A Qualidade é derivada das notas na leitura, como o ICR: nenhuma
@@ -425,7 +425,38 @@ o celular (375px) sem rolagem horizontal. **Apagar a cena** depois (`scores` vaz
 
 ### O que a Parte 3 herda
 
-(a preencher)
+- `rounds.ts` exporta `focusRoundOf(rounds)`, e a tela de rodadas já usa. A visão geral chama a
+  mesma função sobre `agreement.rounds`.
+- `quality-panel.tsx` exporta `QualityPanel({ pair })` e `QualityValue({ pair })`. O painel, sem
+  par, é um `StatCard` só (rótulo `Qualidade`, valor "N notas" ou `QUALITY_UNRATED`, e as três
+  linhas "Alto" / "62,5% · 5 notas" com barra); com par, dois cards em `sm:grid-cols-2` com os
+  rótulos `Qualidade — com todos` e `Qualidade — sem os marcados como outlier`, o segundo com
+  "N avaliador(es) fora" de dica, e `OUTLIER_PAIR_SUMMARY` embaixo (sem o `InfoTooltip` do
+  `OUTLIER_PAIR_HINT`, que já está no painel do ICR logo acima).
+- A barra é trilho `bg-line` com preenchimento `bg-faint`, a mesma para os três pontos, com
+  `aria-hidden`. `bg-faint` não era usado como fundo em lugar nenhum, então não carrega sentido de
+  estado.
+- `QualityValue` escreve "Qualidade: Alto 62,5% (5) · Médio 25% (2) · Baixo 12,5% (1)" e o total
+  ("8 notas") num `span` ao lado, no desenho de `AgreementValue`; com par, "Qualidade com todos:
+  …" e "sem os marcados como outlier: …".
+- Na tela de rodadas, `quality: Map<string, QualityPair>` só tem as rodadas com
+  `hasQuality(round.phase)`, e a `Section` "Qualidade na rodada N[, fechada]" aparece quando a
+  rodada em foco está nesse `Map`, com `hint` "A distribuição das notas desta rodada entre Alto,
+  Médio e Baixo." e `help` `QUALITY_HELP`. A visão geral deve usar o mesmo `hint` e o mesmo `help`.
+- `RoundList` ganhou a prop obrigatória `quality`.
+- Em `(tabs)/rounds/page.int.test.ts`: `roundWith` aceita `phase` (default `PHASE_2`, e grava no
+  projeto e na rodada); `qualityScene(admin, phase)` monta a rodada fechada com 5/2/1 (Ana e
+  Bruno, quatro respostas, uma célula); `qualityPanelOf`, `qualityTextOf` e `classNamesOf` (varre
+  os `class` do markup) estão lá para copiar. O teste do Avaliador "não fala de coeficiente nem de
+  Qualidade" já roda numa rodada da Fase 3 e varre "Qualidade" e "%".
+- A varredura de cor proíbe `success`, `warning`, `danger` e também `brand` nas classes do painel e
+  da linha da lista.
+- Conferido no navegador (cena com rodada 1 da Fase 2 e rodada 2 da Fase 3, Carla marcada): bloco
+  só na rodada da Fase 3, logo depois da Concordância, os dois cards com o com todos primeiro, as
+  seis barras com a mesma cor, a linha só na rodada da Fase 3 da lista, e a 375px os cards
+  empilhados sem nada passando da largura. O screenshot saiu preto (painel), então a prova foi por
+  DOM. Cena apagada, `scores` vazia.
+- `npm run lint`, `npm run typecheck` e `npm test` (73 arquivos, 979 testes) verdes.
 
 ---
 

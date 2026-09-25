@@ -4,7 +4,7 @@ import { loadCodebook, loadCodebookVersion } from '../../pipeline/codebook'
 import { loadPrompt } from '../../pipeline/prompt'
 import { loadItems } from '../../pipeline/items'
 import { listRoundResponses } from '../../pipeline/responses'
-import { isOpen, listRounds, loadOpenRound } from './rounds'
+import { focusRoundOf, listRounds, loadOpenRound } from './rounds'
 import {
   listEvaluatorEffort,
   loadProjectObservations,
@@ -17,6 +17,8 @@ import {
   type AgreementPair,
 } from './agreement-pair'
 import { loadProjectOutliers, loadRoundOutliers } from './outliers'
+import { hasQuality, qualityPair, type QualityPair } from './quality'
+import { QUALITY_HELP } from './quality-labels'
 import { evaluatorsNotFinished, isActiveEvaluator, roundBlockers } from './preconditions'
 import { NewRound } from './new-round'
 import { CloseRound } from './close-round'
@@ -27,6 +29,7 @@ import { listReviewableRounds } from './review'
 import { requireReviewAccess } from './review-access'
 import { AgreementPanel } from './agreement-panel'
 import { AgreementMatrixTable } from './agreement-matrix-table'
+import { QualityPanel } from './quality-panel'
 import { llmModel } from '@/lib/ai'
 import { projectResponsesLeft, projectResponsesMax } from '@/lib/ai/quota'
 import { Section } from '@/app/components/ui/section'
@@ -63,7 +66,7 @@ export default async function ProjectRoundsPage({
     const isAdmin = access.isAdmin
     const openRound = isAdmin ? await loadOpenRound(projectId, tx) : null
     const rounds = isAdmin ? await listRounds(projectId, tx) : []
-    const focusRound = rounds.find(isOpen) ?? rounds[rounds.length - 1] ?? null
+    const focusRound = focusRoundOf(rounds)
 
     return {
       access,
@@ -118,6 +121,18 @@ export default async function ProjectRoundsPage({
       ),
     ]),
   )
+  const quality = new Map<string, QualityPair>(
+    rounds
+      .filter((round) => hasQuality(round.phase))
+      .map((round) => [
+        round.id,
+        qualityPair(
+          observations.get(round.id) ?? [],
+          outliers.get(round.id) ?? EMPTY_SET,
+        ),
+      ]),
+  )
+  const focusQuality = focusRound ? quality.get(focusRound.id) : undefined
   const focusObservations = focusRound ? (observations.get(focusRound.id) ?? []) : []
   const focusExcluded = focusRound
     ? (outliers.get(focusRound.id) ?? EMPTY_SET)
@@ -225,12 +240,31 @@ export default async function ProjectRoundsPage({
         </Section>
       ) : null}
 
+      {focusRound && focusQuality ? (
+        <Section
+          title={
+            focusRound.closedAt
+              ? `Qualidade na rodada ${focusRound.roundNumber}, fechada`
+              : `Qualidade na rodada ${focusRound.roundNumber}`
+          }
+          hint="A distribuição das notas desta rodada entre Alto, Médio e Baixo."
+          help={QUALITY_HELP}
+        >
+          <QualityPanel pair={focusQuality} />
+        </Section>
+      ) : null}
+
       <Section
         title="Rodadas do projeto"
         hint="Em ordem cronológica, com o estado de cada uma."
         help="Cada rodada aparece com as versões de codebook e de prompt que ela fixou e a concordância alcançada sobre elas."
       >
-        <RoundList projectId={project.id} rounds={rounds} agreement={agreement} />
+        <RoundList
+          projectId={project.id}
+          rounds={rounds}
+          agreement={agreement}
+          quality={quality}
+        />
       </Section>
     </>
   )

@@ -5,16 +5,20 @@ import { OpenLink } from '@/app/components/ui/open-link'
 import { formatDate } from '@/app/notifications/labels'
 import { AgreementValue } from './agreement-panel'
 import type { AgreementPair } from './agreement-pair'
+import { QualityValue } from './quality-panel'
+import type { QualityPair } from './quality'
 import { isOpen, type RoundSummary } from './rounds'
 
 export function RoundList({
   projectId,
   rounds,
   agreement,
+  quality,
 }: {
   projectId: string
   rounds: RoundSummary[]
   agreement: Map<string, AgreementPair>
+  quality: Map<string, QualityPair>
 }) {
   if (rounds.length === 0) {
     return (
@@ -55,6 +59,8 @@ export function RoundList({
             {agreement.has(round.id) ? (
               <AgreementValue pair={agreement.get(round.id)!} />
             ) : null}
+
+            {quality.has(round.id) ? <QualityValue pair={quality.get(round.id)!} /> : null}
 
             {isOpen(round) ? null : (
               <p className="m-0 mt-2 text-[13px]">

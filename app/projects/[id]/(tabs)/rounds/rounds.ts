@@ -40,6 +40,10 @@ export function isOpen(round: { status: string }): boolean {
   return round.status === ROUND_OPEN
 }
 
+export function focusRoundOf<T extends { status: string }>(rounds: readonly T[]): T | null {
+  return rounds.find(isOpen) ?? rounds[rounds.length - 1] ?? null
+}
+
 export async function loadOpenRound(
   projectId: string,
   db: DbExecutor = ownerDb,
