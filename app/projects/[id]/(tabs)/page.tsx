@@ -17,12 +17,15 @@ import { EMPTY_PIPELINE, PHASE_1, PHASE_2 } from '../pipeline/preconditions'
 import { loadCodebook } from '../pipeline/codebook'
 import { loadPrompt } from '../pipeline/prompt'
 import { countItems } from '../pipeline/items'
-import { listRounds, isOpen } from './rounds/rounds'
+import { listRounds, isOpen, focusRoundOf } from './rounds/rounds'
 import { loadProjectObservations } from './rounds/agreement'
 import { loadProjectOutliers } from './rounds/outliers'
 import { agreementSeries } from './rounds/agreement-series'
 import { agreementPair } from './rounds/agreement-pair'
 import { AgreementSeriesChart } from './rounds/agreement-series-chart'
+import { hasQuality, qualityPair } from './rounds/quality'
+import { QUALITY_HELP, QUALITY_HINT } from './rounds/quality-labels'
+import { QualityPanel } from './rounds/quality-panel'
 import { SubmitButton } from '@/app/components/submit-button'
 import { ButtonLink } from '@/app/components/ui/button'
 import { Callout } from '@/app/components/ui/panel'
@@ -129,6 +132,15 @@ export default async function ProjectPage({
   const series = agreement
     ? agreementSeries(agreement.rounds, agreement.observations, agreement.outliers)
     : null
+
+  const focus = agreement ? focusRoundOf(agreement.rounds) : null
+  const focusQuality =
+    agreement && focus && hasQuality(focus.phase)
+      ? qualityPair(
+          agreement.observations.get(focus.id) ?? [],
+          agreement.outliers.get(focus.id) ?? new Set(),
+        )
+      : null
 
   const closed = agreement ? agreement.rounds.filter((round) => !isOpen(round)) : []
   const latest = closed[closed.length - 1]
@@ -282,6 +294,25 @@ export default async function ProjectPage({
               help="Cada ponto traz a versão de codebook que a rodada fixou. A curva é a leitura da fase: o codebook refinado entre rodadas deve aparecer aqui como concordância maior na rodada seguinte."
             >
               <AgreementSeriesChart points={series} projectId={project.id} />
+            </Section>
+          ) : null}
+
+          {focus && focusQuality ? (
+            <Section
+              title={
+                focus.closedAt
+                  ? `Qualidade na rodada ${focus.roundNumber}, fechada`
+                  : `Qualidade na rodada ${focus.roundNumber}`
+              }
+              hint={QUALITY_HINT}
+              help={QUALITY_HELP}
+            >
+              <div className="flex flex-col gap-3">
+                <QualityPanel pair={focusQuality} />
+                <p className="m-0 text-xs">
+                  <OpenLink href={`/projects/${project.id}/rounds`}>Abrir rodadas</OpenLink>
+                </p>
+              </div>
             </Section>
           ) : null}
 

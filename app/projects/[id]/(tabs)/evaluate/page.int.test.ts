@@ -31,7 +31,9 @@ import { buildQueue } from '@/app/projects/[id]/(tabs)/evaluate/queue'
 import { loadCodebookVersion } from '@/app/projects/[id]/pipeline/codebook'
 import { resolveCells } from '@/app/projects/[id]/pipeline/criteria'
 import { listRoundResponses } from '@/app/projects/[id]/pipeline/responses'
-import { PHASE_1, PHASE_2 } from '@/app/projects/[id]/pipeline/preconditions'
+import { PHASE_1, PHASE_2, PHASE_3 } from '@/app/projects/[id]/pipeline/preconditions'
+import { QualityPanel, QualityValue } from '@/app/projects/[id]/(tabs)/rounds/quality-panel'
+import { roundInputSummary } from '@/app/projects/[id]/(tabs)/rounds/preconditions'
 import { Section } from '@/app/components/ui/section'
 import { ProgressBar } from '@/app/components/ui/stat'
 import { ownerDb, rounds } from '@/lib/db'
@@ -148,6 +150,20 @@ async function open(id: string, response?: string) {
   return render(id, chosen!)
 }
 
+function screenTextOf(tree: unknown): string {
+  return [
+    deepText(tree),
+    renderToStaticMarkup(createElement(Fragment, null, tree as ReactElement)),
+    markupOf(formOf(tree)),
+    panelMarkupOf(tree),
+  ]
+    .join(' ')
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/g, '<id>')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
 function formOf(tree: unknown): FormProps {
   const element = findElement(tree, EvaluationForm)
   expect(element).toBeTruthy()
@@ -215,7 +231,9 @@ describe('app/projects/[id]/evaluate — a tela do avaliador', () => {
       return { project, round: '', codebookVersion, responses: [] }
     }
 
-    const round = await addRound(ownerDb, project, admin, codebookVersion, promptVersion)
+    const round = await addRound(ownerDb, project, admin, codebookVersion, promptVersion, {
+      phase: opts.phase ?? PHASE_2,
+    })
 
     const responses: string[] = []
     for (let index = 0; index < (opts.responses ?? 1); index += 1) {
@@ -630,6 +648,56 @@ describe('app/projects/[id]/evaluate — a tela do avaliador', () => {
     expect(page).not.toContain('Krippendorff')
     expect(page).not.toContain('ICR')
     expect(page).not.toContain('Concordância')
+  })
+
+  it('a tela de avaliação é igual nas Fases 2 e 3', async () => {
+    const admin = await newUser('Admin')
+    const evaluator = await newUser('Avaliadora')
+    const scenes = [
+      await scenario(admin, { phase: PHASE_2 }),
+      await scenario(admin, { phase: PHASE_3 }),
+    ]
+
+    auth.userId = evaluator
+    const texts: string[] = []
+    for (const scene of scenes) {
+      await addActiveEvaluator(ownerDb, scene.project, evaluator)
+      texts.push(screenTextOf(await open(scene.project)))
+    }
+
+    expect(texts[0]).toContain('Resposta 1')
+    expect(texts[1]).toBe(texts[0])
+  })
+
+  it('na Fase 3, a tela de avaliação não diz a fase, nem o que a LLM recebeu, nem a Qualidade', async () => {
+    const admin = await newUser('Admin')
+    const scene = await scenario(admin, { phase: PHASE_3, responses: 2 })
+    const ana = await newEvaluator(scene.project, 'Ana')
+    await addActiveEvaluator(ownerDb, scene.project, admin)
+
+    const codebook = await loadCodebookVersion(scene.project, scene.codebookVersion)
+    const cells = resolveCells(codebook!.definitions, codebook!.criteria).map((cell) => ({
+      definitionId: cell.definition.id,
+      criterionId: cell.criterion.id,
+      value: 'high' as const,
+    }))
+    const member = await memberIdOf(ownerDb, scene.project, ana)
+    await addEvaluation(ownerDb, scene.round, scene.responses[0], member, { cells })
+
+    for (const user of [ana, admin]) {
+      auth.userId = user
+      const tree = await open(scene.project)
+      const page = screenTextOf(tree)
+
+      expect(page).toContain('Resposta')
+      for (const word of ['Fase', 'codebook completo', 'Qualidade', '%']) {
+        expect(page).not.toContain(word)
+      }
+      expect(page).not.toContain(roundInputSummary(PHASE_2))
+      expect(page).not.toContain(roundInputSummary(PHASE_3))
+      expect(findElement(tree, QualityPanel)).toBeNull()
+      expect(findElement(tree, QualityValue)).toBeNull()
+    }
   })
 
   it('sem codebook nenhum, a tela diz que o administrador ainda está montando', async () => {

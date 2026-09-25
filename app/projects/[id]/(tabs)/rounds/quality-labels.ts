@@ -7,6 +7,10 @@ export const QUALITY_UNRATED = 'ainda não há notas'
 
 export const QUALITY_UNRATED_WITHOUT_OUTLIERS = 'não sobra nota depois da exclusão'
 
+export const QUALITY_HINT =
+  `A distribuição das notas desta rodada entre ${scaleLabel('high')}, ` +
+  `${scaleLabel('medium')} e ${scaleLabel('low')}.`
+
 export const QUALITY_HELP =
   `A ${QUALITY_LABEL} é a distribuição das notas desta rodada entre ` +
   `${scaleLabel('high')}, ${scaleLabel('medium')} e ${scaleLabel('low')}, em ` +

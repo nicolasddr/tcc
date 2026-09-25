@@ -8,6 +8,7 @@
 //
 // PRÉ-REQUISITO: Supabase LOCAL de pé (`supabase start`), igual ao `npm test`.
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+import { eq } from 'drizzle-orm'
 import { createElement, isValidElement, type ReactElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 
@@ -28,6 +29,7 @@ vi.mock('next/navigation', () => ({
 }))
 
 import ProjectPage from '@/app/projects/[id]/(tabs)/page'
+import ProjectRoundsPage from '@/app/projects/[id]/(tabs)/rounds/page'
 import ProjectTabsLayout from '@/app/projects/[id]/(tabs)/layout'
 import { ProjectTabs } from '@/app/projects/[id]/project-tabs'
 import { PipelineChecklist } from '@/app/projects/[id]/pipeline/pipeline-checklist'
@@ -40,6 +42,8 @@ import {
   pendingRequirements,
 } from '@/app/projects/[id]/pipeline/preconditions'
 import { AgreementSeriesChart } from '@/app/projects/[id]/(tabs)/rounds/agreement-series-chart'
+import { QualityPanel } from '@/app/projects/[id]/(tabs)/rounds/quality-panel'
+import { Section } from '@/app/components/ui/section'
 import {
   AGREEMENT_BANDS,
   BAND_REFERENCE,
@@ -50,7 +54,7 @@ import {
 } from '@/app/projects/[id]/(tabs)/rounds/agreement-labels'
 import { loadCodebookVersion } from '@/app/projects/[id]/pipeline/codebook'
 import { resolveCells } from '@/app/projects/[id]/pipeline/criteria'
-import { ownerDb } from '@/lib/db'
+import { ownerDb, rounds } from '@/lib/db'
 import {
   createUser,
   createProject as seedProject,
@@ -108,11 +112,16 @@ type Phase2Props = Parameters<typeof Phase2Checklist>[0]
 type TabsProps = Parameters<typeof ProjectTabs>[0]
 type AdvanceProps = Parameters<typeof AdvancePhase>[0]
 type SeriesProps = Parameters<typeof AgreementSeriesChart>[0]
+type QualityProps = Parameters<typeof QualityPanel>[0]
 
 type ScaleValue = NonNullable<CellFixture['value']>
 
 function render(id: string) {
   return ProjectPage({ params: Promise.resolve({ id }) })
+}
+
+function renderRounds(id: string) {
+  return ProjectRoundsPage({ params: Promise.resolve({ id }) })
 }
 
 function renderLayout(id: string) {
@@ -168,6 +177,36 @@ function seriesTextOf(tree: unknown): string {
     .trim()
 }
 
+function qualityOf(tree: unknown): QualityProps {
+  const element = findElement(tree, QualityPanel)
+  expect(element).toBeTruthy()
+  return element!.props as QualityProps
+}
+
+function qualityTextOf(tree: unknown): string {
+  return renderToStaticMarkup(createElement(QualityPanel, qualityOf(tree)))
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function sectionWith(node: unknown, type: unknown): ReactElement | null {
+  if (Array.isArray(node)) {
+    for (const child of node) {
+      const found = sectionWith(child, type)
+      if (found) return found
+    }
+    return null
+  }
+  if (!isValidElement(node)) return null
+  if (node.type === Section && findElement(node, type)) return node
+  for (const value of Object.values(node.props as Record<string, unknown>)) {
+    const found = sectionWith(value, type)
+    if (found) return found
+  }
+  return null
+}
+
 describe('app/projects/[id]/page — escopo de visibilidade', () => {
   let users: string[]
   let projs: string[]
@@ -198,6 +237,7 @@ describe('app/projects/[id]/page — escopo de visibilidade', () => {
       roundNumber: number
       versionNumber: number
       status?: 'open' | 'closed'
+      phase?: number
       byEvaluator?: Record<string, readonly ScaleValue[]>
     },
   ): Promise<string> {
@@ -213,7 +253,7 @@ describe('app/projects/[id]/page — escopo de visibilidade', () => {
       admin,
       codebookVersion,
       promptVersion,
-      { roundNumber: opts.roundNumber, status: opts.status ?? 'closed' },
+      { roundNumber: opts.roundNumber, status: opts.status ?? 'closed', phase: opts.phase },
     )
 
     const codebook = await loadCodebookVersion(project, codebookVersion)
@@ -243,6 +283,11 @@ describe('app/projects/[id]/page — escopo de visibilidade', () => {
 
     return round
   }
+
+  const QUALITY_NOTES = {
+    ana: ['high', 'high', 'high', 'medium'],
+    bruno: ['high', 'high', 'medium', 'low'],
+  } as const
 
   beforeEach(() => {
     users = []
@@ -542,6 +587,113 @@ describe('app/projects/[id]/page — escopo de visibilidade', () => {
     expect(page).not.toContain('Krippendorff')
     expect(page).not.toContain('ICR')
     expect(page).not.toContain('Concordância')
+  })
+
+  it('o Administrador vê a Qualidade da rodada da Fase 3 na visão geral, com os valores da tela de rodadas', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin, PHASE_3)
+    const ana = await addActiveEvaluator(ownerDb, project, await newUser('Ana'))
+    const bruno = await addActiveEvaluator(ownerDb, project, await newUser('Bruno'))
+    const promptVersion = await addPromptVersion(ownerDb, project, admin)
+
+    await roundWith(project, admin, promptVersion, {
+      roundNumber: 1,
+      versionNumber: 1,
+      phase: PHASE_3,
+      byEvaluator: { [ana]: QUALITY_NOTES.ana, [bruno]: QUALITY_NOTES.bruno },
+    })
+
+    auth.userId = admin
+    const tree = await render(project)
+
+    const pair = qualityOf(tree).pair
+    expect(pair).toEqual({
+      all: {
+        rated: true,
+        total: 8,
+        levels: [
+          { value: 'high', count: 5, share: 0.625 },
+          { value: 'medium', count: 2, share: 0.25 },
+          { value: 'low', count: 1, share: 0.125 },
+        ],
+      },
+      withoutOutliers: null,
+      excluded: 0,
+    })
+    expect(pair).toEqual(qualityOf(await renderRounds(project)).pair)
+
+    const text = qualityTextOf(tree)
+    expect(text).toContain('Alto 62,5% · 5 notas')
+    expect(text).toContain('Médio 25% · 2 notas')
+    expect(text).toContain('Baixo 12,5% · 1 nota')
+
+    const section = sectionWith(tree, QualityPanel)
+    expect((section!.props as { title: unknown }).title).toBe(
+      'Qualidade na rodada 1, fechada',
+    )
+    expect(findElement(section, AgreementSeriesChart)).toBeNull()
+    expect(sectionWith(tree, AgreementSeriesChart)).not.toBe(section)
+    expect(hasProp(section, 'href', `/projects/${project}/rounds`)).toBe(true)
+  })
+
+  it('a visão geral não mostra Qualidade quando a rodada em foco é da Fase 2, mesmo com o projeto na Fase 3', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin, PHASE_3)
+    const ana = await addActiveEvaluator(ownerDb, project, await newUser('Ana'))
+    const bruno = await addActiveEvaluator(ownerDb, project, await newUser('Bruno'))
+    const promptVersion = await addPromptVersion(ownerDb, project, admin)
+
+    await roundWith(project, admin, promptVersion, {
+      roundNumber: 1,
+      versionNumber: 1,
+      phase: PHASE_2,
+      byEvaluator: { [ana]: QUALITY_NOTES.ana, [bruno]: QUALITY_NOTES.bruno },
+    })
+
+    auth.userId = admin
+    const tree = await render(project)
+
+    expect(findElement(tree, QualityPanel)).toBeNull()
+    expect(deepText(tree)).not.toContain('Qualidade')
+    expect(seriesOf(tree).points).toHaveLength(1)
+  })
+
+  it('o Avaliador não vê a Qualidade na visão geral, com a rodada da Fase 3 aberta nem depois de fechada', async () => {
+    const admin = await newUser('Admin')
+    const evaluator = await newUser('Avaliador')
+    const project = await newProject(admin, PHASE_3)
+    const ana = await addActiveEvaluator(ownerDb, project, evaluator)
+    const bruno = await addActiveEvaluator(ownerDb, project, await newUser('Bruno'))
+    const promptVersion = await addPromptVersion(ownerDb, project, admin)
+
+    const round = await roundWith(project, admin, promptVersion, {
+      roundNumber: 1,
+      versionNumber: 1,
+      phase: PHASE_3,
+      status: 'open',
+      byEvaluator: { [ana]: QUALITY_NOTES.ana, [bruno]: QUALITY_NOTES.bruno },
+    })
+
+    async function expectNoQuality() {
+      auth.userId = admin
+      expect(qualityOf(await render(project)).pair.all).toMatchObject({ total: 8 })
+
+      auth.userId = evaluator
+      const tree = await render(project)
+      expect(findElement(tree, QualityPanel)).toBeNull()
+      const page = deepText(tree)
+      expect(page).not.toContain('Qualidade')
+      expect(page).not.toContain('%')
+    }
+
+    await expectNoQuality()
+
+    await ownerDb
+      .update(rounds)
+      .set({ status: 'closed', closedAt: new Date().toISOString() })
+      .where(eq(rounds.id, round))
+
+    await expectNoQuality()
   })
 
   it('duas versões de codebook viram dois pontos, e nada na tela junta os dois', async () => {

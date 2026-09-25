@@ -14,7 +14,7 @@ seguinte herda", e é ali que se anota o que divergiu.
 |---|---|---|
 | 1 | O cálculo puro e as palavras: distribuição, par com e sem outliers, formatação sem juízo | ☑ |
 | 2 | A tela de rodadas: o bloco da Qualidade ao lado do ICR e a linha na lista de rodadas | ☑ |
-| 3 | A visão geral, a prova de que o Avaliador não vê nada, e a varredura dos ACs | ☐ |
+| 3 | A visão geral, a prova de que o Avaliador não vê nada, e a varredura dos ACs | ☑ |
 
 **Sem migration, sem ADR nova.** A Qualidade é derivada das notas na leitura, como o ICR: nenhuma
 tabela, coluna ou cache (requisito não funcional do spec). As decisões já estão escritas: a **emenda
@@ -532,7 +532,35 @@ geral conferida no navegador com a mesma cena da Parte 2 (apagada depois).
 
 ### O que esta Parte fechou
 
-(a preencher)
+- `(tabs)/page.tsx`: `focus = focusRoundOf(agreement.rounds)` e, se `hasQuality(focus.phase)`,
+  `qualityPair` sobre as mesmas observações e marcas da série. A `Section` "Qualidade na rodada
+  N[, fechada]" vem logo depois de "Concordância por rodada", com o `QualityPanel` e um `OpenLink`
+  "Abrir rodadas" embaixo (no desenho do link da série). `Phase2Checklist` não mudou.
+- O `hint` virou constante: `QUALITY_HINT` em `quality-labels.ts` (montado com `scaleLabel`, e por
+  isso dentro da varredura de palavras de juízo), usado pela tela de rodadas e pela visão geral. O
+  texto não mudou.
+- Testes novos: três na visão geral (Administrador vê com os mesmos valores da tela de rodadas,
+  comparando o `pair` das duas páginas; não vê com a rodada em foco da Fase 2 num projeto da Fase 3;
+  o Avaliador não vê com a rodada da Fase 3 aberta nem depois de fechada), dois na avaliação e um na
+  revisão. `roundWith` da visão geral aceita `phase`; `scenario` da avaliação passa a fase também à
+  rodada.
+- **Divergência de redação no teste da avaliação**: o 3.2 pedia "LLM" na varredura, mas a tela de
+  avaliação já tem, nas Fases 2 e 3, o painel "O que foi pedido à LLM" (prompt e item). O AC é não
+  dizer que a LLM recebeu o codebook, então o teste proíbe "Fase", "codebook completo", "Qualidade",
+  "%" e as duas frases de `roundInputSummary`, e o teste de igualdade entre as fases prova que o
+  painel é o mesmo nas duas.
+- O teste de igualdade compara o texto de toda a tela (árvore, markup, formulário e painel) com os
+  UUIDs normalizados: não houve data nem outro valor variável além dos ids.
+- Glossário (verbete **Qualidade**) conferido contra a tela: bate. A frase "só é leitura confiável
+  quando o ICR está alto" é a orientação da #76, e "por célula e na série" é da #74; nada a mudar.
+- Varredura dos ACs: os oito conferidos contra a tabela do 3.4, cada linha com teste verde.
+- Conferido no navegador (projeto na Fase 3, rodada 1 da Fase 2 e rodada 2 da Fase 3 com Ana,
+  Bruno e Carla, Carla marcada): a visão geral mostra "Qualidade na rodada 2, fechada" logo depois
+  da Concordância, com todos (41,7% / 16,7% / 41,7%, 12 notas) primeiro e sem os marcados (62,5% /
+  25% / 12,5%, 8 notas) depois, os mesmos números da tela de rodadas; seis barras da mesma cor; a
+  375px os cards empilhados, sem rolagem horizontal. Screenshot preto (painel), prova por DOM. Cena
+  apagada, `scores` vazia.
+- `npm run lint`, `npm run typecheck` e `npm test` (73 arquivos, 985 testes) verdes.
 
 ---
 

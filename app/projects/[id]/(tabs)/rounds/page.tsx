@@ -18,7 +18,7 @@ import {
 } from './agreement-pair'
 import { loadProjectOutliers, loadRoundOutliers } from './outliers'
 import { hasQuality, qualityPair, type QualityPair } from './quality'
-import { QUALITY_HELP } from './quality-labels'
+import { QUALITY_HELP, QUALITY_HINT } from './quality-labels'
 import { evaluatorsNotFinished, isActiveEvaluator, roundBlockers } from './preconditions'
 import { NewRound } from './new-round'
 import { CloseRound } from './close-round'
@@ -247,7 +247,7 @@ export default async function ProjectRoundsPage({
               ? `Qualidade na rodada ${focusRound.roundNumber}, fechada`
               : `Qualidade na rodada ${focusRound.roundNumber}`
           }
-          hint="A distribuição das notas desta rodada entre Alto, Médio e Baixo."
+          hint={QUALITY_HINT}
           help={QUALITY_HELP}
         >
           <QualityPanel pair={focusQuality} />

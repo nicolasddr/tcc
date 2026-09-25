@@ -38,6 +38,8 @@ import {
 } from '@/app/projects/[id]/(tabs)/rounds/divergence'
 import { AgreementPanel } from '@/app/projects/[id]/(tabs)/rounds/agreement-panel'
 import { AgreementMatrixTable } from '@/app/projects/[id]/(tabs)/rounds/agreement-matrix-table'
+import { QualityPanel, QualityValue } from '@/app/projects/[id]/(tabs)/rounds/quality-panel'
+import { scaleLabel } from '@/app/projects/[id]/(tabs)/evaluate/scale'
 import {
   AdminResponseCard,
   SentInput,
@@ -1046,6 +1048,33 @@ describe('app/projects/[id]/rounds/[roundId] — a revisão de discordâncias', 
     for (const word of ['Krippendorff', 'ICR', 'Alpha', 'Concordância']) {
       expect(text).not.toContain(word)
     }
+  })
+
+  it('a revisão de uma rodada da Fase 3 mostra ao avaliador as notas uma a uma, sem Qualidade', async () => {
+    const admin = await newUser('Admin')
+    const scene = await roundWith(admin, 1, { phase: PHASE_3 })
+    const ana = await newSignedEvaluator(scene.project, 'Ana Avaliadora')
+    const bruno = await newEvaluator(scene.project, 'Bruno Avaliador')
+
+    await addEvaluation(ownerDb, scene.round, scene.responses[0], ana.member, {
+      cells: [note(scene, 'Informacional', 'Precisão', 'high')],
+    })
+    await addEvaluation(ownerDb, scene.round, scene.responses[0], bruno, {
+      cells: [note(scene, 'Informacional', 'Precisão', 'low')],
+    })
+
+    auth.userId = ana.user
+    const tree = await render(scene.project, scene.round)
+    const text = `${textOf(tree)} ${listTextOf(tree)}`
+
+    expect(text).toContain('Ana Avaliadora')
+    expect(text).toContain('Bruno Avaliador')
+    expect(listTextOf(tree)).toContain(scaleLabel('high'))
+    expect(listTextOf(tree)).toContain(scaleLabel('low'))
+    expect(text).not.toContain('Qualidade')
+    expect(text).not.toContain('%')
+    expect(findElement(tree, QualityPanel)).toBeNull()
+    expect(findElement(tree, QualityValue)).toBeNull()
   })
 
   it('o rascunho de um avaliador não aparece na página do outro avaliador', async () => {
