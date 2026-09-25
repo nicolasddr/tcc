@@ -12,7 +12,7 @@ seguinte herda", e é ali que se anota o que divergiu.
 | Parte | Entrega | Estado |
 |---|---|---|
 | 1 | A action monta a entrada pela fase atual do projeto | ✅ |
-| 2 | A action devolve a entrada com a saída, com prova de que é a mesma de uma rodada | ⬜ |
+| 2 | A action devolve a entrada com a saída, com prova de que é a mesma de uma rodada | ✅ |
 | 3 | A tela mostra a entrada recolhida acima da saída; varredura dos ACs | ⬜ |
 
 **Sem migration, sem ADR nova.** A decisão já está na emenda de 2026-09-22 da ADR 0002 e no
@@ -285,8 +285,18 @@ Lint, typecheck e `npm test` verdes. Commit sugerido:
 
 ### O que a Parte 3 herda
 
-- (preencher) o formato final de `PromptTestState`.
-- (preencher) qualquer ajuste de fixture que o teste de equivalência exigiu.
+- `PromptTestState` ficou exatamente como em § 2.1:
+  `{ error: string } | { ok: true; nonce; model; output; input } | null`. `input` é a mesma variável
+  passada a `askLlm`; nos erros a chave não existe.
+- O teste de equivalência não exigiu fixture nova: `RICH_DEFINITIONS` já tem critério em toda
+  definição, então `createRound` abre a rodada nas Fases 2 e 3 sem afrouxar `roundBlockers`. A rodada
+  é criada pela action de verdade (não por `addRound`), e o teste confere também que `rounds.phase`
+  é a fase do projeto.
+- Helper novo no arquivo de teste: `okOf(state)`, que afirma `ok: true` e estreita o tipo.
+- Divergências do plano: o "não grava nada" virou `it.each([PHASE_1, PHASE_2, PHASE_3])` (a Fase 1
+  continua coberta, já que era o caso original); o "não congela" ganhou um caso próprio da Fase 3,
+  e o original (Fase 1, com edição do prompt depois do teste) ficou como estava. O "erro não traz
+  entrada" entrou no caso de falha da LLM já existente e no caso de teto da Fase 3.
 
 ---
 

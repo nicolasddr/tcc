@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { sql } from 'drizzle-orm'
+import { eq, sql } from 'drizzle-orm'
 
 const auth = vi.hoisted(() => ({ userId: null as string | null }))
 
@@ -35,7 +35,12 @@ vi.mock('@/lib/ai', async () => {
   }
 })
 
-import { testPrompt, savePrompt } from '@/app/projects/[id]/pipeline/actions'
+import {
+  testPrompt,
+  savePrompt,
+  type PromptTestState,
+} from '@/app/projects/[id]/pipeline/actions'
+import { createRound, generateResponses } from '@/app/projects/[id]/(tabs)/rounds/actions'
 import { loadCodebook } from '@/app/projects/[id]/pipeline/codebook'
 import { loadPrompt } from '@/app/projects/[id]/pipeline/prompt'
 import {
@@ -51,7 +56,7 @@ import { DEFINITION_TYPE_OPTIONS, definitionTypeLabel } from '@/app/projects/def
 import { SCALE, scaleLabel } from '@/app/projects/[id]/(tabs)/evaluate/scale'
 import type { LlmFailure } from '@/lib/ai/failure'
 import { projectResponsesMax, resetProjectResponses } from '@/lib/ai/quota'
-import { ownerDb } from '@/lib/db'
+import { ownerDb, responses, rounds } from '@/lib/db'
 import {
   createUser,
   createProject as seedProject,
@@ -102,6 +107,11 @@ function fd(projectId: string, itemId?: string): FormData {
   form.set('project_id', projectId)
   if (itemId !== undefined) form.set('item_id', itemId)
   return form
+}
+
+function okOf(state: PromptTestState) {
+  expect(state).toMatchObject({ ok: true })
+  return state as Exclude<PromptTestState, { error: string } | null>
 }
 
 function spyOnFetch() {
@@ -382,17 +392,123 @@ describe('app/projects/[id]/pipeline/actions — testar o prompt sem persistir n
     expect(input).not.toContain(GENERAL_CRITERIA_HEADING)
   })
 
-  it('não grava nada: nenhuma linha nova aparece em tabela nenhuma', async () => {
+  it.each([PHASE_2, PHASE_3])(
+    'na Fase %i o retorno traz a entrada enviada junto com a saída',
+    async (phase) => {
+      const admin = await newUser('Admin')
+      const { project, item } = await readyProject(admin, {
+        phase,
+        definitions: RICH_DEFINITIONS,
+        generalCriteria: RICH_GENERAL_CRITERIA,
+      })
+
+      auth.userId = admin
+      const result = okOf(await testPrompt(null, fd(project, item)))
+
+      expect(llm.inputs).toHaveLength(1)
+      expect(result.input).toBe(llm.inputs[0])
+      expect(result.input).toBe(await expectedInput(phase, project))
+      expect(result.output).toBe(llm.text)
+    },
+  )
+
+  it('devolve a entrada sem normalizar quebras de linha, recuos nem espaços', async () => {
     const admin = await newUser('Admin')
-    const { project, item } = await readyProject(admin)
+    const { project } = await readyProject(admin, { phase: PHASE_3 })
+    const promptText = 'Classifique:\r\n    com recuo  \r\nfim com espaço '
+    const content = '  primeira linha\n\n\tsegunda depois de linha em branco\n'
+    await addPromptVersion(ownerDb, project, admin, { versionNumber: 2, text: promptText })
+    const item = await addInputItem(ownerDb, project, admin, {
+      name: 'Consulta com espaços',
+      content,
+    })
 
     auth.userId = admin
-    const before = await rowCounts()
-    const result = await testPrompt(null, fd(project, item))
-    const after = await rowCounts()
+    const result = okOf(await testPrompt(null, fd(project, item)))
 
-    expect(result).toMatchObject({ ok: true })
-    expect(after).toEqual(before)
+    expect(result.input).toBe(llm.inputs[0])
+    expect(result.input.startsWith(`${promptText}\n\n`)).toBe(true)
+    expect(result.input.endsWith(`${ITEM_HEADING}\n${content}`)).toBe(true)
+  })
+
+  it.each([PHASE_2, PHASE_3])(
+    'na Fase %i a entrada do teste é a que uma rodada enviaria para o mesmo item',
+    async (phase) => {
+      const admin = await newUser('Admin')
+      const { project, item } = await readyProject(admin, {
+        phase,
+        definitions: RICH_DEFINITIONS,
+        generalCriteria: RICH_GENERAL_CRITERIA,
+      })
+
+      auth.userId = admin
+      const tested = okOf(await testPrompt(null, fd(project, item)))
+
+      const newRound = new FormData()
+      newRound.set('project_id', project)
+      expect(await createRound(null, newRound)).toMatchObject({ ok: true })
+
+      const [round] = await ownerDb
+        .select({ id: rounds.id, phase: rounds.phase })
+        .from(rounds)
+        .where(eq(rounds.projectId, project))
+      expect(round.phase).toBe(phase)
+
+      const generate = new FormData()
+      generate.set('project_id', project)
+      generate.set('round_id', round.id)
+      generate.append('item_ids', item)
+      expect(await generateResponses(null, generate)).toMatchObject({
+        ok: true,
+        failed: [],
+      })
+
+      const sent = await ownerDb
+        .select({ inputItemId: responses.inputItemId, sentInput: responses.sentInput })
+        .from(responses)
+        .where(eq(responses.roundId, round.id))
+      expect(sent).toEqual([{ inputItemId: item, sentInput: tested.input }])
+      expect(llm.inputs).toEqual([tested.input, tested.input])
+    },
+  )
+
+  it.each([PHASE_1, PHASE_2, PHASE_3])(
+    'na Fase %i não grava nada: nenhuma linha nova aparece em tabela nenhuma',
+    async (phase) => {
+      const admin = await newUser('Admin')
+      const { project, item } = await readyProject(admin, {
+        phase,
+        definitions: RICH_DEFINITIONS,
+        generalCriteria: RICH_GENERAL_CRITERIA,
+      })
+
+      auth.userId = admin
+      const before = await rowCounts()
+      const result = await testPrompt(null, fd(project, item))
+      const after = await rowCounts()
+
+      expect(result).toMatchObject({ ok: true })
+      expect(after).toEqual(before)
+    },
+  )
+
+  it('na Fase 3 não congela a versão do codebook nem a do prompt', async () => {
+    const admin = await newUser('Admin')
+    const { project, item } = await readyProject(admin, {
+      phase: PHASE_3,
+      definitions: RICH_DEFINITIONS,
+      generalCriteria: RICH_GENERAL_CRITERIA,
+    })
+
+    auth.userId = admin
+    expect(await testPrompt(null, fd(project, item))).toMatchObject({ ok: true })
+
+    const codebook = await loadCodebook(project)
+    const prompt = await loadPrompt(project)
+    expect(codebook.version?.usedAt).toBeNull()
+    expect(codebook.isOpen).toBe(true)
+    expect(prompt.version?.usedAt).toBeNull()
+    expect(prompt.isOpen).toBe(true)
   })
 
   it('não congela versão nenhuma: dá para editar o prompt e testar de novo', async () => {
@@ -479,9 +595,9 @@ describe('app/projects/[id]/pipeline/actions — testar o prompt sem persistir n
     const after = await rowCounts()
 
     expect(result).toHaveProperty('error')
+    expect(result).not.toHaveProperty('input')
     expect(after).toEqual(before)
   })
-
 
   it('cada família de falha da LLM vira uma mensagem própria, distinguível das outras', async () => {
     const admin = await newUser('Admin')
@@ -559,6 +675,25 @@ describe('app/projects/[id]/pipeline/actions — testar o prompt sem persistir n
     expect((refused as { error: string }).error).toContain(String(projectResponsesMax()))
     expect((refused as { error: string }).error).toMatch(/teto/i)
     expect(llm.inputs).toHaveLength(2)
+  })
+
+  it('na Fase 3 o teto também vale: a segunda chamada é recusada sem ir à LLM', async () => {
+    const admin = await newUser('Admin')
+    const { project, item } = await readyProject(admin, {
+      phase: PHASE_3,
+      definitions: RICH_DEFINITIONS,
+      generalCriteria: RICH_GENERAL_CRITERIA,
+    })
+    process.env.LLM_PROJECT_RESPONSES_MAX = '1'
+
+    auth.userId = admin
+    expect(await testPrompt(null, fd(project, item))).toMatchObject({ ok: true })
+
+    const refused = await testPrompt(null, fd(project, item))
+    expect(refused).not.toHaveProperty('input')
+    expect((refused as { error: string }).error).toContain(String(projectResponsesMax()))
+    expect((refused as { error: string }).error).toMatch(/teto/i)
+    expect(llm.inputs).toHaveLength(1)
   })
 
   it('teto zero recusa desde a primeira chamada, sem nada ir à LLM', async () => {

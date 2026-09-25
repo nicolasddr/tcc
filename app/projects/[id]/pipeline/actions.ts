@@ -723,7 +723,7 @@ export async function deleteItem(
 
 export type PromptTestState =
   | { error: string }
-  | { ok: true; nonce: number; model: string; output: string }
+  | { ok: true; nonce: number; model: string; output: string; input: string }
   | null
 
 const TEST_DENIED =
@@ -830,7 +830,7 @@ export async function testPrompt(
   }
 
   countProjectResponse(projectId)
-  return { ok: true, nonce: Date.now(), model: answer.model, output: answer.text }
+  return { ok: true, nonce: Date.now(), model: answer.model, output: answer.text, input }
 }
 
 export type AdvancePhaseState =
