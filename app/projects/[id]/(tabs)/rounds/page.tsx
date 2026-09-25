@@ -31,6 +31,8 @@ import { AgreementPanel } from './agreement-panel'
 import { AgreementMatrixTable } from './agreement-matrix-table'
 import { QualityPanel } from './quality-panel'
 import { QualityMatrixTable } from './quality-matrix-table'
+import { hasReadingGuidance, readingGuidance } from './reading-guidance'
+import { ReadingGuidanceNote } from './reading-guidance-note'
 import { llmModel } from '@/lib/ai'
 import { projectResponsesLeft, projectResponsesMax } from '@/lib/ai/quota'
 import { Section } from '@/app/components/ui/section'
@@ -133,6 +135,9 @@ export default async function ProjectRoundsPage({
         ),
       ]),
   )
+  const focusPair =
+    (focusRound ? agreement.get(focusRound.id) : undefined) ??
+    agreementPair([], EMPTY_SET)
   const focusQuality = focusRound ? quality.get(focusRound.id) : undefined
   const focusObservations = focusRound ? (observations.get(focusRound.id) ?? []) : []
   const focusExcluded = focusRound
@@ -225,7 +230,7 @@ export default async function ProjectRoundsPage({
         >
           <div className="flex flex-col gap-4">
             <AgreementPanel
-              pair={agreement.get(focusRound.id) ?? agreementPair([], EMPTY_SET)}
+              pair={focusPair}
               responses={responses}
               effort={effort}
               outliers={focusOutliers}
@@ -239,6 +244,10 @@ export default async function ProjectRoundsPage({
             />
           </div>
         </Section>
+      ) : null}
+
+      {focusRound && hasReadingGuidance(focusRound.phase) ? (
+        <ReadingGuidanceNote guidance={readingGuidance(focusPair.all)} />
       ) : null}
 
       {focusRound && focusQuality ? (

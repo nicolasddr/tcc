@@ -14,7 +14,7 @@ seguinte herda", e é ali que se anota o que divergiu.
 | Parte | Entrega | Estado |
 |---|---|---|
 | 1 | A escolha pura da orientação e as palavras, com os testes unitários | ☑ |
-| 2 | A orientação na tela de rodadas, só para o Administrador e só na Fase 3, a prova de que nada some nem trava, e a varredura dos ACs | ☐ |
+| 2 | A orientação na tela de rodadas, só para o Administrador e só na Fase 3, a prova de que nada some nem trava, e a varredura dos ACs | ☑ |
 
 A Parte 2 depende da 1.
 
@@ -228,6 +228,20 @@ incondicionalmente dentro do seu `if (focusQuality)`, que **não** olha a orient
 | A orientação não esconde a Qualidade nem desabilita nada | 2 | página: nos três casos `QualityPanel` e `QualityMatrixTable` presentes com as mesmas props; props de `NewRound`/`CloseRound` iguais às de uma cena Fase 2 equivalente; componente sem `button`/`a`/`disabled` no markup |
 | O Avaliador não vê a orientação | 2 | página: Avaliador de uma rodada da Fase 3 com ICR calculado não recebe `ReadingGuidanceNote` nem nenhum dos textos |
 | Testes: unitário dos três textos, unitário sem Fase 4, página Admin × Avaliador, suíte verde | 1, 2 | — |
+
+**Varredura (fim da Parte 2)** — nomes dos testes em `rounds/page.int.test.ts` (página) e nos
+unitários da Parte 1:
+
+| AC | Provado por |
+|---|---|
+| Fase 3 mostra ao Admin; Fase 2 não | "numa rodada da Fase 3 abaixo da faixa…", "…dentro da faixa…", "…com um avaliador só…", "numa rodada aberta da Fase 3, a orientação aparece desde a primeira avaliação", "numa rodada da Fase 2, a orientação não aparece", "a fase da rodada decide, e não a do projeto…"; unitário de `hasReadingGuidance` |
+| Só ICR e faixa escolhem | unitários de `readingGuidance` (limites de `AGREEMENT_BANDS`); "a orientação lê o ICR com todos: marcar outlier não muda o caso" |
+| A função não recebe Qualidade | `expectTypeOf(...).parameters` + aridade (unitário); "a Qualidade não decide a orientação: notas todas em Alto e todas em Baixo dão o mesmo texto" |
+| Três textos com o conteúdo pedido | `reading-guidance-labels.unit.test.ts`; nos testes de página o texto renderizado é comparado com `BELOW_BAND_GUIDANCE`, `WITHIN_BAND_GUIDANCE` e `notCalculableGuidance('few_evaluators')` |
+| Sem Fase 4 nem avanço | varredura das palavras (unitário); "a orientação não esconde a Qualidade nem trava nada, nos três casos" (texto renderizado sem "Fase 4"/"avançar") |
+| Não esconde a Qualidade nem desabilita nada | "a orientação não esconde a Qualidade nem trava nada, nos três casos" (`QualityPanel`/`QualityMatrixTable` com as props calculadas direto de `qualityPair`, `NewRound` igual ao da cena Fase 2, markup sem `<button`, `<a `, `disabled`, `role="alert"`); "a orientação fica entre o bloco de Concordância e o de Qualidade" |
+| Avaliador não vê | "a área de rodadas do avaliador não fala de coeficiente nem de Qualidade" (estendido: sem `ReadingGuidanceNote`, sem `GUIDANCE_HEADING`, sem nenhum dos textos) |
+| Suíte verde | 79 arquivos, 1094 testes; lint e typecheck verdes |
 
 ---
 
@@ -445,3 +459,21 @@ Percorrer a tabela da § 4 marcando cada linha com o nome do teste que a prova. 
 pode ser fechada à mão.
 
 Commit sugerido: `feat(rodadas): mostrar a orientação pelo ICR ao administrador`.
+
+### O que ficou (fim da Parte 2)
+
+- **D6 seguiu o plano**: a orientação está na tela de rodadas, e não em `[roundId]`; a regra da
+  #64 ("esta tela não mostra coeficiente") continua de pé.
+- **Componente**: `ReadingGuidanceNote` é um `Card tone="subtle" padding="sm"` com `mt-6`, solto
+  entre as duas `Section`s (sem `Section` própria). No navegador o espaçamento ficou bom: 24px
+  depois da nota da matriz de Concordância, e a `Section` de Qualidade abre com o filete de sempre.
+  O cartão neutro não compete com o selo da banda. A 375px (medido em `iframe`) o cartão cabe
+  inteiro (24–336px), sem nada estourando.
+- **`page.tsx`**: `focusPair` extraído; o `AgreementPanel` e a orientação leem o mesmo objeto.
+  Nenhuma consulta e nenhuma prop nova.
+- **Testes de página**: helper `guidanceScene(admin, 'within' | 'below' | 'high' | 'low', { phase,
+  projectPhase })` (3 respostas, dois avaliadores) e `roundWith` ganhou `projectPhase` para o caso
+  "projeto na Fase 3, rodada em foco da Fase 2". A ordem na tela é provada pela posição dos filhos
+  do fragmento da página (`blockIndexOf`), e não pelo markup inteiro. 10 testes novos e 1
+  estendido; conferido por mutação (ler o `withoutOutliers` e decidir pela fase do projeto derrubam
+  os testes certos).

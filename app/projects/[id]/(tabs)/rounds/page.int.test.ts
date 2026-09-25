@@ -71,6 +71,14 @@ import {
   CODEBOOK_AND_PROMPT_NOTICE,
   ENTERS_PHASE_3_NOTE,
 } from '@/app/projects/[id]/(tabs)/rounds/round-changes-labels'
+import { ReadingGuidanceNote } from '@/app/projects/[id]/(tabs)/rounds/reading-guidance-note'
+import {
+  BELOW_BAND_GUIDANCE,
+  GUIDANCE_HEADING,
+  WITHIN_BAND_GUIDANCE,
+  notCalculableGuidance,
+} from '@/app/projects/[id]/(tabs)/rounds/reading-guidance-labels'
+import { qualityPair } from '@/app/projects/[id]/(tabs)/rounds/quality'
 import { llmModel } from '@/lib/ai'
 import { ownerDb, projectMembers } from '@/lib/db'
 import {
@@ -182,6 +190,15 @@ type EvaluatorProps = Parameters<typeof EvaluatorRounds>[0]
 type QualityProps = Parameters<typeof QualityPanel>[0]
 type QualityMatrixProps = Parameters<typeof QualityMatrixTable>[0]
 type ChangesProps = Parameters<typeof RoundChangesNote>[0]
+type GuidanceProps = Parameters<typeof ReadingGuidanceNote>[0]
+
+const GUIDANCE_TEXTS = [
+  BELOW_BAND_GUIDANCE,
+  WITHIN_BAND_GUIDANCE,
+  notCalculableGuidance('few_evaluators'),
+  notCalculableGuidance('no_shared_units'),
+  notCalculableGuidance('no_variation'),
+]
 
 function render(id: string) {
   return ProjectRoundsPage({ params: Promise.resolve({ id }) })
@@ -239,6 +256,22 @@ function qualityMatrixOf(tree: unknown): QualityMatrixProps {
   const element = findElement(tree, QualityMatrixTable)
   expect(element).toBeTruthy()
   return element!.props as QualityMatrixProps
+}
+
+function guidanceOf(tree: unknown): GuidanceProps | null {
+  const element = findElement(tree, ReadingGuidanceNote)
+  return element ? (element.props as GuidanceProps) : null
+}
+
+function guidanceTextOf(tree: unknown): string {
+  const props = guidanceOf(tree)
+  expect(props).toBeTruthy()
+  return markupTextOf(createElement(ReadingGuidanceNote, props!))
+}
+
+function blockIndexOf(tree: unknown, type: unknown): number {
+  const children = (tree as ReactElement<{ children: unknown[] }>).props.children
+  return children.findIndex((child) => findElement(child, type) !== null)
 }
 
 function markupTextOf(element: ReactElement): string {
@@ -344,12 +377,17 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
   async function roundWith(
     admin: string,
     responseCount: number,
-    opts: { shape?: CodebookShape; status?: 'open' | 'closed'; phase?: number } = {},
+    opts: {
+      shape?: CodebookShape
+      status?: 'open' | 'closed'
+      phase?: number
+      projectPhase?: number
+    } = {},
   ): Promise<Scene> {
     const phase = opts.phase ?? PHASE_2
     const { project, codebookVersion, promptVersion } = await readyProject(
       admin,
-      phase,
+      opts.projectPhase ?? phase,
       opts.shape ?? ONE_DEFINITION,
     )
     const round = await addRound(
@@ -477,6 +515,53 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
       cells: [note(scene, 'Informacional', 'Clareza', 'low')],
     })
     return { scene, carla }
+  }
+
+  const GUIDANCE_NOTES = {
+    within: {
+      ana: ['low', 'medium', 'high'],
+      bruno: ['low', 'medium', 'high'],
+    },
+    below: {
+      ana: ['low', 'medium', 'high'],
+      bruno: ['high', 'medium', 'low'],
+    },
+    high: {
+      ana: ['high', 'high', 'high'],
+      bruno: ['high', 'high', 'high'],
+    },
+    low: {
+      ana: ['low', 'low', 'low'],
+      bruno: ['low', 'low', 'low'],
+    },
+  } as const
+
+  async function guidanceScene(
+    admin: string,
+    kind: keyof typeof GUIDANCE_NOTES,
+    opts: { phase?: number; projectPhase?: number } = {},
+  ): Promise<Scene> {
+    const scene = await roundWith(admin, 3, {
+      phase: opts.phase ?? PHASE_3,
+      projectPhase: opts.projectPhase,
+      status: 'closed',
+    })
+    const notes = GUIDANCE_NOTES[kind]
+    const ana = await newEvaluator(scene.project, 'Ana')
+    const bruno = await newEvaluator(scene.project, 'Bruno')
+
+    for (const [evaluator, values] of [
+      [ana, notes.ana],
+      [bruno, notes.bruno],
+    ] as const) {
+      for (const [index, value] of values.entries()) {
+        await addEvaluation(ownerDb, scene.round, scene.responses[index], evaluator, {
+          cells: filled(scene.cells, value),
+        })
+      }
+    }
+
+    return scene
   }
 
   async function chainedProject(
@@ -1646,6 +1731,215 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     expect(markupTextOf(matrix)).toContain('Profundidade')
   })
 
+  it('numa rodada da Fase 3 abaixo da faixa, o Administrador lê que o caminho é refinar o codebook', async () => {
+    const admin = await newUser('Admin')
+    const scene = await guidanceScene(admin, 'below')
+
+    auth.userId = admin
+    const tree = await render(scene.project)
+
+    const all = panelOf(tree).pair.all
+    expect(all.calculable).toBe(true)
+    expect(all.calculable && all.alpha).toBeLessThan(0.667)
+
+    expect(guidanceOf(tree)).toEqual({ guidance: { kind: 'below_band' } })
+    expect(guidanceTextOf(tree)).toBe(`${GUIDANCE_HEADING} ${BELOW_BAND_GUIDANCE}`)
+  })
+
+  it('numa rodada da Fase 3 dentro da faixa, o Administrador lê que é hora de olhar a Qualidade', async () => {
+    const admin = await newUser('Admin')
+    const scene = await guidanceScene(admin, 'within')
+
+    auth.userId = admin
+    const tree = await render(scene.project)
+
+    expect(panelOf(tree).pair.all).toMatchObject({ calculable: true, alpha: 1 })
+
+    expect(guidanceOf(tree)).toEqual({ guidance: { kind: 'within_band' } })
+    expect(guidanceTextOf(tree)).toBe(`${GUIDANCE_HEADING} ${WITHIN_BAND_GUIDANCE}`)
+  })
+
+  it('numa rodada da Fase 3 com um avaliador só, a orientação diz por que não há ICR', async () => {
+    const admin = await newUser('Admin')
+    const scene = await roundWith(admin, 2, { phase: PHASE_3, status: 'closed' })
+    const ana = await newEvaluator(scene.project, 'Ana')
+    for (const response of scene.responses) {
+      await addEvaluation(ownerDb, scene.round, response, ana, {
+        cells: filled(scene.cells, 'high'),
+      })
+    }
+
+    auth.userId = admin
+    const tree = await render(scene.project)
+
+    expect(panelOf(tree).pair.all).toMatchObject({
+      calculable: false,
+      reason: 'few_evaluators',
+    })
+    expect(guidanceOf(tree)).toEqual({
+      guidance: { kind: 'not_calculable', reason: 'few_evaluators' },
+    })
+    expect(guidanceTextOf(tree)).toBe(
+      `${GUIDANCE_HEADING} ${notCalculableGuidance('few_evaluators')}`,
+    )
+  })
+
+  it('a Qualidade não decide a orientação: notas todas em Alto e todas em Baixo dão o mesmo texto', async () => {
+    const admin = await newUser('Admin')
+    const high = await guidanceScene(admin, 'high')
+    const low = await guidanceScene(admin, 'low')
+
+    auth.userId = admin
+    const highTree = await render(high.project)
+    const lowTree = await render(low.project)
+
+    expect(qualityPanelOf(highTree).pair.all).toMatchObject({
+      rated: true,
+      levels: [
+        { value: 'high', share: 1 },
+        { value: 'medium', share: 0 },
+        { value: 'low', share: 0 },
+      ],
+    })
+    expect(qualityPanelOf(lowTree).pair.all).toMatchObject({
+      rated: true,
+      levels: [
+        { value: 'high', share: 0 },
+        { value: 'medium', share: 0 },
+        { value: 'low', share: 1 },
+      ],
+    })
+
+    const expected = { guidance: { kind: 'not_calculable', reason: 'no_variation' } }
+    expect(guidanceOf(highTree)).toEqual(expected)
+    expect(guidanceOf(lowTree)).toEqual(expected)
+    expect(guidanceTextOf(highTree)).toBe(guidanceTextOf(lowTree))
+  })
+
+  it('a orientação lê o ICR com todos: marcar outlier não muda o caso', async () => {
+    const admin = await newUser('Admin')
+    const scene = await guidanceScene(admin, 'within')
+    const carla = await newEvaluator(scene.project, 'Carla')
+    for (const [index, value] of (['high', 'low', 'high'] as const).entries()) {
+      await addEvaluation(ownerDb, scene.round, scene.responses[index], carla, {
+        cells: filled(scene.cells, value),
+      })
+    }
+    await addOutlier(ownerDb, scene.round, carla, admin)
+
+    auth.userId = admin
+    const tree = await render(scene.project)
+
+    const { all, withoutOutliers } = panelOf(tree).pair
+    expect(all.calculable && all.alpha).toBeLessThan(0.667)
+    expect(withoutOutliers).toMatchObject({ calculable: true, alpha: 1 })
+
+    expect(guidanceOf(tree)).toEqual({ guidance: { kind: 'below_band' } })
+  })
+
+  it('numa rodada da Fase 2, a orientação não aparece', async () => {
+    const admin = await newUser('Admin')
+    const scene = await guidanceScene(admin, 'within', { phase: PHASE_2 })
+
+    auth.userId = admin
+    const tree = await render(scene.project)
+
+    expect(panelOf(tree).pair.all).toMatchObject({ calculable: true })
+    expect(guidanceOf(tree)).toBeNull()
+
+    const text = allTextOf(tree)
+    expect(text).not.toContain(GUIDANCE_HEADING)
+    for (const guidance of GUIDANCE_TEXTS) expect(text).not.toContain(guidance)
+  })
+
+  it('a fase da rodada decide, e não a do projeto: a última rodada da Fase 2 não mostra a orientação', async () => {
+    const admin = await newUser('Admin')
+    const scene = await guidanceScene(admin, 'within', {
+      phase: PHASE_2,
+      projectPhase: PHASE_3,
+    })
+
+    auth.userId = admin
+    const tree = await render(scene.project)
+
+    expect(listOf(tree).rounds.map((round) => round.phase)).toEqual([PHASE_2])
+    expect(guidanceOf(tree)).toBeNull()
+  })
+
+  it('numa rodada aberta da Fase 3, a orientação aparece desde a primeira avaliação', async () => {
+    const admin = await newUser('Admin')
+    const scene = await roundWith(admin, 2, { phase: PHASE_3 })
+    const ana = await newEvaluator(scene.project, 'Ana')
+    await addEvaluation(ownerDb, scene.round, scene.responses[0], ana, {
+      cells: filled(scene.cells, 'medium'),
+    })
+
+    auth.userId = admin
+    const tree = await render(scene.project)
+
+    expect(findElement(tree, CloseRound)).toBeTruthy()
+    expect(guidanceOf(tree)).toEqual({
+      guidance: { kind: 'not_calculable', reason: 'few_evaluators' },
+    })
+  })
+
+  it('a orientação não esconde a Qualidade nem trava nada, nos três casos', async () => {
+    const admin = await newUser('Admin')
+    const phase2 = await guidanceScene(admin, 'within', { phase: PHASE_2 })
+
+    auth.userId = admin
+    const phase2NewRound = newRoundOf(await render(phase2.project))
+
+    for (const kind of ['below', 'within', 'high'] as const) {
+      const scene = await guidanceScene(admin, kind)
+      const tree = await render(scene.project)
+
+      const guidance = guidanceOf(tree)
+      expect(guidance).toBeTruthy()
+
+      const observations = matrixOf(tree).observations
+      expect(qualityPanelOf(tree)).toEqual({
+        pair: qualityPair(observations, new Set<string>()),
+      })
+      expect(qualityMatrixOf(tree)).toEqual({
+        definitions: matrixOf(tree).definitions,
+        criteria: matrixOf(tree).criteria,
+        observations,
+        excluded: new Set<string>(),
+        codebookVersionNumber: 1,
+      })
+
+      expect(newRoundOf(tree)).toEqual({ ...phase2NewRound, projectId: scene.project })
+      expect(newRoundOf(tree).blockers).toEqual([])
+
+      const markup = renderToStaticMarkup(createElement(ReadingGuidanceNote, guidance!))
+      expect(markup).not.toContain('<button')
+      expect(markup).not.toContain('<a ')
+      expect(markup).not.toContain('disabled')
+      expect(markup).not.toContain('role="alert"')
+
+      const text = guidanceTextOf(tree)
+      expect(text).not.toContain('Fase 4')
+      expect(text).not.toContain('avançar')
+    }
+  })
+
+  it('a orientação fica entre o bloco de Concordância e o de Qualidade', async () => {
+    const admin = await newUser('Admin')
+    const scene = await guidanceScene(admin, 'within')
+
+    auth.userId = admin
+    const tree = await render(scene.project)
+
+    const agreement = blockIndexOf(tree, AgreementPanel)
+    const guidance = blockIndexOf(tree, ReadingGuidanceNote)
+    const quality = blockIndexOf(tree, QualityPanel)
+    expect(agreement).toBeGreaterThanOrEqual(0)
+    expect(guidance).toBe(agreement + 1)
+    expect(quality).toBe(guidance + 1)
+    expect(findSection(tree, ReadingGuidanceNote)).toBeNull()
+  })
+
   it('a lista do avaliador traz só as rodadas fechadas em que ele avaliou, em ordem', async () => {
     const admin = await newUser('Admin')
     const anaUser = await newUser('Ana')
@@ -1778,6 +2072,9 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     for (const word of ['Krippendorff', 'ICR', 'Alpha', 'Concordância', 'Qualidade', '%']) {
       expect(text).not.toContain(word)
     }
+    expect(text).not.toContain(GUIDANCE_HEADING)
+    for (const guidance of GUIDANCE_TEXTS) expect(text).not.toContain(guidance)
+    expect(findElement(tree, ReadingGuidanceNote)).toBeNull()
     expect(findElement(tree, AgreementPanel)).toBeNull()
     expect(findElement(tree, QualityPanel)).toBeNull()
     expect(findElement(tree, AgreementMatrixTable)).toBeNull()
