@@ -14,7 +14,7 @@ seguinte herda", e é ali que se anota o que divergiu.
 | Parte | Entrega | Estado |
 |---|---|---|
 | 1 | O cálculo puro: construtor de matriz genérico, matriz de Qualidade, série de Qualidade e as palavras | ☑ |
-| 2 | A tela de rodadas: a matriz de Qualidade dentro do bloco da Qualidade | ☐ |
+| 2 | A tela de rodadas: a matriz de Qualidade dentro do bloco da Qualidade | ☑ |
 | 3 | A visão geral: a série de Qualidade, a prova de que o Avaliador não vê nada, e a varredura dos ACs | ☐ |
 
 **Sem migration, sem ADR nova.** Matriz e série são derivadas das mesmas notas que o ICR já carrega,
@@ -473,7 +473,26 @@ todos primeiro; a legenda no `InfoTooltip`; a 375px, a tabela rolando **dentro**
 
 ### O que a Parte 3 herda
 
-_(preencher ao fim da Parte 2.)_
+- **`QualityMatrixTable`** em `(tabs)/rounds/quality-matrix-table.tsx`, com as props do D6
+  (`definitions`, `criteria`, `observations`, `excluded`, `codebookVersionNumber`). A célula com nota
+  é uma linha por ponto da escala via `levelText`; com par, dois blocos rotulados com
+  `AGREEMENT_ALL_LABEL` e `AGREEMENT_WITHOUT_OUTLIERS_LABEL`, e o sem os marcados sem nota diz
+  `QUALITY_UNRATED_WITHOUT_OUTLIERS`. Rodapé com a versão de codebook e o `InfoTooltip` com
+  `QUALITY_MATRIX_LEGEND` (sozinha, sem `MATRIX_SCOPE_NOTE`).
+- **`page.tsx`:** a `Section` da Qualidade virou `flex flex-col gap-4` com `QualityPanel` e a
+  matriz embaixo. O `help` da `Section` **não** ganhou meia frase: a legenda já está no tooltip da
+  matriz.
+- **Testes:** helpers novos em `(tabs)/rounds/page.int.test.ts`: `qualityMatrixOf`,
+  `qualityMatrixTextOf`, `qualityCellsOf` (texto de cada `<td>` na ordem do markup), a forma
+  `MATRIX_SHAPE` (geral Clareza + Profundidade de Informacional + Precisão de Transacional), `note()`
+  e a cena `qualityMatrixScene(admin, { phase, carla })`. 9 testes novos; o do Avaliador ganhou
+  `QualityMatrixTable` fora da árvore.
+- **Divergência:** a varredura de cor de juízo da matriz ignora as classes `focus-visible:` — o
+  `InfoTooltip` traz `focus-visible:ring-brand-ring`, que é anel de foco e não tom de juízo. Se a
+  série da Parte 3 tiver `InfoTooltip`/`OpenLink` na subárvore, o mesmo filtro vale.
+- Suíte: 75 arquivos, 1015 testes, lint e typecheck verdes. Conferido no navegador (cena da § 2.4,
+  apagada depois; `scores` vazia): "—" com o `title`, "sem nota", o par com todos primeiro, e a
+  375px a tabela rola dentro do `overflow-x-auto`, sem rolagem horizontal da página.
 
 ---
 

@@ -30,6 +30,7 @@ import { requireReviewAccess } from './review-access'
 import { AgreementPanel } from './agreement-panel'
 import { AgreementMatrixTable } from './agreement-matrix-table'
 import { QualityPanel } from './quality-panel'
+import { QualityMatrixTable } from './quality-matrix-table'
 import { llmModel } from '@/lib/ai'
 import { projectResponsesLeft, projectResponsesMax } from '@/lib/ai/quota'
 import { Section } from '@/app/components/ui/section'
@@ -250,7 +251,17 @@ export default async function ProjectRoundsPage({
           hint={QUALITY_HINT}
           help={QUALITY_HELP}
         >
-          <QualityPanel pair={focusQuality} />
+          <div className="flex flex-col gap-4">
+            <QualityPanel pair={focusQuality} />
+
+            <QualityMatrixTable
+              definitions={focusCodebook?.definitions ?? []}
+              criteria={focusCodebook?.criteria ?? []}
+              observations={focusObservations}
+              excluded={focusExcluded}
+              codebookVersionNumber={focusRound.codebookVersionNumber}
+            />
+          </div>
         </Section>
       ) : null}
 
