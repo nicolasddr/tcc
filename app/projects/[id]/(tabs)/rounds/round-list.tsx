@@ -8,6 +8,19 @@ import type { AgreementPair } from './agreement-pair'
 import { QualityValue } from './quality-panel'
 import type { QualityPair } from './quality'
 import { isOpen, type RoundSummary } from './rounds'
+import { previousRoundOf, roundChanges } from './round-changes'
+import { RoundChangesNote } from './round-changes-note'
+
+function changesOf(rounds: readonly RoundSummary[], round: RoundSummary) {
+  const changes = roundChanges(round, previousRoundOf(rounds, round))
+  if (!changes) return null
+
+  return (
+    <div className="mt-2">
+      <RoundChangesNote changes={changes} compact />
+    </div>
+  )
+}
 
 export function RoundList({
   projectId,
@@ -55,6 +68,8 @@ export function RoundList({
               Aberta em {formatDate(round.createdAt)} por {round.authorName}
               {round.closedAt ? ` · fechada em ${formatDate(round.closedAt)}` : null}
             </p>
+
+            {changesOf(rounds, round)}
 
             {agreement.has(round.id) ? (
               <AgreementValue pair={agreement.get(round.id)!} />

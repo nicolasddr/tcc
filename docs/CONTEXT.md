@@ -222,7 +222,8 @@ diante, já que a Fase 1 não persiste resposta nenhuma. A rodada pertence à fa
 e é essa fase, e não a fase atual do projeto, que decide o que vai à LLM: a forma de compor a entrada
 congela com a rodada, junto com as versões. É a unidade contável: uma fase é feita de
 várias rodadas. Entre uma rodada e a próxima, o Administrador refina (o
-codebook na Fase 2, o codebook ou o prompt na Fase 3).
+codebook na Fase 2, o codebook ou o prompt na Fase 3). A partir da segunda, cada rodada diz o que
+mudou em relação à anterior do projeto, atravessando fases.
 Evitar: iteração como unidade contável ("iterativo" só como adjetivo do processo).
 
 **Rodada aberta**

@@ -14,7 +14,7 @@ seguinte herda", e é ali que se anota o que divergiu.
 |---|---|---|
 | 1 | A série de ICR com a fase: o ponto carrega a fase, as rodadas agrupadas por fase no gráfico e nos cards | ☑ |
 | 2 | O cálculo puro de "o que mudou" e as palavras | ☑ |
-| 3 | "O que mudou" na tela da rodada e na lista de rodadas, a prova de que nada trava, e a varredura dos ACs | ☐ |
+| 3 | "O que mudou" na tela da rodada e na lista de rodadas, a prova de que nada trava, e a varredura dos ACs | ☑ |
 
 As Partes 1 e 2 são independentes (uma não usa nada da outra); a 3 depende da 2.
 
@@ -562,7 +562,44 @@ provada.
 
 ### O que esta Parte fechou
 
-(preencher ao terminar: commits, números da suíte, divergências.)
+- **D7 seguido nas duas telas.** `RoundChangesNote({ changes, compact? })`: completo no `[roundId]`
+  (cabeçalho "Em relação à rodada N" + três linhas), `compact` no `RoundList` (as três linhas numa
+  só, separadas por " · ", sem cabeçalho, porque o card já tem a linha de versões e o bloco completo
+  dobrava a altura). Aviso e frase da Fase 3 aparecem nos dois modos. O aviso é
+  `CODEBOOK_AND_PROMPT_WITH_INPUT_NOTICE` quando `entersPhase3 && (codebook.changed ||
+  prompt.changed)`, senão `CODEBOOK_AND_PROMPT_NOTICE` quando `codebookAndPrompt`.
+- **D11**: no `[roundId]`, `changesOf(projectId, roundId, tx)` chama `listRounds` só quando
+  `access.isAdmin`, antes do ramo de rodada aberta, então o bloco aparece também com a rodada aberta.
+- **Testes**: `[roundId]/page.int.test.ts` ganhou `nextRoundWith` (rodada seguinte no mesmo projeto,
+  reaproveitando ou criando codebook/prompt; `roundWith` passou a aceitar `codebookVersion` e
+  `promptVersion` e a devolvê-los no `Scene`), 6 testes novos e o do avaliador ampliado com a cena de
+  codebook e prompt mudados; `rounds/page.int.test.ts` ganhou `chainedProject` e 3 testes (lista a
+  partir da segunda rodada; nova rodada liberada; fechar/gerar sem prop nova nem `disabled` a mais).
+  Suíte: 77 arquivos, 1065 testes.
+- **Glossário**: o verbete **Rodada** ganhou "A partir da segunda, cada rodada diz o que mudou em
+  relação à anterior do projeto, atravessando fases" (o **Refinar** deixava ambíguo se era a anterior
+  da fase).
+- **Conferência no navegador** com a cena da 3.7: lista e `[roundId]` das quatro rodadas como
+  planejado; como avaliador (outro projeto, rodada 2 da Fase 3 com codebook e prompt novos), nada de
+  "Em relação", aviso, "Fase" ou "LLM"; "Fechar rodada 4" habilitado; a 375px (iframe) o `Alert`
+  quebra linha dentro do card. Screenshot preto (painel); provado por DOM. Cena apagada, `scores`
+  vazia.
+
+**Varredura da § 4:**
+
+| AC | Prova |
+|---|---|
+| Fase ao lado da versão de codebook | Parte 1 (`agreement-series.unit.test.ts`; "Codebook v2 · Fase 2" em `(tabs)/page.int.test.ts`) |
+| Rodadas agrupadas por fase | Parte 1 (`phaseRuns`; subtítulos e divisória na visão geral) |
+| Nenhum ponto agrega rodadas | Parte 1 (varredura de exportações, `flatMap` idêntico, um card por rodada) |
+| A tela da rodada diz se mudaram codebook, prompt e fase | `round-changes.unit.test.ts`; `[roundId]` "com só o codebook mudado…" e "com codebook e prompt mudados juntos…"; lista "cada rodada a partir da segunda…" |
+| Aviso de codebook e prompt juntos | unitário `codebookAndPrompt`; `[roundId]` "com codebook e prompt mudados juntos, o Administrador lê o aviso…"; rodada aberta |
+| Frase da primeira rodada da Fase 3 | unitário `entersPhase3` (inclusive retorno da Fase 4); `[roundId]` "na primeira rodada da Fase 3…" (e a variante com codebook mudado); lista, card da rodada 3 |
+| Primeira rodada sem comparação | unitário `null`; `[roundId]` "a primeira rodada do projeto não mostra comparação nenhuma"; lista, card da rodada 1 |
+| Nada desabilita botão nem impede abrir rodada | lista "a nova rodada continua liberada" e "fechar e gerar não mudam"; nenhuma assinatura de `roundBlockers`/`NewRound`/`CloseRound`/`GenerateResponses` mudou |
+| Testes e suíte verde | 77 arquivos, 1065 testes; lint e typecheck verdes |
+
+Checkboxes da issue no GitHub: **não marcados** nesta sessão (ação externa, aguarda aval).
 
 ---
 

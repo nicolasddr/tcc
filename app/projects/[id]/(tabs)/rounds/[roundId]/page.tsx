@@ -1,5 +1,5 @@
 import { requireUserId } from '@/lib/supabase/server'
-import { transaction } from '@/lib/db'
+import { transaction, type DbExecutor } from '@/lib/db'
 import {
   loadCodebookVersion,
   type CodebookCriterion,
@@ -11,7 +11,9 @@ import {
   type ResponseForAdmin,
 } from '../../../pipeline/responses'
 import { responseLabel } from '../../evaluate/queue'
-import { isOpen } from '../rounds'
+import { isOpen, listRounds } from '../rounds'
+import { previousRoundOf, roundChanges, type RoundChanges } from '../round-changes'
+import { RoundChangesNote } from '../round-changes-note'
 import { roundInputSummary } from '../preconditions'
 import { AdminResponseCard } from '../sent-input'
 import { loadResponseNotes, type ResponseNote, type ReviewRound } from '../review'
@@ -49,9 +51,21 @@ function markOutliers(
   })
 }
 
+async function changesOf(
+  projectId: string,
+  roundId: string,
+  tx: DbExecutor,
+): Promise<RoundChanges | null> {
+  const rounds = await listRounds(projectId, tx)
+  const round = rounds.find((candidate) => candidate.id === roundId)
+  if (!round) return null
+  return roundChanges(round, previousRoundOf(rounds, round))
+}
+
 type ReviewView = {
   round: ReviewRound
   isAdmin: boolean
+  changes: RoundChanges | null
   current: LabeledResponse | null
   adminResponse: ResponseForAdmin | null
   prev: string | null
@@ -80,10 +94,14 @@ export default async function RoundReviewPage({
   const view = await transaction<ReviewView>(async (tx) => {
     const access = await requireReviewAccess(id, userId, tx)
     const round = await requireReviewableRound(access, roundId, tx)
+    const changes = access.isAdmin
+      ? await changesOf(access.project.id, round.id, tx)
+      : null
 
     const empty = {
       round,
       isAdmin: access.isAdmin,
+      changes,
       current: null,
       adminResponse: null,
       prev: null,
@@ -126,6 +144,7 @@ export default async function RoundReviewPage({
     return {
       round,
       isAdmin: access.isAdmin,
+      changes,
       current,
       adminResponse: access.isAdmin
         ? await loadResponseForAdmin(round.id, current.id, tx)
@@ -145,7 +164,7 @@ export default async function RoundReviewPage({
     }
   })
 
-  const { round, isAdmin, current, adminResponse, prev, next } = view
+  const { round, isAdmin, changes, current, adminResponse, prev, next } = view
   const { definitions, criteria, notes } = view
   const { consensus, authorMemberId, canWriteMinutes, canWritePrivate } = view
 
@@ -173,6 +192,12 @@ export default async function RoundReviewPage({
 
       {isAdmin ? (
         <p className="m-0 mt-4 text-[13px] text-muted">{roundInputSummary(round.phase)}</p>
+      ) : null}
+
+      {isAdmin && changes ? (
+        <div className="mt-4">
+          <RoundChangesNote changes={changes} />
+        </div>
       ) : null}
 
       <Section

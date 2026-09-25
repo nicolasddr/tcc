@@ -52,6 +52,12 @@ import { loadCodebookVersion } from '@/app/projects/[id]/pipeline/codebook'
 import { resolveCells } from '@/app/projects/[id]/pipeline/criteria'
 import { PHASE_2, PHASE_3 } from '@/app/projects/[id]/pipeline/preconditions'
 import { roundInputSummary } from '@/app/projects/[id]/(tabs)/rounds/preconditions'
+import { RoundChangesNote } from '@/app/projects/[id]/(tabs)/rounds/round-changes-note'
+import {
+  CODEBOOK_AND_PROMPT_NOTICE,
+  CODEBOOK_AND_PROMPT_WITH_INPUT_NOTICE,
+  ENTERS_PHASE_3_NOTE,
+} from '@/app/projects/[id]/(tabs)/rounds/round-changes-labels'
 import { ownerDb, projectMembers } from '@/lib/db'
 import {
   createUser,
@@ -123,6 +129,19 @@ function listTextOf(tree: unknown): string {
     .trim()
 }
 
+type ChangesProps = Parameters<typeof RoundChangesNote>[0]
+
+function changesTextOf(tree: unknown): string {
+  const element = findElement(tree, RoundChangesNote)
+  expect(element).toBeTruthy()
+  return renderToStaticMarkup(
+    createElement(RoundChangesNote, element!.props as ChangesProps),
+  )
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
 type CodebookShape = Parameters<typeof addCodebookVersion>[3]
 
 type SceneCell = {
@@ -134,6 +153,8 @@ type SceneCell = {
 
 type Scene = {
   project: string
+  codebookVersion: string
+  promptVersion: string
   round: string
   responses: string[]
   cells: SceneCell[]
@@ -236,6 +257,8 @@ describe('app/projects/[id]/rounds/[roundId] — a revisão de discordâncias', 
       project?: string
       roundNumber?: number
       phase?: number
+      codebookVersion?: string
+      promptVersion?: string
       texts?: string[]
       sentInputs?: (string | null)[]
     } = {},
@@ -248,13 +271,17 @@ describe('app/projects/[id]/rounds/[roundId] — a revisão de discordâncias', 
     }
 
     const roundNumber = opts.roundNumber ?? 1
-    const codebookVersion = await addCodebookVersion(ownerDb, project, admin, {
-      versionNumber: roundNumber,
-      ...(opts.shape ?? TWO_DEFINITIONS),
-    })
-    const promptVersion = await addPromptVersion(ownerDb, project, admin, {
-      versionNumber: roundNumber,
-    })
+    const codebookVersion =
+      opts.codebookVersion ??
+      (await addCodebookVersion(ownerDb, project, admin, {
+        versionNumber: roundNumber,
+        ...(opts.shape ?? TWO_DEFINITIONS),
+      }))
+    const promptVersion =
+      opts.promptVersion ??
+      (await addPromptVersion(ownerDb, project, admin, {
+        versionNumber: roundNumber,
+      }))
     const round = await addRound(
       ownerDb,
       project,
@@ -285,7 +312,29 @@ describe('app/projects/[id]/rounds/[roundId] — a revisão de discordâncias', 
       criterionName: cell.criterion.name,
     }))
 
-    return { project, round, responses, cells }
+    return { project, codebookVersion, promptVersion, round, responses, cells }
+  }
+
+  async function nextRoundWith(
+    admin: string,
+    previous: Scene,
+    responseCount: number,
+    opts: {
+      roundNumber: number
+      newCodebook?: boolean
+      newPrompt?: boolean
+      phase?: number
+      status?: 'open' | 'closed'
+    },
+  ): Promise<Scene> {
+    return roundWith(admin, responseCount, {
+      project: previous.project,
+      roundNumber: opts.roundNumber,
+      phase: opts.phase,
+      status: opts.status,
+      codebookVersion: opts.newCodebook ? undefined : previous.codebookVersion,
+      promptVersion: opts.newPrompt ? undefined : previous.promptVersion,
+    })
   }
 
   function cellOf(scene: Scene, definition: string, criterion: string): SceneCell {
@@ -747,11 +796,21 @@ describe('app/projects/[id]/rounds/[roundId] — a revisão de discordâncias', 
 
   it('o avaliador na mesma rodada não lê a fase nem o que foi à LLM', async () => {
     const admin = await newUser('Admin')
-    const scene = await roundWith(admin, 1, { phase: PHASE_3 })
+    const first = await roundWith(admin, 1, { phase: PHASE_2 })
+    const scene = await nextRoundWith(admin, first, 1, {
+      roundNumber: 2,
+      phase: PHASE_3,
+      newCodebook: true,
+      newPrompt: true,
+    })
     const ana = await newSignedEvaluator(scene.project, 'Ana Avaliadora')
     await addEvaluation(ownerDb, scene.round, scene.responses[0], ana.member, {
       cells: [note(scene, 'Informacional', 'Precisão', 'high')],
     })
+
+    auth.userId = admin
+    const adminTree = await render(scene.project, scene.round)
+    expect(findElement(adminTree, RoundChangesNote)).toBeTruthy()
 
     auth.userId = ana.user
     const tree = await render(scene.project, scene.round)
@@ -760,6 +819,116 @@ describe('app/projects/[id]/rounds/[roundId] — a revisão de discordâncias', 
     expect(text).toContain('Ana Avaliadora')
     expect(text).not.toContain('Fase')
     expect(text).not.toContain('LLM')
+    expect(findElement(tree, RoundChangesNote)).toBeNull()
+    expect(text).not.toContain('Em relação à rodada')
+    expect(text).not.toContain(CODEBOOK_AND_PROMPT_NOTICE)
+    expect(text).not.toContain(CODEBOOK_AND_PROMPT_WITH_INPUT_NOTICE)
+    expect(text).not.toContain(ENTERS_PHASE_3_NOTE)
+  })
+
+  it('com codebook e prompt mudados juntos, o Administrador lê o aviso e as três linhas', async () => {
+    const admin = await newUser('Admin')
+    const first = await roundWith(admin, 1)
+    const second = await nextRoundWith(admin, first, 1, {
+      roundNumber: 2,
+      newCodebook: true,
+      newPrompt: true,
+    })
+
+    auth.userId = admin
+    const text = changesTextOf(await render(second.project, second.round))
+
+    expect(text).toContain('Em relação à rodada 1')
+    expect(text).toContain('Codebook: v1 → v2')
+    expect(text).toContain('Prompt: v1 → v2')
+    expect(text).toContain(`Fase: ${PHASE_2}, a mesma`)
+    expect(text).toContain(CODEBOOK_AND_PROMPT_NOTICE)
+    expect(text).not.toContain(ENTERS_PHASE_3_NOTE)
+  })
+
+  it('com só o codebook mudado, não há aviso, e prompt e fase aparecem como os mesmos', async () => {
+    const admin = await newUser('Admin')
+    const first = await roundWith(admin, 1)
+    const second = await nextRoundWith(admin, first, 1, {
+      roundNumber: 2,
+      newCodebook: true,
+    })
+
+    auth.userId = admin
+    const text = changesTextOf(await render(second.project, second.round))
+
+    expect(text).toContain('Codebook: v1 → v2')
+    expect(text).toContain('Prompt: v1, o mesmo')
+    expect(text).toContain(`Fase: ${PHASE_2}, a mesma`)
+    expect(text).not.toContain(CODEBOOK_AND_PROMPT_NOTICE)
+    expect(text).not.toContain(CODEBOOK_AND_PROMPT_WITH_INPUT_NOTICE)
+    expect(text).not.toContain(ENTERS_PHASE_3_NOTE)
+  })
+
+  it('na primeira rodada da Fase 3, com as mesmas versões, aparece a frase da forma de montar a entrada', async () => {
+    const admin = await newUser('Admin')
+    const first = await roundWith(admin, 1, { phase: PHASE_2 })
+    const second = await nextRoundWith(admin, first, 1, {
+      roundNumber: 2,
+      phase: PHASE_3,
+    })
+
+    auth.userId = admin
+    const text = changesTextOf(await render(second.project, second.round))
+
+    expect(text).toContain(`Fase: ${PHASE_2} → ${PHASE_3}`)
+    expect(text).toContain('Codebook: v1, o mesmo')
+    expect(text).toContain('Prompt: v1, o mesmo')
+    expect(text).toContain(ENTERS_PHASE_3_NOTE)
+    expect(text).not.toContain(CODEBOOK_AND_PROMPT_NOTICE)
+    expect(text).not.toContain(CODEBOOK_AND_PROMPT_WITH_INPUT_NOTICE)
+  })
+
+  it('na primeira rodada da Fase 3 com o codebook também mudado, o aviso diz que não se atribui só à entrada', async () => {
+    const admin = await newUser('Admin')
+    const first = await roundWith(admin, 1, { phase: PHASE_2 })
+    const second = await nextRoundWith(admin, first, 1, {
+      roundNumber: 2,
+      phase: PHASE_3,
+      newCodebook: true,
+    })
+
+    auth.userId = admin
+    const text = changesTextOf(await render(second.project, second.round))
+
+    expect(text).toContain(ENTERS_PHASE_3_NOTE)
+    expect(text).toContain(CODEBOOK_AND_PROMPT_WITH_INPUT_NOTICE)
+    expect(text).not.toContain(CODEBOOK_AND_PROMPT_NOTICE)
+  })
+
+  it('a primeira rodada do projeto não mostra comparação nenhuma', async () => {
+    const admin = await newUser('Admin')
+    const scene = await roundWith(admin, 1)
+
+    auth.userId = admin
+    const tree = await render(scene.project, scene.round)
+
+    expect(findElement(tree, RoundChangesNote)).toBeNull()
+    expect(textOf(tree)).not.toContain('Em relação à rodada')
+  })
+
+  it('a rodada aberta também diz o que mudou, junto do aviso de que a revisão abre no fechamento', async () => {
+    const admin = await newUser('Admin')
+    const first = await roundWith(admin, 1)
+    const second = await nextRoundWith(admin, first, 1, {
+      roundNumber: 2,
+      status: 'open',
+      newCodebook: true,
+      newPrompt: true,
+    })
+
+    auth.userId = admin
+    const tree = await render(second.project, second.round)
+
+    expect(textOf(tree)).toContain('abre quando ela fechar')
+    const text = changesTextOf(tree)
+    expect(text).toContain('Em relação à rodada 1')
+    expect(text).toContain(CODEBOOK_AND_PROMPT_NOTICE)
   })
 
   const SENT =

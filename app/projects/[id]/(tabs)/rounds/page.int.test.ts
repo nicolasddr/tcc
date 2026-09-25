@@ -66,6 +66,11 @@ import {
   roundInputSummary,
 } from '@/app/projects/[id]/(tabs)/rounds/preconditions'
 import { itemUsageLabel } from '@/app/projects/[id]/pipeline/item-usage'
+import { RoundChangesNote } from '@/app/projects/[id]/(tabs)/rounds/round-changes-note'
+import {
+  CODEBOOK_AND_PROMPT_NOTICE,
+  ENTERS_PHASE_3_NOTE,
+} from '@/app/projects/[id]/(tabs)/rounds/round-changes-labels'
 import { llmModel } from '@/lib/ai'
 import { ownerDb, projectMembers } from '@/lib/db'
 import {
@@ -176,6 +181,7 @@ type MatrixProps = Parameters<typeof AgreementMatrixTable>[0]
 type EvaluatorProps = Parameters<typeof EvaluatorRounds>[0]
 type QualityProps = Parameters<typeof QualityPanel>[0]
 type QualityMatrixProps = Parameters<typeof QualityMatrixTable>[0]
+type ChangesProps = Parameters<typeof RoundChangesNote>[0]
 
 function render(id: string) {
   return ProjectRoundsPage({ params: Promise.resolve({ id }) })
@@ -274,6 +280,19 @@ function qualityCellsOf(tree: unknown): string[] {
       .replace(/\s+/g, ' ')
       .trim(),
   )
+}
+
+function cardsOf(list: ListProps): ReactElement[] {
+  return (RoundList(list).props as { children: ReactElement[] }).children
+}
+
+function cardChangesOf(card: ReactElement): ChangesProps | null {
+  const element = findElement(card, RoundChangesNote)
+  return element ? (element.props as ChangesProps) : null
+}
+
+function disabledCountOf(element: ReactElement): number {
+  return renderToStaticMarkup(element).match(/disabled=""/g)?.length ?? 0
 }
 
 function agreementTitleOf(tree: unknown): string {
@@ -460,6 +479,33 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     return { scene, carla }
   }
 
+  async function chainedProject(
+    admin: string,
+    opts: { changed: boolean; lastStatus: 'open' | 'closed' },
+  ): Promise<string> {
+    const { project, codebookVersion, promptVersion } = await readyProject(admin)
+    await addRound(ownerDb, project, admin, codebookVersion, promptVersion, {
+      roundNumber: 1,
+      status: 'closed',
+    })
+
+    const nextCodebook = opts.changed
+      ? await addCodebookVersion(ownerDb, project, admin, {
+          versionNumber: 2,
+          ...ONE_DEFINITION,
+        })
+      : codebookVersion
+    const nextPrompt = opts.changed
+      ? await addPromptVersion(ownerDb, project, admin, { versionNumber: 2 })
+      : promptVersion
+    await addRound(ownerDb, project, admin, nextCodebook, nextPrompt, {
+      roundNumber: 2,
+      status: opts.lastStatus,
+    })
+
+    return project
+  }
+
   beforeEach(() => {
     users = []
     projs = []
@@ -543,6 +589,112 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     const panel = markupTextOf(createElement(CloseRound, close))
     expect(panel).toContain(roundInputSummary(PHASE_3))
     expect(panel).not.toContain(roundInputSummary(PHASE_2))
+  })
+
+  it('na lista, cada rodada a partir da segunda diz o que mudou em relação à anterior', async () => {
+    const admin = await newUser('Admin')
+    const { project, codebookVersion, promptVersion } = await readyProject(
+      admin,
+      PHASE_3,
+    )
+    await addRound(ownerDb, project, admin, codebookVersion, promptVersion, {
+      roundNumber: 1,
+      status: 'closed',
+      phase: PHASE_2,
+    })
+    const codebook2 = await addCodebookVersion(ownerDb, project, admin, {
+      versionNumber: 2,
+      ...ONE_DEFINITION,
+    })
+    const prompt2 = await addPromptVersion(ownerDb, project, admin, { versionNumber: 2 })
+    await addRound(ownerDb, project, admin, codebook2, prompt2, {
+      roundNumber: 2,
+      status: 'closed',
+      phase: PHASE_2,
+    })
+    await addRound(ownerDb, project, admin, codebook2, prompt2, {
+      roundNumber: 3,
+      phase: PHASE_3,
+    })
+
+    auth.userId = admin
+    const cards = cardsOf(listOf(await render(project)))
+    expect(cards).toHaveLength(3)
+
+    expect(cardChangesOf(cards[0])).toBeNull()
+    expect(markupTextOf(cards[0])).not.toContain('→')
+
+    const second = cardChangesOf(cards[1])
+    expect(second?.changes.previousRoundNumber).toBe(1)
+    const secondText = markupTextOf(createElement(RoundChangesNote, second!))
+    expect(secondText).toContain('Codebook: v1 → v2')
+    expect(secondText).toContain('Prompt: v1 → v2')
+    expect(secondText).toContain(`Fase: ${PHASE_2}, a mesma`)
+    expect(secondText).toContain(CODEBOOK_AND_PROMPT_NOTICE)
+    expect(secondText).not.toContain(ENTERS_PHASE_3_NOTE)
+
+    const third = cardChangesOf(cards[2])
+    expect(third?.changes.previousRoundNumber).toBe(2)
+    const thirdText = markupTextOf(createElement(RoundChangesNote, third!))
+    expect(thirdText).toContain('Codebook: v2, o mesmo')
+    expect(thirdText).toContain('Prompt: v2, o mesmo')
+    expect(thirdText).toContain(`Fase: ${PHASE_2} → ${PHASE_3}`)
+    expect(thirdText).toContain(ENTERS_PHASE_3_NOTE)
+    expect(thirdText).not.toContain(CODEBOOK_AND_PROMPT_NOTICE)
+  })
+
+  it('com codebook e prompt mudados juntos na última rodada, a nova rodada continua liberada', async () => {
+    const admin = await newUser('Admin')
+    const changed = await chainedProject(admin, { changed: true, lastStatus: 'closed' })
+    const same = await chainedProject(admin, { changed: false, lastStatus: 'closed' })
+
+    auth.userId = admin
+    const changedTree = await render(changed)
+    const sameTree = await render(same)
+
+    const withNotice = cardChangesOf(cardsOf(listOf(changedTree))[1])
+    expect(withNotice?.changes.codebookAndPrompt).toBe(true)
+    expect(cardChangesOf(cardsOf(listOf(sameTree))[1])?.changes.codebookAndPrompt).toBe(
+      false,
+    )
+
+    const changedNew = newRoundOf(changedTree)
+    const sameNew = newRoundOf(sameTree)
+    expect(changedNew.blockers).toEqual([])
+    expect(sameNew.blockers).toEqual([])
+    expect(Object.keys(changedNew).sort()).toEqual(Object.keys(sameNew).sort())
+    expect(disabledCountOf(createElement(NewRound, changedNew))).toBe(0)
+  })
+
+  it('com codebook e prompt mudados juntos na rodada aberta, fechar e gerar não mudam', async () => {
+    const admin = await newUser('Admin')
+    const changed = await chainedProject(admin, { changed: true, lastStatus: 'open' })
+    const same = await chainedProject(admin, { changed: false, lastStatus: 'open' })
+
+    auth.userId = admin
+    const changedTree = await render(changed)
+    const sameTree = await render(same)
+
+    expect(
+      cardChangesOf(cardsOf(listOf(changedTree))[1])?.changes.codebookAndPrompt,
+    ).toBe(true)
+
+    const changedClose = closeRoundOf(changedTree)
+    const sameClose = closeRoundOf(sameTree)
+    expect(Object.keys(changedClose).sort()).toEqual(Object.keys(sameClose).sort())
+    expect(disabledCountOf(createElement(CloseRound, changedClose))).toBe(
+      disabledCountOf(createElement(CloseRound, sameClose)),
+    )
+
+    const changedGenerate = generateOf(changedTree)
+    const sameGenerate = generateOf(sameTree)
+    expect(Object.keys(changedGenerate).sort()).toEqual(Object.keys(sameGenerate).sort())
+    expect(Object.keys(changedGenerate.round).sort()).toEqual(
+      Object.keys(sameGenerate.round).sort(),
+    )
+    expect(disabledCountOf(createElement(GenerateResponses, changedGenerate))).toBe(
+      disabledCountOf(createElement(GenerateResponses, sameGenerate)),
+    )
   })
 
   it('a tela diz qual definição está sem critério em vez de só desabilitar o botão', async () => {
