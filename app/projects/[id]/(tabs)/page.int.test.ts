@@ -43,9 +43,17 @@ import {
 } from '@/app/projects/[id]/pipeline/preconditions'
 import { AgreementSeriesChart } from '@/app/projects/[id]/(tabs)/rounds/agreement-series-chart'
 import { QualityPanel } from '@/app/projects/[id]/(tabs)/rounds/quality-panel'
+import { QualitySeriesList } from '@/app/projects/[id]/(tabs)/rounds/quality-series-list'
+import {
+  QUALITY_SERIES_NOTE,
+  QUALITY_SERIES_NOTE_SINGLE,
+} from '@/app/projects/[id]/(tabs)/rounds/quality-labels'
+import { QualityMatrixTable } from '@/app/projects/[id]/(tabs)/rounds/quality-matrix-table'
 import { Section } from '@/app/components/ui/section'
 import {
+  AGREEMENT_ALL_LABEL,
   AGREEMENT_BANDS,
+  AGREEMENT_WITHOUT_OUTLIERS_LABEL,
   BAND_REFERENCE,
   NOT_CALCULABLE_LABEL,
   agreementBand,
@@ -67,6 +75,7 @@ import {
   addRound,
   addResponse,
   addEvaluation,
+  addOutlier,
   type CellFixture,
   cleanup,
 } from '@/test/helpers'
@@ -113,6 +122,7 @@ type TabsProps = Parameters<typeof ProjectTabs>[0]
 type AdvanceProps = Parameters<typeof AdvancePhase>[0]
 type SeriesProps = Parameters<typeof AgreementSeriesChart>[0]
 type QualityProps = Parameters<typeof QualityPanel>[0]
+type QualitySeriesProps = Parameters<typeof QualitySeriesList>[0]
 
 type ScaleValue = NonNullable<CellFixture['value']>
 
@@ -185,6 +195,19 @@ function qualityOf(tree: unknown): QualityProps {
 
 function qualityTextOf(tree: unknown): string {
   return renderToStaticMarkup(createElement(QualityPanel, qualityOf(tree)))
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function qualitySeriesOf(tree: unknown): QualitySeriesProps {
+  const element = findElement(tree, QualitySeriesList)
+  expect(element).toBeTruthy()
+  return element!.props as QualitySeriesProps
+}
+
+function qualitySeriesTextOf(tree: unknown): string {
+  return renderToStaticMarkup(createElement(QualitySeriesList, qualitySeriesOf(tree)))
     .replace(/<[^>]*>/g, ' ')
     .replace(/\s+/g, ' ')
     .trim()
@@ -654,6 +677,7 @@ describe('app/projects/[id]/page — escopo de visibilidade', () => {
     const tree = await render(project)
 
     expect(findElement(tree, QualityPanel)).toBeNull()
+    expect(findElement(tree, QualitySeriesList)).toBeNull()
     expect(deepText(tree)).not.toContain('Qualidade')
     expect(seriesOf(tree).points).toHaveLength(1)
   })
@@ -676,14 +700,24 @@ describe('app/projects/[id]/page — escopo de visibilidade', () => {
 
     async function expectNoQuality() {
       auth.userId = admin
-      expect(qualityOf(await render(project)).pair.all).toMatchObject({ total: 8 })
+      const adminTree = await render(project)
+      expect(qualityOf(adminTree).pair.all).toMatchObject({ total: 8 })
+      expect(qualitySeriesOf(adminTree).points).toHaveLength(1)
+      expect(qualitySeriesTextOf(adminTree)).toContain(QUALITY_SERIES_NOTE_SINGLE)
+      expect(findElement(await renderRounds(project), QualityMatrixTable)).toBeTruthy()
 
       auth.userId = evaluator
       const tree = await render(project)
       expect(findElement(tree, QualityPanel)).toBeNull()
+      expect(findElement(tree, QualitySeriesList)).toBeNull()
+      expect(findElement(tree, QualityMatrixTable)).toBeNull()
       const page = deepText(tree)
       expect(page).not.toContain('Qualidade')
       expect(page).not.toContain('%')
+
+      const roundsTree = await renderRounds(project)
+      expect(findElement(roundsTree, QualityMatrixTable)).toBeNull()
+      expect(findElement(roundsTree, QualityPanel)).toBeNull()
     }
 
     await expectNoQuality()
@@ -694,6 +728,143 @@ describe('app/projects/[id]/page — escopo de visibilidade', () => {
       .where(eq(rounds.id, round))
 
     await expectNoQuality()
+  })
+
+  async function qualitySeriesScene(admin: string) {
+    const project = await newProject(admin, PHASE_3)
+    const ana = await addActiveEvaluator(ownerDb, project, await newUser('Ana'))
+    const bruno = await addActiveEvaluator(ownerDb, project, await newUser('Bruno'))
+    const promptV1 = await addPromptVersion(ownerDb, project, admin)
+    const promptV2 = await addPromptVersion(ownerDb, project, admin, { versionNumber: 2 })
+
+    const byEvaluator = { [ana]: QUALITY_NOTES.ana, [bruno]: QUALITY_NOTES.bruno }
+    for (const roundNumber of [1, 2]) {
+      await roundWith(project, admin, promptV1, {
+        roundNumber,
+        versionNumber: roundNumber,
+        phase: PHASE_2,
+        byEvaluator,
+      })
+    }
+    const third = await roundWith(project, admin, promptV1, {
+      roundNumber: 3,
+      versionNumber: 3,
+      phase: PHASE_3,
+      byEvaluator,
+    })
+    const fourth = await roundWith(project, admin, promptV2, {
+      roundNumber: 4,
+      versionNumber: 4,
+      phase: PHASE_3,
+      status: 'open',
+      byEvaluator: { [ana]: ['low', 'low'], [bruno]: ['low', 'medium'] },
+    })
+
+    return { project, ana, bruno, third, fourth }
+  }
+
+  it('o Administrador vê a série de Qualidade com um ponto por rodada da Fase 3, cada um com as suas versões', async () => {
+    const admin = await newUser('Admin')
+    const { project } = await qualitySeriesScene(admin)
+
+    auth.userId = admin
+    const tree = await render(project)
+
+    const points = qualitySeriesOf(tree).points
+    expect(points.map((point) => point.roundNumber)).toEqual([3, 4])
+    expect(points.map((point) => point.codebookVersionNumber)).toEqual([3, 4])
+    expect(points.map((point) => point.promptVersionNumber)).toEqual([1, 2])
+    expect(points.map((point) => point.pair.withoutOutliers)).toEqual([null, null])
+
+    const text = qualitySeriesTextOf(tree)
+    expect(text).toContain('Rodada 3')
+    expect(text).toContain('Rodada 4')
+    expect(text.indexOf('Rodada 3')).toBeLessThan(text.indexOf('Rodada 4'))
+    expect(text).toContain('Codebook v3')
+    expect(text).toContain('Codebook v4')
+    expect(text).toContain('Prompt v1')
+    expect(text).toContain('Prompt v2')
+    expect(text).toContain('Alto 62,5% (5) · Médio 25% (2) · Baixo 12,5% (1)')
+    expect(text).toContain('Alto 0% (0) · Médio 25% (1) · Baixo 75% (3)')
+    expect(text).toContain('aberta')
+    expect(text).not.toContain(AGREEMENT_ALL_LABEL)
+    expect(text).not.toContain('média')
+    expect(text).toContain(QUALITY_SERIES_NOTE)
+    expect(text).not.toContain(QUALITY_SERIES_NOTE_SINGLE)
+
+    const section = sectionWith(tree, QualitySeriesList)
+    expect((section!.props as { title: unknown }).title).toBe('Qualidade por rodada')
+    expect(section).not.toBe(sectionWith(tree, QualityPanel))
+    expect(section).not.toBe(sectionWith(tree, AgreementSeriesChart))
+    expect(
+      renderToStaticMarkup(createElement(QualitySeriesList, qualitySeriesOf(tree))),
+    ).toContain(`href="/projects/${project}/rounds"`)
+  })
+
+  it('as rodadas da Fase 2 não entram na série de Qualidade, e continuam na de Concordância', async () => {
+    const admin = await newUser('Admin')
+    const { project } = await qualitySeriesScene(admin)
+
+    auth.userId = admin
+    const tree = await render(project)
+
+    const text = qualitySeriesTextOf(tree)
+    expect(text).not.toContain('Rodada 1')
+    expect(text).not.toContain('Rodada 2')
+    expect(text).not.toContain('Codebook v1')
+    expect(text).not.toContain('Codebook v2')
+
+    expect(seriesOf(tree).points.map((point) => point.roundNumber)).toEqual([1, 2, 3, 4])
+  })
+
+  it('o ponto da série tem os mesmos valores da Qualidade da tela de rodadas', async () => {
+    const admin = await newUser('Admin')
+    const { project, bruno, fourth } = await qualitySeriesScene(admin)
+    await addOutlier(ownerDb, fourth, bruno, admin)
+
+    auth.userId = admin
+    const tree = await render(project)
+    const focusPoint = qualitySeriesOf(tree).points.at(-1)!
+
+    expect(focusPoint.roundNumber).toBe(4)
+    expect(focusPoint.pair).toEqual(qualityOf(await renderRounds(project)).pair)
+    expect(focusPoint.pair).toEqual(qualityOf(tree).pair)
+  })
+
+  it('com outlier marcado numa rodada, só o ponto dela traz o par, com todos primeiro', async () => {
+    const admin = await newUser('Admin')
+    const { project, bruno, third } = await qualitySeriesScene(admin)
+    await addOutlier(ownerDb, third, bruno, admin)
+
+    auth.userId = admin
+    const tree = await render(project)
+
+    const [marked, unmarked] = qualitySeriesOf(tree).points
+    expect(marked.pair.withoutOutliers).toEqual({
+      rated: true,
+      total: 4,
+      levels: [
+        { value: 'high', count: 3, share: 0.75 },
+        { value: 'medium', count: 1, share: 0.25 },
+        { value: 'low', count: 0, share: 0 },
+      ],
+    })
+    expect(marked.pair.all).toMatchObject({ rated: true, total: 8 })
+    expect(unmarked.pair.withoutOutliers).toBeNull()
+
+    const text = qualitySeriesTextOf(tree)
+    const markedText = text.slice(text.indexOf('Rodada 3'), text.indexOf('Rodada 4'))
+    const unmarkedText = text.slice(text.indexOf('Rodada 4'))
+
+    expect(markedText).toContain(AGREEMENT_ALL_LABEL)
+    expect(markedText).toContain(AGREEMENT_WITHOUT_OUTLIERS_LABEL)
+    expect(markedText.indexOf(AGREEMENT_ALL_LABEL)).toBeLessThan(
+      markedText.indexOf(AGREEMENT_WITHOUT_OUTLIERS_LABEL),
+    )
+    expect(markedText).toContain('Alto 62,5% (5)')
+    expect(markedText).toContain('Alto 75% (3)')
+    expect(unmarkedText).not.toContain(AGREEMENT_ALL_LABEL)
+    expect(unmarkedText).not.toContain(AGREEMENT_WITHOUT_OUTLIERS_LABEL)
   })
 
   it('duas versões de codebook viram dois pontos, e nada na tela junta os dois', async () => {

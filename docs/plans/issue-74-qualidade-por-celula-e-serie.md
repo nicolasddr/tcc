@@ -15,7 +15,7 @@ seguinte herda", e é ali que se anota o que divergiu.
 |---|---|---|
 | 1 | O cálculo puro: construtor de matriz genérico, matriz de Qualidade, série de Qualidade e as palavras | ☑ |
 | 2 | A tela de rodadas: a matriz de Qualidade dentro do bloco da Qualidade | ☑ |
-| 3 | A visão geral: a série de Qualidade, a prova de que o Avaliador não vê nada, e a varredura dos ACs | ☐ |
+| 3 | A visão geral: a série de Qualidade, a prova de que o Avaliador não vê nada, e a varredura dos ACs | ☑ |
 
 **Sem migration, sem ADR nova.** Matriz e série são derivadas das mesmas notas que o ICR já carrega,
 na leitura. Nenhuma tabela, coluna ou cache. As decisões de fundo já estão escritas: emenda de
@@ -561,7 +561,43 @@ conferida no navegador.
 
 ### O que esta Parte fechou
 
-_(preencher ao fim da Parte 3.)_
+- **`QualitySeriesList`** em `(tabs)/rounds/quality-series-list.tsx`, com as props do D6 (`points`,
+  `projectId`): cards "Rodada N", "Codebook vX", "Prompt vY", "fechada em …" ou `Badge tone="info"`
+  "aberta", e `QualityValue` embaixo. Rodapé com `QUALITY_SERIES_NOTE_SINGLE` (um ponto) ou
+  `QUALITY_SERIES_NOTE` (vários) e o `OpenLink` "Abrir rodadas". Sem gráfico, sem marca "com
+  exclusão", sem `InfoTooltip` (a explicação fica no `help` da `Section`).
+- **`(tabs)/page.tsx`:** `qualityPoints` calculado só quando `agreement` existe; `Section` "Qualidade
+  por rodada" logo depois de "Qualidade na rodada N", só com `qualityPoints.length > 0`, com `hint`
+  `QUALITY_SERIES_HINT` e `help` `QUALITY_SERIES_HELP`. "Concordância por rodada" não mudou.
+- **Testes:** em `(tabs)/page.int.test.ts`, helpers `qualitySeriesOf` e `qualitySeriesTextOf`, a
+  cena `qualitySeriesScene(admin)` (rodadas 1 e 2 da Fase 2, 3 e 4 da Fase 3, a 4 aberta e com o
+  Prompt v2) e 4 testes novos. Estendidos em vez de reescritos: o da Fase 2 com o projeto na Fase 3
+  (`QualitySeriesList` fora da árvore) e o do Avaliador da #73 (`QualitySeriesList` e
+  `QualityMatrixTable` fora da árvore da visão geral e da tela de rodadas, e o Administrador com o
+  rodapé de um ponto só). Suíte: 75 arquivos, 1019 testes, lint e typecheck verdes.
+- **Glossário:** o verbete **Qualidade** de `docs/CONTEXT.md` já dizia "na rodada inteira, por célula
+  e na série das rodadas da Fase 3"; nada mudou, e a D1 ficou como estava.
+- **Conferido no navegador** (cena da § 3.6, apagada depois; `scores` vazia): a série com as rodadas 2
+  e 3 e sem a 1; cada ponto com "Codebook v…" e "Prompt v…"; o ponto 2 com o par, com todos primeiro,
+  e o 3 com um valor só. A 375px (medido num `iframe`, porque o screenshot do painel saiu preto),
+  nenhum elemento visível da série passa da largura. A página em si já rolava na horizontal a 375px
+  por causa da barra de abas e do balão oculto do `InfoTooltip` de toda `Section`, "Concordância por
+  rodada" inclusive: é anterior a esta fatia e não entra nela.
+
+**Varredura dos ACs (§ 4):**
+
+| AC | Prova verde |
+|---|---|
+| Mesma estrutura da matriz de ICR | `quality-matrix.unit.test.ts` "tem as mesmas colunas e linhas da matriz de ICR"; `agreement-matrix.unit.test.ts` sem asserção mudada |
+| Alto, Médio e Baixo com contagens por célula | unitário "cada célula conta só as suas notas"; `rounds/page.int.test.ts` "o Administrador vê a matriz de Qualidade da versão fixada" |
+| Não aplicável e sem nota | unitários "critério específico de outra definição" e "célula aplicável que ninguém avaliou"; página "o par inexistente é traço e a célula sem nota diz sem nota, nunca 0%" |
+| Série: um ponto por rodada da Fase 3, com porcentagens e versões | `quality-series.unit.test.ts` "só as rodadas da Fase 3" e "cada ponto traz as versões"; `(tabs)/page.int.test.ts` "o Administrador vê a série de Qualidade com um ponto por rodada da Fase 3" |
+| Fase 2 fora da série | unitários "só as rodadas da Fase 3" e "projeto só com rodadas da Fase 2"; página "as rodadas da Fase 2 não entram na série de Qualidade" e "não mostra Qualidade quando a rodada em foco é da Fase 2" |
+| Com outlier, o par sem esconder o com todos | unitários "com avaliador marcado, toda célula com nota traz o par" e "só a rodada com avaliador marcado traz o par"; páginas "cada célula medida da matriz de Qualidade traz o par" e "com outlier marcado numa rodada, só o ponto dela traz o par" |
+| Nada para o Avaliador | `rounds/page.int.test.ts` "a área de rodadas do avaliador não fala de coeficiente nem de Qualidade"; `(tabs)/page.int.test.ts` "o Avaliador não vê a Qualidade na visão geral" |
+| Testes e suíte verde | 75 arquivos, 1019 testes |
+
+Commits: Parte 1 em `ac3d0d1`, Parte 2 em `7c569fc`, Parte 3 no commit desta Parte.
 
 ---
 

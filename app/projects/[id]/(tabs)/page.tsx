@@ -24,8 +24,15 @@ import { agreementSeries } from './rounds/agreement-series'
 import { agreementPair } from './rounds/agreement-pair'
 import { AgreementSeriesChart } from './rounds/agreement-series-chart'
 import { hasQuality, qualityPair } from './rounds/quality'
-import { QUALITY_HELP, QUALITY_HINT } from './rounds/quality-labels'
+import {
+  QUALITY_HELP,
+  QUALITY_HINT,
+  QUALITY_SERIES_HELP,
+  QUALITY_SERIES_HINT,
+} from './rounds/quality-labels'
 import { QualityPanel } from './rounds/quality-panel'
+import { qualitySeries } from './rounds/quality-series'
+import { QualitySeriesList } from './rounds/quality-series-list'
 import { SubmitButton } from '@/app/components/submit-button'
 import { ButtonLink } from '@/app/components/ui/button'
 import { Callout } from '@/app/components/ui/panel'
@@ -141,6 +148,10 @@ export default async function ProjectPage({
           agreement.outliers.get(focus.id) ?? new Set(),
         )
       : null
+
+  const qualityPoints = agreement
+    ? qualitySeries(agreement.rounds, agreement.observations, agreement.outliers)
+    : []
 
   const closed = agreement ? agreement.rounds.filter((round) => !isOpen(round)) : []
   const latest = closed[closed.length - 1]
@@ -313,6 +324,16 @@ export default async function ProjectPage({
                   <OpenLink href={`/projects/${project.id}/rounds`}>Abrir rodadas</OpenLink>
                 </p>
               </div>
+            </Section>
+          ) : null}
+
+          {qualityPoints.length > 0 ? (
+            <Section
+              title="Qualidade por rodada"
+              hint={QUALITY_SERIES_HINT}
+              help={QUALITY_SERIES_HELP}
+            >
+              <QualitySeriesList points={qualityPoints} projectId={project.id} />
             </Section>
           ) : null}
 
