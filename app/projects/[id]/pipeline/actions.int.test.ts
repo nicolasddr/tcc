@@ -27,7 +27,7 @@ import {
 import {
   PHASE_1,
   PHASE_2,
-  PHASE_3,
+  PHASE_4,
   EMPTY_PIPELINE,
   pendingRequirements,
   wrongPhaseMessage,
@@ -1991,13 +1991,13 @@ describe('app/projects/[id]/pipeline/actions — avanço da Fase 1 para a Fase 2
 
   it('recusa avançar um projeto que já saiu da Fase 1, e a fase não muda', async () => {
     const admin = await newUser('Admin')
-    const project = await newProject(admin, PHASE_3)
+    const project = await newProject(admin, PHASE_4)
     await seedInputs(project, admin)
 
     auth.userId = admin
     const denied = await advancePhase(null, advanceFd(project))
-    expect(denied).toEqual({ error: wrongPhaseMessage(PHASE_3) })
-    expect(await phaseOf(project)).toBe(PHASE_3)
+    expect(denied).toEqual({ error: wrongPhaseMessage(PHASE_4) })
+    expect(await phaseOf(project)).toBe(PHASE_4)
   })
 
   it('um segundo avanço seguido não empurra o projeto para a Fase 3', async () => {

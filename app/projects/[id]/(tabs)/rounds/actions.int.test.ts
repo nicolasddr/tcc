@@ -17,11 +17,14 @@ vi.mock('next/navigation', () => ({
 import { createRound, closeRound } from '@/app/projects/[id]/(tabs)/rounds/actions'
 import { listRounds, loadOpenRound } from '@/app/projects/[id]/(tabs)/rounds/rounds'
 import { loadRoundObservations } from '@/app/projects/[id]/(tabs)/rounds/agreement'
-import { codebookLockedMessage } from '@/app/projects/[id]/(tabs)/rounds/preconditions'
+import {
+  codebookLockedMessage,
+  roundBlockerMessage,
+} from '@/app/projects/[id]/(tabs)/rounds/preconditions'
 import { advancePhase, saveCodebook } from '@/app/projects/[id]/pipeline/actions'
 import { loadCodebook, loadCodebookVersion } from '@/app/projects/[id]/pipeline/codebook'
 import { resolveCells } from '@/app/projects/[id]/pipeline/criteria'
-import { PHASE_1, PHASE_2, PHASE_3 } from '@/app/projects/[id]/pipeline/preconditions'
+import { PHASE_1, PHASE_2, PHASE_3, PHASE_4 } from '@/app/projects/[id]/pipeline/preconditions'
 import { ordinalAlpha } from '@/lib/agreement'
 import {
   ownerDb,
@@ -236,6 +239,45 @@ describe('app/projects/[id]/rounds/actions — criar, fechar e travar o codebook
 
     const [round] = await roundsOf(project)
     expect(round.phase).toBe(PHASE_2)
+  })
+
+  it('criar rodada na Fase 4 é recusado, e nada muda', async () => {
+    const admin = await newUser('Admin')
+    const { project } = await readyProject(admin, PHASE_4)
+
+    auth.userId = admin
+    expect(await createRound(null, newRoundForm(project))).toEqual({
+      error: roundBlockerMessage({ key: 'phase_unavailable', phase: PHASE_4 }),
+    })
+    expect(await roundsOf(project)).toHaveLength(0)
+
+    const [codebook] = await codebookVersionsOf(project)
+    const [prompt] = await promptVersionsOf(project)
+    expect(codebook.usedAt).toBeNull()
+    expect(prompt.usedAt).toBeNull()
+  })
+
+  it('de ponta a ponta: cria, fecha e avança da Fase 3, e a rodada seguinte é recusada na Fase 4', async () => {
+    const admin = await newUser('Admin')
+    const { project } = await readyProject(admin, PHASE_3)
+
+    auth.userId = admin
+    expect(await createRound(null, newRoundForm(project))).toMatchObject({ ok: true })
+    const [created] = await roundsOf(project)
+    expect(await closeRound(null, closeRoundForm(project, created.id))).toMatchObject({
+      ok: true,
+    })
+
+    const advanceForm = new FormData()
+    advanceForm.set('project_id', project)
+    expect(await advancePhase(null, advanceForm)).toMatchObject({ ok: true, phase: PHASE_4 })
+
+    expect(await createRound(null, newRoundForm(project))).toEqual({
+      error: roundBlockerMessage({ key: 'phase_unavailable', phase: PHASE_4 }),
+    })
+    const list = await roundsOf(project)
+    expect(list).toHaveLength(1)
+    expect(list[0]).toMatchObject({ roundNumber: 1, status: 'closed', phase: PHASE_3 })
   })
 
   it('o banco recusa rodada com fase fora da faixa', async () => {

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { asc, count, eq } from 'drizzle-orm'
+import { asc, count, eq, inArray } from 'drizzle-orm'
 
 const auth = vi.hoisted(() => ({ userId: null as string | null }))
 
@@ -16,17 +16,18 @@ vi.mock('next/navigation', () => ({
 
 import { advancePhase } from '@/app/projects/[id]/pipeline/actions'
 import {
-  PHASE_1,
   PHASE_2,
   PHASE_3,
-  phase2BlockedMessage,
+  PHASE_4,
   phase3BlockedMessage,
+  wrongPhaseMessage,
 } from '@/app/projects/[id]/pipeline/preconditions'
 import { loadCodebookVersion } from '@/app/projects/[id]/pipeline/codebook'
 import { resolveCells } from '@/app/projects/[id]/pipeline/criteria'
 import { listRounds } from '@/app/projects/[id]/(tabs)/rounds/rounds'
 import { loadRoundObservations } from '@/app/projects/[id]/(tabs)/rounds/agreement'
 import { AGREEMENT_BANDS } from '@/app/projects/[id]/(tabs)/rounds/agreement-labels'
+import { qualityOf } from '@/app/projects/[id]/(tabs)/rounds/quality'
 import { ordinalAlpha } from '@/lib/agreement'
 import {
   ownerDb,
@@ -34,6 +35,7 @@ import {
   codebookVersions,
   promptVersions,
   evaluations,
+  notifications,
   rounds,
 } from '@/lib/db'
 import {
@@ -63,7 +65,7 @@ type Artifacts = { codebook: string; prompt: string; cells: Cell[] }
 
 type Scene = { round: string; responses: string[] }
 
-describe('app/projects/[id]/pipeline/actions — avanço da Fase 2 para a Fase 3', () => {
+describe('app/projects/[id]/pipeline/actions — avanço da Fase 3 para a Fase 4', () => {
   let users: string[]
   let projs: string[]
 
@@ -73,7 +75,7 @@ describe('app/projects/[id]/pipeline/actions — avanço da Fase 2 para a Fase 3
     return id
   }
 
-  async function newProject(admin: string, phase = PHASE_2): Promise<string> {
+  async function newProject(admin: string, phase = PHASE_3): Promise<string> {
     const id = await seedProject(ownerDb, admin, 'Projeto de Teste', { phase })
     projs.push(id)
     return id
@@ -113,7 +115,12 @@ describe('app/projects/[id]/pipeline/actions — avanço da Fase 2 para a Fase 3
     project: string,
     admin: string,
     artifacts: Artifacts,
-    opts: { roundNumber: number; status: 'open' | 'closed'; responses?: number },
+    opts: {
+      roundNumber: number
+      status: 'open' | 'closed'
+      phase: number
+      responses?: number
+    },
   ): Promise<Scene> {
     const round = await addRound(
       ownerDb,
@@ -121,7 +128,7 @@ describe('app/projects/[id]/pipeline/actions — avanço da Fase 2 para a Fase 3
       admin,
       artifacts.codebook,
       artifacts.prompt,
-      { roundNumber: opts.roundNumber, status: opts.status },
+      { roundNumber: opts.roundNumber, status: opts.status, phase: opts.phase },
     )
 
     const responses: string[] = []
@@ -133,6 +140,17 @@ describe('app/projects/[id]/pipeline/actions — avanço da Fase 2 para a Fase 3
     }
 
     return { round, responses }
+  }
+
+  async function seedPhase3Project(admin: string) {
+    const project = await newProject(admin)
+    const artifacts = await seedArtifacts(project, admin)
+    await seedRound(project, admin, artifacts, {
+      roundNumber: 1,
+      status: 'closed',
+      phase: PHASE_2,
+    })
+    return { project, artifacts }
   }
 
   async function rate(
@@ -148,13 +166,14 @@ describe('app/projects/[id]/pipeline/actions — avanço da Fase 2 para a Fase 3
     }
   }
 
-  function agreementOf(roundId: string) {
-    return loadRoundObservations(roundId, ownerDb).then(ordinalAlpha)
-  }
-
   function roundStateOf(projectId: string) {
     return listRounds(projectId, ownerDb).then((list) =>
-      list.map(({ roundNumber, status, closedAt }) => ({ roundNumber, status, closedAt })),
+      list.map(({ roundNumber, status, phase, closedAt }) => ({
+        roundNumber,
+        status,
+        phase,
+        closedAt,
+      })),
     )
   }
 
@@ -164,6 +183,14 @@ describe('app/projects/[id]/pipeline/actions — avanço da Fase 2 para a Fase 3
       .from(evaluations)
       .innerJoin(rounds, eq(rounds.id, evaluations.roundId))
       .where(eq(rounds.projectId, projectId))
+    return row.value
+  }
+
+  async function notificationsOf(userIds: string[]): Promise<number> {
+    const [row] = await ownerDb
+      .select({ value: count() })
+      .from(notifications)
+      .where(inArray(notifications.userId, userIds))
     return row.value
   }
 
@@ -190,75 +217,95 @@ describe('app/projects/[id]/pipeline/actions — avanço da Fase 2 para a Fase 3
     await cleanup(projs, users)
   })
 
-  it('com uma rodada fechada e nenhuma aberta, o Administrador avança para a Fase 3', async () => {
+  it('com uma rodada fechada da Fase 3 e nenhuma aberta, o Administrador avança para a Fase 4', async () => {
     const admin = await newUser('Admin')
-    const project = await newProject(admin)
-    const artifacts = await seedArtifacts(project, admin)
-    await seedRound(project, admin, artifacts, { roundNumber: 1, status: 'closed' })
+    const { project, artifacts } = await seedPhase3Project(admin)
+    await seedRound(project, admin, artifacts, {
+      roundNumber: 2,
+      status: 'closed',
+      phase: PHASE_3,
+    })
 
     auth.userId = admin
     expect(await advancePhase(null, advanceFd(project))).toMatchObject({
       ok: true,
-      phase: PHASE_3,
+      phase: PHASE_4,
     })
-    expect(await phaseOf(project)).toBe(PHASE_3)
+    expect(await phaseOf(project)).toBe(PHASE_4)
   })
 
   it('recusa o avanço com rodada aberta, nomeando a rodada, e a fase não muda', async () => {
     const admin = await newUser('Admin')
-    const project = await newProject(admin)
-    const artifacts = await seedArtifacts(project, admin)
-    await seedRound(project, admin, artifacts, { roundNumber: 1, status: 'closed' })
-    await seedRound(project, admin, artifacts, { roundNumber: 2, status: 'open' })
+    const { project, artifacts } = await seedPhase3Project(admin)
+    await seedRound(project, admin, artifacts, {
+      roundNumber: 2,
+      status: 'closed',
+      phase: PHASE_3,
+    })
+    await seedRound(project, admin, artifacts, {
+      roundNumber: 3,
+      status: 'open',
+      phase: PHASE_3,
+    })
 
     auth.userId = admin
     expect(await advancePhase(null, advanceFd(project))).toEqual({
-      error: phase2BlockedMessage([{ key: 'open_round', roundNumber: 2 }]),
+      error: phase3BlockedMessage([{ key: 'open_round', roundNumber: 3 }]),
     })
-    expect(await phaseOf(project)).toBe(PHASE_2)
+    expect(await advancePhase(null, advanceFd(project))).toEqual({
+      error: expect.stringContaining('rodada 3'),
+    })
+    expect(await phaseOf(project)).toBe(PHASE_3)
   })
 
-  it('recusa o avanço sem nenhuma rodada, cobrando a rodada fechada, e a fase não muda', async () => {
+  it('recusa o avanço sem rodada fechada na Fase 3, mesmo havendo rodadas fechadas da Fase 2', async () => {
     const admin = await newUser('Admin')
-    const project = await newProject(admin)
-    await seedArtifacts(project, admin)
+    const { project, artifacts } = await seedPhase3Project(admin)
+    await seedRound(project, admin, artifacts, {
+      roundNumber: 2,
+      status: 'closed',
+      phase: PHASE_2,
+    })
 
     auth.userId = admin
     expect(await advancePhase(null, advanceFd(project))).toEqual({
-      error: phase2BlockedMessage([{ key: 'no_closed_round' }]),
+      error: phase3BlockedMessage([{ key: 'no_closed_round' }]),
     })
-    expect(await phaseOf(project)).toBe(PHASE_2)
+    expect(await phaseOf(project)).toBe(PHASE_3)
   })
 
-  it('só com rodada aberta, a recusa cobre as duas pendências de uma vez', async () => {
+  it('com rodada aberta e nenhuma fechada da Fase 3, a recusa cobre as duas pendências', async () => {
     const admin = await newUser('Admin')
-    const project = await newProject(admin)
-    const artifacts = await seedArtifacts(project, admin)
-    await seedRound(project, admin, artifacts, { roundNumber: 1, status: 'open' })
+    const { project, artifacts } = await seedPhase3Project(admin)
+    await seedRound(project, admin, artifacts, {
+      roundNumber: 2,
+      status: 'open',
+      phase: PHASE_3,
+    })
 
     auth.userId = admin
     const denied = await advancePhase(null, advanceFd(project))
     expect(denied).toEqual({
-      error: phase2BlockedMessage([
-        { key: 'open_round', roundNumber: 1 },
+      error: phase3BlockedMessage([
+        { key: 'open_round', roundNumber: 2 },
         { key: 'no_closed_round' },
       ]),
     })
     expect(denied).toEqual({
       error: expect.stringContaining('resolve as duas pendências de uma vez'),
     })
-    expect(await phaseOf(project)).toBe(PHASE_2)
+    expect(await phaseOf(project)).toBe(PHASE_3)
   })
 
   it('concordância baixa não impede o avanço', async () => {
     const admin = await newUser('Admin')
     const ana = await newUser('Ana')
     const bruno = await newUser('Bruno')
-    const project = await newProject(admin)
-    const artifacts = await seedArtifacts(project, admin)
+    const { project, artifacts } = await seedPhase3Project(admin)
     const scene = await seedRound(project, admin, artifacts, {
-      roundNumber: 1,
+      roundNumber: 2,
       status: 'closed',
+      phase: PHASE_3,
       responses: 3,
     })
     await rate(artifacts, scene, await addActiveEvaluator(ownerDb, project, ana), [
@@ -272,7 +319,7 @@ describe('app/projects/[id]/pipeline/actions — avanço da Fase 2 para a Fase 3
       'medium',
     ])
 
-    const agreement = await agreementOf(scene.round)
+    const agreement = ordinalAlpha(await loadRoundObservations(scene.round, ownerDb))
     expect(agreement).toMatchObject({ calculable: true })
     expect(agreement.calculable ? agreement.alpha : NaN).toBeLessThan(
       AGREEMENT_BANDS.acceptable,
@@ -281,62 +328,57 @@ describe('app/projects/[id]/pipeline/actions — avanço da Fase 2 para a Fase 3
     auth.userId = admin
     expect(await advancePhase(null, advanceFd(project))).toMatchObject({
       ok: true,
-      phase: PHASE_3,
+      phase: PHASE_4,
     })
-    expect(await phaseOf(project)).toBe(PHASE_3)
+    expect(await phaseOf(project)).toBe(PHASE_4)
   })
 
-  it('concordância não calculável não impede o avanço', async () => {
+  it('Qualidade concentrada em Baixo não impede o avanço', async () => {
     const admin = await newUser('Admin')
     const ana = await newUser('Ana')
-    const project = await newProject(admin)
-    const artifacts = await seedArtifacts(project, admin)
+    const bruno = await newUser('Bruno')
+    const { project, artifacts } = await seedPhase3Project(admin)
     const scene = await seedRound(project, admin, artifacts, {
-      roundNumber: 1,
+      roundNumber: 2,
       status: 'closed',
-      responses: 3,
+      phase: PHASE_3,
+      responses: 2,
     })
     await rate(artifacts, scene, await addActiveEvaluator(ownerDb, project, ana), [
       'low',
-      'medium',
-      'high',
+      'low',
+    ])
+    await rate(artifacts, scene, await addActiveEvaluator(ownerDb, project, bruno), [
+      'low',
+      'low',
     ])
 
-    expect(await agreementOf(scene.round)).toMatchObject({
-      calculable: false,
-      reason: 'few_evaluators',
-    })
+    const observations = await loadRoundObservations(scene.round, ownerDb)
+    const quality = qualityOf(observations)
+    expect(quality.rated).toBe(true)
+    expect(
+      quality.rated ? quality.levels.find((level) => level.value === 'low')?.share : NaN,
+    ).toBe(1)
+    expect(ordinalAlpha(observations)).toMatchObject({ calculable: false })
 
     auth.userId = admin
     expect(await advancePhase(null, advanceFd(project))).toMatchObject({
       ok: true,
-      phase: PHASE_3,
+      phase: PHASE_4,
     })
-    expect(await phaseOf(project)).toBe(PHASE_3)
+    expect(await phaseOf(project)).toBe(PHASE_4)
   })
 
-  it('o Avaliador é recusado, e a fase não muda', async () => {
-    const admin = await newUser('Admin')
-    const evaluator = await newUser('Avaliador')
-    const project = await newProject(admin)
-    const artifacts = await seedArtifacts(project, admin)
-    await seedRound(project, admin, artifacts, { roundNumber: 1, status: 'closed' })
-    await addActiveEvaluator(ownerDb, project, evaluator)
-
-    auth.userId = evaluator
-    expect(await advancePhase(null, advanceFd(project))).toEqual({
-      error: expect.stringContaining('administrador'),
-    })
-    expect(await phaseOf(project)).toBe(PHASE_2)
-  })
-
-  it('quem não é membro é recusado com a mesma mensagem, e a fase não muda', async () => {
+  it('o Avaliador é recusado, e quem não é membro recebe a mesma mensagem, sem mudar a fase', async () => {
     const admin = await newUser('Admin')
     const evaluator = await newUser('Avaliador')
     const outsider = await newUser('De Fora')
-    const project = await newProject(admin)
-    const artifacts = await seedArtifacts(project, admin)
-    await seedRound(project, admin, artifacts, { roundNumber: 1, status: 'closed' })
+    const { project, artifacts } = await seedPhase3Project(admin)
+    await seedRound(project, admin, artifacts, {
+      roundNumber: 2,
+      status: 'closed',
+      phase: PHASE_3,
+    })
     await addActiveEvaluator(ownerDb, project, evaluator)
 
     auth.userId = evaluator
@@ -344,33 +386,37 @@ describe('app/projects/[id]/pipeline/actions — avanço da Fase 2 para a Fase 3
     auth.userId = outsider
     const asOutsider = await advancePhase(null, advanceFd(project))
 
+    expect(asEvaluator).toEqual({ error: expect.stringContaining('administrador') })
     expect(asOutsider).toEqual(asEvaluator)
-    expect(await phaseOf(project)).toBe(PHASE_2)
+    expect(await phaseOf(project)).toBe(PHASE_3)
   })
 
-  it('o segundo avanço seguido é recusado: a rodada fechada da Fase 2 não conta para a Fase 4', async () => {
+  it('o segundo avanço seguido devolve a mensagem de fase errada nomeando a Fase 4', async () => {
     const admin = await newUser('Admin')
-    const project = await newProject(admin)
-    const artifacts = await seedArtifacts(project, admin)
-    await seedRound(project, admin, artifacts, { roundNumber: 1, status: 'closed' })
+    const { project, artifacts } = await seedPhase3Project(admin)
+    await seedRound(project, admin, artifacts, {
+      roundNumber: 2,
+      status: 'closed',
+      phase: PHASE_3,
+    })
 
     auth.userId = admin
     expect(await advancePhase(null, advanceFd(project))).toMatchObject({ ok: true })
     expect(await advancePhase(null, advanceFd(project))).toEqual({
-      error: phase3BlockedMessage([{ key: 'no_closed_round' }]),
+      error: wrongPhaseMessage(PHASE_4),
     })
-    expect(await phaseOf(project)).toBe(PHASE_3)
+    expect(await phaseOf(project)).toBe(PHASE_4)
   })
 
   it('avançar não muda nada além da fase', async () => {
     const admin = await newUser('Admin')
     const ana = await newUser('Ana')
     const bruno = await newUser('Bruno')
-    const project = await newProject(admin)
-    const artifacts = await seedArtifacts(project, admin)
+    const { project, artifacts } = await seedPhase3Project(admin)
     const scene = await seedRound(project, admin, artifacts, {
-      roundNumber: 1,
+      roundNumber: 2,
       status: 'closed',
+      phase: PHASE_3,
       responses: 2,
     })
     await rate(artifacts, scene, await addActiveEvaluator(ownerDb, project, ana), [
@@ -386,6 +432,7 @@ describe('app/projects/[id]/pipeline/actions — avanço da Fase 2 para a Fase 3
       rounds: await roundStateOf(project),
       evaluations: await evaluationsOf(project),
       usage: await usageOf(project),
+      notifications: await notificationsOf(users),
     }
 
     auth.userId = admin
@@ -394,21 +441,7 @@ describe('app/projects/[id]/pipeline/actions — avanço da Fase 2 para a Fase 3
     expect(await roundStateOf(project)).toEqual(before.rounds)
     expect(await evaluationsOf(project)).toBe(before.evaluations)
     expect(await usageOf(project)).toEqual(before.usage)
-    expect(await phaseOf(project)).toBe(PHASE_3)
-  })
-
-  it('o avanço da Fase 1 continua funcionando com o ramo novo no lugar', async () => {
-    const admin = await newUser('Admin')
-    const project = await newProject(admin, PHASE_1)
-    await addCodebookVersion(ownerDb, project, admin, { definitions: ONE_CELL })
-    await addPromptVersion(ownerDb, project, admin, { text: 'Classifique a consulta.' })
-    await addInputItem(ownerDb, project, admin)
-
-    auth.userId = admin
-    expect(await advancePhase(null, advanceFd(project))).toMatchObject({
-      ok: true,
-      phase: PHASE_2,
-    })
-    expect(await phaseOf(project)).toBe(PHASE_2)
+    expect(await notificationsOf(users)).toBe(before.notifications)
+    expect(await phaseOf(project)).toBe(PHASE_4)
   })
 })

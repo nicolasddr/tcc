@@ -12,7 +12,7 @@ seguinte herda". Anote ali o que divergiu, como nos planos das #68 a #76.
 | Parte | Entrega | Estado |
 |---|---|---|
 | 1 | Regras puras: pré-condições da Fase 3, confirmação da Fase 4, recusa de rodada na Fase 4 e contagem de rodadas por fase | ☑ |
-| 2 | A action: ramo da Fase 3 em `advancePhase`, recusa de `createRound` na Fase 4 e a prova de que número não trava | ☐ |
+| 2 | A action: ramo da Fase 3 em `advancePhase`, recusa de `createRound` na Fase 4 e a prova de que número não trava | ☑ |
 | 3 | A tela: painel da Fase 3 com ICR e Qualidade na confirmação, recorte por fase nos painéis e varredura dos ACs | ☐ |
 
 **Nenhuma ADR nova.** A regra inteira já está escrita: a **ADR 0004** (métrica não trava,
@@ -439,7 +439,20 @@ Commit sugerido: `feat(pipeline): avança da fase 3 para a fase 4 e recusa rodad
 
 ### O que a Parte 3 herda
 
-_(preencher ao fim da Parte)_
+- **`advancePhase` avança da Fase 3 para a 4** exatamente como no § 2.1, sem divergência. A ordem
+  `authz → transação → FOR UPDATE`, `ADVANCE_DENIED` e a revalidação não mudaram. A partir da Fase 4,
+  a action devolve `wrongPhaseMessage(PHASE_4)`.
+- **`createRound` não mudou**: a recusa na Fase 4 vem de `roundBlockers`, e o `usedAt` das versões
+  fica intacto (há teste).
+- **Testes editados, só os dois do § 2.2:** em `actions.int.test.ts`, o de "já saiu da Fase 1" semeia
+  em `PHASE_4` (o import de `PHASE_3` saiu, porque só ele o usava); em `advance-phase-2.int.test.ts`,
+  o segundo avanço agora espera `phase3BlockedMessage([{ key: 'no_closed_round' }])` e foi renomeado.
+- **Arquivo novo** `pipeline/advance-phase-3.int.test.ts`, com 9 testes. O Avaliador e quem não é
+  membro ficaram num teste só. O helper `seedPhase3Project` monta a fixture base (projeto na Fase 3
+  com a rodada 1 fechada da Fase 2). "Notificações do projeto" é contada pelos usuários envolvidos,
+  porque `notifications` não tem `project_id`.
+- **`(tabs)/rounds/actions.int.test.ts`** ganhou 2 testes (Fase 4 isolada e de ponta a ponta).
+- **Suíte:** 81 arquivos, 1125 testes verdes.
 
 ---
 

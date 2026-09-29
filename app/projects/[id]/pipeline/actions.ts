@@ -35,11 +35,14 @@ import {
   PHASE_1,
   PHASE_2,
   PHASE_3,
+  PHASE_4,
   canAdvanceFromPhase1,
   missingInputsMessage,
   pendingRequirements,
   phase2BlockedMessage,
   phase2Blockers,
+  phase3BlockedMessage,
+  phase3Blockers,
   wrongPhaseMessage,
 } from './preconditions'
 import { loadPipelineInputs } from './inputs'
@@ -890,6 +893,20 @@ export async function advancePhase(
 
       await tx.update(projects).set({ phase: PHASE_3 }).where(eq(projects.id, projectId))
       return { status: 'advanced', phase: PHASE_3 }
+    }
+
+    if (project.phase === PHASE_3) {
+      const open = await loadOpenRound(projectId, tx)
+      const blockers = phase3Blockers({
+        openRoundNumber: open?.roundNumber ?? null,
+        closedRounds: await countClosedRounds(projectId, PHASE_3, tx),
+      })
+      if (blockers.length > 0) {
+        return { status: 'incomplete', message: phase3BlockedMessage(blockers) }
+      }
+
+      await tx.update(projects).set({ phase: PHASE_4 }).where(eq(projects.id, projectId))
+      return { status: 'advanced', phase: PHASE_4 }
     }
 
     return { status: 'wrong_phase', phase: project.phase }
