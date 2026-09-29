@@ -58,11 +58,17 @@ import { Section } from '@/app/components/ui/section'
 import { loadCodebookVersion } from '@/app/projects/[id]/pipeline/codebook'
 import { resolveCells } from '@/app/projects/[id]/pipeline/criteria'
 import { formatDate } from '@/app/notifications/labels'
-import { PHASE_1, PHASE_2, PHASE_3 } from '@/app/projects/[id]/pipeline/preconditions'
+import {
+  PHASE_1,
+  PHASE_2,
+  PHASE_3,
+  PHASE_4,
+} from '@/app/projects/[id]/pipeline/preconditions'
 import {
   closeConfirmationLines,
   pendingEvaluatorsTitle,
   roundBlockerMessage,
+  roundBlockerSummary,
   roundInputSummary,
 } from '@/app/projects/[id]/(tabs)/rounds/preconditions'
 import { itemUsageLabel } from '@/app/projects/[id]/pipeline/item-usage'
@@ -811,6 +817,39 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     const phaseBlocker = props.blockers.find((blocker) => blocker.key === 'phase')
     expect(phaseBlocker).toBeTruthy()
     expect(roundBlockerMessage(phaseBlocker!)).toContain(`Fase ${PHASE_2}`)
+  })
+
+  it('na Fase 4 a nova rodada fica recusada, e as rodadas da Fase 3 continuam listadas com a Qualidade', async () => {
+    const admin = await newUser('Admin')
+    const scene = await roundWith(admin, 4, {
+      phase: PHASE_3,
+      projectPhase: PHASE_4,
+      status: 'closed',
+    })
+    const ana = await newEvaluator(scene.project, 'Ana')
+    const bruno = await newEvaluator(scene.project, 'Bruno')
+    for (const evaluator of [ana, bruno]) {
+      for (const response of scene.responses) {
+        await addEvaluation(ownerDb, scene.round, response, evaluator, {
+          cells: filled(scene.cells, 'high'),
+        })
+      }
+    }
+
+    auth.userId = admin
+    const tree = await render(scene.project)
+
+    const props = newRoundOf(tree)
+    expect(props.blockers).toEqual([{ key: 'phase_unavailable', phase: PHASE_4 }])
+    const newRound = createElement(NewRound, props)
+    expect(disabledCountOf(newRound)).toBeGreaterThan(0)
+    expect(markupTextOf(newRound)).toContain(roundBlockerSummary(props.blockers[0]))
+
+    const list = listOf(tree)
+    expect(list.rounds.map((round) => [round.roundNumber, round.phase])).toEqual([
+      [1, PHASE_3],
+    ])
+    expect(qualityPanelOf(tree).pair.all).toMatchObject({ rated: true, total: 8 })
   })
 
   it('com rodada aberta, a tela troca a criação pelo fechamento e diz quem não terminou', async () => {

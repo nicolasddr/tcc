@@ -9,16 +9,27 @@ import { groupMembers } from '../../members'
 import { LeaveProjectButton } from '../member-actions'
 import { PhaseBar } from '../phase-bar'
 import { PipelineChecklist } from '../pipeline/pipeline-checklist'
+import { Phase2Checklist } from '../pipeline/phase-2-checklist'
+import { Phase3Checklist } from '../pipeline/phase-3-checklist'
+import type { LastClosedRound } from '../pipeline/last-round-summary'
 import {
-  Phase2Checklist,
-  type LastClosedRound,
-} from '../pipeline/phase-2-checklist'
-import { EMPTY_PIPELINE, PHASE_1, PHASE_2 } from '../pipeline/preconditions'
+  EMPTY_PIPELINE,
+  PHASE_2,
+  PHASE_3,
+  PHASE_4,
+  type Phase2Inputs,
+} from '../pipeline/preconditions'
 import { loadCodebook } from '../pipeline/codebook'
 import { loadPrompt } from '../pipeline/prompt'
 import { countItems } from '../pipeline/items'
-import { listRounds, isOpen, focusRoundOf } from './rounds/rounds'
-import { loadProjectObservations } from './rounds/agreement'
+import {
+  listRounds,
+  isOpen,
+  focusRoundOf,
+  roundsInPhase,
+  type RoundSummary,
+} from './rounds/rounds'
+import { loadProjectObservations, type RoundObservation } from './rounds/agreement'
 import { loadProjectOutliers } from './rounds/outliers'
 import { agreementSeries } from './rounds/agreement-series'
 import { agreementPair } from './rounds/agreement-pair'
@@ -40,6 +51,37 @@ import { OpenLink } from '@/app/components/ui/open-link'
 import { StatCard } from '@/app/components/ui/stat'
 import { Section } from '@/app/components/ui/section'
 import { ArrowRightIcon } from '@/app/components/ui/icons'
+
+function phaseChecklistData(
+  agreement: {
+    rounds: readonly RoundSummary[]
+    observations: ReadonlyMap<string, RoundObservation[]>
+    outliers: ReadonlyMap<string, Set<string>>
+  },
+  phase: number,
+): { inputs: Phase2Inputs; lastRound: LastClosedRound | null } {
+  const inPhase = roundsInPhase(agreement.rounds, phase)
+  const closed = inPhase.filter((round) => !isOpen(round))
+  const inputs = {
+    openRoundNumber: inPhase.find(isOpen)?.roundNumber ?? null,
+    closedRounds: closed.length,
+  }
+
+  const latest = closed[closed.length - 1]
+  if (!latest) return { inputs, lastRound: null }
+
+  const observations = agreement.observations.get(latest.id) ?? []
+  const excluded = agreement.outliers.get(latest.id) ?? new Set<string>()
+  return {
+    inputs,
+    lastRound: {
+      roundNumber: latest.roundNumber,
+      closedAt: latest.closedAt,
+      pair: agreementPair(observations, excluded),
+      quality: hasQuality(phase) ? qualityPair(observations, excluded) : undefined,
+    },
+  }
+}
 
 export default async function ProjectPage({
   params,
@@ -153,19 +195,8 @@ export default async function ProjectPage({
     ? qualitySeries(agreement.rounds, agreement.observations, agreement.outliers)
     : []
 
-  const closed = agreement ? agreement.rounds.filter((round) => !isOpen(round)) : []
-  const latest = closed[closed.length - 1]
-  const lastRound: LastClosedRound | null =
-    agreement && latest
-      ? {
-          roundNumber: latest.roundNumber,
-          closedAt: latest.closedAt,
-          pair: agreementPair(
-            agreement.observations.get(latest.id) ?? [],
-            agreement.outliers.get(latest.id) ?? new Set(),
-          ),
-        }
-      : null
+  const phase2 = agreement ? phaseChecklistData(agreement, PHASE_2) : null
+  const phase3 = agreement ? phaseChecklistData(agreement, PHASE_3) : null
 
   const members = groupMembers(memberRows)
   const activeEvaluators = members.filter(
@@ -224,7 +255,7 @@ export default async function ProjectPage({
             action={
               isAdmin &&
               project.status === 'active' &&
-              (project.phase === PHASE_1 || project.phase === PHASE_2) ? (
+              project.phase < PHASE_4 ? (
                 <ButtonLink href="#avancar">
                   Avançar fase
                   <ArrowRightIcon />
@@ -351,17 +382,23 @@ export default async function ProjectPage({
                 }}
               />
 
-              {agreement && project.phase >= PHASE_2 ? (
+              {phase2 && project.phase >= PHASE_2 ? (
                 <Phase2Checklist
                   className="mt-3"
                   projectId={project.id}
                   phase={project.phase}
-                  inputs={{
-                    openRoundNumber:
-                      agreement.rounds.find(isOpen)?.roundNumber ?? null,
-                    closedRounds: closed.length,
-                  }}
-                  lastRound={lastRound}
+                  inputs={phase2.inputs}
+                  lastRound={phase2.lastRound}
+                />
+              ) : null}
+
+              {phase3 && project.phase >= PHASE_3 ? (
+                <Phase3Checklist
+                  className="mt-3"
+                  projectId={project.id}
+                  phase={project.phase}
+                  inputs={phase3.inputs}
+                  lastRound={phase3.lastRound}
                 />
               ) : null}
             </div>

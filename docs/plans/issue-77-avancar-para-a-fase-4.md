@@ -13,7 +13,7 @@ seguinte herda". Anote ali o que divergiu, como nos planos das #68 a #76.
 |---|---|---|
 | 1 | Regras puras: pré-condições da Fase 3, confirmação da Fase 4, recusa de rodada na Fase 4 e contagem de rodadas por fase | ☑ |
 | 2 | A action: ramo da Fase 3 em `advancePhase`, recusa de `createRound` na Fase 4 e a prova de que número não trava | ☑ |
-| 3 | A tela: painel da Fase 3 com ICR e Qualidade na confirmação, recorte por fase nos painéis e varredura dos ACs | ☐ |
+| 3 | A tela: painel da Fase 3 com ICR e Qualidade na confirmação, recorte por fase nos painéis e varredura dos ACs | ☑ |
 
 **Nenhuma ADR nova.** A regra inteira já está escrita: a **ADR 0004** (métrica não trava,
 pré-condição estrutural trava; a Fase 4 congela codebook e prompt enquanto dura; emenda de
@@ -562,7 +562,27 @@ Commit sugerido: `feat(visao-geral): painel de avanço para a fase 4 com icr e q
 
 ### O que esta Parte fechou
 
-_(preencher ao fim da Parte)_
+- **`pipeline/last-round-summary.tsx`**: `LastClosedRound` (com `quality?`) e `LastRoundSummary`
+  saíram de `phase-2-checklist.tsx`. Com `quality`, o cartão ganha, abaixo do ICR e separado por
+  uma borda, o `QualityValue` e a frase `QUALITY_REFERENCE` (exportada dali, e não de
+  `quality-labels.ts`, que continua da #73/#74). Sem `InfoTooltip` no diálogo.
+- **`pipeline/phase-3-checklist.tsx`**: `Phase3Checklist` espelha o da Fase 2, como no § 3.2.
+  `blocked` sai só de `phase3Blockers(inputs)`; o componente não importa nada de ICR nem de
+  Qualidade além do resumo.
+- **`(tabs)/page.tsx`**: a função local `phaseChecklistData(agreement, phase)` monta, com
+  `roundsInPhase`, os `inputs` e o `lastRound` de cada painel (D9). O `quality` só entra quando
+  `hasQuality(phase)`. O link `#avancar` da barra vale para `phase < PHASE_4`. Nenhuma consulta
+  nova.
+- **Aba Rodadas:** nenhum código; a recusa `phase_unavailable` e o botão desabilitado conferidos
+  em teste e no navegador.
+- **Testes:** 7 novos em `(tabs)/page.int.test.ts` e 1 em `(tabs)/rounds/page.int.test.ts`.
+  Editado só o esperado: `o botão de avançar fase da barra…` passa a esperar `#avancar` na Fase 3
+  e não na Fase 4 (e o Avaliador na Fase 3 continua sem o link). Suíte: 81 arquivos, 1133 testes.
+- **Navegador:** painel bloqueado (as duas pendências, e o painel da Fase 2 sem a rodada aberta da
+  Fase 3), diálogo com ICR 0,597 "questionável" e Qualidade liberado, sem rolagem horizontal,
+  avanço, "Fase 3 concluída", aba Rodadas recusando na Fase 4. A 375px, medido em iframe, nada do
+  `#avancar` passa da borda.
+- **Pendente, fora do código:** marcar os checkboxes da #77 e fechá-la citando os três commits.
 
 ---
 

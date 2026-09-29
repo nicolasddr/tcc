@@ -4,25 +4,25 @@ import { Badge } from '@/app/components/ui/badge'
 import { Panel } from '@/app/components/ui/panel'
 import { CheckCircleIcon, CircleIcon } from '@/app/components/ui/icons'
 import {
-  PHASE_2,
   PHASE_3,
-  phase2BlockerMessage,
-  phase2Blockers,
-  phase3ConfirmationLines,
-  type Phase2Blocker,
-  type Phase2Inputs,
+  PHASE_4,
+  phase3BlockerMessage,
+  phase3Blockers,
+  phase4ConfirmationLines,
+  type Phase3Blocker,
+  type Phase3Inputs,
 } from './preconditions'
 import { AdvancePhase } from './advance-phase'
 import { LastRoundSummary, type LastClosedRound } from './last-round-summary'
 
-type Phase2Requirement = { key: Phase2Blocker['key']; title: string }
+type Phase3Requirement = { key: Phase3Blocker['key']; title: string }
 
-const PHASE_2_REQUIREMENTS: readonly Phase2Requirement[] = [
+const PHASE_3_REQUIREMENTS: readonly Phase3Requirement[] = [
   { key: 'open_round', title: 'Nenhuma rodada aberta' },
-  { key: 'no_closed_round', title: 'Ao menos uma rodada fechada' },
+  { key: 'no_closed_round', title: `Ao menos uma rodada fechada na Fase ${PHASE_3}` },
 ] as const
 
-export function Phase2Checklist({
+export function Phase3Checklist({
   projectId,
   phase,
   inputs,
@@ -31,37 +31,37 @@ export function Phase2Checklist({
 }: {
   projectId: string
   phase: number
-  inputs: Phase2Inputs
+  inputs: Phase3Inputs
   lastRound: LastClosedRound | null
   className?: string
 }) {
-  const blockers = phase2Blockers(inputs)
+  const blockers = phase3Blockers(inputs)
   const byKey = new Map(blockers.map((blocker) => [blocker.key, blocker]))
   const hint =
     blockers.length > 0
       ? `${blockers.length === 1 ? 'Falta 1 pendência' : `Faltam ${blockers.length} pendências`} para liberar o avanço.`
-      : 'Nenhuma rodada aberta e ao menos uma fechada. O avanço pede confirmação ' +
-        'antes de mudar qualquer coisa.'
+      : `Nenhuma rodada aberta e ao menos uma fechada na Fase ${PHASE_3}. O avanço pede ` +
+        'confirmação antes de mudar qualquer coisa.'
 
   return (
     <Panel
       className={className}
-      title={`Para avançar para a Fase ${PHASE_3}`}
+      title={`Para avançar para a Fase ${PHASE_4}`}
       icon={<CheckCircleIcon />}
       action={
-        phase !== PHASE_2 ? (
-          <Badge tone="success">Fase {PHASE_2} concluída</Badge>
+        phase !== PHASE_3 ? (
+          <Badge tone="success">Fase {PHASE_3} concluída</Badge>
         ) : blockers.length === 0 ? (
           <Badge tone="success">tudo pronto</Badge>
         ) : (
           <Badge tone="warning">
-            {blockers.length} de {PHASE_2_REQUIREMENTS.length} pendentes
+            {blockers.length} de {PHASE_3_REQUIREMENTS.length} pendentes
           </Badge>
         )
       }
     >
       <ul className="m-0 flex list-none flex-col gap-2 p-0">
-        {PHASE_2_REQUIREMENTS.map((req) => {
+        {PHASE_3_REQUIREMENTS.map((req) => {
           const blocker = byKey.get(req.key)
 
           return (
@@ -81,7 +81,7 @@ export function Phase2Checklist({
                     <p className="m-0 text-[13px] font-semibold text-ink">{req.title}</p>
                     {blocker ? (
                       <p className="m-0 mt-0.5 text-[13px] text-muted">
-                        {phase2BlockerMessage(blocker)}
+                        {phase3BlockerMessage(blocker)}
                       </p>
                     ) : null}
                   </div>
@@ -103,19 +103,20 @@ export function Phase2Checklist({
         })}
       </ul>
 
-      {phase === PHASE_2 ? (
+      {phase === PHASE_3 ? (
         <AdvancePhase
           projectId={projectId}
-          target={PHASE_3}
+          target={PHASE_4}
           blocked={blockers.length > 0}
           hint={hint}
-          lines={phase3ConfirmationLines()}
+          lines={phase4ConfirmationLines()}
           summary={lastRound ? <LastRoundSummary round={lastRound} /> : null}
         />
       ) : (
         <p className="mt-4 border-t border-line pt-4 text-[13px] text-muted">
-          A Fase {PHASE_2} já foi concluída: o projeto está na Fase {phase}. As rodadas,
-          as avaliações e a concordância continuam aqui para consulta.
+          A Fase {PHASE_3} já foi concluída: o projeto está na Fase {phase}. As rodadas,
+          as avaliações, a concordância e a Qualidade da Fase {PHASE_3} continuam aqui
+          para consulta.
         </p>
       )}
     </Panel>

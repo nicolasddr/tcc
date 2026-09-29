@@ -34,12 +34,18 @@ import ProjectTabsLayout from '@/app/projects/[id]/(tabs)/layout'
 import { ProjectTabs } from '@/app/projects/[id]/project-tabs'
 import { PipelineChecklist } from '@/app/projects/[id]/pipeline/pipeline-checklist'
 import { Phase2Checklist } from '@/app/projects/[id]/pipeline/phase-2-checklist'
+import { Phase3Checklist } from '@/app/projects/[id]/pipeline/phase-3-checklist'
+import { QUALITY_REFERENCE } from '@/app/projects/[id]/pipeline/last-round-summary'
 import { AdvancePhase } from '@/app/projects/[id]/pipeline/advance-phase'
 import {
   PHASE_1,
   PHASE_2,
   PHASE_3,
+  PHASE_4,
   pendingRequirements,
+  phase2BlockerMessage,
+  phase3BlockerMessage,
+  phase4ConfirmationLines,
 } from '@/app/projects/[id]/pipeline/preconditions'
 import { AgreementSeriesChart } from '@/app/projects/[id]/(tabs)/rounds/agreement-series-chart'
 import { QualityPanel } from '@/app/projects/[id]/(tabs)/rounds/quality-panel'
@@ -118,6 +124,7 @@ function hasProp(node: unknown, key: string, value: unknown): boolean {
 
 type ChecklistProps = Parameters<typeof PipelineChecklist>[0]
 type Phase2Props = Parameters<typeof Phase2Checklist>[0]
+type Phase3Props = Parameters<typeof Phase3Checklist>[0]
 type TabsProps = Parameters<typeof ProjectTabs>[0]
 type AdvanceProps = Parameters<typeof AdvancePhase>[0]
 type SeriesProps = Parameters<typeof AgreementSeriesChart>[0]
@@ -165,6 +172,27 @@ function phase2TextOf(tree: unknown): string {
   const props = phase2Of(tree)
   expect(props).toBeTruthy()
   return renderToStaticMarkup(createElement(Phase2Checklist, props!))
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function phase3Of(tree: unknown): Phase3Props | null {
+  const element = findElement(tree, Phase3Checklist)
+  return element ? (element.props as Phase3Props) : null
+}
+
+function phase3AdvanceOf(tree: unknown): AdvanceProps | null {
+  const props = phase3Of(tree)
+  if (!props) return null
+  const element = findElement(Phase3Checklist(props), AdvancePhase)
+  return element ? (element.props as AdvanceProps) : null
+}
+
+function phase3TextOf(tree: unknown): string {
+  const props = phase3Of(tree)
+  expect(props).toBeTruthy()
+  return renderToStaticMarkup(createElement(Phase3Checklist, props!))
     .replace(/<[^>]*>/g, ' ')
     .replace(/\s+/g, ' ')
     .trim()
@@ -405,6 +433,7 @@ describe('app/projects/[id]/page — escopo de visibilidade', () => {
     const phase1 = await newProject(admin)
     const phase2 = await newProject(admin, PHASE_2)
     const phase3 = await newProject(admin, PHASE_3)
+    const phase4 = await newProject(admin, PHASE_4)
     await addActiveEvaluator(ownerDb, phase1, evaluator)
 
     async function overview(id: string, userId: string) {
@@ -413,12 +442,15 @@ describe('app/projects/[id]/page — escopo de visibilidade', () => {
     }
 
     await addActiveEvaluator(ownerDb, phase2, evaluator)
+    await addActiveEvaluator(ownerDb, phase3, evaluator)
 
     expect(hasProp(await overview(phase1, admin), 'href', '#avancar')).toBe(true)
     expect(hasProp(await overview(phase2, admin), 'href', '#avancar')).toBe(true)
-    expect(hasProp(await overview(phase3, admin), 'href', '#avancar')).toBe(false)
+    expect(hasProp(await overview(phase3, admin), 'href', '#avancar')).toBe(true)
+    expect(hasProp(await overview(phase4, admin), 'href', '#avancar')).toBe(false)
     expect(hasProp(await overview(phase1, evaluator), 'href', '#avancar')).toBe(false)
     expect(hasProp(await overview(phase2, evaluator), 'href', '#avancar')).toBe(false)
+    expect(hasProp(await overview(phase3, evaluator), 'href', '#avancar')).toBe(false)
   })
 
   it('na Fase 2, com uma rodada fechada, o avanço para a Fase 3 aparece liberado e mostra o ICR da última rodada', async () => {
@@ -567,6 +599,214 @@ describe('app/projects/[id]/page — escopo de visibilidade', () => {
       const tree = await render(project)
       expect(phase2Of(tree)).toBeNull()
       expect(deepText(tree)).not.toContain('Concordância')
+    }
+  })
+
+  it('na Fase 3, com uma rodada fechada da Fase 3, o avanço para a Fase 4 aparece liberado com o ICR e a Qualidade da última rodada da Fase 3', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin, PHASE_3)
+    const ana = await addActiveEvaluator(ownerDb, project, await newUser('Ana'))
+    const bruno = await addActiveEvaluator(ownerDb, project, await newUser('Bruno'))
+    const promptVersion = await addPromptVersion(ownerDb, project, admin)
+
+    await roundWith(project, admin, promptVersion, {
+      roundNumber: 1,
+      versionNumber: 1,
+      phase: PHASE_2,
+      byEvaluator: {
+        [ana]: ['low', 'medium', 'high'],
+        [bruno]: ['low', 'medium', 'high'],
+      },
+    })
+    await roundWith(project, admin, promptVersion, {
+      roundNumber: 2,
+      versionNumber: 2,
+      phase: PHASE_3,
+      byEvaluator: { [ana]: QUALITY_NOTES.ana, [bruno]: QUALITY_NOTES.bruno },
+    })
+
+    auth.userId = admin
+    const tree = await render(project)
+
+    const advance = phase3AdvanceOf(tree)
+    expect(advance).toBeTruthy()
+    expect(advance!.target).toBe(PHASE_4)
+    expect(advance!.blocked).toBe(false)
+    expect(advance!.lines).toEqual(phase4ConfirmationLines())
+
+    expect(phase2Of(tree)!.lastRound?.roundNumber).toBe(1)
+    expect(phase2Of(tree)!.lastRound?.quality).toBeUndefined()
+
+    const last = phase3Of(tree)!.lastRound
+    expect(last?.roundNumber).toBe(2)
+    expect(phase3Of(tree)!.inputs).toEqual({ openRoundNumber: null, closedRounds: 1 })
+    if (!last?.pair.all.calculable) throw new Error('a rodada deveria ter coeficiente')
+    expect(last.quality).toEqual(qualityOf(await renderRounds(project)).pair)
+
+    const text = phase3TextOf(tree)
+    expect(text).toContain('Última rodada fechada: rodada 2')
+    expect(text).toContain(formatAlpha(last.pair.all.alpha))
+    expect(text).toContain(bandLabel(agreementBand(last.pair.all.alpha)))
+    expect(text).toContain(BAND_REFERENCE)
+    expect(text).toContain('Alto 62,5% (5) · Médio 25% (2) · Baixo 12,5% (1)')
+    expect(text).toContain('8 notas')
+    expect(text).toContain(QUALITY_REFERENCE)
+    expect(text).toContain('A decisão de avançar é do Administrador.')
+  })
+
+  it('na Fase 3, a rodada aberta trava o avanço para a Fase 4 e o painel a nomeia', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin, PHASE_3)
+    const promptVersion = await addPromptVersion(ownerDb, project, admin)
+    await roundWith(project, admin, promptVersion, { roundNumber: 1, versionNumber: 1 })
+    await roundWith(project, admin, promptVersion, {
+      roundNumber: 2,
+      versionNumber: 2,
+      phase: PHASE_3,
+    })
+    await roundWith(project, admin, promptVersion, {
+      roundNumber: 3,
+      versionNumber: 3,
+      phase: PHASE_3,
+      status: 'open',
+    })
+
+    auth.userId = admin
+    const tree = await render(project)
+
+    expect(phase3Of(tree)!.inputs).toEqual({ openRoundNumber: 3, closedRounds: 1 })
+    expect(phase3AdvanceOf(tree)!.blocked).toBe(true)
+
+    const text = phase3TextOf(tree)
+    expect(text).toContain(phase3BlockerMessage({ key: 'open_round', roundNumber: 3 }))
+    expect(text).not.toContain(phase3BlockerMessage({ key: 'no_closed_round' }))
+  })
+
+  it('na Fase 3, as rodadas fechadas da Fase 2 não liberam o avanço para a Fase 4', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin, PHASE_3)
+    const promptVersion = await addPromptVersion(ownerDb, project, admin)
+    await roundWith(project, admin, promptVersion, { roundNumber: 1, versionNumber: 1 })
+    await roundWith(project, admin, promptVersion, { roundNumber: 2, versionNumber: 2 })
+
+    auth.userId = admin
+    const tree = await render(project)
+
+    expect(phase2Of(tree)!.inputs).toEqual({ openRoundNumber: null, closedRounds: 2 })
+    expect(phase3Of(tree)!.inputs).toEqual({ openRoundNumber: null, closedRounds: 0 })
+    expect(phase3Of(tree)!.lastRound).toBeNull()
+    expect(phase3AdvanceOf(tree)!.blocked).toBe(true)
+    expect(phase3TextOf(tree)).toContain(phase3BlockerMessage({ key: 'no_closed_round' }))
+  })
+
+  it('na Fase 3, o ICR baixo e a Qualidade toda em Baixo não travam o avanço para a Fase 4', async () => {
+    const admin = await newUser('Admin')
+    const scenes = {
+      lowAgreement: {
+        ana: ['low', 'medium', 'high'],
+        bruno: ['high', 'medium', 'low'],
+      },
+      allLow: { ana: ['low', 'low', 'low'], bruno: ['low', 'low', 'low'] },
+    } as const
+    const trees: Record<keyof typeof scenes, unknown> = {
+      lowAgreement: null,
+      allLow: null,
+    }
+
+    for (const key of Object.keys(scenes) as (keyof typeof scenes)[]) {
+      const project = await newProject(admin, PHASE_3)
+      const ana = await addActiveEvaluator(ownerDb, project, await newUser('Ana'))
+      const bruno = await addActiveEvaluator(ownerDb, project, await newUser('Bruno'))
+      const promptVersion = await addPromptVersion(ownerDb, project, admin)
+      await roundWith(project, admin, promptVersion, {
+        roundNumber: 1,
+        versionNumber: 1,
+        phase: PHASE_3,
+        byEvaluator: { [ana]: scenes[key].ana, [bruno]: scenes[key].bruno },
+      })
+
+      auth.userId = admin
+      trees[key] = await render(project)
+      expect(phase3AdvanceOf(trees[key])!.blocked).toBe(false)
+    }
+
+    const lowAgreement = phase3Of(trees.lowAgreement)!.lastRound!.pair.all
+    if (!lowAgreement.calculable) throw new Error('a rodada deveria ter coeficiente')
+    expect(lowAgreement.alpha).toBeLessThan(AGREEMENT_BANDS.acceptable)
+    expect(phase3TextOf(trees.lowAgreement)).toContain(bandLabel('questionable'))
+
+    const allLow = phase3Of(trees.allLow)!.lastRound!
+    expect(allLow.pair.all.calculable).toBe(false)
+    if (!allLow.quality?.all.rated) throw new Error('a rodada deveria ter notas')
+    expect(allLow.quality.all.levels.find((level) => level.value === 'low')?.share).toBe(1)
+    expect(phase3TextOf(trees.allLow)).toContain('Baixo 100% (6)')
+  })
+
+  it('na Fase 4 o painel diz que a Fase 3 foi concluída, não oferece avanço e não fala em retorno', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin, PHASE_4)
+    const promptVersion = await addPromptVersion(ownerDb, project, admin)
+    await roundWith(project, admin, promptVersion, { roundNumber: 1, versionNumber: 1 })
+    await roundWith(project, admin, promptVersion, {
+      roundNumber: 2,
+      versionNumber: 2,
+      phase: PHASE_3,
+    })
+
+    auth.userId = admin
+    const tree = await render(project)
+
+    expect(phase2AdvanceOf(tree)).toBeNull()
+    expect(phase3Of(tree)).toBeTruthy()
+    expect(phase3AdvanceOf(tree)).toBeNull()
+
+    const text = phase3TextOf(tree)
+    expect(text).toContain(`Fase ${PHASE_3} concluída`)
+    expect(text).toContain('continuam aqui para consulta')
+    expect(text).not.toMatch(/\b(voltar|volta|retorno|retornar)\b/i)
+  })
+
+  it('o painel da Fase 2 lê só as rodadas da Fase 2: a rodada aberta da Fase 3 não vira pendência dele', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin, PHASE_3)
+    const promptVersion = await addPromptVersion(ownerDb, project, admin)
+    await roundWith(project, admin, promptVersion, { roundNumber: 1, versionNumber: 1 })
+    await roundWith(project, admin, promptVersion, {
+      roundNumber: 2,
+      versionNumber: 2,
+      phase: PHASE_3,
+      status: 'open',
+    })
+
+    auth.userId = admin
+    const tree = await render(project)
+
+    expect(phase2Of(tree)!.inputs).toEqual({ openRoundNumber: null, closedRounds: 1 })
+    expect(phase2TextOf(tree)).not.toContain(
+      phase2BlockerMessage({ key: 'open_round', roundNumber: 2 }),
+    )
+    expect(phase3Of(tree)!.inputs).toEqual({ openRoundNumber: 2, closedRounds: 0 })
+  })
+
+  it('o avaliador não vê o painel de avanço para a Fase 4, nem na Fase 3 nem na Fase 4', async () => {
+    const admin = await newUser('Admin')
+    const evaluator = await newUser('Avaliador')
+
+    for (const phase of [PHASE_3, PHASE_4]) {
+      const project = await newProject(admin, phase)
+      await addActiveEvaluator(ownerDb, project, evaluator)
+      const promptVersion = await addPromptVersion(ownerDb, project, admin)
+      await roundWith(project, admin, promptVersion, {
+        roundNumber: 1,
+        versionNumber: 1,
+        phase: PHASE_3,
+      })
+
+      auth.userId = evaluator
+      const tree = await render(project)
+      expect(phase3Of(tree)).toBeNull()
+      expect(hasProp(tree, 'href', '#avancar')).toBe(false)
+      expect(deepText(tree)).not.toContain('Qualidade')
     }
   })
 
