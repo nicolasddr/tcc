@@ -12,6 +12,7 @@ import {
   responsesLeftMessage,
   retryLabel,
   roundBlockerMessage,
+  roundBlockerSummary,
   roundInputSummary,
   roundBlockers,
   selectionBlockerMessage,
@@ -20,7 +21,12 @@ import {
   type RoundInputs,
   type SelectionInputs,
 } from '@/app/projects/[id]/(tabs)/rounds/preconditions'
-import { PHASE_1, PHASE_2, PHASE_3 } from '@/app/projects/[id]/pipeline/preconditions'
+import {
+  PHASE_1,
+  PHASE_2,
+  PHASE_3,
+  PHASE_4,
+} from '@/app/projects/[id]/pipeline/preconditions'
 import { SCALE, scaleLabel } from '@/app/projects/[id]/(tabs)/evaluate/scale'
 
 function inputs(patch: Partial<RoundInputs> = {}): RoundInputs {
@@ -346,5 +352,32 @@ describe('app/projects/[id]/rounds/preconditions — o que a rodada manda à LLM
         expect(summary).not.toContain(scaleLabel(value))
       }
     }
+  })
+})
+
+describe('app/projects/[id]/rounds/preconditions — rodada na Fase 4', () => {
+  it('trava na Fase 4 com phase_unavailable, mesmo com codebook completo e prompt', () => {
+    const input = inputs({ phase: PHASE_4 })
+    expect(roundBlockers(input)).toEqual([{ key: 'phase_unavailable', phase: PHASE_4 }])
+    expect(canOpenRound(input)).toBe(false)
+  })
+
+  it('as Fases 2 e 3 não ganham o bloqueio novo', () => {
+    for (const phase of [PHASE_2, PHASE_3]) {
+      expect(keys(inputs({ phase }))).not.toContain('phase_unavailable')
+      expect(canOpenRound(inputs({ phase }))).toBe(true)
+    }
+  })
+
+  it('o resumo e a mensagem dizem que a Fase 4 não está disponível, sem mandar avançar', () => {
+    const blocker = { key: 'phase_unavailable', phase: PHASE_4 } as const
+    expect(roundBlockerSummary(blocker)).toBe(
+      `A Fase ${PHASE_4} ainda não está disponível na ferramenta.`,
+    )
+
+    const message = roundBlockerMessage(blocker)
+    expect(message).toContain(`Fase ${PHASE_4}`)
+    expect(message).toContain('ainda não está disponível na ferramenta')
+    expect(message).not.toMatch(/avance/i)
   })
 })

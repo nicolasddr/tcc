@@ -65,14 +65,28 @@ export async function loadOpenRound(
   return round ?? null
 }
 
+export function roundsInPhase<T extends { phase: number }>(
+  rounds: readonly T[],
+  phase: number,
+): T[] {
+  return rounds.filter((round) => round.phase === phase)
+}
+
 export async function countClosedRounds(
   projectId: string,
+  phase: number,
   db: DbExecutor = ownerDb,
 ): Promise<number> {
   const [row] = await db
     .select({ value: count() })
     .from(rounds)
-    .where(and(eq(rounds.projectId, projectId), eq(rounds.status, ROUND_CLOSED)))
+    .where(
+      and(
+        eq(rounds.projectId, projectId),
+        eq(rounds.status, ROUND_CLOSED),
+        eq(rounds.phase, phase),
+      ),
+    )
 
   return row?.value ?? 0
 }

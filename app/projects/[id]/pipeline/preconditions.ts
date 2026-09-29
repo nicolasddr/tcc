@@ -64,6 +64,7 @@ export function canAdvanceFromPhase1(inputs: PipelineInputs): boolean {
 export const PHASE_1 = 1
 export const PHASE_2 = 2
 export const PHASE_3 = 3
+export const PHASE_4 = 4
 
 export function missingInputsList(pending: readonly PipelineRequirement[]): string {
   const names = pending.map((req) => req.title.toLocaleLowerCase('pt-BR'))
@@ -98,7 +99,7 @@ export type Phase2Blocker =
   | { key: 'open_round'; roundNumber: number }
   | { key: 'no_closed_round' }
 
-export function phase2Blockers(inputs: Phase2Inputs): Phase2Blocker[] {
+function roundCycleBlockers(inputs: Phase2Inputs): Phase2Blocker[] {
   const blockers: Phase2Blocker[] = []
 
   if (inputs.openRoundNumber !== null) {
@@ -108,6 +109,10 @@ export function phase2Blockers(inputs: Phase2Inputs): Phase2Blocker[] {
   if (inputs.closedRounds < 1) blockers.push({ key: 'no_closed_round' })
 
   return blockers
+}
+
+export function phase2Blockers(inputs: Phase2Inputs): Phase2Blocker[] {
+  return roundCycleBlockers(inputs)
 }
 
 export function canAdvanceFromPhase2(inputs: Phase2Inputs): boolean {
@@ -156,6 +161,56 @@ export function phase3ConfirmationLines(): string[] {
     `Na Fase ${PHASE_3}, o codebook completo — com descrições e critérios — passa a ir à LLM junto com o prompt, e por isso as respostas mudam. A Fase ${PHASE_2} continua visível como está: rodadas, avaliações, concordância e anotações ficam onde estão.`,
     'A decisão de avançar é do Administrador. Nenhum valor de concordância libera nem impede o avanço: a faixa de referência ao lado é leitura, não regra.',
     `Não existe voltar da Fase ${PHASE_3} para a Fase ${PHASE_2}. O único retorno previsto no processo é o da Fase 4 para a Fase ${PHASE_3}.`,
+    'Cancelar não muda nada.',
+  ]
+}
+
+export type Phase3Inputs = Phase2Inputs
+export type Phase3Blocker = Phase2Blocker
+
+export function phase3Blockers(inputs: Phase3Inputs): Phase3Blocker[] {
+  return roundCycleBlockers(inputs)
+}
+
+export function canAdvanceFromPhase3(inputs: Phase3Inputs): boolean {
+  return phase3Blockers(inputs).length === 0
+}
+
+export function phase3BlockerMessage(blocker: Phase3Blocker): string {
+  switch (blocker.key) {
+    case 'open_round':
+      return (
+        `A rodada ${blocker.roundNumber} ainda está aberta, e avançar para a Fase ` +
+        `${PHASE_4} deixaria para trás um ciclo que nunca se fecha. Feche a rodada ` +
+        `${blocker.roundNumber} e avance de novo.`
+      )
+    case 'no_closed_round':
+      return (
+        `Nenhuma rodada da Fase ${PHASE_3} foi fechada, e sem isso a Fase ${PHASE_4} ` +
+        'começaria de um prompt que ninguém avaliou com o codebook completo. ' +
+        `As rodadas da Fase ${PHASE_2} não contam. Feche ao menos uma rodada da ` +
+        `Fase ${PHASE_3} antes de avançar.`
+      )
+  }
+}
+
+export function phase3BlockedMessage(blockers: readonly Phase3Blocker[]): string {
+  const [first] = blockers
+  if (!first) return ''
+
+  const both = blockers.length > 1
+  return (
+    `Não foi possível avançar para a Fase ${PHASE_4}. ${phase3BlockerMessage(first)}` +
+    (both
+      ? ` Como nenhuma rodada da Fase ${PHASE_3} foi fechada ainda, fechar a rodada aberta resolve as duas pendências de uma vez.`
+      : '')
+  )
+}
+
+export function phase4ConfirmationLines(): string[] {
+  return [
+    `Na Fase ${PHASE_4}, a avaliação se repete com itens de entrada novos e avaliadores novos, sobre codebook e prompt congelados enquanto ela durar, para medir se o codebook generaliza. A Fase ${PHASE_3} continua visível como está: rodadas, avaliações, concordância, Qualidade e anotações ficam onde estão.`,
+    'A decisão de avançar é do Administrador. Nenhum valor de concordância ou de Qualidade libera nem impede o avanço: a faixa de referência do ICR é leitura, não regra, e a Qualidade não tem faixa.',
     'Cancelar não muda nada.',
   ]
 }

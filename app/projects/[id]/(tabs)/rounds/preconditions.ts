@@ -7,7 +7,7 @@ import {
   type CriterionScope,
   type DefinitionKey,
 } from '../../pipeline/criteria'
-import { PHASE_2, PHASE_3 } from '../../pipeline/preconditions'
+import { PHASE_2, PHASE_3, PHASE_4 } from '../../pipeline/preconditions'
 
 export type RoundDefinition = DefinitionKey & { title: string }
 
@@ -21,6 +21,7 @@ export type RoundInputs = {
 
 export type RoundBlocker =
   | { key: 'phase'; phase: number }
+  | { key: 'phase_unavailable'; phase: number }
   | { key: 'open_round'; roundNumber: number }
   | { key: 'definition' }
   | { key: 'criteria'; titles: string[] }
@@ -30,6 +31,10 @@ export function roundBlockers(inputs: RoundInputs): RoundBlocker[] {
   const blockers: RoundBlocker[] = []
 
   if (inputs.phase < PHASE_2) blockers.push({ key: 'phase', phase: inputs.phase })
+
+  if (inputs.phase >= PHASE_4) {
+    blockers.push({ key: 'phase_unavailable', phase: inputs.phase })
+  }
 
   if (inputs.openRoundNumber !== null) {
     blockers.push({ key: 'open_round', roundNumber: inputs.openRoundNumber })
@@ -57,6 +62,8 @@ export function roundBlockerSummary(blocker: RoundBlocker): string {
   switch (blocker.key) {
     case 'phase':
       return `As rodadas começam na Fase ${PHASE_2}, e o projeto está na Fase ${blocker.phase}.`
+    case 'phase_unavailable':
+      return `A Fase ${blocker.phase} ainda não está disponível na ferramenta.`
     case 'open_round':
       return `A rodada ${blocker.roundNumber} ainda está aberta.`
     case 'definition':
@@ -76,6 +83,12 @@ export function roundBlockerMessage(blocker: RoundBlocker): string {
       return (
         `As rodadas começam na Fase ${PHASE_2}, e este projeto ainda está na Fase ` +
         `${blocker.phase}. Avance a fase para poder abrir a primeira rodada.`
+      )
+    case 'phase_unavailable':
+      return (
+        `Este projeto está na Fase ${blocker.phase}, que ainda não está disponível na ` +
+        `ferramenta. Uma rodada aberta agora produziria dado que parece da Fase ` +
+        `${blocker.phase} e não é, por isso abrir rodada fica recusado até ela existir.`
       )
     case 'open_round':
       return (
