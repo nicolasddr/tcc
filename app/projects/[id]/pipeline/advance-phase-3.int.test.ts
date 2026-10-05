@@ -14,7 +14,13 @@ vi.mock('next/navigation', () => ({
   },
 }))
 
-import { advancePhase } from '@/app/projects/[id]/pipeline/actions'
+import {
+  advancePhase,
+  saveCodebook,
+  savePrompt,
+  savePromptMetadata,
+} from '@/app/projects/[id]/pipeline/actions'
+import { closeRound, createRound } from '@/app/projects/[id]/(tabs)/rounds/actions'
 import {
   PHASE_2,
   PHASE_3,
@@ -22,9 +28,11 @@ import {
   phase3BlockedMessage,
   wrongPhaseMessage,
 } from '@/app/projects/[id]/pipeline/preconditions'
-import { loadCodebookVersion } from '@/app/projects/[id]/pipeline/codebook'
+import { loadCodebook, loadCodebookVersion } from '@/app/projects/[id]/pipeline/codebook'
+import { loadPrompt } from '@/app/projects/[id]/pipeline/prompt'
 import { resolveCells } from '@/app/projects/[id]/pipeline/criteria'
 import { listRounds } from '@/app/projects/[id]/(tabs)/rounds/rounds'
+import type { VersionChange } from '@/app/projects/[id]/(tabs)/rounds/reference-round'
 import { loadRoundObservations } from '@/app/projects/[id]/(tabs)/rounds/agreement'
 import { AGREEMENT_BANDS } from '@/app/projects/[id]/(tabs)/rounds/agreement-labels'
 import { qualityOf } from '@/app/projects/[id]/(tabs)/rounds/quality'
@@ -64,6 +72,8 @@ type Cell = { definitionId: string; criterionId: string }
 type Artifacts = { codebook: string; prompt: string; cells: Cell[] }
 
 type Scene = { round: string; responses: string[] }
+
+type Subject = VersionChange['subject']
 
 describe('app/projects/[id]/pipeline/actions — avanço da Fase 3 para a Fase 4', () => {
   let users: string[]
@@ -151,6 +161,50 @@ describe('app/projects/[id]/pipeline/actions — avanço da Fase 3 para a Fase 4
       phase: PHASE_2,
     })
     return { project, artifacts }
+  }
+
+  async function seedVersions(
+    project: string,
+    admin: string,
+    versionNumber: number,
+    subjects: readonly Subject[] = ['codebook', 'prompt'],
+  ): Promise<Artifacts> {
+    const codebook = subjects.includes('codebook')
+      ? await addCodebookVersion(ownerDb, project, admin, {
+          versionNumber,
+          definitions: ONE_CELL,
+        })
+      : ''
+    const prompt = subjects.includes('prompt')
+      ? await addPromptVersion(ownerDb, project, admin, { versionNumber })
+      : ''
+    if (!codebook) return { codebook, prompt, cells: [] }
+
+    const version = await loadCodebookVersion(project, codebook, ownerDb)
+    const cells = resolveCells(version!.definitions, version!.criteria).map((cell) => ({
+      definitionId: cell.definition.id,
+      criterionId: cell.criterion.id,
+    }))
+    return { codebook, prompt, cells }
+  }
+
+  async function seedReferenceRound(admin: string) {
+    const { project, artifacts } = await seedPhase3Project(admin)
+    await seedRound(project, admin, artifacts, {
+      roundNumber: 2,
+      status: 'closed',
+      phase: PHASE_3,
+    })
+    return { project, artifacts }
+  }
+
+  async function currentVersionsOf(projectId: string) {
+    const codebook = await loadCodebook(projectId, ownerDb)
+    const prompt = await loadPrompt(projectId, ownerDb)
+    return {
+      codebook: codebook.version?.versionNumber ?? null,
+      prompt: prompt.version?.versionNumber ?? null,
+    }
   }
 
   async function rate(
@@ -443,5 +497,236 @@ describe('app/projects/[id]/pipeline/actions — avanço da Fase 3 para a Fase 4
     expect(await usageOf(project)).toEqual(before.usage)
     expect(await notificationsOf(users)).toBe(before.notifications)
     expect(await phaseOf(project)).toBe(PHASE_4)
+  })
+
+  it.each<[string, Subject[]]>([
+    ['o codebook mudou', ['codebook']],
+    ['o prompt mudou', ['prompt']],
+    ['o codebook e o prompt mudaram', ['codebook', 'prompt']],
+  ])(
+    'recusa o avanço quando %s depois da rodada de referência, e a fase não muda',
+    async (_label, subjects) => {
+      const admin = await newUser('Admin')
+      const { project } = await seedReferenceRound(admin)
+      await seedVersions(project, admin, 2, subjects)
+
+      const changes: VersionChange[] = subjects.map((subject) => ({
+        subject,
+        reference: 1,
+        current: 2,
+      }))
+
+      auth.userId = admin
+      const denied = await advancePhase(null, advanceFd(project))
+      expect(denied).toEqual({
+        error: phase3BlockedMessage([
+          { key: 'versions_changed', referenceRound: 2, changes },
+        ]),
+      })
+      expect(denied).toEqual({ error: expect.stringContaining('rodada 2') })
+      expect(denied).toEqual({
+        error: expect.stringContaining('Abra e feche mais uma rodada da Fase 3'),
+      })
+      expect(await phaseOf(project)).toBe(PHASE_3)
+    },
+  )
+
+  it('com os dois mudados, a recusa nomeia os quatro números de versão', async () => {
+    const admin = await newUser('Admin')
+    const { project } = await seedReferenceRound(admin)
+    await seedVersions(project, admin, 2)
+
+    auth.userId = admin
+    const denied = await advancePhase(null, advanceFd(project))
+    expect(denied).toEqual({
+      error: expect.stringContaining('usou o codebook na versão 1 e o prompt na versão 1'),
+    })
+    expect(denied).toEqual({
+      error: expect.stringContaining('são o codebook na versão 2 e o prompt na versão 2'),
+    })
+    expect(await phaseOf(project)).toBe(PHASE_3)
+  })
+
+  it('com as versões da rodada de referência, concordância baixa e Qualidade em Baixo não impedem o avanço', async () => {
+    const admin = await newUser('Admin')
+    const ana = await newUser('Ana')
+    const bruno = await newUser('Bruno')
+    const { project, artifacts } = await seedPhase3Project(admin)
+    const scene = await seedRound(project, admin, artifacts, {
+      roundNumber: 2,
+      status: 'closed',
+      phase: PHASE_3,
+      responses: 4,
+    })
+    await rate(artifacts, scene, await addActiveEvaluator(ownerDb, project, ana), [
+      'low',
+      'low',
+      'low',
+      'high',
+    ])
+    await rate(artifacts, scene, await addActiveEvaluator(ownerDb, project, bruno), [
+      'low',
+      'low',
+      'high',
+      'low',
+    ])
+
+    const observations = await loadRoundObservations(scene.round, ownerDb)
+    const agreement = ordinalAlpha(observations)
+    expect(agreement).toMatchObject({ calculable: true })
+    expect(agreement.calculable ? agreement.alpha : NaN).toBeLessThan(
+      AGREEMENT_BANDS.acceptable,
+    )
+    const quality = qualityOf(observations)
+    expect(
+      quality.rated ? quality.levels.find((level) => level.value === 'low')?.share : NaN,
+    ).toBe(0.75)
+
+    const [, reference] = await listRounds(project, ownerDb)
+    expect(await currentVersionsOf(project)).toEqual({
+      codebook: reference.codebookVersionNumber,
+      prompt: reference.promptVersionNumber,
+    })
+
+    auth.userId = admin
+    expect(await advancePhase(null, advanceFd(project))).toMatchObject({
+      ok: true,
+      phase: PHASE_4,
+    })
+    expect(await phaseOf(project)).toBe(PHASE_4)
+  })
+
+  it('editar o codebook trava o avanço, e abrir e fechar mais uma rodada da Fase 3 o libera', async () => {
+    const admin = await newUser('Admin')
+    const { project, artifacts } = await seedReferenceRound(admin)
+
+    auth.userId = admin
+    const codebookForm = new FormData()
+    codebookForm.set('project_id', project)
+    codebookForm.set('version_id', artifacts.codebook)
+    codebookForm.append('definition_title', 'Informacional')
+    codebookForm.append('definition_type', 'category')
+    codebookForm.append('criterion_scope', '0')
+    codebookForm.append('criterion_name', 'Pergunta')
+    expect(await saveCodebook(null, codebookForm)).toMatchObject({ ok: true })
+    expect(await currentVersionsOf(project)).toEqual({ codebook: 2, prompt: 1 })
+
+    expect(await advancePhase(null, advanceFd(project))).toEqual({
+      error: phase3BlockedMessage([
+        {
+          key: 'versions_changed',
+          referenceRound: 2,
+          changes: [{ subject: 'codebook', reference: 1, current: 2 }],
+        },
+      ]),
+    })
+    expect(await phaseOf(project)).toBe(PHASE_3)
+
+    expect(await createRound(null, advanceFd(project))).toMatchObject({
+      ok: true,
+      roundNumber: 3,
+    })
+    const opened = (await listRounds(project, ownerDb)).find(
+      (round) => round.roundNumber === 3,
+    )!
+    expect(opened).toMatchObject({ phase: PHASE_3, codebookVersionNumber: 2 })
+
+    const closeForm = advanceFd(project)
+    closeForm.set('round_id', opened.id)
+    expect(await closeRound(null, closeForm)).toMatchObject({ ok: true, roundNumber: 3 })
+
+    expect(await advancePhase(null, advanceFd(project))).toMatchObject({
+      ok: true,
+      phase: PHASE_4,
+    })
+    expect(await phaseOf(project)).toBe(PHASE_4)
+  })
+
+  it('mudar só os metadados do prompt depois da rodada de referência não impede o avanço', async () => {
+    const admin = await newUser('Admin')
+    const { project, artifacts } = await seedReferenceRound(admin)
+
+    auth.userId = admin
+    const form = advanceFd(project)
+    form.set('version_id', artifacts.prompt)
+    form.set('name', 'Classificador de consultas')
+    form.set('description', 'Prompt revisado na Fase 3.')
+    form.set('change_log', 'Só o nome e a descrição.')
+    expect(await savePromptMetadata(null, form)).toMatchObject({ ok: true })
+
+    const prompt = await loadPrompt(project, ownerDb)
+    expect(prompt.version).toMatchObject({
+      versionNumber: 1,
+      name: 'Classificador de consultas',
+    })
+
+    expect(await advancePhase(null, advanceFd(project))).toMatchObject({
+      ok: true,
+      phase: PHASE_4,
+    })
+    expect(await phaseOf(project)).toBe(PHASE_4)
+  })
+
+  it('salvar o prompt com o mesmo texto não cria versão e não impede o avanço', async () => {
+    const admin = await newUser('Admin')
+    const { project, artifacts } = await seedReferenceRound(admin)
+    const before = await loadPrompt(project, ownerDb)
+
+    auth.userId = admin
+    const form = advanceFd(project)
+    form.set('version_id', artifacts.prompt)
+    form.set('text', before.version!.text)
+    expect(await savePrompt(null, form)).toMatchObject({ ok: true })
+    expect(await currentVersionsOf(project)).toEqual({ codebook: 1, prompt: 1 })
+
+    expect(await advancePhase(null, advanceFd(project))).toMatchObject({
+      ok: true,
+      phase: PHASE_4,
+    })
+    expect(await phaseOf(project)).toBe(PHASE_4)
+  })
+
+  describe('a rodada de referência é a última fechada da Fase 3, não a primeira', () => {
+    async function seedTwoPhase3Rounds(admin: string) {
+      const { project } = await seedReferenceRound(admin)
+      const second = await seedVersions(project, admin, 2)
+      await seedRound(project, admin, second, {
+        roundNumber: 3,
+        status: 'closed',
+        phase: PHASE_3,
+      })
+      return project
+    }
+
+    it('com as versões da rodada 3 vigentes, avança', async () => {
+      const admin = await newUser('Admin')
+      const project = await seedTwoPhase3Rounds(admin)
+      expect(await currentVersionsOf(project)).toEqual({ codebook: 2, prompt: 2 })
+
+      auth.userId = admin
+      expect(await advancePhase(null, advanceFd(project))).toMatchObject({
+        ok: true,
+        phase: PHASE_4,
+      })
+      expect(await phaseOf(project)).toBe(PHASE_4)
+    })
+
+    it('com um codebook mais novo que o da rodada 3, recusa citando a rodada 3', async () => {
+      const admin = await newUser('Admin')
+      const project = await seedTwoPhase3Rounds(admin)
+      await seedVersions(project, admin, 3, ['codebook'])
+
+      auth.userId = admin
+      expect(await advancePhase(null, advanceFd(project))).toEqual({
+        error: phase3BlockedMessage([
+          {
+            key: 'versions_changed',
+            referenceRound: 3,
+            changes: [{ subject: 'codebook', reference: 2, current: 3 }],
+          },
+        ]),
+      })
+      expect(await phaseOf(project)).toBe(PHASE_3)
+    })
   })
 })

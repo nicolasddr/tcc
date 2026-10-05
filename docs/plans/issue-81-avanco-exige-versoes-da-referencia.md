@@ -13,7 +13,7 @@ seguinte herda". Anote ali o que divergiu.
 | Parte | Entrega | Estado |
 |---|---|---|
 | 1 | Regras puras: rodada de referência, comparação de versões e a pré-condição nova do avanço da Fase 3 | ☑ |
-| 2 | A action: `advancePhase` recusa versões diferentes da referência, e a prova de que número continua sem travar | ☐ |
+| 2 | A action: `advancePhase` recusa versões diferentes da referência, e a prova de que número continua sem travar | ☑ |
 | 3 | A tela: item novo no painel da Fase 3, confirmação nomeando a rodada de referência, testes de página e varredura dos ACs | ☐ |
 
 **Nenhuma ADR nova.** A regra está escrita na **emenda de 2026-10-02 da ADR 0004** ("As versões da
@@ -387,7 +387,24 @@ Commit sugerido: `feat(pipeline): avanço para a fase 4 exige as versões da rod
 
 ### O que a Parte 3 herda
 
-_(preencher ao terminar)_
+- **`advancePhase` sem placeholder.** O ramo `PHASE_3` carrega, depois do `FOR UPDATE`, `loadOpenRound`,
+  `loadCodebook`, `loadPrompt` e `listRounds` (todos com `tx`) e passa
+  `versions = referenceVersionsOf(rounds, { codebook, prompt })` a `phase3Blockers`. `closedRounds`
+  continua vindo de `countClosedRounds(projectId, PHASE_3, tx)`, como antes. Resta só o placeholder de
+  `(tabs)/page.tsx` (`versions: null`), que é da Parte 3.
+- **Sem divergência do plano.** Nenhum teste antigo editado: `advance-phase-2.int.test.ts` e
+  `(tabs)/rounds/actions.int.test.ts` seguiram verdes sem mudança de fixture.
+- **Testes novos em `advance-phase-3.int.test.ts`** (10): os três casos de recusa (`it.each`), a
+  string com os quatro números, ICR baixo + Qualidade 75% em Baixo com versões iguais (o caso afirma
+  que as vigentes são as da rodada 2), ponta a ponta `saveCodebook` → recusa → `createRound` +
+  `closeRound` → avança, metadados do prompt, mesmo texto do prompt, e o `describe` da referência ser a
+  última fechada (rodadas 2 e 3). Helpers novos no arquivo: `seedVersions(project, admin, n,
+  subjects?)`, `seedReferenceRound(admin)` e `currentVersionsOf(project)`; a Parte 3 pode copiá-los
+  para `(tabs)/page.int.test.ts`.
+- **"Qualidade toda em Baixo" com ICR calculável é impossível** (todas as notas iguais → α não
+  calculável). O caso que junta os dois números ruins usa 6 de 8 notas em Baixo (75%) e α abaixo de
+  0,667; o teste antigo "Qualidade concentrada em Baixo" segue cobrindo 100% em Baixo.
+- **Suíte**: `npm test` com 84 arquivos e 1208 testes verdes (+10).
 
 ---
 

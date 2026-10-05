@@ -48,7 +48,8 @@ import {
 import { frozenMessage, isFrozen } from './freeze'
 import { loadPipelineInputs } from './inputs'
 import { itemContentError, normalizeItemContent } from './item-content'
-import { countClosedRounds, loadOpenRound } from '../(tabs)/rounds/rounds'
+import { countClosedRounds, listRounds, loadOpenRound } from '../(tabs)/rounds/rounds'
+import { referenceVersionsOf } from '../(tabs)/rounds/reference-round'
 import { codebookLockedMessage } from '../(tabs)/rounds/preconditions'
 import {
   CODEBOOK_NOTE_MAX,
@@ -908,10 +909,16 @@ export async function advancePhase(
 
     if (project.phase === PHASE_3) {
       const open = await loadOpenRound(projectId, tx)
+      const codebook = await loadCodebook(projectId, tx)
+      const prompt = await loadPrompt(projectId, tx)
+      const versions = referenceVersionsOf(await listRounds(projectId, tx), {
+        codebook: codebook.version?.versionNumber ?? null,
+        prompt: prompt.version?.versionNumber ?? null,
+      })
       const blockers = phase3Blockers({
         openRoundNumber: open?.roundNumber ?? null,
         closedRounds: await countClosedRounds(projectId, PHASE_3, tx),
-        versions: null,
+        versions,
       })
       if (blockers.length > 0) {
         return { status: 'incomplete', message: phase3BlockedMessage(blockers) }
