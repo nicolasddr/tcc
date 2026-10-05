@@ -24,7 +24,10 @@ import {
   VersionBadges,
   VersionMeta,
 } from '@/app/projects/[id]/pipeline/version-history'
-import { PromptEditor } from '@/app/projects/[id]/pipeline/prompt-editor'
+import {
+  PromptEditor,
+  promptComposition,
+} from '@/app/projects/[id]/pipeline/prompt-editor'
 import { PromptMetadataEditor } from '@/app/projects/[id]/pipeline/prompt-metadata-editor'
 import { PromptTest } from '@/app/projects/[id]/pipeline/prompt-test'
 import type { PromptVersionSummary } from '@/app/projects/[id]/pipeline/prompt'
@@ -357,6 +360,42 @@ describe('app/projects/[id]/prompt — a tela do prompt', () => {
       .props as Parameters<typeof PromptTest>[0]
     expect(props.phase).toBe(phase)
   })
+
+  it.each([
+    [PHASE_2, '2 títulos de definição + 1 item de entrada', 'codebook completo'],
+    [
+      PHASE_3,
+      'o codebook completo da versão vigente (2 definições, com títulos, descrições e critérios) + 1 item de entrada',
+      'títulos de definição +',
+    ],
+  ])(
+    'o editor descreve o que vai junto na chamada real conforme a fase (Fase %i)',
+    async (phase, expected, absent) => {
+      const admin = await newUser('Admin')
+      const project = await seedProject(ownerDb, admin, 'Projeto de Teste', { phase })
+      projs.push(project)
+      await addCodebookVersion(ownerDb, project, admin, {
+        definitions: [
+          { title: 'Urgência', type: 'category' },
+          { title: 'Rotina', type: 'category' },
+        ],
+      })
+      await addPromptVersion(ownerDb, project, admin, { text: 'Classifique a consulta.' })
+      await addInputItem(ownerDb, project, admin, { name: 'Consulta 001' })
+      await addInputItem(ownerDb, project, admin, { name: 'Consulta 002' })
+      await addInputItem(ownerDb, project, admin, { name: 'Consulta 003' })
+
+      auth.userId = admin
+      const props = findElement(await renderPrompt(project), PromptEditor)!
+        .props as Parameters<typeof PromptEditor>[0]
+      expect(props.phase).toBe(phase)
+
+      const text = promptComposition(props.phase, props.definitions, props.items)
+      expect(text).toContain(expected)
+      expect(text).toContain('escolhido entre os 3 itens do pool')
+      expect(text).not.toContain(absent)
+    },
+  )
 
   it('o Avaliador não acessa a tela nem a versão', async () => {
     const admin = await newUser('Admin')

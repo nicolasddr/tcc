@@ -16,6 +16,7 @@ import { preWrapClass } from '@/app/components/ui/prose'
 import { plural } from '@/lib/plural'
 import { NO_VERSION_EXPLANATION, versionExplanation } from './version-status'
 import { PROMPT_TEXT_MAX } from '@/lib/limits'
+import { PHASE_3 } from './preconditions'
 
 const initialState: PromptState = null
 
@@ -27,6 +28,18 @@ const SCREEN_EXPLANATION =
 
 const TEXT_HINT =
   'A instrução vai à LLM exatamente como está escrita aqui: quebras de linha, linhas em branco e recuos são preservados.'
+
+export function promptComposition(
+  phase: number,
+  definitions: number,
+  items: number,
+): string {
+  const pool = `1 item de entrada, escolhido entre os ${plural(items, 'item', 'itens')} do pool`
+  if (phase >= PHASE_3) {
+    return `Na chamada real seguem junto: o codebook completo da versão vigente (${plural(definitions, 'definição', 'definições')}, com títulos, descrições e critérios) + ${pool}.`
+  }
+  return `Na chamada real seguem junto: ${plural(definitions, 'título de definição', 'títulos de definição')} + ${pool}.`
+}
 
 function counterLabel(length: number): string {
   return `${length} / ${PROMPT_TEXT_MAX}`
@@ -59,6 +72,7 @@ export function PromptEditor({
   projectId,
   version,
   isOpen,
+  phase,
   definitions,
   items,
   historyAnchor,
@@ -66,6 +80,7 @@ export function PromptEditor({
   projectId: string
   version: PromptVersion | null
   isOpen: boolean
+  phase: number
   definitions: number
   items: number
   historyAnchor: string
@@ -89,13 +104,7 @@ export function PromptEditor({
     startTransition(() => submit(data))
   }
 
-  const composition = (
-    <>
-      Na chamada real seguem junto:{' '}
-      {plural(definitions, 'título de definição', 'títulos de definição')} + 1 item de
-      entrada, escolhido entre os {plural(items, 'item', 'itens')} do pool.
-    </>
-  )
+  const composition = promptComposition(phase, definitions, items)
 
   return (
     <Panel

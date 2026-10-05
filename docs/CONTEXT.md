@@ -123,7 +123,9 @@ Qualidade, e se as notas estão concentradas em Médio e Baixo, os avaliadores c
 LLM não está seguindo o codebook, e refina-se o prompt, o codebook ou os dois, a critério do
 Administrador. Mexer no codebook para ajudar a LLM muda também o que os avaliadores leem, e por isso
 cada rodada mostra o que mudou em relação à anterior. A ferramenta orienta essa leitura e nunca a
-impõe.
+impõe. Na Fase 4 não se refina: com ICR baixo, os avaliadores novos não aplicam o codebook da mesma
+forma, o que indica que ele não generalizou; com ICR alto, olha-se a Qualidade ao lado da rodada de
+referência. Refinar de novo exige voltar à Fase 3, e a ferramenta não diz quando fazê-lo.
 Evitar: "refinar itens", porque *item* é o item de entrada, que não se refina.
 
 **Concordância (ICR)**
@@ -136,8 +138,9 @@ não existe é dado faltante, nunca exclusão de avaliador — a unidade sem par
 pessoa continua nele. E o coeficiente é **não calculável**, nunca zero e nunca 1, em três casos:
 menos de dois avaliadores, nenhuma unidade avaliada por dois deles, e nenhuma variação nas notas.
 Não existe média, soma nem "ICR do projeto" em tela nenhuma: a leitura entre rodadas é a série, um
-ponto por rodada com a sua versão de codebook e a sua fase ao lado. A série é uma só para as Fases 2
-e 3, porque a passagem de uma para a outra com a mesma versão de codebook é uma comparação legítima. E na matriz por célula, **não aplicável** é o
+ponto por rodada com a sua versão de codebook e a sua fase ao lado. A série é uma só para as Fases 2,
+3 e 4, porque a passagem de uma fase para a seguinte com a mesma versão de codebook é uma comparação
+legítima. E na matriz por célula, **não aplicável** é o
 par definição × critério que não existe naquela versão — critério específico de outra definição —, o
 que é diferente de **não calculável** (a célula existe, tem nota e não tem coeficiente) e de **sem
 nota** (a célula existe e ninguém a avaliou ainda).
@@ -172,8 +175,8 @@ Evitar: "comentário" (sugere uma conversa com respostas, que não é o que exis
 
 **Qualidade**
 Quanto as notas dos avaliadores ficam em Alto: a distribuição de Alto, Médio e Baixo sobre as notas
-de uma rodada da Fase 3, lida como porcentagem, na rodada inteira, por célula e na série das rodadas
-da Fase 3. Não existe meta de qualidade. É uma dimensão independente da Concordância, e as
+de uma rodada das Fases 3 ou 4, lida como porcentagem, na rodada inteira, por célula e na série das
+rodadas dessas duas fases. Não existe meta de qualidade. É uma dimensão independente da Concordância, e as
 duas aparecem separadas na UI. A ferramenta mostra a distribuição e **não diz se a qualidade está
 boa**: não há regra de "resposta que atinge os critérios", nem veredito, nem cor de aprovado. Quem
 decide se o padrão foi atingido é o Administrador. Só é leitura confiável quando o ICR está alto,
@@ -197,7 +200,7 @@ Estado explícito do projeto no processo de Shah (1 a 4). O avanço é uma açã
 Administrador, nunca automático nem travado por métrica. Pré-condição estrutural é coisa
 diferente de métrica: sem prompt, sem definição ou sem item a fase seguinte não tem o que fazer,
 e por isso o avanço fica bloqueado até os insumos existirem. O único retorno possível é da Fase 4
-para a Fase 3.
+para a Fase 3, e ele só exige que não haja rodada aberta.
 
 - *Fase 1, configurar o pipeline*: prompt inicial, itens, LLM e os títulos das definições. Não
   produz resposta persistida. Termina com um *teste de prompt*, que chama a LLM e mostra a saída
@@ -213,8 +216,14 @@ para a Fase 3.
   olha-se a Qualidade, e é o Administrador quem julga se ela basta para seguir à Fase 4.
 - *Fase 4, testar a replicação*: repete a avaliação com itens de entrada novos e avaliadores
   novos, sobre codebook e prompt congelados. Responde se o codebook generaliza ou se só funcionava
-  com aquelas pessoas e aqueles dados. Se o resultado reprovar, o Administrador pode voltar à
-  Fase 3, o que descongela as versões; a rodada da Fase 4 fica preservada como histórico.
+  com aquelas pessoas e aqueles dados. As versões testadas são as da última rodada fechada da Fase 3:
+  a Fase 4 nunca testa um codebook ou um prompt que a Fase 3 não avaliou. Enquanto o projeto está na
+  Fase 4, codebook e texto do prompt não mudam; o pool de itens continua crescendo, porque é de lá que
+  saem os itens novos. Pode ter várias rodadas. A novidade de itens e de avaliadores é
+  responsabilidade do Administrador: a ferramenta mostra quem já avaliou e onde cada item já foi
+  usado, e não recusa ninguém. A fase não tem encerramento: a ferramenta não declara a replicação
+  aprovada. Se o resultado reprovar, o Administrador pode voltar à Fase 3, o que descongela as
+  versões; as rodadas da Fase 4 ficam preservadas como histórico.
 
 **Rodada**
 Um ciclo de gerar respostas, avaliar e calcular ICR dentro de uma fase. Existe da Fase 2 em
@@ -222,9 +231,15 @@ diante, já que a Fase 1 não persiste resposta nenhuma. A rodada pertence à fa
 e é essa fase, e não a fase atual do projeto, que decide o que vai à LLM: a forma de compor a entrada
 congela com a rodada, junto com as versões. É a unidade contável: uma fase é feita de
 várias rodadas. Entre uma rodada e a próxima, o Administrador refina (o
-codebook na Fase 2, o codebook ou o prompt na Fase 3). A partir da segunda, cada rodada diz o que
+codebook na Fase 2, o codebook ou o prompt na Fase 3; na Fase 4 nada se refina). A partir da segunda, cada rodada diz o que
 mudou em relação à anterior do projeto, atravessando fases.
 Evitar: iteração como unidade contável ("iterativo" só como adjetivo do processo).
+
+**Rodada de referência**
+Para uma rodada da Fase 4, a última rodada fechada da Fase 3 antes dela, cujas versões de codebook e
+prompt são exatamente as que ela testa. Depois de um retorno à Fase 3 e de um novo avanço, as rodadas
+da passagem anterior continuam com a referência delas. Cada rodada da Fase 4 é lida ao lado da sua, com ICR e Qualidade das duas lado a lado e sem
+veredito: é essa comparação que diz se o codebook generalizou.
 
 **Rodada aberta**
 A rodada que ainda aceita geração de resposta e envio de avaliação. Existe no máximo uma por
@@ -254,6 +269,9 @@ data. O outlier continua avaliando e continua aparecendo na revisão de discord�
 identificado: a marca é sobre o cálculo, não sobre o acesso. O valor com todos e o valor sem
 outliers aparecem sempre juntos, para que a exclusão fique na análise em vez de virar um número
 único mais bonito.
+É também o remédio para um avaliador que já avaliou em rodadas anteriores e avaliou uma rodada da
+Fase 4: a ferramenta não o recusa, mostra ao Administrador em quais rodadas ele já avaliou, e a marca
+tira as notas dele do cálculo daquela rodada.
 Evitar: usar desativação de membro como forma de tirar alguém do cálculo; a porta é uma só.
 
 ## Papéis

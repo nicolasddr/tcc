@@ -56,6 +56,7 @@ export default async function ProjectPromptPage({
           projectId={project.id}
           version={prompt.version}
           isOpen={prompt.isOpen}
+          phase={project.phase}
           definitions={codebook.definitions.length}
           items={items.length}
           historyAnchor={HISTORY_ANCHOR}
