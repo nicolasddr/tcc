@@ -21,6 +21,7 @@ import {
   codebookLockedMessage,
   roundBlockerMessage,
 } from '@/app/projects/[id]/(tabs)/rounds/preconditions'
+import type { VersionChange } from '@/app/projects/[id]/(tabs)/rounds/reference-round'
 import { advancePhase, saveCodebook } from '@/app/projects/[id]/pipeline/actions'
 import { loadCodebook, loadCodebookVersion } from '@/app/projects/[id]/pipeline/codebook'
 import { resolveCells } from '@/app/projects/[id]/pipeline/criteria'
@@ -153,6 +154,18 @@ describe('app/projects/[id]/rounds/actions — criar, fechar e travar o codebook
     return { project, codebookVersion, promptVersion }
   }
 
+  async function phase4Project(
+    admin: string,
+  ): Promise<{ project: string; codebookVersion: string; promptVersion: string }> {
+    const ready = await readyProject(admin, PHASE_4)
+    await addRound(ownerDb, ready.project, admin, ready.codebookVersion, ready.promptVersion, {
+      roundNumber: 1,
+      status: 'closed',
+      phase: PHASE_3,
+    })
+    return ready
+  }
+
   beforeEach(() => {
     users = []
     projs = []
@@ -241,13 +254,88 @@ describe('app/projects/[id]/rounds/actions — criar, fechar e travar o codebook
     expect(round.phase).toBe(PHASE_2)
   })
 
-  it('criar rodada na Fase 4 é recusado, e nada muda', async () => {
+  it('criar rodada na Fase 4 com as versões da rodada de referência grava a fase 4', async () => {
+    const admin = await newUser('Admin')
+    const { project, codebookVersion, promptVersion } = await phase4Project(admin)
+
+    auth.userId = admin
+    expect(await createRound(null, newRoundForm(project))).toMatchObject({
+      ok: true,
+      roundNumber: 2,
+    })
+
+    const [, round] = await roundsOf(project)
+    expect(round).toMatchObject({
+      roundNumber: 2,
+      status: 'open',
+      phase: PHASE_4,
+      codebookVersionId: codebookVersion,
+      promptVersionId: promptVersion,
+    })
+
+    const [codebook] = await codebookVersionsOf(project)
+    const [prompt] = await promptVersionsOf(project)
+    expect(codebook.usedAt).not.toBeNull()
+    expect(prompt.usedAt).not.toBeNull()
+  })
+
+  it.each<[string, { codebook: boolean; prompt: boolean }, VersionChange[]]>([
+    [
+      'o codebook',
+      { codebook: true, prompt: false },
+      [{ subject: 'codebook', reference: 1, current: 2 }],
+    ],
+    [
+      'o prompt',
+      { codebook: false, prompt: true },
+      [{ subject: 'prompt', reference: 1, current: 2 }],
+    ],
+    [
+      'o codebook e o prompt',
+      { codebook: true, prompt: true },
+      [
+        { subject: 'codebook', reference: 1, current: 2 },
+        { subject: 'prompt', reference: 1, current: 2 },
+      ],
+    ],
+  ])(
+    'na Fase 4, com %s diferente da rodada de referência, criar é recusado e nada muda',
+    async (_, changed, changes) => {
+      const admin = await newUser('Admin')
+      const { project } = await phase4Project(admin)
+      if (changed.codebook) {
+        await addCodebookVersion(ownerDb, project, admin, {
+          versionNumber: 2,
+          definitions: [{ title: 'Outra', type: 'category', criteria: [{ name: 'Clareza' }] }],
+        })
+      }
+      if (changed.prompt) {
+        await addPromptVersion(ownerDb, project, admin, { versionNumber: 2 })
+      }
+
+      auth.userId = admin
+      const error = roundBlockerMessage({ key: 'versions_changed', referenceRound: 1, changes })
+      expect(await createRound(null, newRoundForm(project))).toEqual({ error })
+      if (changed.codebook && changed.prompt) {
+        expect(error).toContain('versão 1 e o prompt na versão 1')
+        expect(error).toContain('versão 2 e o prompt na versão 2')
+      }
+
+      expect(await roundsOf(project)).toHaveLength(1)
+      const [codebook] = await codebookVersionsOf(project)
+      const [prompt] = await promptVersionsOf(project)
+      if (changed.codebook) expect(codebook).toMatchObject({ versionNumber: 2, usedAt: null })
+      if (changed.prompt) expect(prompt).toMatchObject({ versionNumber: 2, usedAt: null })
+    },
+  )
+
+  it('criar rodada na Fase 4 sem rodada de referência é recusado, e nada muda', async () => {
     const admin = await newUser('Admin')
     const { project } = await readyProject(admin, PHASE_4)
 
     auth.userId = admin
     expect(await createRound(null, newRoundForm(project))).toEqual({
-      error: roundBlockerMessage({ key: 'phase_unavailable', phase: PHASE_4 }),
+      error: roundBlockerMessage({ key: 'no_reference_round' }),
     })
     expect(await roundsOf(project)).toHaveLength(0)
 
@@ -257,7 +345,7 @@ describe('app/projects/[id]/rounds/actions — criar, fechar e travar o codebook
     expect(prompt.usedAt).toBeNull()
   })
 
-  it('de ponta a ponta: cria, fecha e avança da Fase 3, e a rodada seguinte é recusada na Fase 4', async () => {
+  it('de ponta a ponta: cria, fecha e avança da Fase 3, e a rodada seguinte abre na Fase 4', async () => {
     const admin = await newUser('Admin')
     const { project } = await readyProject(admin, PHASE_3)
 
@@ -272,12 +360,35 @@ describe('app/projects/[id]/rounds/actions — criar, fechar e travar o codebook
     advanceForm.set('project_id', project)
     expect(await advancePhase(null, advanceForm)).toMatchObject({ ok: true, phase: PHASE_4 })
 
-    expect(await createRound(null, newRoundForm(project))).toEqual({
-      error: roundBlockerMessage({ key: 'phase_unavailable', phase: PHASE_4 }),
+    expect(await createRound(null, newRoundForm(project))).toMatchObject({
+      ok: true,
+      roundNumber: 2,
     })
     const list = await roundsOf(project)
-    expect(list).toHaveLength(1)
+    expect(list).toHaveLength(2)
     expect(list[0]).toMatchObject({ roundNumber: 1, status: 'closed', phase: PHASE_3 })
+    expect(list[1]).toMatchObject({
+      roundNumber: 2,
+      status: 'open',
+      phase: PHASE_4,
+      codebookVersionId: list[0].codebookVersionId,
+      promptVersionId: list[0].promptVersionId,
+    })
+  })
+
+  it('na Fase 4, com uma rodada aberta, criar de novo é recusado pela rodada aberta', async () => {
+    const admin = await newUser('Admin')
+    const { project } = await phase4Project(admin)
+
+    auth.userId = admin
+    expect(await createRound(null, newRoundForm(project))).toMatchObject({
+      ok: true,
+      roundNumber: 2,
+    })
+    expect(await createRound(null, newRoundForm(project))).toEqual({
+      error: roundBlockerMessage({ key: 'open_round', roundNumber: 2 }),
+    })
+    expect(await roundsOf(project)).toHaveLength(2)
   })
 
   it('o banco recusa rodada com fase fora da faixa', async () => {
@@ -595,6 +706,19 @@ describe('app/projects/[id]/rounds/actions — criar, fechar e travar o codebook
       error: expect.stringContaining('Apenas o administrador'),
     })
     expect(await roundsOf(project)).toHaveLength(0)
+  })
+
+  it('na Fase 4, o avaliador é barrado em criar rodada', async () => {
+    const admin = await newUser('Admin')
+    const evaluator = await newUser('Avaliador')
+    const { project } = await phase4Project(admin)
+    await addActiveEvaluator(ownerDb, project, evaluator)
+
+    auth.userId = evaluator
+    expect(await createRound(null, newRoundForm(project))).toEqual({
+      error: 'Não foi possível criar a rodada. Apenas o administrador do projeto pode criá-la.',
+    })
+    expect(await roundsOf(project)).toHaveLength(1)
   })
 
   it('o avaliador é barrado em fechar rodada', async () => {

@@ -819,7 +819,7 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     expect(roundBlockerMessage(phaseBlocker!)).toContain(`Fase ${PHASE_2}`)
   })
 
-  it('na Fase 4 a nova rodada fica recusada, e as rodadas da Fase 3 continuam listadas com a Qualidade', async () => {
+  it('na Fase 4, com as versões da rodada de referência, a nova rodada fica liberada, e as rodadas da Fase 3 continuam listadas com a Qualidade', async () => {
     const admin = await newUser('Admin')
     const scene = await roundWith(admin, 4, {
       phase: PHASE_3,
@@ -840,16 +840,40 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     const tree = await render(scene.project)
 
     const props = newRoundOf(tree)
-    expect(props.blockers).toEqual([{ key: 'phase_unavailable', phase: PHASE_4 }])
-    const newRound = createElement(NewRound, props)
-    expect(disabledCountOf(newRound)).toBeGreaterThan(0)
-    expect(markupTextOf(newRound)).toContain(roundBlockerSummary(props.blockers[0]))
+    expect(props.blockers).toEqual([])
+    expect(disabledCountOf(createElement(NewRound, props))).toBe(0)
 
     const list = listOf(tree)
     expect(list.rounds.map((round) => [round.roundNumber, round.phase])).toEqual([
       [1, PHASE_3],
     ])
     expect(qualityPanelOf(tree).pair.all).toMatchObject({ rated: true, total: 8 })
+  })
+
+  it('na Fase 4, com o codebook mudado depois da rodada de referência, a nova rodada fica recusada', async () => {
+    const admin = await newUser('Admin')
+    const scene = await roundWith(admin, 1, {
+      phase: PHASE_3,
+      projectPhase: PHASE_4,
+      status: 'closed',
+    })
+    await addCodebookVersion(ownerDb, scene.project, admin, {
+      versionNumber: 2,
+      definitions: [{ title: 'Outra', type: 'category', criteria: [{ name: 'Clareza' }] }],
+    })
+
+    auth.userId = admin
+    const props = newRoundOf(await render(scene.project))
+    expect(props.blockers).toEqual([
+      {
+        key: 'versions_changed',
+        referenceRound: 1,
+        changes: [{ subject: 'codebook', reference: 1, current: 2 }],
+      },
+    ])
+    const newRound = createElement(NewRound, props)
+    expect(disabledCountOf(newRound)).toBeGreaterThan(0)
+    expect(markupTextOf(newRound)).toContain(roundBlockerSummary(props.blockers[0]))
   })
 
   it('com rodada aberta, a tela troca a criação pelo fechamento e diz quem não terminou', async () => {

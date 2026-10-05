@@ -8,6 +8,12 @@ import {
   type DefinitionKey,
 } from '../../pipeline/criteria'
 import { PHASE_2, PHASE_3, PHASE_4 } from '../../pipeline/preconditions'
+import {
+  versionChanges,
+  versionChangesSentence,
+  type VersionChange,
+  type VersionCheck,
+} from './reference-round'
 
 export type RoundDefinition = DefinitionKey & { title: string }
 
@@ -17,24 +23,22 @@ export type RoundInputs = {
   criteria: readonly CriterionScope[]
   hasPromptVersion: boolean
   openRoundNumber: number | null
+  versions: VersionCheck | null
 }
 
 export type RoundBlocker =
   | { key: 'phase'; phase: number }
-  | { key: 'phase_unavailable'; phase: number }
   | { key: 'open_round'; roundNumber: number }
   | { key: 'definition' }
   | { key: 'criteria'; titles: string[] }
   | { key: 'prompt' }
+  | { key: 'no_reference_round' }
+  | { key: 'versions_changed'; referenceRound: number; changes: VersionChange[] }
 
 export function roundBlockers(inputs: RoundInputs): RoundBlocker[] {
   const blockers: RoundBlocker[] = []
 
   if (inputs.phase < PHASE_2) blockers.push({ key: 'phase', phase: inputs.phase })
-
-  if (inputs.phase >= PHASE_4) {
-    blockers.push({ key: 'phase_unavailable', phase: inputs.phase })
-  }
 
   if (inputs.openRoundNumber !== null) {
     blockers.push({ key: 'open_round', roundNumber: inputs.openRoundNumber })
@@ -51,6 +55,27 @@ export function roundBlockers(inputs: RoundInputs): RoundBlocker[] {
 
   if (!inputs.hasPromptVersion) blockers.push({ key: 'prompt' })
 
+  if (inputs.phase >= PHASE_4) {
+    if (inputs.versions === null) {
+      const missingVersion = blockers.some(
+        (blocker) =>
+          blocker.key === 'definition' ||
+          blocker.key === 'criteria' ||
+          blocker.key === 'prompt',
+      )
+      if (!missingVersion) blockers.push({ key: 'no_reference_round' })
+    } else {
+      const changes = versionChanges(inputs.versions.reference, inputs.versions.current)
+      if (changes.length > 0) {
+        blockers.push({
+          key: 'versions_changed',
+          referenceRound: inputs.versions.referenceRound,
+          changes,
+        })
+      }
+    }
+  }
+
   return blockers
 }
 
@@ -62,8 +87,6 @@ export function roundBlockerSummary(blocker: RoundBlocker): string {
   switch (blocker.key) {
     case 'phase':
       return `As rodadas começam na Fase ${PHASE_2}, e o projeto está na Fase ${blocker.phase}.`
-    case 'phase_unavailable':
-      return `A Fase ${blocker.phase} ainda não está disponível na ferramenta.`
     case 'open_round':
       return `A rodada ${blocker.roundNumber} ainda está aberta.`
     case 'definition':
@@ -74,6 +97,10 @@ export function roundBlockerSummary(blocker: RoundBlocker): string {
         : `${blocker.titles.length} definições estão sem nenhum critério.`
     case 'prompt':
       return 'Não há versão de prompt para esta rodada congelar.'
+    case 'no_reference_round':
+      return `Nenhuma rodada da Fase ${PHASE_3} foi fechada, e a Fase ${PHASE_4} só testa o que a Fase ${PHASE_3} avaliou.`
+    case 'versions_changed':
+      return `${versionChangesSubject(blocker.changes)} depois da rodada de referência, a rodada ${blocker.referenceRound}.`
   }
 }
 
@@ -83,12 +110,6 @@ export function roundBlockerMessage(blocker: RoundBlocker): string {
       return (
         `As rodadas começam na Fase ${PHASE_2}, e este projeto ainda está na Fase ` +
         `${blocker.phase}. Avance a fase para poder abrir a primeira rodada.`
-      )
-    case 'phase_unavailable':
-      return (
-        `Este projeto está na Fase ${blocker.phase}, que ainda não está disponível na ` +
-        `ferramenta. Uma rodada aberta agora produziria dado que parece da Fase ` +
-        `${blocker.phase} e não é, por isso abrir rodada fica recusado até ela existir.`
       )
     case 'open_round':
       return (
@@ -112,7 +133,26 @@ export function roundBlockerMessage(blocker: RoundBlocker): string {
         'Não há versão de prompt para esta rodada congelar. Escreva o texto do prompt ' +
         'antes de abrir a rodada.'
       )
+    case 'no_reference_round':
+      return (
+        `Este projeto está na Fase ${PHASE_4} sem nenhuma rodada fechada da Fase ${PHASE_3}, ` +
+        `e a Fase ${PHASE_4} só testa o codebook e o prompt que uma rodada da Fase ${PHASE_3} ` +
+        `avaliou. Volte à Fase ${PHASE_3}, abra e feche uma rodada e avance de novo.`
+      )
+    case 'versions_changed':
+      return (
+        `${versionChangesSentence(blocker.referenceRound, blocker.changes)} Uma rodada ` +
+        `aberta assim testaria na Fase ${PHASE_4} uma versão que nenhum avaliador aplicou ` +
+        `na Fase ${PHASE_3}. Para abrir, volte à Fase ${PHASE_3}, abra e feche uma rodada ` +
+        'com as versões vigentes e avance de novo.'
+      )
   }
+}
+
+function versionChangesSubject(changes: readonly VersionChange[]): string {
+  const subjects = new Set(changes.map((change) => change.subject))
+  if (subjects.has('codebook') && subjects.has('prompt')) return 'O codebook e o prompt mudaram'
+  return subjects.has('codebook') ? 'O codebook mudou' : 'O prompt mudou'
 }
 
 export const SELECTION_MAX = 5

@@ -5,6 +5,7 @@ import { loadPrompt } from '../../pipeline/prompt'
 import { loadItems } from '../../pipeline/items'
 import { listRoundResponses } from '../../pipeline/responses'
 import { focusRoundOf, listRounds, loadOpenRound } from './rounds'
+import { referenceVersionsOf } from './reference-round'
 import {
   listEvaluatorEffort,
   loadProjectObservations,
@@ -150,16 +151,20 @@ export default async function ProjectRoundsPage({
     ),
   }
 
+  const codebookVersionNumber = codebook?.version?.versionNumber ?? null
+  const promptVersionNumber = prompt?.version?.versionNumber ?? null
+
   const blockers = roundBlockers({
     phase: project.phase,
     definitions: codebook?.definitions ?? [],
     criteria: codebook?.criteria ?? [],
     hasPromptVersion: prompt?.version != null,
     openRoundNumber: openRound?.roundNumber ?? null,
+    versions: referenceVersionsOf(rounds, {
+      codebook: codebookVersionNumber,
+      prompt: promptVersionNumber,
+    }),
   })
-
-  const codebookVersionNumber = codebook?.version?.versionNumber ?? null
-  const promptVersionNumber = prompt?.version?.versionNumber ?? null
 
   return (
     <>

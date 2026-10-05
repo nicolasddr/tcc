@@ -31,7 +31,8 @@ import {
   loadRoundComposition,
   type RoundComposition,
 } from '../../pipeline/responses'
-import { isOpen, loadOpenRound, ROUND_CLOSED, ROUND_OPEN } from './rounds'
+import { isOpen, listRounds, loadOpenRound, ROUND_CLOSED, ROUND_OPEN } from './rounds'
+import { referenceVersionsOf } from './reference-round'
 import {
   ceilingReachedMessage,
   roundBlockerMessage,
@@ -110,6 +111,10 @@ export async function createRound(
       const codebook = await loadCodebook(projectId, tx)
       const prompt = await loadPrompt(projectId, tx)
       const open = await loadOpenRound(projectId, tx)
+      const versions = referenceVersionsOf(await listRounds(projectId, tx), {
+        codebook: codebook.version?.versionNumber ?? null,
+        prompt: prompt.version?.versionNumber ?? null,
+      })
 
       const blockers = roundBlockers({
         phase: project.phase,
@@ -117,6 +122,7 @@ export async function createRound(
         criteria: codebook.criteria,
         hasPromptVersion: prompt.version !== null,
         openRoundNumber: open?.roundNumber ?? null,
+        versions,
       })
 
       if (blockers.length > 0 || !codebook.version || !prompt.version) {

@@ -18,9 +18,15 @@ import {
   selectionBlockerMessage,
   selectionBlockers,
   SELECTION_MAX,
+  type RoundBlocker,
   type RoundInputs,
   type SelectionInputs,
 } from '@/app/projects/[id]/(tabs)/rounds/preconditions'
+import {
+  versionChangesSentence,
+  type VersionChange,
+  type VersionCheck,
+} from '@/app/projects/[id]/(tabs)/rounds/reference-round'
 import {
   PHASE_1,
   PHASE_2,
@@ -36,6 +42,7 @@ function inputs(patch: Partial<RoundInputs> = {}): RoundInputs {
     criteria: [{ definitionId: 'd1' }],
     hasPromptVersion: true,
     openRoundNumber: null,
+    versions: null,
     ...patch,
   }
 }
@@ -355,29 +362,128 @@ describe('app/projects/[id]/rounds/preconditions — o que a rodada manda à LLM
   })
 })
 
+function versions(current: { codebook: number; prompt: number }): VersionCheck {
+  return { referenceRound: 3, reference: { codebook: 2, prompt: 5 }, current }
+}
+
+const ALL_BLOCKERS: RoundBlocker[] = [
+  { key: 'phase', phase: PHASE_1 },
+  { key: 'open_round', roundNumber: 2 },
+  { key: 'definition' },
+  { key: 'criteria', titles: ['Informacional'] },
+  { key: 'prompt' },
+  { key: 'no_reference_round' },
+  {
+    key: 'versions_changed',
+    referenceRound: 3,
+    changes: [{ subject: 'codebook', reference: 2, current: 4 }],
+  },
+]
+
 describe('app/projects/[id]/rounds/preconditions — rodada na Fase 4', () => {
-  it('trava na Fase 4 com phase_unavailable, mesmo com codebook completo e prompt', () => {
-    const input = inputs({ phase: PHASE_4 })
-    expect(roundBlockers(input)).toEqual([{ key: 'phase_unavailable', phase: PHASE_4 }])
+  it('libera a abertura com o codebook e o prompt da rodada de referência', () => {
+    const input = inputs({ phase: PHASE_4, versions: versions({ codebook: 2, prompt: 5 }) })
+    expect(roundBlockers(input)).toEqual([])
+    expect(canOpenRound(input)).toBe(true)
+  })
+
+  it.each<[string, { codebook: number; prompt: number }, VersionChange[]]>([
+    ['o codebook', { codebook: 4, prompt: 5 }, [{ subject: 'codebook', reference: 2, current: 4 }]],
+    ['o prompt', { codebook: 2, prompt: 6 }, [{ subject: 'prompt', reference: 5, current: 6 }]],
+    [
+      'o codebook e o prompt',
+      { codebook: 4, prompt: 6 },
+      [
+        { subject: 'codebook', reference: 2, current: 4 },
+        { subject: 'prompt', reference: 5, current: 6 },
+      ],
+    ],
+  ])('trava quando %s mudou depois da rodada de referência', (_, current, changes) => {
+    const input = inputs({ phase: PHASE_4, versions: versions(current) })
+    expect(roundBlockers(input)).toEqual([
+      { key: 'versions_changed', referenceRound: 3, changes },
+    ])
     expect(canOpenRound(input)).toBe(false)
   })
 
-  it('as Fases 2 e 3 não ganham o bloqueio novo', () => {
+  it('trava sem rodada de referência, mesmo com codebook completo e prompt', () => {
+    const input = inputs({ phase: PHASE_4, versions: null })
+    expect(roundBlockers(input)).toEqual([{ key: 'no_reference_round' }])
+    expect(canOpenRound(input)).toBe(false)
+  })
+
+  it('sem referência e sem prompt, acusa só o prompt', () => {
+    const input = inputs({ phase: PHASE_4, versions: null, hasPromptVersion: false })
+    expect(keys(input)).toEqual(['prompt'])
+  })
+
+  it('com rodada aberta e versões diferentes, a rodada aberta vem primeiro', () => {
+    const input = inputs({
+      phase: PHASE_4,
+      openRoundNumber: 4,
+      versions: versions({ codebook: 4, prompt: 5 }),
+    })
+    expect(keys(input)).toEqual(['open_round', 'versions_changed'])
+  })
+
+  it('as Fases 2 e 3 ignoram as versões da rodada de referência', () => {
     for (const phase of [PHASE_2, PHASE_3]) {
-      expect(keys(inputs({ phase }))).not.toContain('phase_unavailable')
-      expect(canOpenRound(inputs({ phase }))).toBe(true)
+      for (const versionCheck of [null, versions({ codebook: 4, prompt: 6 })]) {
+        const input = inputs({ phase, versions: versionCheck })
+        expect(roundBlockers(input)).toEqual([])
+        expect(canOpenRound(input)).toBe(true)
+      }
     }
   })
 
-  it('o resumo e a mensagem dizem que a Fase 4 não está disponível, sem mandar avançar', () => {
-    const blocker = { key: 'phase_unavailable', phase: PHASE_4 } as const
+  it.each<[VersionChange[], string, number[]]>([
+    [[{ subject: 'codebook', reference: 2, current: 4 }], 'O codebook mudou', [2, 4]],
+    [[{ subject: 'prompt', reference: 5, current: 6 }], 'O prompt mudou', [5, 6]],
+    [
+      [
+        { subject: 'codebook', reference: 2, current: 4 },
+        { subject: 'prompt', reference: 5, current: 6 },
+      ],
+      'O codebook e o prompt mudaram',
+      [2, 4, 5, 6],
+    ],
+  ])('o resumo e a mensagem de versões mudadas nomeiam %j', (changes, subject, numbers) => {
+    const blocker = { key: 'versions_changed', referenceRound: 3, changes } as const
+
     expect(roundBlockerSummary(blocker)).toBe(
-      `A Fase ${PHASE_4} ainda não está disponível na ferramenta.`,
+      `${subject} depois da rodada de referência, a rodada 3.`,
     )
 
     const message = roundBlockerMessage(blocker)
-    expect(message).toContain(`Fase ${PHASE_4}`)
-    expect(message).toContain('ainda não está disponível na ferramenta')
-    expect(message).not.toMatch(/avance/i)
+    expect(message.startsWith(versionChangesSentence(3, changes))).toBe(true)
+    expect(message).toContain('a rodada 3')
+    for (const number of numbers) expect(message).toMatch(new RegExp(`\\b${number}\\b`))
+    expect(message).toContain(`volte à Fase ${PHASE_3}`)
+  })
+
+  it('o resumo e a mensagem sem rodada de referência mandam voltar à Fase 3', () => {
+    const blocker = { key: 'no_reference_round' } as const
+    expect(roundBlockerSummary(blocker)).toContain(`Fase ${PHASE_3}`)
+    expect(roundBlockerMessage(blocker)).toMatch(new RegExp(`volte à Fase ${PHASE_3}`, 'i'))
+  })
+
+  it('as mensagens da Fase 4 não falam de concordância nem de Qualidade', () => {
+    const phase4 = ALL_BLOCKERS.filter(
+      (blocker) => blocker.key === 'no_reference_round' || blocker.key === 'versions_changed',
+    )
+    for (const blocker of phase4) {
+      for (const text of [roundBlockerSummary(blocker), roundBlockerMessage(blocker)]) {
+        expect(text).not.toContain('ICR')
+        expect(text).not.toContain('Qualidade')
+        expect(text).not.toContain('concordância')
+      }
+    }
+  })
+
+  it('nenhum bloqueio diz que uma fase ainda não está disponível', () => {
+    for (const blocker of ALL_BLOCKERS) {
+      expect(roundBlockerSummary(blocker)).not.toContain('ainda não está disponível')
+      expect(roundBlockerMessage(blocker)).not.toContain('ainda não está disponível')
+    }
   })
 })
