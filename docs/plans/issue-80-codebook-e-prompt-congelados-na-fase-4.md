@@ -13,7 +13,7 @@ seguinte herda". Anote ali o que divergiu.
 |---|---|---|
 | 1 | Regra pura: quando o projeto está congelado e as duas mensagens | ☑ |
 | 2 | As actions: recusa em `saveCodebook` e `savePrompt`, e a prova de que o resto continua livre | ☑ |
-| 3 | As telas: codebook e prompt em modo de leitura na Fase 4, testes de página e varredura dos ACs | ☐ |
+| 3 | As telas: codebook e prompt em modo de leitura na Fase 4, testes de página e varredura dos ACs | ☑ |
 
 **Nenhuma ADR nova.** A regra está escrita na **ADR 0004** ("A Fase 4 congela codebook e prompt
 enquanto dura") e no glossário (`docs/CONTEXT.md`, verbete **Fase**, item *Fase 4*: "Enquanto o projeto
@@ -367,8 +367,33 @@ teste nas Partes 2 e 3; o AC 7 também tem a conferência de 3.5.
 
 Commit sugerido: `feat(pipeline): codebook e prompt em leitura na fase 4`.
 
+### Como ficou
+
+- `CodebookReadOnly` recebe `notice: string | null` (D5); o `CodebookEditor` monta o aviso com a
+  precedência de D2. `PromptEditor` ganhou `notice` (D6): com aviso, `editing` é sempre falso, o botão
+  some e o `Alert` entra acima do `TextFrame`. A página do prompt passa
+  `isFrozen(project.phase) ? frozenMessage('prompt') : null`; a do codebook não mudou.
+- Testes: 3 casos novos no codebook (Fase 4; Fase 4 com rodada aberta; `it.each` Fases 2 e 3), 5 no
+  prompt (Fase 4 em leitura; Fase 4 com metadados e teste `ready`; `it.each` Fases 1 a 3 com
+  `notice === null` e "Editar texto") e 1 nos itens (Fase 4 oferece "Novo item" e edição do não usado).
+  Única edição de teste existente: a chamada a `CodebookReadOnly` com `notice`. Suíte: 83 arquivos,
+  1174 testes verdes (+10).
+- 3.5 conferido com a LLM falsa: na Fase 4, Codebook e Prompt em leitura com o aviso e sem botão de
+  edição; metadados salvos na vigente sem versão nova (conferido por `psql`); teste de prompt devolveu
+  a resposta falsa; Itens com "Novo item". Na Fase 3, "Editar definições" e "Editar texto" seguem lá.
+  Cena apagada.
+- Varredura dos ACs: AC 1 e 3 → `phase-4-freeze.int.test.ts` (casos do codebook) e
+  `freeze.unit.test.ts`; AC 2 → casos do prompt no mesmo arquivo; AC 4 e 5 → casos de metadados e de
+  itens no mesmo arquivo, mais o caso de Itens na Fase 4 em `items/page.int.test.ts`; AC 6 →
+  `prompt-test.int.test.ts` (`it.each` com `PHASE_4` e o caso com versões usadas); AC 7 → casos de
+  Fase 4 em `codebook/page.int.test.ts` e `prompt/page.int.test.ts`, mais 3.5; AC 8 → testes antigos
+  de `saveCodebook`/`savePrompt` sem edição e os `it.each` de Fases 1 a 3 nas páginas.
+
 ### O que fica para depois
 
+- D7 está desatualizado num ponto: `promptComposition` já descreve a Fase 3 (codebook completo) desde
+  o commit 6cd9100; só o tooltip de `VersionStatus` segue pendente. Na Fase 4 com a vigente
+  **congelada**, ele diz "A próxima alteração salva cria a versão 2", o que também contradiz o aviso.
 - Quando a #86 (voltar da Fase 4 para a Fase 3) entrar, decidir se `frozenMessage` passa a dizer onde
   fica o retorno.
 - D7: tooltip de `VersionStatus` com vigente em aberto na Fase 4 e linha de composição do

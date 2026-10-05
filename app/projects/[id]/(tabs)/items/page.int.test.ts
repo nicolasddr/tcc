@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { isValidElement, type ReactElement } from 'react'
+import { createElement, isValidElement, type ReactElement } from 'react'
+import { renderToStaticMarkup } from 'react-dom/server'
 
 const auth = vi.hoisted(() => ({ userId: null as string | null }))
 
@@ -19,6 +20,7 @@ vi.mock('next/navigation', () => ({
 import ProjectItemsPage from '@/app/projects/[id]/(tabs)/items/page'
 import { ItemsEditor } from '@/app/projects/[id]/pipeline/items-editor'
 import { itemUsageLabel } from '@/app/projects/[id]/pipeline/item-usage'
+import { PHASE_4 } from '@/app/projects/[id]/pipeline/preconditions'
 import { ownerDb } from '@/lib/db'
 import {
   createUser,
@@ -71,8 +73,8 @@ describe('app/projects/[id]/items — a tela dos itens de entrada', () => {
     users.push(id)
     return id
   }
-  async function newProject(admin: string): Promise<string> {
-    const id = await seedProject(ownerDb, admin, 'Projeto de Teste')
+  async function newProject(admin: string, phase?: number): Promise<string> {
+    const id = await seedProject(ownerDb, admin, 'Projeto de Teste', { phase })
     projs.push(id)
     return id
   }
@@ -156,6 +158,25 @@ describe('app/projects/[id]/items — a tela dos itens de entrada', () => {
 
     auth.userId = admin
     expect(itemsOf(await render(project)).items).toEqual([])
+  })
+
+  it('na Fase 4, o pool continua aberto: cadastrar e editar o item não usado seguem na tela', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin, PHASE_4)
+    await addInputItem(ownerDb, project, admin, {
+      name: 'Consulta 001',
+      usedAt: new Date().toISOString(),
+    })
+    await addInputItem(ownerDb, project, admin, { name: 'Consulta 002' })
+
+    auth.userId = admin
+    const props = itemsOf(await render(project))
+    expect(props.items.map((item) => item.isEditable)).toEqual([false, true])
+
+    const html = renderToStaticMarkup(createElement(ItemsEditor, props))
+    expect(html).toContain('Upload de itens')
+    expect(html).toContain('Novo item')
+    expect(html).not.toContain('Fase 4')
   })
 
   it('o avaliador ativo NÃO enxerga (notFound)', async () => {

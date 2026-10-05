@@ -38,6 +38,7 @@ import {
   type CriterionScope,
 } from './criteria'
 import { codebookLockedMessage } from '../(tabs)/rounds/preconditions'
+import { frozenMessage, isFrozen } from './freeze'
 import { CodebookSummary } from './criteria-summary'
 import {
   CODEBOOK_NOTE_MAX,
@@ -699,14 +700,14 @@ function CodebookFields({
 export function CodebookReadOnly({
   version,
   isOpen,
-  openRoundNumber,
+  notice,
   definitions,
   criteria,
   inPhase2,
 }: {
   version: CodebookVersion | null
   isOpen: boolean
-  openRoundNumber: number | null
+  notice: string | null
   definitions: CodebookDefinition[]
   criteria: CodebookCriterion[]
   inPhase2: boolean
@@ -714,9 +715,7 @@ export function CodebookReadOnly({
   return (
     <div className="flex flex-col gap-4">
       <VersionStatus version={version} isOpen={isOpen} />
-      {openRoundNumber !== null ? (
-        <Alert tone="notice">{codebookLockedMessage(openRoundNumber)}</Alert>
-      ) : null}
+      {notice !== null ? <Alert tone="notice">{notice}</Alert> : null}
       <CodebookBody definitions={definitions} criteria={criteria} inPhase2={inPhase2} />
     </div>
   )
@@ -749,12 +748,18 @@ export function CodebookEditor({
   const [editingNonce, setEditingNonce] = useState<number | null>(null)
   const editing = editingNonce === savedNonce
 
-  if (openRoundNumber !== null) {
+  const notice = isFrozen(phase)
+    ? frozenMessage('codebook')
+    : openRoundNumber !== null
+      ? codebookLockedMessage(openRoundNumber)
+      : null
+
+  if (notice !== null) {
     return (
       <CodebookReadOnly
         version={version}
         isOpen={isOpen}
-        openRoundNumber={openRoundNumber}
+        notice={notice}
         definitions={definitions}
         criteria={criteria}
         inPhase2={inPhase2}

@@ -76,6 +76,7 @@ export function PromptEditor({
   definitions,
   items,
   historyAnchor,
+  notice,
 }: {
   projectId: string
   version: PromptVersion | null
@@ -84,6 +85,7 @@ export function PromptEditor({
   definitions: number
   items: number
   historyAnchor: string
+  notice: string | null
 }) {
   const [state, submit, pending] = useActionState(savePrompt, initialState)
   const [text, setText] = useState(version?.text ?? '')
@@ -91,7 +93,7 @@ export function PromptEditor({
   const saved = state !== null && 'ok' in state
   const savedNonce = saved ? state.nonce : 0
   const [editingNonce, setEditingNonce] = useState<number | null>(null)
-  const editing = editingNonce === savedNonce
+  const editing = notice === null && editingNonce === savedNonce
 
   function edit() {
     setText(version?.text ?? '')
@@ -138,7 +140,7 @@ export function PromptEditor({
           >
             Histórico
           </a>
-          {editing ? null : (
+          {editing || notice !== null ? null : (
             <Button size="sm" onClick={edit}>
               {version ? 'Editar texto' : 'Escrever o prompt'}
             </Button>
@@ -196,6 +198,7 @@ export function PromptEditor({
       ) : (
         <div className="flex flex-col gap-3">
           {saved ? <Alert tone="success">Prompt salvo.</Alert> : null}
+          {notice !== null ? <Alert tone="notice">{notice}</Alert> : null}
 
           {version ? (
             <TextFrame counter={counterLabel(version.text.length)} footer={composition}>

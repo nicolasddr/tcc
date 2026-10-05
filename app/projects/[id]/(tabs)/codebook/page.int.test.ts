@@ -35,7 +35,14 @@ import { VersionStatus } from '@/app/projects/[id]/pipeline/version-status'
 import { Button } from '@/app/components/ui/button'
 import { InfoTooltip } from '@/app/components/ui/tooltip'
 import { formatDate } from '@/app/notifications/labels'
-import { PHASE_1, PHASE_2 } from '@/app/projects/[id]/pipeline/preconditions'
+import {
+  PHASE_1,
+  PHASE_2,
+  PHASE_3,
+  PHASE_4,
+} from '@/app/projects/[id]/pipeline/preconditions'
+import { frozenMessage } from '@/app/projects/[id]/pipeline/freeze'
+import { codebookLockedMessage } from '@/app/projects/[id]/(tabs)/rounds/preconditions'
 import { ownerDb } from '@/lib/db'
 import {
   createUser,
@@ -373,7 +380,7 @@ describe('app/projects/[id]/codebook — a tela do codebook', () => {
     const readOnly = CodebookReadOnly({
       version: props.version,
       isOpen: props.isOpen,
-      openRoundNumber: props.openRoundNumber ?? null,
+      notice: codebookLockedMessage(props.openRoundNumber!),
       definitions: props.definitions,
       criteria: props.criteria,
       inPhase2: true,
@@ -382,6 +389,84 @@ describe('app/projects/[id]/codebook — a tela do codebook', () => {
     expect(textOf(readOnly)).toContain('rodada 1')
     expect(textOf(readOnly)).toContain('Feche a rodada')
   })
+
+  async function editorHtml(project: string): Promise<string> {
+    const editor = findElement(await renderCodebook(project), CodebookEditor)
+    expect(editor).toBeTruthy()
+    const props = editor!.props as Parameters<typeof CodebookEditor>[0]
+    return renderToStaticMarkup(createElement(CodebookEditor, props))
+  }
+
+  it('na Fase 4, a tela fica em leitura, mostra as definições e explica o congelamento', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin, PHASE_4)
+    await addCodebookVersion(ownerDb, project, admin, {
+      usedAt: new Date().toISOString(),
+      definitions: [
+        {
+          title: 'Informacional',
+          type: 'category',
+          description: 'busca informação',
+          criteria: [{ name: 'Cita a fonte' }],
+        },
+      ],
+    })
+
+    auth.userId = admin
+    const html = await editorHtml(project)
+
+    expect(html).not.toContain('<form')
+    expect(html).not.toContain('<input')
+    expect(html).not.toContain('<textarea')
+    expect(html).not.toContain('<select')
+    expect(html).not.toContain('Editar defini')
+    expect(html).toContain('Informacional')
+    expect(html).toContain('busca informa')
+    expect(html).toContain('Cita a fonte')
+    expect(html).toContain(frozenMessage('codebook'))
+  })
+
+  it('na Fase 4 com rodada aberta, o aviso é o do congelamento, e não o de fechar a rodada', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin, PHASE_4)
+    const codebookVersion = await addCodebookVersion(ownerDb, project, admin, {
+      usedAt: new Date().toISOString(),
+      definitions: [
+        { title: 'Informacional', type: 'category', criteria: [{ name: 'Clareza' }] },
+      ],
+    })
+    const promptVersion = await addPromptVersion(ownerDb, project, admin, {
+      usedAt: new Date().toISOString(),
+    })
+    await addRound(ownerDb, project, admin, codebookVersion, promptVersion, {
+      roundNumber: 2,
+      phase: PHASE_4,
+    })
+
+    auth.userId = admin
+    const html = await editorHtml(project)
+
+    expect(html).not.toContain('<form')
+    expect(html).toContain(frozenMessage('codebook'))
+    expect(html).not.toContain('Feche a rodada')
+  })
+
+  it.each([PHASE_2, PHASE_3])(
+    'na Fase %i sem rodada aberta, a tela continua oferecendo editar as definições',
+    async (phase) => {
+      const admin = await newUser('Admin')
+      const project = await newProject(admin, phase)
+      await addCodebookVersion(ownerDb, project, admin, {
+        definitions: [{ title: 'Informacional', type: 'category' }],
+      })
+
+      auth.userId = admin
+      const html = await editorHtml(project)
+
+      expect(html).toContain('Editar defini')
+      expect(html).not.toContain('Fase 4')
+    },
+  )
 
   it('com a rodada fechada, a versão congelada volta a ser editável na tela', async () => {
     const admin = await newUser('Admin')

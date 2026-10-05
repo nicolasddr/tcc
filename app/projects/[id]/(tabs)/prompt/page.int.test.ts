@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { isValidElement, type ReactElement } from 'react'
+import { createElement, isValidElement, type ReactElement } from 'react'
+import { renderToStaticMarkup } from 'react-dom/server'
 
 const auth = vi.hoisted(() => ({ userId: null as string | null }))
 
@@ -33,7 +34,13 @@ import { PromptTest } from '@/app/projects/[id]/pipeline/prompt-test'
 import type { PromptVersionSummary } from '@/app/projects/[id]/pipeline/prompt'
 import { Button } from '@/app/components/ui/button'
 import { formatDate } from '@/app/notifications/labels'
-import { PHASE_2, PHASE_3 } from '@/app/projects/[id]/pipeline/preconditions'
+import {
+  PHASE_1,
+  PHASE_2,
+  PHASE_3,
+  PHASE_4,
+} from '@/app/projects/[id]/pipeline/preconditions'
+import { frozenMessage } from '@/app/projects/[id]/pipeline/freeze'
 import { llmModel } from '@/lib/ai'
 import { ownerDb } from '@/lib/db'
 import {
@@ -394,6 +401,71 @@ describe('app/projects/[id]/prompt — a tela do prompt', () => {
       expect(text).toContain(expected)
       expect(text).toContain('escolhido entre os 3 itens do pool')
       expect(text).not.toContain(absent)
+    },
+  )
+
+  async function readyProject(admin: string, phase: number): Promise<string> {
+    const project = await seedProject(ownerDb, admin, 'Projeto de Teste', { phase })
+    projs.push(project)
+    const usedAt = new Date().toISOString()
+    await addCodebookVersion(ownerDb, project, admin, { usedAt })
+    await addPromptVersion(ownerDb, project, admin, {
+      text: 'Classifique a consulta.',
+      usedAt,
+    })
+    await addInputItem(ownerDb, project, admin, { name: 'Consulta 001' })
+    return project
+  }
+
+  it('na Fase 4, o texto do prompt fica em leitura e explica o congelamento', async () => {
+    const admin = await newUser('Admin')
+    const project = await readyProject(admin, PHASE_4)
+
+    auth.userId = admin
+    const editor = findElement(await renderPrompt(project), PromptEditor)
+    expect(editor).toBeTruthy()
+
+    const props = editor!.props as Parameters<typeof PromptEditor>[0]
+    expect(props.notice).toBe(frozenMessage('prompt'))
+
+    const html = renderToStaticMarkup(createElement(PromptEditor, props))
+    expect(html).not.toContain('Editar texto')
+    expect(html).not.toContain('Escrever o prompt')
+    expect(html).not.toContain('<textarea')
+    expect(html).not.toContain('<form')
+    expect(html).toContain('Classifique a consulta.')
+    expect(html).toContain(frozenMessage('prompt'))
+    expect(html).toContain('Histórico')
+  })
+
+  it('na Fase 4, os dados da versão e o teste do prompt continuam na tela', async () => {
+    const admin = await newUser('Admin')
+    const project = await readyProject(admin, PHASE_4)
+
+    auth.userId = admin
+    const tree = await renderPrompt(project)
+
+    expect(findElement(tree, PromptMetadataEditor)).toBeTruthy()
+    const test = findElement(tree, PromptTest)
+    expect(test).toBeTruthy()
+    const props = test!.props as Parameters<typeof PromptTest>[0]
+    expect(props.ready).toBe(true)
+    expect(props.phase).toBe(PHASE_4)
+  })
+
+  it.each([PHASE_1, PHASE_2, PHASE_3])(
+    'na Fase %i, o editor do prompt não recebe aviso e oferece editar o texto',
+    async (phase) => {
+      const admin = await newUser('Admin')
+      const project = await readyProject(admin, phase)
+
+      auth.userId = admin
+      const editor = findElement(await renderPrompt(project), PromptEditor)
+      const props = editor!.props as Parameters<typeof PromptEditor>[0]
+      expect(props.notice).toBeNull()
+
+      const html = renderToStaticMarkup(createElement(PromptEditor, props))
+      expect(html).toContain('Editar texto')
     },
   )
 
