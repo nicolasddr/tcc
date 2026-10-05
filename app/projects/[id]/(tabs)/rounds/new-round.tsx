@@ -3,9 +3,9 @@
 import { useActionState } from 'react'
 import { createRound, type NewRoundState } from './actions'
 import {
-  codebookLockedMessage,
   roundBlockerMessage,
   roundBlockerSummary,
+  roundLockedMessage,
   type RoundBlocker,
 } from './preconditions'
 import { Alert } from '@/app/components/ui/alert'
@@ -23,11 +23,13 @@ const FREEZE_HELP =
 
 export function NewRound({
   projectId,
+  phase,
   blockers,
   codebookVersionNumber,
   promptVersionNumber,
 }: {
   projectId: string
+  phase: number
   blockers: RoundBlocker[]
   codebookVersionNumber: number | null
   promptVersionNumber: number | null
@@ -65,7 +67,7 @@ export function NewRound({
         <Alert tone="success">
           <span className="inline-flex flex-wrap items-center gap-2">
             <span>Rodada {state.roundNumber} aberta.</span>
-            <InfoTooltip text={codebookLockedMessage(state.roundNumber)} />
+            <InfoTooltip text={roundLockedMessage(state.roundNumber, phase)} />
           </span>
         </Alert>
       ) : null}

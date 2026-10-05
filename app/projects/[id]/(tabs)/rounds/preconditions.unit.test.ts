@@ -8,6 +8,7 @@ import {
   pendingEvaluatorsTitle,
   openRoundSummary,
   codebookLockedMessage,
+  phase4RoundLockedMessage,
   generationMax,
   responsesLeftMessage,
   retryLabel,
@@ -15,6 +16,7 @@ import {
   roundBlockerSummary,
   roundInputSummary,
   roundBlockers,
+  roundLockedMessage,
   selectionBlockerMessage,
   selectionBlockers,
   SELECTION_MAX,
@@ -142,7 +144,7 @@ describe('app/projects/[id]/rounds/preconditions — o que trava a abertura de u
   })
 
   it('a confirmação de fechamento cabe em poucas linhas curtas', () => {
-    const lines = closeConfirmationLines(2)
+    const lines = closeConfirmationLines(2, PHASE_3)
     expect(lines).toHaveLength(3)
     expect(lines[0]).toContain('Fechar a rodada 2 é irreversível')
     expect(lines[0]).toContain('não existe reabrir')
@@ -152,7 +154,7 @@ describe('app/projects/[id]/rounds/preconditions — o que trava a abertura de u
   })
 
   it('a confirmação não repete os nomes de quem não terminou no corpo do texto', () => {
-    expect(closeConfirmationLines(1).join(' ')).not.toContain('Ainda não terminaram')
+    expect(closeConfirmationLines(1, PHASE_3).join(' ')).not.toContain('Ainda não terminaram')
   })
 
   it('o título dos pendentes conta os avaliadores, em vez de listá-los no texto', () => {
@@ -197,6 +199,30 @@ describe('app/projects/[id]/rounds/preconditions — o que trava a abertura de u
     expect(message).toContain('rodada 2')
     expect(message).toContain('leitura')
     expect(message).toContain('Feche a rodada')
+  })
+
+  it('na Fase 4, a trava da rodada aberta diz que o congelamento é da fase e não promete destravar', () => {
+    const message = phase4RoundLockedMessage(2)
+    expect(message).toContain('rodada 2')
+    expect(message).toContain(`Na Fase ${PHASE_4}`)
+    expect(message).toContain('congelados pela fase')
+    expect(message).not.toContain('Feche a rodada para voltar a editar')
+  })
+
+  it('a trava da rodada aberta escolhe a mensagem pela fase da rodada', () => {
+    expect(roundLockedMessage(2, PHASE_2)).toBe(codebookLockedMessage(2))
+    expect(roundLockedMessage(2, PHASE_3)).toBe(codebookLockedMessage(2))
+    expect(roundLockedMessage(2, PHASE_4)).toBe(phase4RoundLockedMessage(2))
+  })
+
+  it('na Fase 4, a confirmação de fechamento não diz que o codebook volta a ser editável', () => {
+    const lines = closeConfirmationLines(2, PHASE_4)
+    expect(lines).toHaveLength(3)
+    expect(lines[0]).toBe(closeConfirmationLines(2, PHASE_3)[0])
+    expect(lines[1]).toContain(`congelados pela Fase ${PHASE_4}`)
+    expect(lines[2]).toBe(closeConfirmationLines(2, PHASE_3)[2])
+    expect(lines.join(' ')).not.toContain('volta a ser editável')
+    expect(lines.every((line) => line.length <= 120)).toBe(true)
   })
 })
 
@@ -348,12 +374,16 @@ describe('app/projects/[id]/rounds/preconditions — o que a rodada manda à LLM
     expect(summary).toContain('critérios gerais')
   })
 
-  it('a partir da Fase 3 a frase é a da Fase 3', () => {
-    expect(roundInputSummary(4)).toBe(roundInputSummary(PHASE_3))
+  it('a partir da Fase 3 a frase é a do codebook completo, com a fase da rodada', () => {
+    const summary = roundInputSummary(PHASE_4)
+    expect(summary).toContain(`Fase ${PHASE_4}`)
+    expect(summary).toContain('codebook completo')
+    expect(summary).not.toContain(`Fase ${PHASE_3}`)
+    expect(summary.replace(`Fase ${PHASE_4}`, `Fase ${PHASE_3}`)).toBe(roundInputSummary(PHASE_3))
   })
 
   it('nenhuma das frases fala da escala', () => {
-    for (const phase of [PHASE_2, PHASE_3]) {
+    for (const phase of [PHASE_2, PHASE_3, PHASE_4]) {
       const summary = roundInputSummary(phase)
       for (const value of SCALE) {
         expect(summary).not.toContain(scaleLabel(value))

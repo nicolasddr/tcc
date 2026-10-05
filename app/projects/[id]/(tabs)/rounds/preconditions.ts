@@ -326,10 +326,25 @@ export function codebookLockedMessage(roundNumber: number): string {
   )
 }
 
-export function closeConfirmationLines(roundNumber: number): string[] {
+export function phase4RoundLockedMessage(roundNumber: number): string {
+  return (
+    `A rodada ${roundNumber} está aberta. Na Fase ${PHASE_4} o codebook e o prompt já estão ` +
+    'congelados pela fase, e continuam assim depois do fechamento.'
+  )
+}
+
+export function roundLockedMessage(roundNumber: number, phase: number): string {
+  return phase >= PHASE_4
+    ? phase4RoundLockedMessage(roundNumber)
+    : codebookLockedMessage(roundNumber)
+}
+
+export function closeConfirmationLines(roundNumber: number, phase: number): string[] {
   return [
     `Fechar a rodada ${roundNumber} é irreversível: ela deixa de aceitar resposta e avaliação, e não existe reabrir.`,
-    'O codebook volta a ser editável, e a rodada continua visível com tudo o que produziu.',
+    phase >= PHASE_4
+      ? `O codebook e o prompt continuam congelados pela Fase ${PHASE_4}, e a rodada continua visível com tudo o que produziu.`
+      : 'O codebook volta a ser editável, e a rodada continua visível com tudo o que produziu.',
     'Fechar não espera quem ainda não terminou.',
   ]
 }
@@ -371,6 +386,6 @@ export function openRoundSummary(
 
 export function roundInputSummary(phase: number): string {
   return phase >= PHASE_3
-    ? `Rodada da Fase ${PHASE_3}: a LLM recebe o prompt, o codebook completo — título, descrição e critérios de cada definição, e os critérios gerais — e o item de entrada.`
+    ? `Rodada da Fase ${phase}: a LLM recebe o prompt, o codebook completo — título, descrição e critérios de cada definição, e os critérios gerais — e o item de entrada.`
     : `Rodada da Fase ${PHASE_2}: a LLM recebe o prompt, os títulos das definições e o item de entrada.`
 }

@@ -208,6 +208,7 @@ export default async function ProjectRoundsPage({
         >
           <NewRound
             projectId={project.id}
+            phase={project.phase}
             blockers={blockers}
             codebookVersionNumber={codebookVersionNumber}
             promptVersionNumber={promptVersionNumber}

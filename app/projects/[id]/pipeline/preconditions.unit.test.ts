@@ -522,6 +522,14 @@ describe('phase4ConfirmationLines', () => {
     expect(text).toContain('ICR')
   })
 
+  it('diz que itens e avaliadores novos são escolha do Administrador, sem prometer marca', () => {
+    expect(text).toContain('itens de entrada novos e avaliadores novos')
+    expect(text).toContain('escolha do Administrador')
+    expect(text).not.toContain('disponível')
+    expect(text).not.toContain('marca')
+    expect(text).not.toContain('voltar')
+  })
+
   it('termina dizendo que cancelar não muda nada', () => {
     expect(lines[lines.length - 1]).toBe('Cancelar não muda nada.')
   })

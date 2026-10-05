@@ -4,10 +4,10 @@ import { useActionState, useEffect, useRef } from 'react'
 import { closeRound, type CloseRoundState } from './actions'
 import {
   closeConfirmationLines,
-  codebookLockedMessage,
   openRoundSummary,
   pendingEvaluatorsTitle,
   roundInputSummary,
+  roundLockedMessage,
 } from './preconditions'
 import { Alert } from '@/app/components/ui/alert'
 import { Button } from '@/app/components/ui/button'
@@ -54,7 +54,7 @@ export function CloseRound({
               promptVersionNumber,
             )}
           </span>
-          <InfoTooltip text={codebookLockedMessage(round.roundNumber)} />
+          <InfoTooltip text={roundLockedMessage(round.roundNumber, round.phase)} />
         </p>
         <p className="m-0 mt-1.5 text-[13px] text-muted">
           {roundInputSummary(round.phase)}
@@ -81,7 +81,7 @@ export function CloseRound({
           </h3>
 
           <div className="flex flex-col gap-1.5 text-[13px] leading-[1.6] text-muted">
-            {closeConfirmationLines(round.roundNumber).map((line) => (
+            {closeConfirmationLines(round.roundNumber, round.phase).map((line) => (
               <p key={line} className="m-0">
                 {line}
               </p>

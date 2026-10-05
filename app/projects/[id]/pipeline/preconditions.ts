@@ -240,7 +240,7 @@ export function phase3BlockedMessage(blockers: readonly Phase3Blocker[]): string
 
 export function phase4ConfirmationLines(): string[] {
   return [
-    `Na Fase ${PHASE_4}, a avaliação se repete com itens de entrada novos e avaliadores novos, sobre codebook e prompt congelados enquanto ela durar, para medir se o codebook generaliza. A Fase ${PHASE_3} continua visível como está: rodadas, avaliações, concordância, Qualidade e anotações ficam onde estão.`,
+    `Na Fase ${PHASE_4}, a avaliação se repete sobre codebook e prompt congelados enquanto ela durar, para medir se o codebook generaliza. Ela pede itens de entrada novos e avaliadores novos, e quais são é escolha do Administrador: a ferramenta não recusa item já usado nem avaliador que já avaliou antes. A Fase ${PHASE_3} continua visível como está: rodadas, avaliações, concordância, Qualidade e anotações ficam onde estão.`,
     'A decisão de avançar é do Administrador. Nenhum valor de concordância ou de Qualidade libera nem impede o avanço: a faixa de referência do ICR é leitura, não regra, e a Qualidade não tem faixa.',
     'Cancelar não muda nada.',
   ]

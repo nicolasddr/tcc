@@ -31,7 +31,12 @@ import { buildQueue } from '@/app/projects/[id]/(tabs)/evaluate/queue'
 import { loadCodebookVersion } from '@/app/projects/[id]/pipeline/codebook'
 import { resolveCells } from '@/app/projects/[id]/pipeline/criteria'
 import { listRoundResponses } from '@/app/projects/[id]/pipeline/responses'
-import { PHASE_1, PHASE_2, PHASE_3 } from '@/app/projects/[id]/pipeline/preconditions'
+import {
+  PHASE_1,
+  PHASE_2,
+  PHASE_3,
+  PHASE_4,
+} from '@/app/projects/[id]/pipeline/preconditions'
 import { QualityPanel, QualityValue } from '@/app/projects/[id]/(tabs)/rounds/quality-panel'
 import { roundInputSummary } from '@/app/projects/[id]/(tabs)/rounds/preconditions'
 import { Section } from '@/app/components/ui/section'
@@ -650,12 +655,13 @@ describe('app/projects/[id]/evaluate — a tela do avaliador', () => {
     expect(page).not.toContain('Concordância')
   })
 
-  it('a tela de avaliação é igual nas Fases 2 e 3', async () => {
+  it('a tela de avaliação é igual nas Fases 2, 3 e 4', async () => {
     const admin = await newUser('Admin')
     const evaluator = await newUser('Avaliadora')
     const scenes = [
       await scenario(admin, { phase: PHASE_2 }),
       await scenario(admin, { phase: PHASE_3 }),
+      await scenario(admin, { phase: PHASE_4 }),
     ]
 
     auth.userId = evaluator
@@ -667,11 +673,12 @@ describe('app/projects/[id]/evaluate — a tela do avaliador', () => {
 
     expect(texts[0]).toContain('Resposta 1')
     expect(texts[1]).toBe(texts[0])
+    expect(texts[2]).toBe(texts[0])
   })
 
-  it('na Fase 3, a tela de avaliação não diz a fase, nem o que a LLM recebeu, nem a Qualidade', async () => {
+  it.each([PHASE_3, PHASE_4])('na Fase %i, a tela de avaliação não diz a fase, nem o que a LLM recebeu, nem a Qualidade', async (phase) => {
     const admin = await newUser('Admin')
-    const scene = await scenario(admin, { phase: PHASE_3, responses: 2 })
+    const scene = await scenario(admin, { phase, responses: 2 })
     const ana = await newEvaluator(scene.project, 'Ana')
     await addActiveEvaluator(ownerDb, scene.project, admin)
 
@@ -695,6 +702,7 @@ describe('app/projects/[id]/evaluate — a tela do avaliador', () => {
       }
       expect(page).not.toContain(roundInputSummary(PHASE_2))
       expect(page).not.toContain(roundInputSummary(PHASE_3))
+      expect(page).not.toContain(roundInputSummary(PHASE_4))
       expect(findElement(tree, QualityPanel)).toBeNull()
       expect(findElement(tree, QualityValue)).toBeNull()
     }

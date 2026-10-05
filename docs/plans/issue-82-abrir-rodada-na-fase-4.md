@@ -14,7 +14,7 @@ seguinte herda". Anote ali o que divergiu.
 |---|---|---|
 | 1 | A regra: `roundBlockers` sem `phase_unavailable` e com a pré-condição das versões, ligada na action e na página, com os testes de criar rodada | ☑ |
 | 2 | O ciclo: geração, avaliação, fechamento, revisão, anotações, outlier e a rodada seguinte numa rodada da Fase 4, provados em integração | ☑ |
-| 3 | Os textos e as telas: confirmação do avanço, textos da rodada que falam de fase e de destravar, tela de Rodadas e do avaliador na Fase 4, navegador e varredura dos ACs | ☐ |
+| 3 | Os textos e as telas: confirmação do avanço, textos da rodada que falam de fase e de destravar, tela de Rodadas e do avaliador na Fase 4, navegador e varredura dos ACs | ☑ |
 
 **Nenhuma ADR nova.** A regra está na **emenda de 2026-10-02 da ADR 0004** ("a mesma verificação vale
 ao abrir rodada" na Fase 4) e no glossário (`docs/CONTEXT.md`, verbetes **Fase 4** e **Rodada de
@@ -553,7 +553,34 @@ Commit sugerido: `feat(rodadas): textos da rodada na fase 4 e confirmação do a
 
 ### O que esta Parte fechou
 
-_(preencher ao terminar)_
+- **D8 e D9 confirmadas com o dono antes do código**, as duas como recomendadas.
+- **D7**: primeira linha de `phase4ConfirmationLines()` com a frase da história 9, como proposta. Os testes
+  antigos do `describe` continuam verdes sem edição; teste novo para "itens de entrada novos e avaliadores
+  novos" / "escolha do Administrador" sem "disponível", "marca" nem "voltar".
+- **D8**: `phase4RoundLockedMessage(roundNumber)` com o texto proposto e `closeConfirmationLines(roundNumber,
+  phase)`. **Divergência pequena**: além delas, um seletor `roundLockedMessage(roundNumber, phase)` que
+  `NewRound` (prop nova `phase`) e `CloseRound` (`round.phase`) usam, em vez de repetir o ternário nos dois
+  componentes. `codebookLockedMessage` não mudou.
+- **D9**: `roundInputSummary` usa `Rodada da Fase ${phase}:` no ramo do codebook completo.
+- **Testes antigos editados**: "a partir da Fase 3 a frase é a da Fase 3" (agora "…a do codebook completo,
+  com a fase da rodada"). **Edições mecânicas**: as chamadas de `closeConfirmationLines` ganharam a fase (o
+  unitário e um teste de `rounds/page.int.test.ts`), e "a orientação não esconde a Qualidade nem trava
+  nada" compara as props de `NewRound`, que agora têm `phase`. **Extensões**: "a tela de avaliação é igual
+  nas Fases 2, 3 e 4"; "na Fase 3, a tela de avaliação não diz a fase…" virou `it.each([PHASE_3,
+  PHASE_4])`; o laço de "nenhuma das frases fala da escala" ganhou `PHASE_4`.
+- **Testes novos**: em `rounds/preconditions.unit.test.ts` a trava da Fase 4, o seletor por fase e a
+  confirmação de fechamento da Fase 4; em `rounds/page.int.test.ts` "com a rodada da Fase 4 aberta, o
+  painel diz que ela é da Fase 4 e não promete destravar o codebook"; o teste da Fase 4 liberada confere
+  `props.phase`.
+- **Navegador**: roteiro 1, 2 e 4 a 7 conferidos na `:3100`. O passo 3 (gerar com a LLM falsa) **não foi
+  feito pela tela**: o dev server da pasta era de outro chat, e o Next 16 não sobe um segundo na mesma
+  pasta. As respostas da rodada 2 foram semeadas, e a geração na Fase 4 já está provada em integração
+  (Parte 2). O tooltip de sucesso de `NewRound` só aparece por um instante, porque a revalidação troca o
+  componente pelo `CloseRound`, cujo tooltip mostrou o texto de D8. A 375 px (iframe), só a barra de abas
+  passa da largura, dívida anterior (#74). Cena apagada, `scores` vazia.
+- **Suíte**: `npm test` com 85 arquivos e 1246 testes verdes; `lint` e `typecheck` verdes.
+- **Pendente com o dono**: marcar os checkboxes da issue no GitHub e o comentário de fechamento com os
+  commits das três Partes.
 
 ---
 

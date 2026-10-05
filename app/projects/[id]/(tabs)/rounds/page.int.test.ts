@@ -66,7 +66,9 @@ import {
 } from '@/app/projects/[id]/pipeline/preconditions'
 import {
   closeConfirmationLines,
+  codebookLockedMessage,
   pendingEvaluatorsTitle,
+  phase4RoundLockedMessage,
   roundBlockerMessage,
   roundBlockerSummary,
   roundInputSummary,
@@ -841,6 +843,7 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
 
     const props = newRoundOf(tree)
     expect(props.blockers).toEqual([])
+    expect(props.phase).toBe(PHASE_4)
     expect(disabledCountOf(createElement(NewRound, props))).toBe(0)
 
     const list = listOf(tree)
@@ -876,6 +879,37 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     expect(markupTextOf(newRound)).toContain(roundBlockerSummary(props.blockers[0]))
   })
 
+  it('com a rodada da Fase 4 aberta, o painel diz que ela é da Fase 4 e não promete destravar o codebook', async () => {
+    const admin = await newUser('Admin')
+    const { project, codebookVersion, promptVersion } = await readyProject(
+      admin,
+      PHASE_4,
+    )
+    await addRound(ownerDb, project, admin, codebookVersion, promptVersion, {
+      roundNumber: 1,
+      status: 'closed',
+      phase: PHASE_3,
+    })
+    await addRound(ownerDb, project, admin, codebookVersion, promptVersion, {
+      roundNumber: 2,
+      phase: PHASE_4,
+    })
+
+    auth.userId = admin
+    const close = closeRoundOf(await render(project))
+    expect(close.round.phase).toBe(PHASE_4)
+
+    const panel = markupTextOf(createElement(CloseRound, close))
+    expect(panel).toContain(roundInputSummary(PHASE_4))
+    expect(panel).not.toContain(roundInputSummary(PHASE_3))
+    expect(panel).toContain(phase4RoundLockedMessage(2))
+    expect(panel).not.toContain(codebookLockedMessage(2))
+    for (const line of closeConfirmationLines(2, PHASE_4)) {
+      expect(panel).toContain(line)
+    }
+    expect(panel).not.toContain('volta a ser editável')
+  })
+
   it('com rodada aberta, a tela troca a criação pelo fechamento e diz quem não terminou', async () => {
     const admin = await newUser('Admin')
     const evaluator = await newUser('Bia Avaliadora')
@@ -899,7 +933,7 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     expect(props.round.roundNumber).toBe(1)
     expect(props.evaluatorsNotFinished).toEqual(['Bia Avaliadora'])
 
-    expect(closeConfirmationLines(props.round.roundNumber)[0]).toContain(
+    expect(closeConfirmationLines(props.round.roundNumber, props.round.phase)[0]).toContain(
       'irreversível',
     )
     expect(props.activeEvaluators).toBe(1)
@@ -1972,7 +2006,11 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
         codebookVersionNumber: 1,
       })
 
-      expect(newRoundOf(tree)).toEqual({ ...phase2NewRound, projectId: scene.project })
+      expect(newRoundOf(tree)).toEqual({
+        ...phase2NewRound,
+        projectId: scene.project,
+        phase: PHASE_3,
+      })
       expect(newRoundOf(tree).blockers).toEqual([])
 
       const markup = renderToStaticMarkup(createElement(ReadingGuidanceNote, guidance!))
