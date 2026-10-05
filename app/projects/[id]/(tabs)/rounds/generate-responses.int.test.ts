@@ -53,7 +53,7 @@ import {
   GENERAL_CRITERIA_HEADING,
   ITEM_HEADING,
 } from '@/app/projects/[id]/pipeline/llm-input'
-import { PHASE_2, PHASE_3 } from '@/app/projects/[id]/pipeline/preconditions'
+import { PHASE_2, PHASE_3, PHASE_4 } from '@/app/projects/[id]/pipeline/preconditions'
 import type { LlmFailure } from '@/lib/ai/failure'
 import { resetProjectResponses } from '@/lib/ai/quota'
 import { RESPONSE_TEXT_MAX } from '@/lib/limits'
@@ -257,7 +257,7 @@ describe('app/projects/[id]/rounds/actions — gerar respostas na rodada aberta'
     for (const item of items) expect(sent.get(item)).not.toBeNull()
   })
 
-  it.each([PHASE_2, PHASE_3])(
+  it.each([PHASE_2, PHASE_3, PHASE_4])(
     'rodada da Fase %i: a entrada gravada é a mesma que a LLM recebeu',
     async (phase) => {
       const admin = await newUser('Admin')
@@ -275,7 +275,7 @@ describe('app/projects/[id]/rounds/actions — gerar respostas na rodada aberta'
       for (const [index, item] of items.entries()) {
         const stored = sent.get(item)
         expect(stored).toBe(receivedInputFor(`conteúdo do item ${index + 1}`))
-        if (phase === PHASE_3) expect(stored).toContain(CODEBOOK_HEADING)
+        if (phase >= PHASE_3) expect(stored).toContain(CODEBOOK_HEADING)
         else expect(stored).not.toContain(CODEBOOK_HEADING)
       }
     },
@@ -473,6 +473,53 @@ describe('app/projects/[id]/rounds/actions — gerar respostas na rodada aberta'
     expect(input).not.toContain('Descrição da versão 2.')
     expect(input).not.toContain('Critério da versão 2')
     expect(input).not.toContain('Geral da versão 2')
+  })
+
+  it('a rodada da Fase 4 manda o codebook completo da versão congelada, não o da vigente', async () => {
+    const admin = await newUser('Admin')
+    const { project, round, items, codebookVersion } = await openRound(admin, {
+      projectPhase: PHASE_4,
+      roundPhase: PHASE_4,
+    })
+
+    await addCodebookVersion(ownerDb, project, admin, {
+      versionNumber: 2,
+      definitions: [
+        {
+          title: 'Título só da versão 2',
+          type: 'category',
+          description: 'Descrição da versão 2.',
+          criteria: [{ name: 'Critério da versão 2', description: 'Só na versão 2.' }],
+        },
+      ],
+      generalCriteria: [{ name: 'Geral da versão 2' }],
+    })
+
+    auth.userId = admin
+    okOf(await generateResponses(null, fd(project, round, items)))
+
+    expect(llm.inputs).toEqual([
+      await expectedInput(PHASE_4, project, codebookVersion, 'conteúdo do item 1'),
+    ])
+    const input = llm.inputs[0]
+
+    expect(input).toContain(CODEBOOK_HEADING)
+    for (const definition of DEFINITIONS) {
+      expect(input).toContain(definition.title)
+      expect(input).toContain(definition.description)
+      for (const criterion of definition.criteria) {
+        expect(input).toContain(criterion.name)
+      }
+    }
+    expect(input).toContain(GENERAL_CRITERIA_HEADING)
+    expect(input).toContain(GENERAL_CRITERIA[0].name)
+
+    expect(input).not.toContain('Título só da versão 2')
+    expect(input).not.toContain('Descrição da versão 2.')
+    expect(input).not.toContain('Critério da versão 2')
+    expect(input).not.toContain('Geral da versão 2')
+
+    expect((await sentInputsOf(round)).get(items[0])).toBe(input)
   })
 
   it('a rodada da Fase 2 continua mandando só os títulos com o projeto já na Fase 3', async () => {

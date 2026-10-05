@@ -13,7 +13,7 @@ seguinte herda". Anote ali o que divergiu.
 | Parte | Entrega | Estado |
 |---|---|---|
 | 1 | A regra: `roundBlockers` sem `phase_unavailable` e com a pré-condição das versões, ligada na action e na página, com os testes de criar rodada | ☑ |
-| 2 | O ciclo: geração, avaliação, fechamento, revisão, anotações, outlier e a rodada seguinte numa rodada da Fase 4, provados em integração | ☐ |
+| 2 | O ciclo: geração, avaliação, fechamento, revisão, anotações, outlier e a rodada seguinte numa rodada da Fase 4, provados em integração | ☑ |
 | 3 | Os textos e as telas: confirmação do avanço, textos da rodada que falam de fase e de destravar, tela de Rodadas e do avaliador na Fase 4, navegador e varredura dos ACs | ☐ |
 
 **Nenhuma ADR nova.** A regra está na **emenda de 2026-10-02 da ADR 0004** ("a mesma verificação vale
@@ -416,7 +416,22 @@ Commit sugerido: `test(rodadas): ciclo completo de uma rodada da fase 4`. Se alg
 
 ### O que a Parte 3 herda
 
-_(preencher ao terminar)_
+- **Código de produção: nenhum.** Nenhuma trava por fase apareceu no ciclo; geração, avaliação,
+  fechamento, outlier, anotação e revisão funcionaram na Fase 4 sem mudança.
+- **Geração**: teste novo "a rodada da Fase 4 manda o codebook completo da versão congelada, não o da
+  vigente" em `generate-responses.int.test.ts` (a v2 semeada tem título próprio, para provar que nem os
+  títulos da vigente vão). **Extensão** (citar no commit): o `it.each` de "entrada gravada" passou a
+  `[PHASE_2, PHASE_3, PHASE_4]`, com a condição `phase === PHASE_3` trocada por `phase >= PHASE_3`.
+- **Arquivo novo** `(tabs)/rounds/phase-4-round.int.test.ts`, com `describe`s por etapa (abrir e gerar,
+  avaliar, fechar, depois de fechar, a rodada seguinte, o Avaliador é barrado). Cena: projeto na Fase 4,
+  rodada 1 fechada da Fase 3 com resposta avaliada por Ana (veterana), Carla e Davi novos, três itens
+  novos. Helpers `openPhase4Round` (cria + gera 2 itens) e `closedPhase4Round` (+ os três avaliam + fecha).
+- **Gotcha**: `submitEvaluation` **redireciona** (`NEXT_REDIRECT:/projects/…/evaluate?response=…&sent=1`)
+  enquanto sobra pendente na fila de quem avalia; só a última devolve `{ ok: true }`. O helper `evaluate`
+  aceita os dois. O mock de `next/navigation` precisa de `notFound` para `requireReviewableRound`.
+- **Divergências**: nenhuma. Sem teste antigo editado além da extensão do `it.each`.
+- **Suíte**: `npm test` com 85 arquivos e 1240 testes verdes; `lint` e `typecheck` verdes; `scores` vazia
+  depois da suíte.
 
 ---
 
