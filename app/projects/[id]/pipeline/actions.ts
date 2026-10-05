@@ -45,6 +45,7 @@ import {
   phase3Blockers,
   wrongPhaseMessage,
 } from './preconditions'
+import { frozenMessage, isFrozen } from './freeze'
 import { loadPipelineInputs } from './inputs'
 import { itemContentError, normalizeItemContent } from './item-content'
 import { countClosedRounds, loadOpenRound } from '../(tabs)/rounds/rounds'
@@ -237,6 +238,11 @@ export async function saveCodebook(
 
       const phase = project?.phase ?? PHASE_1
 
+      if (isFrozen(phase)) {
+        failure = frozenMessage('codebook')
+        return
+      }
+
       const openRound = await loadOpenRound(projectId, tx)
       if (openRound) {
         failure = codebookLockedMessage(openRound.roundNumber)
@@ -397,14 +403,19 @@ export async function savePrompt(
 
   const targetVersionId = String(formData.get('version_id') ?? '') || null
 
-  let stale = false
+  let failure: string | null = null
   try {
     await transaction(async (tx) => {
-      await tx
-        .select({ id: projects.id })
+      const [project] = await tx
+        .select({ id: projects.id, phase: projects.phase })
         .from(projects)
         .where(eq(projects.id, projectId))
         .for('update')
+
+      if (isFrozen(project?.phase ?? PHASE_1)) {
+        failure = frozenMessage('prompt')
+        return
+      }
 
       const [latest] = await tx
         .select({
@@ -420,7 +431,7 @@ export async function savePrompt(
 
       const decision = decideTextSave(latest ?? null, targetVersionId, parsed.text)
       if (decision.mode === 'stale') {
-        stale = true
+        failure = PROMPT_STALE
         return
       }
       if (decision.mode === 'unchanged') return
@@ -445,7 +456,7 @@ export async function savePrompt(
     throw err
   }
 
-  if (stale) return { error: PROMPT_STALE }
+  if (failure) return { error: failure }
 
   revalidatePath(`/projects/${projectId}/prompt`)
   revalidatePath(`/projects/${projectId}`)

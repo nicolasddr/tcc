@@ -51,7 +51,12 @@ import {
   GENERAL_CRITERIA_HEADING,
   ITEM_HEADING,
 } from '@/app/projects/[id]/pipeline/llm-input'
-import { PHASE_1, PHASE_2, PHASE_3 } from '@/app/projects/[id]/pipeline/preconditions'
+import {
+  PHASE_1,
+  PHASE_2,
+  PHASE_3,
+  PHASE_4,
+} from '@/app/projects/[id]/pipeline/preconditions'
 import { DEFINITION_TYPE_OPTIONS, definitionTypeLabel } from '@/app/projects/definition-types'
 import { SCALE, scaleLabel } from '@/app/projects/[id]/(tabs)/evaluate/scale'
 import type { LlmFailure } from '@/lib/ai/failure'
@@ -300,42 +305,45 @@ describe('app/projects/[id]/pipeline/actions — testar o prompt sem persistir n
     },
   )
 
-  it('na Fase 3 envia o codebook completo da versão vigente', async () => {
-    const admin = await newUser('Admin')
-    const { project, item } = await readyProject(admin, {
-      phase: PHASE_3,
-      definitions: RICH_DEFINITIONS,
-      generalCriteria: RICH_GENERAL_CRITERIA,
-    })
+  it.each([PHASE_3, PHASE_4])(
+    'na Fase %i envia o codebook completo da versão vigente',
+    async (phase) => {
+      const admin = await newUser('Admin')
+      const { project, item } = await readyProject(admin, {
+        phase,
+        definitions: RICH_DEFINITIONS,
+        generalCriteria: RICH_GENERAL_CRITERIA,
+      })
 
-    auth.userId = admin
-    expect(await testPrompt(null, fd(project, item))).toMatchObject({ ok: true })
+      auth.userId = admin
+      expect(await testPrompt(null, fd(project, item))).toMatchObject({ ok: true })
 
-    expect(llm.inputs).toEqual([await expectedInput(PHASE_3, project)])
-    const input = llm.inputs[0]
-    expect(input).toContain(PROMPT_TEXT)
-    expect(input).toContain(ITEM_CONTENT)
-    expect(input).toContain(CODEBOOK_HEADING)
-    expect(input).not.toContain(DEFINITIONS_HEADING)
-    for (const definition of RICH_DEFINITIONS) {
-      expect(input).toContain(`${DEFINITION_PREFIX}${definition.title}`)
-      expect(input).toContain(definition.description)
-      for (const criterion of definition.criteria) {
-        expect(input).toContain(criterion.name)
+      expect(llm.inputs).toEqual([await expectedInput(phase, project)])
+      const input = llm.inputs[0]
+      expect(input).toContain(PROMPT_TEXT)
+      expect(input).toContain(ITEM_CONTENT)
+      expect(input).toContain(CODEBOOK_HEADING)
+      expect(input).not.toContain(DEFINITIONS_HEADING)
+      for (const definition of RICH_DEFINITIONS) {
+        expect(input).toContain(`${DEFINITION_PREFIX}${definition.title}`)
+        expect(input).toContain(definition.description)
+        for (const criterion of definition.criteria) {
+          expect(input).toContain(criterion.name)
+        }
       }
-    }
-    expect(input.split(GENERAL_CRITERIA_HEADING)).toHaveLength(2)
-    for (const criterion of RICH_GENERAL_CRITERIA) {
-      expect(input).toContain(`- ${criterion.name}: ${criterion.description}`)
-    }
+      expect(input.split(GENERAL_CRITERIA_HEADING)).toHaveLength(2)
+      for (const criterion of RICH_GENERAL_CRITERIA) {
+        expect(input).toContain(`- ${criterion.name}: ${criterion.description}`)
+      }
 
-    const typeValues = DEFINITION_TYPE_OPTIONS.map((option) => option.value)
-    const typeLabels = typeValues.map((value) => definitionTypeLabel(value)!)
-    const scaleLabels = SCALE.map((value) => scaleLabel(value))
-    for (const forbidden of [...typeValues, ...typeLabels, ...scaleLabels]) {
-      expect(input).not.toContain(forbidden)
-    }
-  })
+      const typeValues = DEFINITION_TYPE_OPTIONS.map((option) => option.value)
+      const typeLabels = typeValues.map((value) => definitionTypeLabel(value)!)
+      const scaleLabels = SCALE.map((value) => scaleLabel(value))
+      for (const forbidden of [...typeValues, ...typeLabels, ...scaleLabels]) {
+        expect(input).not.toContain(forbidden)
+      }
+    },
+  )
 
   it('na Fase 3 envia o codebook da versão VIGENTE, não o de uma versão anterior', async () => {
     const admin = await newUser('Admin')
@@ -472,7 +480,7 @@ describe('app/projects/[id]/pipeline/actions — testar o prompt sem persistir n
     },
   )
 
-  it.each([PHASE_1, PHASE_2, PHASE_3])(
+  it.each([PHASE_1, PHASE_2, PHASE_3, PHASE_4])(
     'na Fase %i não grava nada: nenhuma linha nova aparece em tabela nenhuma',
     async (phase) => {
       const admin = await newUser('Admin')
@@ -509,6 +517,42 @@ describe('app/projects/[id]/pipeline/actions — testar o prompt sem persistir n
     expect(codebook.isOpen).toBe(true)
     expect(prompt.version?.usedAt).toBeNull()
     expect(prompt.isOpen).toBe(true)
+  })
+
+  it('na Fase 4, com codebook e prompt usados, envia o codebook completo e não mexe no usedAt', async () => {
+    const admin = await newUser('Admin')
+    const project = await seedProject(ownerDb, admin, 'Projeto de Teste', { phase: PHASE_4 })
+    projs.push(project)
+    const usedAt = '2026-09-01T12:00:00.000Z'
+    await addCodebookVersion(ownerDb, project, admin, {
+      usedAt,
+      definitions: RICH_DEFINITIONS,
+      generalCriteria: RICH_GENERAL_CRITERIA,
+    })
+    await addPromptVersion(ownerDb, project, admin, { text: PROMPT_TEXT, usedAt })
+    const item = await addInputItem(ownerDb, project, admin, {
+      name: 'Consulta 001',
+      content: ITEM_CONTENT,
+    })
+    const codebookBefore = await loadCodebook(project)
+    const promptBefore = await loadPrompt(project)
+
+    auth.userId = admin
+    expect(await testPrompt(null, fd(project, item))).toMatchObject({ ok: true })
+
+    expect(llm.inputs).toEqual([await expectedInput(PHASE_4, project)])
+    const input = llm.inputs[0]
+    expect(input).toContain(CODEBOOK_HEADING)
+    for (const definition of RICH_DEFINITIONS) {
+      expect(input).toContain(definition.description)
+    }
+
+    const codebookAfter = await loadCodebook(project)
+    const promptAfter = await loadPrompt(project)
+    expect(codebookAfter.version?.usedAt).not.toBeNull()
+    expect(codebookAfter.version?.usedAt).toEqual(codebookBefore.version?.usedAt)
+    expect(promptAfter.version?.usedAt).not.toBeNull()
+    expect(promptAfter.version?.usedAt).toEqual(promptBefore.version?.usedAt)
   })
 
   it('não congela versão nenhuma: dá para editar o prompt e testar de novo', async () => {

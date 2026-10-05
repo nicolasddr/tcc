@@ -12,7 +12,7 @@ seguinte herda". Anote ali o que divergiu.
 | Parte | Entrega | Estado |
 |---|---|---|
 | 1 | Regra pura: quando o projeto está congelado e as duas mensagens | ☑ |
-| 2 | As actions: recusa em `saveCodebook` e `savePrompt`, e a prova de que o resto continua livre | ☐ |
+| 2 | As actions: recusa em `saveCodebook` e `savePrompt`, e a prova de que o resto continua livre | ☑ |
 | 3 | As telas: codebook e prompt em modo de leitura na Fase 4, testes de página e varredura dos ACs | ☐ |
 
 **Nenhuma ADR nova.** A regra está escrita na **ADR 0004** ("A Fase 4 congela codebook e prompt
@@ -276,8 +276,21 @@ Commit sugerido: `feat(pipeline): recusa salvar codebook e texto do prompt na fa
 
 ### O que a Parte 3 herda
 
-_(preencher ao terminar: divergências, número de testes, se a fixture "projeto recém-avançado" virou
-helper reaproveitável)_
+- `saveCodebook` checa `isFrozen(phase)` logo depois do `FOR UPDATE`, antes de `loadOpenRound` (D2).
+  `savePrompt` seleciona `phase` no `FOR UPDATE` e recusa antes de buscar `latest`; o `let stale`
+  virou `let failure: string | null`, e `PROMPT_STALE` sai por ele (D3). Na tela, a precedência é a
+  mesma: congelamento antes de rodada aberta.
+- Teste novo: `pipeline/phase-4-freeze.int.test.ts`, 14 casos. Além do plano: um caso do prompt com a
+  vigente **em aberto** (espelho do caso do codebook), e o caso do Avaliador cobre as duas actions.
+- "Mesma mensagem de hoje" para item usado: `ITEM_USED` não é exportada, então o teste compara a
+  recusa da Fase 4 com a de um projeto na Fase 2, em vez de importar a constante.
+- A fixture "projeto recém-avançado" ficou local ao arquivo (`advancedProject(admin, { phase, used })`):
+  Fase 4, codebook v1 e prompt v1 usados e uma rodada fechada da Fase 3. Não virou helper em
+  `test/helpers.ts`; a Parte 3 testa por `renderToStaticMarkup` e não precisa dela.
+- `prompt-test.int.test.ts`: só parametrização (`PHASE_4` nos dois `it.each`) e um caso novo, que monta
+  o próprio projeto com `usedAt`, porque o `readyProject` dali não aceita `usedAt`.
+- Nenhum teste existente de `saveCodebook`/`savePrompt` foi editado. Suíte completa: 83 arquivos,
+  1164 testes verdes (+17).
 
 ---
 
