@@ -642,13 +642,21 @@ describe('app/projects/[id]/page — escopo de visibilidade', () => {
     expect(phase3Of(tree)!.inputs).toEqual({
       openRoundNumber: null,
       closedRounds: 1,
-      versions: null,
+      versions: {
+        referenceRound: 2,
+        reference: { codebook: 2, prompt: 1 },
+        current: { codebook: 2, prompt: 1 },
+      },
     })
     if (!last?.pair.all.calculable) throw new Error('a rodada deveria ter coeficiente')
     expect(last.quality).toEqual(qualityOf(await renderRounds(project)).pair)
 
     const text = phase3TextOf(tree)
-    expect(text).toContain('Última rodada fechada: rodada 2')
+    expect(text).toContain('Rodada de referência: rodada 2')
+    expect(text).toContain(
+      `Codebook na versão 2 e prompt na versão 1: são as versões que a Fase ${PHASE_4} vai testar.`,
+    )
+    expect(text).not.toContain('Última rodada fechada')
     expect(text).toContain(formatAlpha(last.pair.all.alpha))
     expect(text).toContain(bandLabel(agreementBand(last.pair.all.alpha)))
     expect(text).toContain(BAND_REFERENCE)
@@ -681,7 +689,11 @@ describe('app/projects/[id]/page — escopo de visibilidade', () => {
     expect(phase3Of(tree)!.inputs).toEqual({
       openRoundNumber: 3,
       closedRounds: 1,
-      versions: null,
+      versions: {
+        referenceRound: 2,
+        reference: { codebook: 2, prompt: 1 },
+        current: { codebook: 3, prompt: 1 },
+      },
     })
     expect(phase3AdvanceOf(tree)!.blocked).toBe(true)
 
@@ -709,6 +721,97 @@ describe('app/projects/[id]/page — escopo de visibilidade', () => {
     expect(phase3Of(tree)!.lastRound).toBeNull()
     expect(phase3AdvanceOf(tree)!.blocked).toBe(true)
     expect(phase3TextOf(tree)).toContain(phase3BlockerMessage({ key: 'no_closed_round' }))
+  })
+
+  it('na Fase 3, com codebook e prompt iguais aos da rodada de referência, o item das versões aparece pronto', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin, PHASE_3)
+    const promptVersion = await addPromptVersion(ownerDb, project, admin)
+    await roundWith(project, admin, promptVersion, { roundNumber: 1, versionNumber: 1 })
+    await roundWith(project, admin, promptVersion, {
+      roundNumber: 2,
+      versionNumber: 2,
+      phase: PHASE_3,
+    })
+
+    auth.userId = admin
+    const tree = await render(project)
+
+    expect(phase3AdvanceOf(tree)!.blocked).toBe(false)
+
+    const text = phase3TextOf(tree)
+    expect(text).toContain('Codebook e prompt iguais aos da rodada de referência pronto')
+    expect(text).toContain('tudo pronto')
+    expect(text).not.toContain('Resolver')
+    expect(text).not.toContain('Depende da rodada de referência')
+    expect(text).toContain('codebook e prompt são os da rodada de referência')
+  })
+
+  it.each([
+    {
+      subject: 'codebook' as const,
+      seed: (project: string, admin: string) =>
+        addCodebookVersion(ownerDb, project, admin, { versionNumber: 3 }),
+      changes: [{ subject: 'codebook' as const, reference: 2, current: 3 }],
+    },
+    {
+      subject: 'prompt' as const,
+      seed: (project: string, admin: string) =>
+        addPromptVersion(ownerDb, project, admin, { versionNumber: 2 }),
+      changes: [{ subject: 'prompt' as const, reference: 1, current: 2 }],
+    },
+  ])(
+    'na Fase 3, o $subject mudado depois da rodada de referência trava o avanço e o item aponta as rodadas',
+    async ({ seed, changes }) => {
+      const admin = await newUser('Admin')
+      const project = await newProject(admin, PHASE_3)
+      const promptVersion = await addPromptVersion(ownerDb, project, admin)
+      await roundWith(project, admin, promptVersion, { roundNumber: 1, versionNumber: 1 })
+      await roundWith(project, admin, promptVersion, {
+        roundNumber: 2,
+        versionNumber: 2,
+        phase: PHASE_3,
+      })
+      await seed(project, admin)
+
+      auth.userId = admin
+      const tree = await render(project)
+
+      expect(phase3AdvanceOf(tree)!.blocked).toBe(true)
+
+      const props = phase3Of(tree)!
+      expect(props.inputs.versions?.referenceRound).toBe(2)
+      expect(hasProp(Phase3Checklist(props), 'href', `/projects/${project}/rounds`)).toBe(true)
+
+      const text = phase3TextOf(tree)
+      expect(text).toContain(
+        phase3BlockerMessage({ key: 'versions_changed', referenceRound: 2, changes }),
+      )
+      expect(text).toContain('1 de 3 pendentes')
+      expect(text.match(/Resolver/g)).toHaveLength(1)
+    },
+  )
+
+  it('na Fase 3 sem rodada fechada da Fase 3, o item das versões fica neutro e fora da contagem', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin, PHASE_3)
+    const promptVersion = await addPromptVersion(ownerDb, project, admin)
+    await roundWith(project, admin, promptVersion, { roundNumber: 1, versionNumber: 1 })
+
+    auth.userId = admin
+    const tree = await render(project)
+
+    expect(phase3Of(tree)!.inputs.versions).toBeNull()
+    expect(phase3AdvanceOf(tree)!.blocked).toBe(true)
+
+    const text = phase3TextOf(tree)
+    expect(text).toContain(
+      `Depende da rodada de referência, a última rodada fechada da Fase ${PHASE_3}, que ainda não existe.`,
+    )
+    expect(text).not.toContain('Codebook e prompt iguais aos da rodada de referência pronto')
+    expect(text).toContain('1 de 3 pendentes')
+    expect(text).toContain('Falta 1 pendência')
+    expect(text.match(/Resolver/g)).toHaveLength(1)
   })
 
   it('na Fase 3, o ICR baixo e a Qualidade toda em Baixo não travam o avanço para a Fase 4', async () => {

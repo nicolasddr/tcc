@@ -29,6 +29,7 @@ import {
   roundsInPhase,
   type RoundSummary,
 } from './rounds/rounds'
+import { projectReferenceRound, referenceVersionsOf } from './rounds/reference-round'
 import { loadProjectObservations, type RoundObservation } from './rounds/agreement'
 import { loadProjectOutliers } from './rounds/outliers'
 import { agreementSeries } from './rounds/agreement-series'
@@ -52,34 +53,54 @@ import { StatCard } from '@/app/components/ui/stat'
 import { Section } from '@/app/components/ui/section'
 import { ArrowRightIcon } from '@/app/components/ui/icons'
 
-function phaseChecklistData(
-  agreement: {
-    rounds: readonly RoundSummary[]
-    observations: ReadonlyMap<string, RoundObservation[]>
-    outliers: ReadonlyMap<string, Set<string>>
-  },
-  phase: number,
-): { inputs: Phase2Inputs; lastRound: LastClosedRound | null } {
-  const inPhase = roundsInPhase(agreement.rounds, phase)
-  const closed = inPhase.filter((round) => !isOpen(round))
-  const inputs = {
-    openRoundNumber: inPhase.find(isOpen)?.roundNumber ?? null,
-    closedRounds: closed.length,
-  }
+type AgreementData = {
+  rounds: readonly RoundSummary[]
+  observations: ReadonlyMap<string, RoundObservation[]>
+  outliers: ReadonlyMap<string, Set<string>>
+}
 
-  const latest = closed[closed.length - 1]
-  if (!latest) return { inputs, lastRound: null }
-
-  const observations = agreement.observations.get(latest.id) ?? []
-  const excluded = agreement.outliers.get(latest.id) ?? new Set<string>()
+function roundCycleInputs(rounds: readonly RoundSummary[], phase: number): Phase2Inputs {
+  const inPhase = roundsInPhase(rounds, phase)
   return {
-    inputs,
-    lastRound: {
-      roundNumber: latest.roundNumber,
-      closedAt: latest.closedAt,
-      pair: agreementPair(observations, excluded),
-      quality: hasQuality(phase) ? qualityPair(observations, excluded) : undefined,
+    openRoundNumber: inPhase.find(isOpen)?.roundNumber ?? null,
+    closedRounds: inPhase.filter((round) => !isOpen(round)).length,
+  }
+}
+
+function lastClosedRoundOf(
+  agreement: AgreementData,
+  round: RoundSummary | undefined | null,
+): LastClosedRound | null {
+  if (!round) return null
+
+  const observations = agreement.observations.get(round.id) ?? []
+  const excluded = agreement.outliers.get(round.id) ?? new Set<string>()
+  return {
+    roundNumber: round.roundNumber,
+    closedAt: round.closedAt,
+    pair: agreementPair(observations, excluded),
+    quality: hasQuality(round.phase) ? qualityPair(observations, excluded) : undefined,
+  }
+}
+
+function phase2ChecklistData(agreement: AgreementData) {
+  const closed = roundsInPhase(agreement.rounds, PHASE_2).filter((round) => !isOpen(round))
+  return {
+    inputs: roundCycleInputs(agreement.rounds, PHASE_2),
+    lastRound: lastClosedRoundOf(agreement, closed[closed.length - 1]),
+  }
+}
+
+function phase3ChecklistData(
+  agreement: AgreementData,
+  current: { codebook: number | null; prompt: number | null },
+) {
+  return {
+    inputs: {
+      ...roundCycleInputs(agreement.rounds, PHASE_3),
+      versions: referenceVersionsOf(agreement.rounds, current),
     },
+    lastRound: lastClosedRoundOf(agreement, projectReferenceRound(agreement.rounds)),
   }
 }
 
@@ -195,8 +216,14 @@ export default async function ProjectPage({
     ? qualitySeries(agreement.rounds, agreement.observations, agreement.outliers)
     : []
 
-  const phase2 = agreement ? phaseChecklistData(agreement, PHASE_2) : null
-  const phase3 = agreement ? phaseChecklistData(agreement, PHASE_3) : null
+  const phase2 = agreement ? phase2ChecklistData(agreement) : null
+  const phase3 =
+    agreement && artifacts
+      ? phase3ChecklistData(agreement, {
+          codebook: artifacts.codebook.version?.versionNumber ?? null,
+          prompt: artifacts.prompt.version?.versionNumber ?? null,
+        })
+      : null
 
   const members = groupMembers(memberRows)
   const activeEvaluators = members.filter(
@@ -397,7 +424,7 @@ export default async function ProjectPage({
                   className="mt-3"
                   projectId={project.id}
                   phase={project.phase}
-                  inputs={{ ...phase3.inputs, versions: null }}
+                  inputs={phase3.inputs}
                   lastRound={phase3.lastRound}
                 />
               ) : null}

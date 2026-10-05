@@ -20,7 +20,12 @@ type Phase3Requirement = { key: Phase3Blocker['key']; title: string }
 const PHASE_3_REQUIREMENTS: readonly Phase3Requirement[] = [
   { key: 'open_round', title: 'Nenhuma rodada aberta' },
   { key: 'no_closed_round', title: `Ao menos uma rodada fechada na Fase ${PHASE_3}` },
+  { key: 'versions_changed', title: 'Codebook e prompt iguais aos da rodada de referência' },
 ] as const
+
+const NO_REFERENCE_ROUND =
+  `Depende da rodada de referência, a última rodada fechada da Fase ${PHASE_3}, que ainda ` +
+  'não existe.'
 
 export function Phase3Checklist({
   projectId,
@@ -40,8 +45,8 @@ export function Phase3Checklist({
   const hint =
     blockers.length > 0
       ? `${blockers.length === 1 ? 'Falta 1 pendência' : `Faltam ${blockers.length} pendências`} para liberar o avanço.`
-      : `Nenhuma rodada aberta e ao menos uma fechada na Fase ${PHASE_3}. O avanço pede ` +
-        'confirmação antes de mudar qualquer coisa.'
+      : `Nenhuma rodada aberta, ao menos uma fechada na Fase ${PHASE_3}, e codebook e prompt ` +
+        'são os da rodada de referência. O avanço pede confirmação antes de mudar qualquer coisa.'
 
   return (
     <Panel
@@ -63,6 +68,7 @@ export function Phase3Checklist({
       <ul className="m-0 flex list-none flex-col gap-2 p-0">
         {PHASE_3_REQUIREMENTS.map((req) => {
           const blocker = byKey.get(req.key)
+          const neutral = req.key === 'versions_changed' && inputs.versions === null
 
           return (
             <li key={req.key}>
@@ -72,7 +78,7 @@ export function Phase3Checklist({
                 className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2"
               >
                 <div className="flex min-w-[240px] flex-1 items-start gap-2.5">
-                  {blocker ? (
+                  {blocker || neutral ? (
                     <CircleIcon className="mt-0.5 text-faint" />
                   ) : (
                     <CheckCircleIcon className="mt-0.5 text-success-fg" />
@@ -83,11 +89,13 @@ export function Phase3Checklist({
                       <p className="m-0 mt-0.5 text-[13px] text-muted">
                         {phase3BlockerMessage(blocker)}
                       </p>
+                    ) : neutral ? (
+                      <p className="m-0 mt-0.5 text-[13px] text-muted">{NO_REFERENCE_ROUND}</p>
                     ) : null}
                   </div>
                 </div>
 
-                {blocker ? (
+                {neutral ? null : blocker ? (
                   <Link
                     href={`/projects/${projectId}/rounds`}
                     className="text-[13px] font-semibold text-brand transition-colors hover:text-brand-hover"
@@ -110,7 +118,11 @@ export function Phase3Checklist({
           blocked={blockers.length > 0}
           hint={hint}
           lines={phase4ConfirmationLines()}
-          summary={lastRound ? <LastRoundSummary round={lastRound} /> : null}
+          summary={
+            lastRound ? (
+              <LastRoundSummary round={lastRound} reference={inputs.versions?.reference} />
+            ) : null
+          }
         />
       ) : (
         <p className="mt-4 border-t border-line pt-4 text-[13px] text-muted">

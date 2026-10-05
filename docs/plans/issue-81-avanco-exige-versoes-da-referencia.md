@@ -14,7 +14,7 @@ seguinte herda". Anote ali o que divergiu.
 |---|---|---|
 | 1 | Regras puras: rodada de referência, comparação de versões e a pré-condição nova do avanço da Fase 3 | ☑ |
 | 2 | A action: `advancePhase` recusa versões diferentes da referência, e a prova de que número continua sem travar | ☑ |
-| 3 | A tela: item novo no painel da Fase 3, confirmação nomeando a rodada de referência, testes de página e varredura dos ACs | ☐ |
+| 3 | A tela: item novo no painel da Fase 3, confirmação nomeando a rodada de referência, testes de página e varredura dos ACs | ☑ |
 
 **Nenhuma ADR nova.** A regra está escrita na **emenda de 2026-10-02 da ADR 0004** ("As versões da
 Fase 4": o avanço ganha uma pré-condição estrutural, as versões vigentes precisam ser as da última
@@ -504,7 +504,35 @@ Commit sugerido: `feat(visao-geral): item das versões e rodada de referência n
 
 ### O que esta Parte fechou
 
-_(preencher ao terminar)_
+- **D6 confirmada** (estado neutro, fora da contagem): sem rodada de referência o item mostra círculo
+  vazio e `Depende da rodada de referência, a última rodada fechada da Fase 3, que ainda não existe.`,
+  sem "Resolver" e sem badge; o "N de 3 pendentes" segue contando `blockers.length`.
+- **`(tabs)/page.tsx`**: `phaseChecklistData` virou quatro funções pequenas, `roundCycleInputs`,
+  `lastClosedRoundOf` (a Qualidade sai de `hasQuality(round.phase)`), `phase2ChecklistData` e
+  `phase3ChecklistData(agreement, current)`. A da Fase 3 usa `referenceVersionsOf` e
+  `projectReferenceRound`, e só roda com `artifacts` (já carregados para o Administrador), sem
+  consulta nova. O placeholder `versions: null` saiu.
+- **Confirmação**: `LastRoundSummary` recebe `reference={inputs.versions?.reference}`; título
+  `Rodada de referência: rodada N` e a linha `Codebook na versão a e prompt na versão c: são as versões
+  que a Fase 4 vai testar.` A Fase 2 continua com "Última rodada fechada".
+- **Testes antigos editados em `(tabs)/page.int.test.ts`**: as asserções de `inputs` dos casos "liberado
+  com o ICR e a Qualidade" e "a rodada aberta trava" trocaram `versions: null` pelo valor real (no
+  segundo, a vigente é a v3 e a referência a v2, porque o helper `roundWith` cria uma versão de
+  codebook por rodada); a do primeiro também troca `Última rodada fechada: rodada 2` pelo título novo.
+  As duas outras com `versions: null` (sem rodada fechada da Fase 3) continuam `null`, que agora é o
+  valor real.
+- **Testes novos** (4): item pronto com versões iguais; `it.each` codebook/prompt mudados (bloqueio,
+  mensagem, "1 de 3 pendentes", um único "Resolver" apontando `/projects/<id>/rounds`); estado neutro
+  sem rodada fechada da Fase 3.
+- **Navegador** (`:3100`): item liberado e confirmação com a rodada 2; codebook editado **pela tela**
+  (criou a v3) → item bloqueado nomeando 2 → 3, "Resolver" para Rodadas, botão desabilitado; a rodada 3
+  fechada da Fase 3 com a v3 foi **semeada** (abrir rodada pede itens e respostas da LLM, ausentes no
+  local) → item liberado e confirmação com a rodada 3; estado neutro conferido. A 375px, em iframe,
+  painel e confirmação sem nada passando da borda. Cena apagada antes da suíte.
+- `phase-3-checklist.tsx` não lê ICR nem Qualidade: `blocked` sai só de `phase3Blockers(inputs)`.
+- **Pendente fora do código**: marcar os checkboxes da issue #81 e fechá-la citando os commits das três
+  Partes.
+- **Suíte**: `npm test` com 84 arquivos e 1212 testes verdes (+4).
 
 ---
 
