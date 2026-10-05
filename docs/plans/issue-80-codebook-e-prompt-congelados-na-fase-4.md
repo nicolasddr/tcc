@@ -11,7 +11,7 @@ seguinte herda". Anote ali o que divergiu.
 
 | Parte | Entrega | Estado |
 |---|---|---|
-| 1 | Regra pura: quando o projeto está congelado e as duas mensagens | ☐ |
+| 1 | Regra pura: quando o projeto está congelado e as duas mensagens | ☑ |
 | 2 | As actions: recusa em `saveCodebook` e `savePrompt`, e a prova de que o resto continua livre | ☐ |
 | 3 | As telas: codebook e prompt em modo de leitura na Fase 4, testes de página e varredura dos ACs | ☐ |
 
@@ -177,7 +177,14 @@ Commit sugerido: `feat(pipeline): regra e mensagens do congelamento da fase 4`.
 
 ### O que a Parte 2 herda
 
-_(preencher ao terminar: nomes finais, onde o módulo ficou, texto final das mensagens)_
+- Módulo próprio, como em D1: `app/projects/[id]/pipeline/freeze.ts`. Importar com
+  `import { frozenMessage, isFrozen } from './freeze'` em `pipeline/actions.ts`.
+- Exporta `isFrozen(phase)` (`phase >= PHASE_4`), `frozenMessage(subject)` e o tipo
+  `FrozenSubject = 'codebook' | 'prompt'`.
+- Texto final igual ao rascunho de D1. As duas mensagens compartilham o trecho inicial (até
+  "…o que a Fase 3 avaliou."), montado a partir de `PHASE_3`/`PHASE_4`.
+- Teste: `pipeline/freeze.unit.test.ts`, 12 casos. Suíte completa: 82 arquivos, 1147 testes verdes.
+- Nenhuma divergência do plano.
 
 ---
 
