@@ -639,7 +639,11 @@ describe('app/projects/[id]/page — escopo de visibilidade', () => {
 
     const last = phase3Of(tree)!.lastRound
     expect(last?.roundNumber).toBe(2)
-    expect(phase3Of(tree)!.inputs).toEqual({ openRoundNumber: null, closedRounds: 1 })
+    expect(phase3Of(tree)!.inputs).toEqual({
+      openRoundNumber: null,
+      closedRounds: 1,
+      versions: null,
+    })
     if (!last?.pair.all.calculable) throw new Error('a rodada deveria ter coeficiente')
     expect(last.quality).toEqual(qualityOf(await renderRounds(project)).pair)
 
@@ -674,7 +678,11 @@ describe('app/projects/[id]/page — escopo de visibilidade', () => {
     auth.userId = admin
     const tree = await render(project)
 
-    expect(phase3Of(tree)!.inputs).toEqual({ openRoundNumber: 3, closedRounds: 1 })
+    expect(phase3Of(tree)!.inputs).toEqual({
+      openRoundNumber: 3,
+      closedRounds: 1,
+      versions: null,
+    })
     expect(phase3AdvanceOf(tree)!.blocked).toBe(true)
 
     const text = phase3TextOf(tree)
@@ -693,7 +701,11 @@ describe('app/projects/[id]/page — escopo de visibilidade', () => {
     const tree = await render(project)
 
     expect(phase2Of(tree)!.inputs).toEqual({ openRoundNumber: null, closedRounds: 2 })
-    expect(phase3Of(tree)!.inputs).toEqual({ openRoundNumber: null, closedRounds: 0 })
+    expect(phase3Of(tree)!.inputs).toEqual({
+      openRoundNumber: null,
+      closedRounds: 0,
+      versions: null,
+    })
     expect(phase3Of(tree)!.lastRound).toBeNull()
     expect(phase3AdvanceOf(tree)!.blocked).toBe(true)
     expect(phase3TextOf(tree)).toContain(phase3BlockerMessage({ key: 'no_closed_round' }))
@@ -785,7 +797,11 @@ describe('app/projects/[id]/page — escopo de visibilidade', () => {
     expect(phase2TextOf(tree)).not.toContain(
       phase2BlockerMessage({ key: 'open_round', roundNumber: 2 }),
     )
-    expect(phase3Of(tree)!.inputs).toEqual({ openRoundNumber: 2, closedRounds: 0 })
+    expect(phase3Of(tree)!.inputs).toEqual({
+      openRoundNumber: 2,
+      closedRounds: 0,
+      versions: null,
+    })
   })
 
   it('o avaliador não vê o painel de avanço para a Fase 4, nem na Fase 3 nem na Fase 4', async () => {

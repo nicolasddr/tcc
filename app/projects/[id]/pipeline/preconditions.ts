@@ -1,3 +1,10 @@
+import {
+  versionChanges,
+  versionChangesSentence,
+  type VersionChange,
+  type VersionCheck,
+} from '../(tabs)/rounds/reference-round'
+
 export type PipelineInputKey = 'definition' | 'prompt' | 'item'
 
 export type PipelineInputs = {
@@ -165,11 +172,27 @@ export function phase3ConfirmationLines(): string[] {
   ]
 }
 
-export type Phase3Inputs = Phase2Inputs
-export type Phase3Blocker = Phase2Blocker
+export type Phase3Inputs = Phase2Inputs & { versions: VersionCheck | null }
+
+export type Phase3Blocker =
+  | Phase2Blocker
+  | { key: 'versions_changed'; referenceRound: number; changes: VersionChange[] }
 
 export function phase3Blockers(inputs: Phase3Inputs): Phase3Blocker[] {
-  return roundCycleBlockers(inputs)
+  const blockers: Phase3Blocker[] = roundCycleBlockers(inputs)
+
+  if (inputs.versions !== null) {
+    const changes = versionChanges(inputs.versions.reference, inputs.versions.current)
+    if (changes.length > 0) {
+      blockers.push({
+        key: 'versions_changed',
+        referenceRound: inputs.versions.referenceRound,
+        changes,
+      })
+    }
+  }
+
+  return blockers
 }
 
 export function canAdvanceFromPhase3(inputs: Phase3Inputs): boolean {
@@ -191,6 +214,12 @@ export function phase3BlockerMessage(blocker: Phase3Blocker): string {
         `As rodadas da Fase ${PHASE_2} não contam. Feche ao menos uma rodada da ` +
         `Fase ${PHASE_3} antes de avançar.`
       )
+    case 'versions_changed':
+      return (
+        `${versionChangesSentence(blocker.referenceRound, blocker.changes)} ` +
+        `Avançar assim levaria à Fase ${PHASE_4} uma versão que nenhum avaliador aplicou. ` +
+        `Abra e feche mais uma rodada da Fase ${PHASE_3} com as versões vigentes e avance de novo.`
+      )
   }
 }
 
@@ -198,7 +227,9 @@ export function phase3BlockedMessage(blockers: readonly Phase3Blocker[]): string
   const [first] = blockers
   if (!first) return ''
 
-  const both = blockers.length > 1
+  const both =
+    blockers.some((blocker) => blocker.key === 'open_round') &&
+    blockers.some((blocker) => blocker.key === 'no_closed_round')
   return (
     `Não foi possível avançar para a Fase ${PHASE_4}. ${phase3BlockerMessage(first)}` +
     (both

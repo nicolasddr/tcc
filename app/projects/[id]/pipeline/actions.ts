@@ -911,6 +911,7 @@ export async function advancePhase(
       const blockers = phase3Blockers({
         openRoundNumber: open?.roundNumber ?? null,
         closedRounds: await countClosedRounds(projectId, PHASE_3, tx),
+        versions: null,
       })
       if (blockers.length > 0) {
         return { status: 'incomplete', message: phase3BlockedMessage(blockers) }

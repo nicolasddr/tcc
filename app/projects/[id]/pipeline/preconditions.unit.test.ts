@@ -305,26 +305,26 @@ describe('phase3Blockers — o avanço da Fase 3 para a Fase 4', () => {
   }
 
   it('bloqueia por rodada fechada quando não há rodada nenhuma na Fase 3', () => {
-    const inputs: Phase3Inputs = { openRoundNumber: null, closedRounds: 0 }
+    const inputs: Phase3Inputs = { openRoundNumber: null, closedRounds: 0, versions: null }
     expect(blockerKeys(inputs)).toEqual(['no_closed_round'])
     expect(canAdvanceFromPhase3(inputs)).toBe(false)
   })
 
   it('bloqueia pelos dois, na ordem do gesto, com rodada aberta e nenhuma fechada', () => {
-    const inputs: Phase3Inputs = { openRoundNumber: 4, closedRounds: 0 }
+    const inputs: Phase3Inputs = { openRoundNumber: 4, closedRounds: 0, versions: null }
     expect(blockerKeys(inputs)).toEqual(['open_round', 'no_closed_round'])
     expect(canAdvanceFromPhase3(inputs)).toBe(false)
   })
 
   it('bloqueia só pela rodada aberta quando já existe uma fechada', () => {
-    const inputs: Phase3Inputs = { openRoundNumber: 5, closedRounds: 1 }
+    const inputs: Phase3Inputs = { openRoundNumber: 5, closedRounds: 1, versions: null }
     expect(phase3Blockers(inputs)).toEqual([{ key: 'open_round', roundNumber: 5 }])
     expect(canAdvanceFromPhase3(inputs)).toBe(false)
   })
 
   it('libera com uma ou várias rodadas fechadas e nenhuma aberta', () => {
     for (const closedRounds of [1, 3]) {
-      const inputs: Phase3Inputs = { openRoundNumber: null, closedRounds }
+      const inputs: Phase3Inputs = { openRoundNumber: null, closedRounds, versions: null }
       expect(phase3Blockers(inputs)).toEqual([])
       expect(canAdvanceFromPhase3(inputs)).toBe(true)
     }
@@ -332,15 +332,72 @@ describe('phase3Blockers — o avanço da Fase 3 para a Fase 4', () => {
 
   it('segue a mesma regra da Fase 2 para as mesmas entradas', () => {
     const cases: Phase3Inputs[] = [
-      { openRoundNumber: null, closedRounds: 0 },
-      { openRoundNumber: 1, closedRounds: 0 },
-      { openRoundNumber: 2, closedRounds: 1 },
-      { openRoundNumber: null, closedRounds: 1 },
-      { openRoundNumber: null, closedRounds: 4 },
+      { openRoundNumber: null, closedRounds: 0, versions: null },
+      { openRoundNumber: 1, closedRounds: 0, versions: null },
+      { openRoundNumber: 2, closedRounds: 1, versions: null },
+      { openRoundNumber: null, closedRounds: 1, versions: null },
+      { openRoundNumber: null, closedRounds: 4, versions: null },
     ]
     for (const inputs of cases) {
       expect(phase3Blockers(inputs)).toEqual(phase2Blockers(inputs))
     }
+  })
+})
+
+describe('phase3Blockers — as versões da rodada de referência', () => {
+  function withVersions(
+    current: { codebook: number; prompt: number },
+    openRoundNumber: number | null = null,
+  ): Phase3Inputs {
+    return {
+      openRoundNumber,
+      closedRounds: 1,
+      versions: { referenceRound: 2, reference: { codebook: 1, prompt: 1 }, current },
+    }
+  }
+
+  it.each([
+    {
+      caso: 'codebook mudou',
+      current: { codebook: 2, prompt: 1 },
+      changes: [{ subject: 'codebook', reference: 1, current: 2 }],
+    },
+    {
+      caso: 'prompt mudou',
+      current: { codebook: 1, prompt: 3 },
+      changes: [{ subject: 'prompt', reference: 1, current: 3 }],
+    },
+    {
+      caso: 'os dois mudaram',
+      current: { codebook: 2, prompt: 3 },
+      changes: [
+        { subject: 'codebook', reference: 1, current: 2 },
+        { subject: 'prompt', reference: 1, current: 3 },
+      ],
+    },
+  ])('bloqueia quando o $caso', ({ current, changes }) => {
+    const inputs = withVersions(current)
+    expect(phase3Blockers(inputs)).toEqual([
+      { key: 'versions_changed', referenceRound: 2, changes },
+    ])
+    expect(canAdvanceFromPhase3(inputs)).toBe(false)
+  })
+
+  it('libera quando as versões vigentes são as da rodada de referência', () => {
+    const inputs = withVersions({ codebook: 1, prompt: 1 })
+    expect(phase3Blockers(inputs)).toEqual([])
+    expect(canAdvanceFromPhase3(inputs)).toBe(true)
+  })
+
+  it('não aplica a regra sem rodada de referência', () => {
+    const inputs: Phase3Inputs = { openRoundNumber: null, closedRounds: 1, versions: null }
+    expect(phase3Blockers(inputs)).toEqual([])
+    expect(canAdvanceFromPhase3(inputs)).toBe(true)
+  })
+
+  it('põe as versões depois da rodada aberta', () => {
+    const inputs = withVersions({ codebook: 2, prompt: 1 }, 3)
+    expect(phase3Blockers(inputs).map((b) => b.key)).toEqual(['open_round', 'versions_changed'])
   })
 })
 
@@ -360,7 +417,9 @@ describe('phase3BlockerMessage e phase3BlockedMessage', () => {
 
   it('não produz mensagem quando o avanço está liberado', () => {
     expect(
-      phase3BlockedMessage(phase3Blockers({ openRoundNumber: null, closedRounds: 1 })),
+      phase3BlockedMessage(
+        phase3Blockers({ openRoundNumber: null, closedRounds: 1, versions: null }),
+      ),
     ).toBe('')
   })
 
@@ -379,9 +438,68 @@ describe('phase3BlockerMessage e phase3BlockedMessage', () => {
     }
   })
 
+  it.each([
+    {
+      caso: 'codebook',
+      changes: [{ subject: 'codebook' as const, reference: 1, current: 2 }],
+      numbers: ['versão 1', 'vigente é a 2'],
+    },
+    {
+      caso: 'prompt',
+      changes: [{ subject: 'prompt' as const, reference: 2, current: 4 }],
+      numbers: ['versão 2', 'vigente é a 4'],
+    },
+    {
+      caso: 'codebook e o prompt',
+      changes: [
+        { subject: 'codebook' as const, reference: 1, current: 2 },
+        { subject: 'prompt' as const, reference: 3, current: 5 },
+      ],
+      numbers: [
+        'codebook na versão 1',
+        'prompt na versão 3',
+        'codebook na versão 2',
+        'prompt na versão 5',
+      ],
+    },
+  ])('nomeia o que mudou ($caso), com os números, e manda abrir e fechar uma rodada', ({
+    caso,
+    changes,
+    numbers,
+  }) => {
+    const message = phase3BlockerMessage({ key: 'versions_changed', referenceRound: 4, changes })
+    expect(message).toContain(`O ${caso}`)
+    expect(message).toContain('rodada 4')
+    for (const number of numbers) expect(message).toContain(number)
+    expect(message.toLocaleLowerCase('pt-BR')).toContain(
+      `abra e feche mais uma rodada da fase ${PHASE_3}`,
+    )
+    expect(message).not.toMatch(/ICR|Qualidade|concordância|\bvoltar\b/i)
+  })
+
+  it('recusa por versões sem o gesto único, sozinha ou depois da rodada aberta', () => {
+    const versions: Phase3Blocker = {
+      key: 'versions_changed',
+      referenceRound: 2,
+      changes: [{ subject: 'codebook', reference: 1, current: 2 }],
+    }
+
+    const alone = phase3BlockedMessage([versions])
+    expect(alone).toBe(
+      `Não foi possível avançar para a Fase ${PHASE_4}. ${phase3BlockerMessage(versions)}`,
+    )
+
+    const withOpen = phase3BlockedMessage([{ key: 'open_round', roundNumber: 3 }, versions])
+    expect(withOpen).toBe(
+      `Não foi possível avançar para a Fase ${PHASE_4}. ` +
+        phase3BlockerMessage({ key: 'open_round', roundNumber: 3 }),
+    )
+    expect(withOpen).not.toContain('as duas pendências')
+  })
+
   it('oferece o gesto único quando os dois bloqueios estão presentes', () => {
     const message = phase3BlockedMessage(
-      phase3Blockers({ openRoundNumber: 3, closedRounds: 0 }),
+      phase3Blockers({ openRoundNumber: 3, closedRounds: 0, versions: null }),
     )
     expect(message).toContain('rodada 3')
     expect(message).toContain('fechar a rodada aberta resolve as duas pendências')

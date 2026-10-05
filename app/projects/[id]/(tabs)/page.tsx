@@ -397,7 +397,7 @@ export default async function ProjectPage({
                   className="mt-3"
                   projectId={project.id}
                   phase={project.phase}
-                  inputs={phase3.inputs}
+                  inputs={{ ...phase3.inputs, versions: null }}
                   lastRound={phase3.lastRound}
                 />
               ) : null}

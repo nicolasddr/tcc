@@ -8,9 +8,9 @@ import {
   promptVersions,
   rounds,
 } from '@/lib/db'
+import { ROUND_CLOSED, ROUND_OPEN, isOpen } from './round-status'
 
-export const ROUND_OPEN = 'open'
-export const ROUND_CLOSED = 'closed'
+export { ROUND_CLOSED, ROUND_OPEN, isOpen } from './round-status'
 
 export type Round = {
   id: string
@@ -34,10 +34,6 @@ export type RoundSummary = Round & {
   codebookVersionId: string
   codebookVersionNumber: number
   promptVersionNumber: number
-}
-
-export function isOpen(round: { status: string }): boolean {
-  return round.status === ROUND_OPEN
 }
 
 export function focusRoundOf<T extends { status: string }>(rounds: readonly T[]): T | null {
