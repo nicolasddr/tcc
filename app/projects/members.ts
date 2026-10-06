@@ -1,5 +1,8 @@
+import type { EvaluatorParticipation } from './[id]/(tabs)/rounds/participation'
+import { participationLabel } from './[id]/round-usage'
 
 export type MemberRow = {
+  memberId: string
   userId: string
   role: string
   status: string
@@ -43,4 +46,17 @@ export function groupMembers(rows: MemberRow[]): ListedMember[] {
   return [...byUser.values()]
     .map(({ _statuses, ...m }) => ({ ...m, status: aggregateStatus(_statuses) }))
     .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'))
+}
+
+export function participationByUser(
+  rows: readonly MemberRow[],
+  participation: EvaluatorParticipation,
+): Record<string, string> {
+  const labels: Record<string, string> = {}
+  for (const row of rows) {
+    if (row.role !== 'evaluator') continue
+    const label = participationLabel(participation.get(row.memberId) ?? [])
+    if (label) labels[row.userId] = label
+  }
+  return labels
 }

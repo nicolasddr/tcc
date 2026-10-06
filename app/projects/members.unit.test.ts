@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest'
-import { aggregateStatus, groupMembers, type MemberRow } from './members'
+import {
+  aggregateStatus,
+  groupMembers,
+  participationByUser,
+  type MemberRow,
+} from './members'
 
 describe('aggregateStatus', () => {
   it('ativo se qualquer papel estiver ativo', () => {
@@ -18,6 +23,7 @@ describe('aggregateStatus', () => {
 
 describe('groupMembers', () => {
   const row = (over: Partial<MemberRow>): MemberRow => ({
+    memberId: 'm1',
     userId: 'u1',
     role: 'evaluator',
     status: 'active',
@@ -58,5 +64,66 @@ describe('groupMembers', () => {
 
   it('lista vazia devolve array vazio', () => {
     expect(groupMembers([])).toEqual([])
+  })
+})
+
+describe('participationByUser', () => {
+  const row = (over: Partial<MemberRow>): MemberRow => ({
+    memberId: 'm1',
+    userId: 'u1',
+    role: 'evaluator',
+    status: 'active',
+    name: 'Ana',
+    email: 'ana@ex.com',
+    ...over,
+  })
+
+  it('avaliador com rodadas ganha o rótulo agrupado por fase', () => {
+    const result = participationByUser(
+      [row({ memberId: 'm1', userId: 'u1' })],
+      new Map([
+        [
+          'm1',
+          [
+            { roundNumber: 1, phase: 2 },
+            { roundNumber: 2, phase: 3 },
+          ],
+        ],
+      ]),
+    )
+    expect(result).toEqual({ u1: 'avaliou nas rodadas 1 (Fase 2) e 2 (Fase 3)' })
+  })
+
+  it('avaliador sem rodadas não tem chave', () => {
+    const result = participationByUser(
+      [
+        row({ memberId: 'm1', userId: 'u1' }),
+        row({ memberId: 'm2', userId: 'u2', name: 'Carla' }),
+      ],
+      new Map([['m1', [{ roundNumber: 3, phase: 2 }]]]),
+    )
+    expect(result).toEqual({ u1: 'avaliou na rodada 3 (Fase 2)' })
+  })
+
+  it('só o vínculo de avaliador conta: a linha de administrador é ignorada', () => {
+    const result = participationByUser(
+      [row({ memberId: 'm1', userId: 'u1', role: 'administrator' })],
+      new Map([['m1', [{ roundNumber: 1, phase: 2 }]]]),
+    )
+    expect(result).toEqual({})
+  })
+
+  it('o Administrador-avaliador ganha a marca pelo vínculo de avaliador', () => {
+    const result = participationByUser(
+      [
+        row({ memberId: 'm-admin', userId: 'u1', role: 'administrator' }),
+        row({ memberId: 'm-eval', userId: 'u1', role: 'evaluator' }),
+      ],
+      new Map([
+        ['m-admin', [{ roundNumber: 1, phase: 2 }]],
+        ['m-eval', [{ roundNumber: 2, phase: 3 }]],
+      ]),
+    )
+    expect(result).toEqual({ u1: 'avaliou na rodada 2 (Fase 3)' })
   })
 })

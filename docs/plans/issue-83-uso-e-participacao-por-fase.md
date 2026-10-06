@@ -13,7 +13,7 @@ seguinte herda". Anote ali o que divergiu.
 | Parte | Entrega | Estado |
 |---|---|---|
 | 1 | O rótulo e os itens: função pura de rótulo agrupado por fase, uso dos itens carregando a fase da rodada, lista de itens e escolha de itens com a marca nova, e a prova de que item usado não é recusado na Fase 4 | ✅ |
-| 2 | A participação: consulta agregada das avaliações enviadas por vínculo de membro e por rodada, o `memberId` na listagem de membros e a ponte pura vínculo → usuário | ☐ |
+| 2 | A participação: consulta agregada das avaliações enviadas por vínculo de membro e por rodada, o `memberId` na listagem de membros e a ponte pura vínculo → usuário | ✅ |
 | 3 | A página de membros: a marca ao lado de cada Avaliador, só para o Administrador, o texto de ajuda, a verificação no navegador e a varredura dos ACs | ☐ |
 
 **Nenhuma ADR nova.** A regra está na **emenda de 2026-10-02 da ADR 0004** ("a ferramenta informa e não
@@ -301,7 +301,7 @@ rodada, e chega à página como `userId → rótulo`, sem ainda aparecer na tela
 
 ### 2.1 A consulta (TDD, integração)
 
-- [ ] `(tabs)/rounds/participation.ts` com `loadEvaluatorParticipation` (D4) e
+- [x] `(tabs)/rounds/participation.ts` com `loadEvaluatorParticipation` (D4) e
       `participation.int.test.ts` (com `inRollbackTx`, como `responses.int.test.ts`):
   - **sai das avaliações enviadas, por vínculo**: Ana avalia duas respostas da rodada 1 (Fase 2) e uma
     da rodada 3 (Fase 3); Bia avalia a rodada 2 → Ana `[{1, 2}, {3, 3}]` (a rodada 1 aparece **uma**
@@ -315,10 +315,10 @@ rodada, e chega à página como `userId → rótulo`, sem ainda aparecer na tela
 
 ### 2.2 A ponte vínculo → usuário (TDD, unitário)
 
-- [ ] `listProjectMembers` seleciona `memberId: projectMembers.id`; `ProjectMemberRow` e `MemberRow`
+- [x] `listProjectMembers` seleciona `memberId: projectMembers.id`; `ProjectMemberRow` e `MemberRow`
       ganham `memberId: string`. O helper `row` de `members.unit.test.ts` ganha um `memberId` padrão
       (**editado**, só o helper).
-- [ ] `participationByUser` em `app/projects/members.ts` (D5), com testes em `members.unit.test.ts`:
+- [x] `participationByUser` em `app/projects/members.ts` (D5), com testes em `members.unit.test.ts`:
   - avaliador com rodadas → `{ [userId]: 'avaliou nas rodadas …' }`;
   - avaliador sem rodadas → sem chave;
   - linha de `administrator` cujo `memberId` estivesse no mapa → ignorada (só `evaluator` conta);
@@ -332,7 +332,19 @@ Commit sugerido: `feat(membros): participação dos avaliadores por vínculo e p
 
 ### O que a Parte 3 herda
 
-_(preencher ao fim da Parte)_
+- **Nomes finais, como em D4 e D5:** `(tabs)/rounds/participation.ts` exporta `EvaluatorParticipation`
+  (`Map<project_member_id, RoundTag[]>`) e `loadEvaluatorParticipation(projectId, db)`;
+  `app/projects/members.ts` exporta `participationByUser(rows, participation)` → `Record<userId,
+  rótulo>`. `ProjectMemberRow` e `MemberRow` têm `memberId` (o `id` de `project_members`).
+- `members.ts` importa só o **tipo** de `participation.ts` (`import type`), então não puxa `@/lib/db`
+  para quem o importa; o rótulo vem de `round-usage.ts`.
+- A consulta não valida `isUuid(projectId)`, como `loadItemRoundUsage`: a página só deve chamá-la
+  depois de achar o projeto (`project && isAdmin`).
+- Nos testes, o vínculo `administrator` do Administrador-avaliador foi buscado filtrando por `role`:
+  o helper `memberId(tx, project, user)` faz `limit 1` sem papel e, com dois vínculos, devolve qualquer
+  um. Na Parte 3, use o id devolvido por `addActiveEvaluator` para o vínculo de avaliador.
+- Sem divergência do plano. Suíte: 86 arquivos, **1260 testes** (eram 1251: +5 da consulta, +4 da
+  ponte). Testes editados: só o helper `row` de `members.unit.test.ts` (ganhou `memberId`).
 
 ---
 

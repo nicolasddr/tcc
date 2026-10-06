@@ -255,6 +255,7 @@ export function hasPendingPermissionRequest(
 }
 
 export type ProjectMemberRow = {
+  memberId: string
   userId: string
   role: string
   status: string
@@ -275,6 +276,7 @@ export function listProjectMembers(
       : eq(projectMembers.userId, userId)
   return db
     .select({
+      memberId: projectMembers.id,
       userId: projectMembers.userId,
       role: projectMembers.role,
       status: projectMembers.status,
