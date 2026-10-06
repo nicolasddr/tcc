@@ -14,7 +14,7 @@ seguinte herda". Anote ali o que divergiu.
 |---|---|---|
 | 1 | O rótulo e os itens: função pura de rótulo agrupado por fase, uso dos itens carregando a fase da rodada, lista de itens e escolha de itens com a marca nova, e a prova de que item usado não é recusado na Fase 4 | ✅ |
 | 2 | A participação: consulta agregada das avaliações enviadas por vínculo de membro e por rodada, o `memberId` na listagem de membros e a ponte pura vínculo → usuário | ✅ |
-| 3 | A página de membros: a marca ao lado de cada Avaliador, só para o Administrador, o texto de ajuda, a verificação no navegador e a varredura dos ACs | ☐ |
+| 3 | A página de membros: a marca ao lado de cada Avaliador, só para o Administrador, o texto de ajuda, a verificação no navegador e a varredura dos ACs | ✅ |
 
 **Nenhuma ADR nova.** A regra está na **emenda de 2026-10-02 da ADR 0004** ("a ferramenta informa e não
 recusa"; "ao lado de cada avaliador ela mostra em quais rodadas, e de quais fases, ele já avaliou") e no
@@ -361,7 +361,7 @@ avaliou, agrupadas por fase; o Avaliador não vê marca nenhuma; e a varredura c
 
 ### 3.1 A página (TDD, teste de página)
 
-- [ ] Em `members/page.int.test.ts`, helper `listOf(id)` com `findElement(await render(id), MemberList)`
+- [x] Em `members/page.int.test.ts`, helper `listOf(id)` com `findElement(await render(id), MemberList)`
       devolvendo as props, e os casos:
   - **o Administrador vê a marca de cada Avaliador, agrupada por fase**: projeto com rodada 1 (Fase 2)
     e rodada 2 (Fase 3); Ana avaliou nas duas, Bia só na 2 → `participation` é `{ ana: 'avaliou nas
@@ -370,14 +370,14 @@ avaliou, agrupadas por fase; o Avaliador não vê marca nenhuma; e a varredura c
   - **o Administrador-avaliador tem a marca pelo vínculo de avaliador**;
   - **o Avaliador não vê marca nenhuma, nem a sua**: logado como Ana (que avaliou), `participation` é
     `undefined`.
-- [ ] `members/page.tsx`: dentro da transação, com `project && isAdmin`, `loadEvaluatorParticipation(id,
+- [x] `members/page.tsx`: dentro da transação, com `project && isAdmin`, `loadEvaluatorParticipation(id,
       tx)` e `participationByUser(memberRows, …)`; senão, nada é consultado. Passar a `MemberList`.
-- [ ] `member-list.tsx`: prop `participation` e o `Badge` na coluna do nome (D6).
-- [ ] `help` da seção "Equipe do projeto" (D7, se confirmado).
+- [x] `member-list.tsx`: prop `participation` e o `Badge` na coluna do nome (D6).
+- [x] `help` da seção "Equipe do projeto" (D7, se confirmado).
 
 ### 3.2 Tela
 
-- [ ] Conferir no navegador, como Administrador, com cena semeada (avaliadores com rodadas em duas
+- [x] Conferir no navegador, como Administrador, com cena semeada (avaliadores com rodadas em duas
       fases, um sem avaliação, o Administrador-avaliador) e como Avaliador. Medir em 375px dentro de
       iframe; com rótulo longo, a marca quebra linha sem empurrar os botões "Ver respostas" e
       "Desativar". Se precisar, `whitespace-normal!`. Limpar a cena antes de `npm test` (memória "cena
@@ -385,16 +385,16 @@ avaliou, agrupadas por fase; o Avaliador não vê marca nenhuma; e a varredura c
 
 ### 3.3 Varredura dos ACs
 
-- [ ] A marca de uso agrupa por fase na lista e na escolha de itens → Parte 1 (1.3, testes de página).
-- [ ] A página de membros mostra a participação por fase → 3.1.
-- [ ] Avaliador sem avaliação não tem marca → 2.1 e 3.1.
-- [ ] O Avaliador não vê marca, nem a sua → 3.1 (e lista de itens/escolha de itens já são só do
+- [x] A marca de uso agrupa por fase na lista e na escolha de itens → Parte 1 (1.3, testes de página).
+- [x] A página de membros mostra a participação por fase → 3.1.
+- [x] Avaliador sem avaliação não tem marca → 2.1 e 3.1.
+- [x] O Avaliador não vê marca, nem a sua → 3.1 (e lista de itens/escolha de itens já são só do
       Administrador: `items/page.int.test.ts`, "o avaliador ativo NÃO enxerga").
-- [ ] Nenhum item nem avaliador é recusado → item: teste novo da Parte 1; avaliador:
+- [x] Nenhum item nem avaliador é recusado → item: teste novo da Parte 1; avaliador:
       `phase-4-round.int.test.ts` (Ana, veterana, avalia a rodada da Fase 4). Nenhuma recusa nova no
       código (conferir com `git diff main --stat` que `selectionBlockers`, `submitEvaluation` e a fila não
       mudaram).
-- [ ] `rg "roundNumbers|item-usage"` sem resto.
+- [x] `rg "roundNumbers|item-usage"` sem resto.
 
 ### Pronto quando
 
@@ -405,4 +405,18 @@ Commit sugerido: `feat(membros): marca de participação dos avaliadores na pág
 
 ### O que fica para depois
 
-_(preencher ao fim da Parte: divergências, contagem final da suíte, o que a #84 precisa saber)_
+- **D7 confirmada:** o `help` da seção "Equipe do projeto" ganhou o texto proposto, ao final do que já
+  havia.
+- **D6 aplicada:** o `Badge` da página de membros fica na coluna do nome com `className="mt-1
+  self-start whitespace-normal!"` (o `self-start` impede que ele estique na coluna `flex-col`).
+- **Tela conferida** com cena de cinco rodadas (Fases 2, 2, 3, 3, 4), Ana nas cinco, Bia numa, Carla em
+  nenhuma e o Administrador-avaliador numa; e, num segundo projeto, o mesmo usuário só como Avaliador.
+  Em 375 px (iframe), nada passa da borda e os botões "Ver respostas" e "Desativar" não se movem; como a
+  coluna do nome fica com ~106 px, o rótulo mais longo (`avaliou nas rodadas 1 e 2 (Fase 2), 3 e 4
+  (Fase 3) e 5 (Fase 4)`) quebra em várias linhas. Cena apagada antes da suíte.
+- **Varredura:** `rg "roundNumbers|item-usage"` sem resto; `git diff b02da6d~1 --stat` não toca
+  `preconditions.ts` nem `(tabs)/evaluate/`.
+- Sem divergência do plano. Suíte: 86 arquivos, **1264 testes** (eram 1260: +4 da página de membros).
+  Nenhum teste antigo editado.
+- **Para a #84:** a página de membros chama `loadEvaluatorParticipation` com todas as rodadas; a
+  restrição a rodadas anteriores continua sendo da #84, no painel de concordância.

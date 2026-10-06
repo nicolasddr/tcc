@@ -2,7 +2,7 @@ import { roleLabel, memberStatusLabel } from '../labels'
 import type { ListedMember } from '../members'
 import { DeactivateMemberButton } from './member-actions'
 import { ButtonLink } from '@/app/components/ui/button'
-import { StatusBadge } from '@/app/components/ui/badge'
+import { Badge, StatusBadge } from '@/app/components/ui/badge'
 import { Avatar } from '@/app/components/ui/avatar'
 
 export function MemberList({
@@ -10,11 +10,13 @@ export function MemberList({
   members,
   viewerId,
   canManage,
+  participation,
 }: {
   projectId: string
   members: ListedMember[]
   viewerId: string
   canManage: boolean
+  participation?: Readonly<Record<string, string>>
 }) {
   return (
     <ul className="m-0 flex list-none flex-col gap-0.5 p-0">
@@ -30,6 +32,11 @@ export function MemberList({
               {m.roles.map(roleLabel).join(' · ')}
               {m.email !== m.name ? ` · ${m.email}` : ''}
             </span>
+            {participation?.[m.userId] ? (
+              <Badge tone="neutral" className="mt-1 self-start whitespace-normal!">
+                {participation[m.userId]}
+              </Badge>
+            ) : null}
           </span>
           <span className="flex shrink-0 items-center gap-2.5">
             {m.status !== 'active' ? (

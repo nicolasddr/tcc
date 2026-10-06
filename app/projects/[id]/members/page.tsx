@@ -3,10 +3,11 @@ import { and, eq } from 'drizzle-orm'
 import { requireUserId } from '@/lib/supabase/server'
 import { transaction, projects, projectMembers, type DbExecutor } from '@/lib/db'
 import { countSubmittedEvaluations, listProjectMembers } from '@/lib/authz'
-import { groupMembers } from '../../members'
+import { groupMembers, participationByUser } from '../../members'
 import { evaluatorLinkOf } from '../../evaluator-link'
 import { listEvaluatorEffort } from '../(tabs)/rounds/agreement'
 import { loadOutlierHistory, loadRoundOutliers } from '../(tabs)/rounds/outliers'
+import { loadEvaluatorParticipation } from '../(tabs)/rounds/participation'
 import { listRoundsWithEvaluations } from '../(tabs)/rounds/rounds'
 import { MemberList } from '../member-list'
 import { EvaluatorRolePanel } from '../evaluator-role'
@@ -59,7 +60,7 @@ export default async function ProjectMembersPage({
   const requestedRound = (await searchParams).round ?? null
   const userId = await requireUserId()
 
-  const { project, isAdmin, isActive, evaluatorLink, memberRows, outliers } =
+  const { project, isAdmin, isActive, evaluatorLink, memberRows, participation, outliers } =
     await transaction(async (tx) => {
       const [project] = await tx
         .select({ id: projects.id, name: projects.name })
@@ -88,6 +89,10 @@ export default async function ProjectMembersPage({
         isActive,
         evaluatorLink: evaluatorLinkOf(memberships, submittedEvaluations),
         memberRows,
+        participation:
+          project && isAdmin
+            ? participationByUser(memberRows, await loadEvaluatorParticipation(id, tx))
+            : undefined,
         outliers:
           project && isAdmin
             ? await loadOutlierPanel(id, requestedRound, tx)
@@ -120,7 +125,7 @@ export default async function ProjectMembersPage({
         }
         help={
           isAdmin
-            ? 'Desativar é sobre acesso: a pessoa deixa de entrar no projeto, e as avaliações que ela já enviou continuam gravadas e continuam no cálculo de concordância. Tirar notas do cálculo é a outra porta, e se faz marcando a pessoa como outlier em uma rodada.'
+            ? 'Desativar é sobre acesso: a pessoa deixa de entrar no projeto, e as avaliações que ela já enviou continuam gravadas e continuam no cálculo de concordância. Tirar notas do cálculo é a outra porta, e se faz marcando a pessoa como outlier em uma rodada. A marca "avaliou nas rodadas" mostra em quais rodadas, e de quais fases, cada avaliador já enviou avaliação. Ela não impede ninguém de avaliar: para tirar do cálculo quem já tinha avaliado antes, use a marca de outlier na rodada.'
             : undefined
         }
       >
@@ -130,6 +135,7 @@ export default async function ProjectMembersPage({
             members={members}
             viewerId={userId}
             canManage={isAdmin}
+            participation={participation}
           />
         ) : (
           <EmptyState>Nenhum membro para mostrar.</EmptyState>
