@@ -360,7 +360,7 @@ export default async function ProjectPage({
             <Section
               title="Concordância por rodada"
               hint="Um ponto por rodada, em ordem cronológica."
-              help="Cada ponto traz a versão de codebook que a rodada fixou e a fase em que ela foi aberta. As Fases 2 e 3 ficam na mesma série: da última rodada da Fase 2 para a primeira da Fase 3 com a mesma versão de codebook, a diferença mostra o efeito de a LLM passar a receber o codebook. A curva é a leitura da fase: o codebook refinado entre rodadas deve aparecer aqui como concordância maior na rodada seguinte."
+              help="Cada ponto traz a versão de codebook que a rodada fixou e a fase em que ela foi aberta. As Fases 2, 3 e 4 ficam na mesma série. Da última rodada da Fase 2 para a primeira da Fase 3 com a mesma versão de codebook, a diferença mostra o efeito de a LLM passar a receber o codebook. Na Fase 3, o codebook refinado entre rodadas deve aparecer como concordância maior na rodada seguinte. Na Fase 4, codebook e prompt não mudam: o que muda são os itens e os avaliadores, e cada rodada se lê ao lado da sua rodada de referência."
             >
               <AgreementSeriesChart points={series} projectId={project.id} />
             </Section>

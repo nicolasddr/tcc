@@ -15,7 +15,7 @@ seguinte herda". Anote ali o que divergiu.
 |---|---|---|
 | 1 | A comparação: função pura que acha a referência de uma rodada da Fase 4 e monta o par das duas, o bloco "Comparação com a rodada de referência" na tela de rodadas e a linha da referência na lista de rodadas | ✅ |
 | 2 | A marca no painel: participação restrita às rodadas anteriores (pura), carregada só para o Administrador e só numa rodada da Fase 4, e a marca ao lado de cada avaliador no painel de concordância | ✅ |
-| 3 | As séries: a de ICR com a Fase 4 agrupada e o texto de ajuda novo; a de Qualidade cobrindo as Fases 3 e 4, com a fase em cada ponto e os rótulos ajustados; verificação no navegador e varredura dos ACs | ⬜ |
+| 3 | As séries: a de ICR com a Fase 4 agrupada e o texto de ajuda novo; a de Qualidade cobrindo as Fases 3 e 4, com a fase em cada ponto e os rótulos ajustados; verificação no navegador e varredura dos ACs | ✅ |
 
 **Nenhuma ADR nova.** A regra está no glossário (`docs/CONTEXT.md`, verbete **Rodada de referência**:
 "cada rodada da Fase 4 é lida ao lado da sua, com ICR e Qualidade das duas lado a lado e sem veredito";
@@ -509,7 +509,7 @@ falar só em "rodadas da Fase 3"; a varredura confirma os ACs e os testes da iss
 
 ### 3.1 A série de Qualidade com a fase (TDD, unitário)
 
-- [ ] `quality-series.unit.test.ts`:
+- [x] `quality-series.unit.test.ts`:
   - **editado** (citar no commit) "só as rodadas da Fase 3 viram ponto" → "só as rodadas das Fases 3 e
     4 viram ponto", com rodadas das Fases 2, 3 e 4 na entrada: a da Fase 2 fica fora, as outras duas
     entram na ordem;
@@ -517,12 +517,12 @@ falar só em "rodadas da Fase 3"; a varredura confirma os ACs e os testes da iss
     filtro `hasQuality` já aceita a Fase 4, então o caso anterior pode passar de primeira; dizer isso
     no handoff);
   - **novo**: com o retorno (F3, F4, F3), `phaseRuns(qualitySeries(…))` dá três grupos, na ordem.
-- [ ] `quality-series.ts`: `phase` no ponto. `agreement-series.ts`: `phaseRuns` genérico (D9). Os
+- [x] `quality-series.ts`: `phase` no ponto. `agreement-series.ts`: `phaseRuns` genérico (D9). Os
       unitários de `phaseRuns` continuam sem edição.
 
 ### 3.2 As telas e os textos (TDD, teste de página)
 
-- [ ] Em `(tabs)/page.int.test.ts`:
+- [x] Em `(tabs)/page.int.test.ts`:
   - **a série de ICR mostra a Fase 4 agrupada**: rodadas 1 (F2), 2 e 3 (F3), 4 (F4) → `seriesOf` tem
     quatro pontos, e `phaseRuns` dos pontos dá `[2, 3, 4]`; o texto do gráfico traz "Fase 4" como
     cabeçalho de grupo. É teste de caracterização (já passa hoje): dizer no handoff;
@@ -536,29 +536,29 @@ falar só em "rodadas da Fase 3"; a varredura confirma os ACs e os testes da iss
     ponto por rodada da Fase 3…" (citar no commit);
   - **o Avaliador não vê as séries com a Fase 4**: logado como avaliador num projeto com rodada da Fase
     4, `seriesOf` e `qualitySeriesOf` não existem na árvore.
-- [ ] `quality-series-list.tsx` (agrupamento e `· Fase N`), `quality-labels.ts` e o `help` da seção
+- [x] `quality-series-list.tsx` (agrupamento e `· Fase N`), `quality-labels.ts` e o `help` da seção
       "Concordância por rodada" em `(tabs)/page.tsx` (D9).
 
 ### 3.3 Tela
 
-- [ ] Conferir a visão geral no navegador com a cena de retorno (F3, F4, F3, F4) e uma rodada da Fase
+- [x] Conferir a visão geral no navegador com a cena de retorno (F3, F4, F3, F4) e uma rodada da Fase
       2 antes: a série de ICR com quatro grupos e as linhas tracejadas entre eles; a de Qualidade com
       três grupos. 375 px em iframe. Apagar a cena antes da suíte.
 
 ### 3.4 Varredura dos ACs
 
-- [ ] Tela da rodada da Fase 4 mostra ICR e Qualidade da rodada e o bloco → 1.3 (e o ICR/Qualidade da
+- [x] Tela da rodada da Fase 4 mostra ICR e Qualidade da rodada e o bloco → 1.3 (e o ICR/Qualidade da
       própria rodada já provados na #82).
-- [ ] O bloco nomeia a referência e mostra ICR e Qualidade das duas lado a lado → 1.3.
-- [ ] Com outlier em qualquer das duas, os valores com todos e sem os marcados → 1.1 e 1.3.
-- [ ] Nenhuma palavra, cor ou seta de juízo no bloco → 1.3 (varredura).
-- [ ] Rodada da Fase 4 de uma passagem anterior comparada com a sua referência → 1.1 e 1.3 (lista).
-- [ ] No painel da Fase 4, a marca considera só rodadas anteriores → 2.1 e 2.2.
-- [ ] A marca não aparece no painel das Fases 2 e 3 → 2.2.
-- [ ] Série de ICR com a Fase 4 agrupada; série de Qualidade com as Fases 3 e 4 → 3.1 e 3.2.
-- [ ] Nenhuma tela do Avaliador recebe comparação, marca ou números da referência → 1.3, 2.2 e 3.2; e
+- [x] O bloco nomeia a referência e mostra ICR e Qualidade das duas lado a lado → 1.3.
+- [x] Com outlier em qualquer das duas, os valores com todos e sem os marcados → 1.1 e 1.3.
+- [x] Nenhuma palavra, cor ou seta de juízo no bloco → 1.3 (varredura).
+- [x] Rodada da Fase 4 de uma passagem anterior comparada com a sua referência → 1.1 e 1.3 (lista).
+- [x] No painel da Fase 4, a marca considera só rodadas anteriores → 2.1 e 2.2.
+- [x] A marca não aparece no painel das Fases 2 e 3 → 2.2.
+- [x] Série de ICR com a Fase 4 agrupada; série de Qualidade com as Fases 3 e 4 → 3.1 e 3.2.
+- [x] Nenhuma tela do Avaliador recebe comparação, marca ou números da referência → 1.3, 2.2 e 3.2; e
       `git diff 92d9c00 --stat` não toca `(tabs)/evaluate/` nem `rounds/[roundId]/`.
-- [ ] Nada gravado → `git diff 92d9c00 --stat` não toca `actions.ts`, `lib/db/schema.ts` nem
+- [x] Nada gravado → `git diff 92d9c00 --stat` não toca `actions.ts`, `lib/db/schema.ts` nem
       `supabase/migrations/`.
 
 ### Pronto quando
@@ -571,7 +571,33 @@ corpo.
 
 ### O que fica para depois
 
-_(preencher ao fim da Parte 3)_
+- **Decisão confirmada pelo dono em 2026-10-06, antes do código:** D9 como no plano (fase em cada
+  ponto, agrupamento por trecho de fase e os textos propostos).
+- **Nomes finais:** `QualitySeriesPoint` ganhou `phase`; `phaseRuns<T extends { phase: number }>` e
+  `PhaseRun<T = SeriesPoint>` em `agreement-series.ts`, sem export novo (o caso "o módulo não exporta
+  nenhuma função de agregação" continua verde sem edição). A fase do ponto de Qualidade vai em
+  `Prompt v{y} · Fase {f}`, no padrão `Codebook v{x} · Fase {f}` da série de ICR.
+- **Testes antigos editados:**
+  - `quality-series.unit.test.ts`: "só as rodadas da Fase 3 viram ponto" → "só as rodadas das Fases 3
+    e 4 viram ponto" (previsto) e o título do `describe` ("um ponto por rodada das Fases 3 e 4").
+  - `(tabs)/page.int.test.ts`, "cada card da série diz a fase ao lado da versão de codebook": a
+    asserção `As Fases 2 e 3 ficam na mesma série` virou `As Fases 2, 3 e 4 ficam na mesma série`. Não
+    previsto no plano: o caso afirmava o texto antigo do `help`. O caso "o Administrador vê a série de
+    Qualidade com um ponto por rodada da Fase 3…" **não** precisou de edição (não afirma os rótulos).
+- **TDD:** no unitário, 2 vermelhos ("cada ponto traz a fase" e "três grupos depois do retorno"); o
+  caso editado passou de primeira, como o plano previa (o `hasQuality` já aceitava a Fase 4). No teste
+  de página, 4 vermelhos (o `help` da série de ICR, a série de Qualidade agrupada, os rótulos e o caso
+  antigo editado). Passaram antes do código e não contam como vermelho: "a série de Concordância põe a
+  Fase 4 num grupo próprio" (caracterização) e "o Avaliador não vê as séries" (negativo).
+- **Tela (3.3), conferida em 2026-10-06** com rodadas 1 F2, 2 F3, 3 F4, 4 F3, 5 F4 (aberta), Ana e
+  Bruno avaliando todas: a série de ICR tem **cinco** grupos (o plano dizia quatro, mas F2 + F3, F4, F3,
+  F4 dá cinco) e quatro divisórias; a de Qualidade tem **quatro** grupos (o plano dizia três), cada
+  card com `Prompt v1 · Fase N`. Em iframe de 375 px, nada das duas seções passa de 375 px. O Avaliador
+  ficou só no teste de página. Cena apagada antes da suíte.
+- **Varredura dos ACs (3.4):** todos cobertos pelos testes das Partes 1 a 3. `git diff 92d9c00 --stat`
+  não toca `(tabs)/evaluate/`, `rounds/[roundId]/`, `actions.ts`, `lib/db/schema.ts` nem
+  `supabase/migrations/`. Os checkboxes da issue no GitHub ficam para o dono marcar.
+- **Suíte:** 89 arquivos, 1.300 testes; lint e typecheck verdes.
 
 ---
 

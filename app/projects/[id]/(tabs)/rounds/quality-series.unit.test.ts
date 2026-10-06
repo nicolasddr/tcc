@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import * as series from '@/app/projects/[id]/(tabs)/rounds/quality-series'
 import { qualitySeries } from '@/app/projects/[id]/(tabs)/rounds/quality-series'
+import { phaseRuns } from '@/app/projects/[id]/(tabs)/rounds/agreement-series'
 import { qualityPair } from '@/app/projects/[id]/(tabs)/rounds/quality'
 import type { RoundObservation } from '@/app/projects/[id]/(tabs)/rounds/agreement'
 import type { RoundSummary } from '@/app/projects/[id]/(tabs)/rounds/rounds'
@@ -54,14 +55,41 @@ function ratings(byRater: Record<string, readonly ScaleValue[]>): RoundObservati
   )
 }
 
-describe('qualitySeries — um ponto por rodada da Fase 3, sem agregação', () => {
-  it('só as rodadas da Fase 3 viram ponto', () => {
-    const rounds = [round('a', 1, 2), round('b', 2, 2), round('c', 3, 3), round('d', 4, 3)]
+describe('qualitySeries — um ponto por rodada das Fases 3 e 4, sem agregação', () => {
+  it('só as rodadas das Fases 3 e 4 viram ponto', () => {
+    const rounds = [round('a', 1, 2), round('b', 2, 3), round('c', 3, 4)]
 
     const points = qualitySeries(rounds, new Map(), NO_OUTLIERS)
 
-    expect(points.map((point) => point.roundNumber)).toEqual([3, 4])
-    expect(points.map((point) => point.roundId)).toEqual(['c', 'd'])
+    expect(points.map((point) => point.roundNumber)).toEqual([2, 3])
+    expect(points.map((point) => point.roundId)).toEqual(['b', 'c'])
+  })
+
+  it('cada ponto traz a fase da própria rodada', () => {
+    const rounds = [round('a', 1, 3), round('b', 2, 3), round('c', 3, 4)]
+
+    const points = qualitySeries(rounds, new Map(), NO_OUTLIERS)
+
+    expect(points.map((point) => point.phase)).toEqual([3, 3, 4])
+  })
+
+  it('depois de um retorno à Fase 3, os pontos formam um grupo por trecho de fase, na ordem', () => {
+    const rounds = [
+      round('a', 1, 3),
+      round('b', 2, 4),
+      round('c', 3, 3),
+      round('d', 4, 4),
+    ]
+
+    const runs = phaseRuns(qualitySeries(rounds, new Map(), NO_OUTLIERS))
+
+    expect(runs.map((run) => run.phase)).toEqual([3, 4, 3, 4])
+    expect(runs.map((run) => run.points.map((point) => point.roundId))).toEqual([
+      ['a'],
+      ['b'],
+      ['c'],
+      ['d'],
+    ])
   })
 
   it('preserva a ordem recebida', () => {

@@ -1,6 +1,6 @@
 import { plural } from '@/lib/plural'
 import { scaleLabel } from '../evaluate/scale'
-import { PHASE_2, PHASE_3 } from '../../pipeline/preconditions'
+import { PHASE_2, PHASE_3, PHASE_4 } from '../../pipeline/preconditions'
 import type { QualityLevel } from './quality'
 import {
   AGREEMENT_ALL_LABEL,
@@ -40,16 +40,17 @@ export const QUALITY_MATRIX_LEGEND =
   `contrário da matriz de Concordância, que fica só ${AGREEMENT_ALL_LABEL}.`
 
 export const QUALITY_SERIES_HINT =
-  `A distribuição das notas de cada rodada da Fase ${PHASE_3}, um ponto por rodada.`
+  `A distribuição das notas de cada rodada das Fases ${PHASE_3} e ${PHASE_4}, um ponto por rodada.`
 
 export const QUALITY_SERIES_HELP =
-  `Cada ponto é a ${QUALITY_LABEL} de uma rodada da Fase ${PHASE_3} inteira, em ordem ` +
-  'cronológica, ao lado das versões de codebook e de prompt que aquela rodada fixou: o ' +
-  'número descreve essa combinação de versões, e só ela. Nenhum valor junta rodadas, e ' +
+  `Cada ponto é a ${QUALITY_LABEL} de uma rodada inteira, da Fase ${PHASE_3} ou da ` +
+  `Fase ${PHASE_4}, em ordem cronológica, ao lado das versões de codebook e de prompt ` +
+  'que aquela rodada fixou: o número descreve essa combinação de versões, e só ela. Nenhum valor junta rodadas, e ' +
   'nada é somado nem tirado a média entre elas. As rodadas da ' +
   `Fase ${PHASE_2} não entram. Com avaliador marcado como outlier numa rodada, o ponto ` +
   `dela traz também o valor ${AGREEMENT_WITHOUT_OUTLIERS_LABEL}, depois do ` +
-  `${AGREEMENT_ALL_LABEL}.`
+  `${AGREEMENT_ALL_LABEL}. Na Fase ${PHASE_4}, cada ponto se lê ao lado da sua rodada de ` +
+  'referência, na tela de rodadas.'
 
 export const QUALITY_SERIES_NOTE =
   'Um ponto por rodada, e nenhum valor que junte rodadas: cada distribuição descreve as ' +
@@ -57,7 +58,7 @@ export const QUALITY_SERIES_NOTE =
 
 export const QUALITY_SERIES_NOTE_SINGLE =
   'Um ponto por rodada, e nenhum valor que junte rodadas: a próxima rodada da ' +
-  `Fase ${PHASE_3} rende o segundo ponto.`
+  `Fase ${PHASE_3} ou da Fase ${PHASE_4} rende o segundo ponto.`
 
 const SHARE_FORMAT = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 1 })
 

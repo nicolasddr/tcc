@@ -28,10 +28,13 @@ export function agreementSeries(
   }))
 }
 
-export type PhaseRun = { phase: number; points: SeriesPoint[] }
+export type PhaseRun<T extends { phase: number } = SeriesPoint> = {
+  phase: number
+  points: T[]
+}
 
-export function phaseRuns(points: readonly SeriesPoint[]): PhaseRun[] {
-  const runs: PhaseRun[] = []
+export function phaseRuns<T extends { phase: number }>(points: readonly T[]): PhaseRun<T>[] {
+  const runs: PhaseRun<T>[] = []
   for (const point of points) {
     const last = runs.at(-1)
     if (last && last.phase === point.phase) {

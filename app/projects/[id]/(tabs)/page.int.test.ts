@@ -51,9 +51,12 @@ import { AgreementSeriesChart } from '@/app/projects/[id]/(tabs)/rounds/agreemen
 import { QualityPanel } from '@/app/projects/[id]/(tabs)/rounds/quality-panel'
 import { QualitySeriesList } from '@/app/projects/[id]/(tabs)/rounds/quality-series-list'
 import {
+  QUALITY_SERIES_HELP,
+  QUALITY_SERIES_HINT,
   QUALITY_SERIES_NOTE,
   QUALITY_SERIES_NOTE_SINGLE,
 } from '@/app/projects/[id]/(tabs)/rounds/quality-labels'
+import { phaseRuns } from '@/app/projects/[id]/(tabs)/rounds/agreement-series'
 import { QualityMatrixTable } from '@/app/projects/[id]/(tabs)/rounds/quality-matrix-table'
 import { Section } from '@/app/components/ui/section'
 import {
@@ -1383,7 +1386,7 @@ describe('app/projects/[id]/page — escopo de visibilidade', () => {
     expect(text).toContain('a versão de codebook e a fase indicadas ao lado dele')
 
     const help = (sectionWith(tree, AgreementSeriesChart)!.props as { help: string }).help
-    expect(help).toContain('As Fases 2 e 3 ficam na mesma série')
+    expect(help).toContain('As Fases 2, 3 e 4 ficam na mesma série')
     expect(help).toContain('a LLM passar a receber o codebook')
   })
 
@@ -1458,6 +1461,134 @@ describe('app/projects/[id]/page — escopo de visibilidade', () => {
     expect(text).not.toContain('média')
     expect(text).not.toContain('total')
     expect(text.match(new RegExp(NOT_CALCULABLE_LABEL, 'g'))).toHaveLength(4)
+  })
+
+  async function phase4SeriesScene(admin: string) {
+    const project = await newProject(admin, PHASE_4)
+    const promptVersion = await addPromptVersion(ownerDb, project, admin)
+    const codebookV1 = await addCodebookVersion(ownerDb, project, admin, { versionNumber: 1 })
+    const codebookV2 = await addCodebookVersion(ownerDb, project, admin, { versionNumber: 2 })
+    const scene = [
+      { roundNumber: 1, codebook: codebookV1, phase: PHASE_2, status: 'closed' },
+      { roundNumber: 2, codebook: codebookV2, phase: PHASE_3, status: 'closed' },
+      { roundNumber: 3, codebook: codebookV2, phase: PHASE_3, status: 'closed' },
+      { roundNumber: 4, codebook: codebookV2, phase: PHASE_4, status: 'open' },
+    ] as const
+    for (const round of scene) {
+      await addRound(ownerDb, project, admin, round.codebook, promptVersion, {
+        roundNumber: round.roundNumber,
+        status: round.status,
+        phase: round.phase,
+      })
+    }
+    return project
+  }
+
+  it('a série de Concordância põe a rodada da Fase 4 num grupo próprio, depois das Fases 2 e 3', async () => {
+    const admin = await newUser('Admin')
+    const project = await phase4SeriesScene(admin)
+
+    auth.userId = admin
+    const tree = await render(project)
+    const points = seriesOf(tree).points
+
+    expect(points.map((point) => point.roundNumber)).toEqual([1, 2, 3, 4])
+    expect(phaseRuns(points).map((run) => run.phase)).toEqual([PHASE_2, PHASE_3, PHASE_4])
+
+    const markup = seriesMarkupOf(tree)
+    expect(phaseDividers(markup)).toBe(2)
+    expect(phaseLabels(markup)).toBe('Fase 2 Fase 3 Fase 4')
+
+    const groups = markup.split('<h3').slice(1)
+    expect(groups).toHaveLength(3)
+    const phase4 = markupText(`<h3${groups[2].slice(0, groups[2].indexOf('</ul>'))}`)
+    expect(phase4.startsWith('Fase 4')).toBe(true)
+    expect(phase4).toContain('Rodada 4')
+    expect(phase4).not.toContain('Rodada 3')
+  })
+
+  it('o texto de ajuda da série de Concordância explica a Fase 4', async () => {
+    const admin = await newUser('Admin')
+    const project = await phase4SeriesScene(admin)
+
+    auth.userId = admin
+    const tree = await render(project)
+
+    const help = (sectionWith(tree, AgreementSeriesChart)!.props as { help: string }).help
+    expect(help).toContain('As Fases 2, 3 e 4 ficam na mesma série')
+    expect(help).toContain('Na Fase 4, codebook e prompt não mudam')
+    expect(help).toContain('ao lado da sua rodada de referência')
+  })
+
+  it('a série de Qualidade cobre as Fases 3 e 4, com a fase de cada ponto e um grupo por fase', async () => {
+    const admin = await newUser('Admin')
+    const project = await phase4SeriesScene(admin)
+
+    auth.userId = admin
+    const tree = await render(project)
+
+    const points = qualitySeriesOf(tree).points
+    expect(points.map((point) => point.roundNumber)).toEqual([2, 3, 4])
+    expect(points.map((point) => point.phase)).toEqual([PHASE_3, PHASE_3, PHASE_4])
+
+    const markup = renderToStaticMarkup(createElement(QualitySeriesList, qualitySeriesOf(tree)))
+    const groups = markup.split('<h3').slice(1)
+    expect(groups).toHaveLength(2)
+
+    const [phase3, phase4] = groups.map((group) =>
+      markupText(`<h3${group.slice(0, group.indexOf('</ul>'))}`),
+    )
+    expect(phase3.startsWith('Fase 3')).toBe(true)
+    expect(phase3).toContain('Rodada 2')
+    expect(phase3).toContain('Rodada 3')
+    expect(phase3).not.toContain('Rodada 4')
+    expect(phase4.startsWith('Fase 4')).toBe(true)
+    expect(phase4).toContain('Rodada 4')
+    expect(phase4).not.toContain('Rodada 3')
+
+    const text = markupText(markup)
+    expect(text).toContain('Prompt v1 · Fase 3')
+    expect(text).toContain('Prompt v1 · Fase 4')
+    expect(text).not.toContain('Rodada 1')
+    expect(text.match(/Rodada \d/g)).toEqual(['Rodada 2', 'Rodada 3', 'Rodada 4'])
+  })
+
+  it('os textos da série de Qualidade falam das Fases 3 e 4, e não só da Fase 3', async () => {
+    expect(QUALITY_SERIES_HINT).toContain(`Fases ${PHASE_3} e ${PHASE_4}`)
+    expect(QUALITY_SERIES_HELP).toContain(`da Fase ${PHASE_3} ou da Fase ${PHASE_4}`)
+    expect(QUALITY_SERIES_HELP).toContain(`Fase ${PHASE_2} não entram`)
+    expect(QUALITY_SERIES_HELP).toContain('ao lado da sua rodada de referência')
+    expect(QUALITY_SERIES_NOTE_SINGLE).toContain(`da Fase ${PHASE_3} ou da Fase ${PHASE_4}`)
+
+    const admin = await newUser('Admin')
+    const project = await phase4SeriesScene(admin)
+
+    auth.userId = admin
+    const section = sectionWith(await render(project), QualitySeriesList)
+    const props = section!.props as { hint: string; help: string }
+    expect(props.hint).toBe(QUALITY_SERIES_HINT)
+    expect(props.help).toBe(QUALITY_SERIES_HELP)
+  })
+
+  it('o Avaliador não vê as séries num projeto com rodada da Fase 4', async () => {
+    const admin = await newUser('Admin')
+    const evaluator = await newUser('Avaliador')
+    const project = await phase4SeriesScene(admin)
+    await addActiveEvaluator(ownerDb, project, evaluator)
+
+    auth.userId = admin
+    const adminTree = await render(project)
+    expect(seriesOf(adminTree).points).toHaveLength(4)
+    expect(qualitySeriesOf(adminTree).points).toHaveLength(3)
+
+    auth.userId = evaluator
+    const tree = await render(project)
+    expect(findElement(tree, AgreementSeriesChart)).toBeNull()
+    expect(findElement(tree, QualitySeriesList)).toBeNull()
+    const page = deepText(tree)
+    expect(page).not.toContain('Concordância')
+    expect(page).not.toContain('Qualidade')
+    expect(page).not.toContain('rodada de referência')
   })
 
   it('a visão geral resume codebook, prompt e itens com link para cada tela', async () => {

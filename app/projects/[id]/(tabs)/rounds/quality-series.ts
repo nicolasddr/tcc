@@ -5,6 +5,7 @@ import { hasQuality, qualityPair, type QualityPair } from './quality'
 export type QualitySeriesPoint = {
   roundId: string
   roundNumber: number
+  phase: number
   codebookVersionNumber: number
   promptVersionNumber: number
   closedAt: string | null
@@ -21,6 +22,7 @@ export function qualitySeries(
     .map((round) => ({
       roundId: round.id,
       roundNumber: round.roundNumber,
+      phase: round.phase,
       codebookVersionNumber: round.codebookVersionNumber,
       promptVersionNumber: round.promptVersionNumber,
       closedAt: round.closedAt,
