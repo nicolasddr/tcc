@@ -40,7 +40,20 @@ import {
   referenceComparisonHint,
   referenceLine,
 } from '@/app/projects/[id]/(tabs)/rounds/reference-comparison-labels'
-import { AGREEMENT_WITHOUT_OUTLIERS_LABEL } from '@/app/projects/[id]/(tabs)/rounds/agreement-labels'
+import {
+  AGREEMENT_BANDS,
+  AGREEMENT_WITHOUT_OUTLIERS_LABEL,
+} from '@/app/projects/[id]/(tabs)/rounds/agreement-labels'
+import { ReadingGuidanceNote } from '@/app/projects/[id]/(tabs)/rounds/reading-guidance-note'
+import {
+  BELOW_BAND_GUIDANCE,
+  GUIDANCE_HEADING,
+  PHASE_4_BELOW_BAND_GUIDANCE,
+  PHASE_4_WITHIN_BAND_GUIDANCE,
+  WITHIN_BAND_GUIDANCE,
+  notCalculableGuidance,
+  phase4NotCalculableGuidance,
+} from '@/app/projects/[id]/(tabs)/rounds/reading-guidance-labels'
 import { PARTICIPATION_HELP } from '@/app/projects/[id]/(tabs)/rounds/participation-labels'
 import { Section } from '@/app/components/ui/section'
 import { loadCodebookVersion } from '@/app/projects/[id]/pipeline/codebook'
@@ -150,6 +163,7 @@ type ListProps = Parameters<typeof RoundList>[0]
 type PanelProps = Parameters<typeof AgreementPanel>[0]
 type ComparisonProps = Parameters<typeof ReferenceComparisonPanel>[0]
 type LineProps = Parameters<typeof ReferenceRoundLine>[0]
+type GuidanceProps = Parameters<typeof ReadingGuidanceNote>[0]
 type CodebookShape = Parameters<typeof addCodebookVersion>[3]
 
 function render(id: string) {
@@ -172,6 +186,17 @@ function comparisonOf(tree: unknown): ComparisonProps {
   const element = findElement(tree, ReferenceComparisonPanel)
   expect(element).toBeTruthy()
   return element!.props as ComparisonProps
+}
+
+function guidanceOf(tree: unknown): GuidanceProps | null {
+  const element = findElement(tree, ReadingGuidanceNote)
+  return element ? (element.props as GuidanceProps) : null
+}
+
+function guidanceTextOf(tree: unknown): string {
+  const props = guidanceOf(tree)
+  expect(props).toBeTruthy()
+  return markupTextOf(createElement(ReadingGuidanceNote, props!))
 }
 
 function comparisonElementOf(tree: unknown): ReactElement {
@@ -213,6 +238,35 @@ const JUDGMENT_WORDS = [
 ]
 
 const JUDGMENT_TONES = ['success', 'warning', 'danger', 'brand']
+
+const RETURN_AND_VERDICT_WORDS = [
+  'voltar',
+  'volte',
+  'retorn',
+  'fase 3',
+  'refin',
+  'aprova',
+  'reprova',
+  'replic',
+  'generaliz',
+  'confirmad',
+]
+
+const PHASE_3_GUIDANCE_TEXTS = [
+  BELOW_BAND_GUIDANCE,
+  WITHIN_BAND_GUIDANCE,
+  notCalculableGuidance('few_evaluators'),
+  notCalculableGuidance('no_shared_units'),
+  notCalculableGuidance('no_variation'),
+]
+
+const PHASE_4_GUIDANCE_TEXTS = [
+  PHASE_4_BELOW_BAND_GUIDANCE,
+  PHASE_4_WITHIN_BAND_GUIDANCE,
+  phase4NotCalculableGuidance('few_evaluators'),
+  phase4NotCalculableGuidance('no_shared_units'),
+  phase4NotCalculableGuidance('no_variation'),
+]
 
 function expectNoJudgment(element: ReactElement) {
   const text = markupTextOf(element).toLowerCase()
@@ -351,11 +405,13 @@ describe('app/projects/[id]/rounds — a rodada da Fase 4 ao lado da rodada de r
     const tree = await render(scene.project)
 
     const agreement = blockIndexOf(tree, AgreementPanel)
+    const guidance = blockIndexOf(tree, ReadingGuidanceNote)
     const quality = blockIndexOf(tree, QualityPanel)
     const comparison = blockIndexOf(tree, ReferenceComparisonPanel)
     const list = blockIndexOf(tree, RoundList)
     expect(agreement).toBeGreaterThanOrEqual(0)
-    expect(quality).toBe(agreement + 1)
+    expect(guidance).toBe(agreement + 1)
+    expect(quality).toBe(guidance + 1)
     expect(comparison).toBe(quality + 1)
     expect(list).toBe(comparison + 1)
 
@@ -562,6 +618,96 @@ describe('app/projects/[id]/rounds — a rodada da Fase 4 ao lado da rodada de r
     expectNoJudgment(line!)
   })
 
+  it('numa rodada da Fase 4 abaixo da faixa, a orientação é a da Fase 4', async () => {
+    const admin = await newUser('Admin')
+    const scene = await basicScene(admin)
+
+    auth.userId = admin
+    const tree = await render(scene.project)
+
+    const all = panelOf(tree).pair.all
+    expect(all.calculable).toBe(true)
+    expect(all.calculable && all.alpha).toBeLessThan(AGREEMENT_BANDS.acceptable)
+
+    expect(guidanceOf(tree)).toEqual({ guidance: { phase: PHASE_4, kind: 'below_band' } })
+    expect(guidanceTextOf(tree)).toBe(`${GUIDANCE_HEADING} ${PHASE_4_BELOW_BAND_GUIDANCE}`)
+  })
+
+  it('numa rodada da Fase 4 dentro da faixa, a orientação manda olhar a Qualidade ao lado da referência', async () => {
+    const admin = await newUser('Admin')
+    const scene = await phase4Scene(admin, [
+      { roundNumber: 1, phase: PHASE_3, status: 'closed' },
+      { roundNumber: 2, phase: PHASE_4, status: 'closed', absent: ['carla'] },
+    ])
+
+    auth.userId = admin
+    const tree = await render(scene.project)
+
+    expect(panelOf(tree).pair.all).toMatchObject({ calculable: true, alpha: 1 })
+
+    expect(guidanceOf(tree)).toEqual({ guidance: { phase: PHASE_4, kind: 'within_band' } })
+    expect(guidanceTextOf(tree)).toBe(`${GUIDANCE_HEADING} ${PHASE_4_WITHIN_BAND_GUIDANCE}`)
+  })
+
+  it('numa rodada da Fase 4 com um avaliador só, a orientação diz por que não há ICR e que a comparação ainda não é possível', async () => {
+    const admin = await newUser('Admin')
+    const scene = await phase4Scene(admin, [
+      { roundNumber: 1, phase: PHASE_3, status: 'closed' },
+      { roundNumber: 2, phase: PHASE_4, status: 'closed', absent: ['bruno', 'carla'] },
+    ])
+
+    auth.userId = admin
+    const tree = await render(scene.project)
+
+    expect(panelOf(tree).pair.all).toMatchObject({
+      calculable: false,
+      reason: 'few_evaluators',
+    })
+    expect(guidanceOf(tree)).toEqual({
+      guidance: { phase: PHASE_4, kind: 'not_calculable', reason: 'few_evaluators' },
+    })
+    expect(guidanceTextOf(tree)).toBe(
+      `${GUIDANCE_HEADING} ${phase4NotCalculableGuidance('few_evaluators')}`,
+    )
+  })
+
+  it('nenhum texto renderizado da orientação da Fase 4 fala em voltar, refinar ou veredito', async () => {
+    const admin = await newUser('Admin')
+    const absences: (readonly EvaluatorName[])[] = [[], ['carla'], ['bruno', 'carla']]
+
+    auth.userId = admin
+    const kinds: string[] = []
+    for (const absent of absences) {
+      const scene = await phase4Scene(admin, [
+        { roundNumber: 1, phase: PHASE_3, status: 'closed' },
+        { roundNumber: 2, phase: PHASE_4, status: 'closed', absent },
+      ])
+      const tree = await render(scene.project)
+      kinds.push(guidanceOf(tree)!.guidance.kind)
+
+      const text = guidanceTextOf(tree)
+      const lower = text.toLowerCase()
+      for (const word of [...RETURN_AND_VERDICT_WORDS, ...JUDGMENT_WORDS]) {
+        expect(lower).not.toContain(word)
+      }
+      for (const phase3Text of PHASE_3_GUIDANCE_TEXTS) expect(text).not.toContain(phase3Text)
+    }
+    expect(kinds).toEqual(['below_band', 'within_band', 'not_calculable'])
+  })
+
+  it('num projeto na Fase 4 sem rodada da Fase 4, a rodada em foco da Fase 3 mostra o texto da Fase 3', async () => {
+    const admin = await newUser('Admin')
+    const scene = await phase4Scene(admin, [
+      { roundNumber: 1, phase: PHASE_3, status: 'closed' },
+    ])
+
+    auth.userId = admin
+    const tree = await render(scene.project)
+
+    expect(guidanceOf(tree)).toEqual({ guidance: { phase: PHASE_3, kind: 'below_band' } })
+    expect(guidanceTextOf(tree)).toBe(`${GUIDANCE_HEADING} ${BELOW_BAND_GUIDANCE}`)
+  })
+
   it('o Avaliador não vê comparação, rodada de referência, Concordância nem Qualidade', async () => {
     const admin = await newUser('Admin')
     const scene = await basicScene(admin)
@@ -573,8 +719,13 @@ describe('app/projects/[id]/rounds — a rodada da Fase 4 ao lado da rodada de r
     expect(findElement(tree, ReferenceComparisonPanel)).toBeNull()
     expect(findElement(tree, ReferenceRoundLine)).toBeNull()
     expect(findElement(tree, RoundList)).toBeNull()
+    expect(findElement(tree, ReadingGuidanceNote)).toBeNull()
     for (const word of ['rodada de referência', 'concordância', 'qualidade']) {
       expect(text).not.toContain(word)
+    }
+    expect(text).not.toContain(GUIDANCE_HEADING.toLowerCase())
+    for (const guidance of PHASE_4_GUIDANCE_TEXTS) {
+      expect(text).not.toContain(guidance.toLowerCase())
     }
   })
 

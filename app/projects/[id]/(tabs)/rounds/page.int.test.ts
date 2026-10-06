@@ -1845,7 +1845,7 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     expect(all.calculable).toBe(true)
     expect(all.calculable && all.alpha).toBeLessThan(0.667)
 
-    expect(guidanceOf(tree)).toEqual({ guidance: { kind: 'below_band' } })
+    expect(guidanceOf(tree)).toEqual({ guidance: { phase: PHASE_3, kind: 'below_band' } })
     expect(guidanceTextOf(tree)).toBe(`${GUIDANCE_HEADING} ${BELOW_BAND_GUIDANCE}`)
   })
 
@@ -1858,7 +1858,7 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
 
     expect(panelOf(tree).pair.all).toMatchObject({ calculable: true, alpha: 1 })
 
-    expect(guidanceOf(tree)).toEqual({ guidance: { kind: 'within_band' } })
+    expect(guidanceOf(tree)).toEqual({ guidance: { phase: PHASE_3, kind: 'within_band' } })
     expect(guidanceTextOf(tree)).toBe(`${GUIDANCE_HEADING} ${WITHIN_BAND_GUIDANCE}`)
   })
 
@@ -1880,7 +1880,7 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
       reason: 'few_evaluators',
     })
     expect(guidanceOf(tree)).toEqual({
-      guidance: { kind: 'not_calculable', reason: 'few_evaluators' },
+      guidance: { phase: PHASE_3, kind: 'not_calculable', reason: 'few_evaluators' },
     })
     expect(guidanceTextOf(tree)).toBe(
       `${GUIDANCE_HEADING} ${notCalculableGuidance('few_evaluators')}`,
@@ -1913,7 +1913,9 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
       ],
     })
 
-    const expected = { guidance: { kind: 'not_calculable', reason: 'no_variation' } }
+    const expected = {
+      guidance: { phase: PHASE_3, kind: 'not_calculable', reason: 'no_variation' },
+    }
     expect(guidanceOf(highTree)).toEqual(expected)
     expect(guidanceOf(lowTree)).toEqual(expected)
     expect(guidanceTextOf(highTree)).toBe(guidanceTextOf(lowTree))
@@ -1937,7 +1939,7 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     expect(all.calculable && all.alpha).toBeLessThan(0.667)
     expect(withoutOutliers).toMatchObject({ calculable: true, alpha: 1 })
 
-    expect(guidanceOf(tree)).toEqual({ guidance: { kind: 'below_band' } })
+    expect(guidanceOf(tree)).toEqual({ guidance: { phase: PHASE_3, kind: 'below_band' } })
   })
 
   it('numa rodada da Fase 2, a orientação não aparece', async () => {
@@ -1982,7 +1984,7 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
 
     expect(findElement(tree, CloseRound)).toBeTruthy()
     expect(guidanceOf(tree)).toEqual({
-      guidance: { kind: 'not_calculable', reason: 'few_evaluators' },
+      guidance: { phase: PHASE_3, kind: 'not_calculable', reason: 'few_evaluators' },
     })
   })
 

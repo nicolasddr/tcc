@@ -276,7 +276,7 @@ export default async function ProjectRoundsPage({
       ) : null}
 
       {focusRound && hasReadingGuidance(focusRound.phase) ? (
-        <ReadingGuidanceNote guidance={readingGuidance(focusPair.all)} />
+        <ReadingGuidanceNote guidance={readingGuidance(focusPair.all, focusRound.phase)} />
       ) : null}
 
       {focusRound && focusQuality ? (

@@ -1,7 +1,8 @@
 import type { NotCalculableReason } from '@/lib/agreement'
 import { scaleLabel } from '../evaluate/scale'
 import { QUALITY_LABEL } from './quality-labels'
-import type { ReadingGuidance } from './reading-guidance'
+import { PHASE_3, PHASE_4 } from '../../pipeline/preconditions'
+import type { GuidedPhase, ReadingGuidance } from './reading-guidance'
 
 export const GUIDANCE_HEADING = 'Por onde ler esta rodada'
 
@@ -17,6 +18,15 @@ export const WITHIN_BAND_GUIDANCE =
   `${scaleLabel('low')} indicam que a LLM não está seguindo o codebook, e o refinamento ` +
   'pode ser no prompt, no codebook ou nos dois. Mexer no codebook para ajudar a LLM ' +
   'também muda o que os avaliadores leem.'
+
+export const PHASE_4_BELOW_BAND_GUIDANCE =
+  'O ICR desta rodada ficou abaixo da faixa de referência: os avaliadores não estão ' +
+  'aplicando o codebook da mesma forma, o que indica que ele não se estendeu a essas ' +
+  'pessoas ou a esses itens.'
+
+export const PHASE_4_WITHIN_BAND_GUIDANCE =
+  'O ICR desta rodada está dentro da faixa de referência: os avaliadores concordam entre ' +
+  `si, e é hora de olhar a ${QUALITY_LABEL} ao lado da rodada de referência.`
 
 export function notCalculableReasonText(reason: NotCalculableReason): string {
   switch (reason) {
@@ -40,13 +50,41 @@ export function notCalculableGuidance(reason: NotCalculableReason): string {
   )
 }
 
+export function phase4NotCalculableGuidance(reason: NotCalculableReason): string {
+  return (
+    `Não há ICR nesta rodada: ${notCalculableReasonText(reason)}. Sem esse número não ` +
+    'se sabe se os avaliadores aplicam o codebook da mesma forma, e por isso a ' +
+    'comparação com a rodada de referência ainda não é possível.'
+  )
+}
+
+type PhaseGuidanceTexts = {
+  belowBand: string
+  withinBand: string
+  notCalculable: (reason: NotCalculableReason) => string
+}
+
+const GUIDANCE_TEXTS: Record<GuidedPhase, PhaseGuidanceTexts> = {
+  [PHASE_3]: {
+    belowBand: BELOW_BAND_GUIDANCE,
+    withinBand: WITHIN_BAND_GUIDANCE,
+    notCalculable: notCalculableGuidance,
+  },
+  [PHASE_4]: {
+    belowBand: PHASE_4_BELOW_BAND_GUIDANCE,
+    withinBand: PHASE_4_WITHIN_BAND_GUIDANCE,
+    notCalculable: phase4NotCalculableGuidance,
+  },
+}
+
 export function guidanceText(guidance: ReadingGuidance): string {
+  const texts = GUIDANCE_TEXTS[guidance.phase]
   switch (guidance.kind) {
     case 'below_band':
-      return BELOW_BAND_GUIDANCE
+      return texts.belowBand
     case 'not_calculable':
-      return notCalculableGuidance(guidance.reason)
+      return texts.notCalculable(guidance.reason)
     case 'within_band':
-      return WITHIN_BAND_GUIDANCE
+      return texts.withinBand
   }
 }
