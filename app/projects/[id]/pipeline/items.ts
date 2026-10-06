@@ -2,6 +2,7 @@ import { asc, count, eq } from 'drizzle-orm'
 import { ownerDb, type DbExecutor, inputItems } from '@/lib/db'
 import { isUsed } from '@/lib/versioning'
 import { loadItemRoundUsage } from './responses'
+import type { RoundTag } from '../round-usage'
 
 export type InputItem = {
   id: string
@@ -11,7 +12,7 @@ export type InputItem = {
   updatedAt: string | null
   usedAt: string | null
   isEditable: boolean
-  roundNumbers: number[]
+  rounds: RoundTag[]
 }
 
 export async function loadItems(
@@ -36,7 +37,7 @@ export async function loadItems(
   return rows.map((row) => ({
     ...row,
     isEditable: !isUsed(row),
-    roundNumbers: usage.get(row.id) ?? [],
+    rounds: usage.get(row.id) ?? [],
   }))
 }
 

@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { asc, eq } from 'drizzle-orm'
+import { isValidElement, type ReactElement } from 'react'
 
 const auth = vi.hoisted(() => ({ userId: null as string | null }))
 
@@ -48,6 +49,10 @@ import {
   requireReviewableRound,
 } from '@/app/projects/[id]/(tabs)/rounds/review-access'
 import { listRounds } from '@/app/projects/[id]/(tabs)/rounds/rounds'
+import ProjectRoundsPage from '@/app/projects/[id]/(tabs)/rounds/page'
+import { GenerateResponses } from '@/app/projects/[id]/(tabs)/rounds/generate-responses'
+import { selectionBlockers } from '@/app/projects/[id]/(tabs)/rounds/preconditions'
+import { itemUsageLabel } from '@/app/projects/[id]/round-usage'
 import { projectReferenceRound } from '@/app/projects/[id]/(tabs)/rounds/reference-round'
 import { loadCodebookVersion } from '@/app/projects/[id]/pipeline/codebook'
 import { resolveCells } from '@/app/projects/[id]/pipeline/criteria'
@@ -77,6 +82,7 @@ type Scene = {
   codebookVersion: string
   promptVersion: string
   referenceRound: string
+  usedItem: string
   ana: Evaluator
   carla: Evaluator
   davi: Evaluator
@@ -85,6 +91,32 @@ type Scene = {
 }
 
 type Phase4Round = { round: string; responses: string[] }
+
+type GenerateProps = Parameters<typeof GenerateResponses>[0]
+
+function findElement(node: unknown, type: unknown): ReactElement | null {
+  if (Array.isArray(node)) {
+    for (const child of node) {
+      const found = findElement(child, type)
+      if (found) return found
+    }
+    return null
+  }
+  if (!isValidElement(node)) return null
+  if (node.type === type) return node
+  for (const value of Object.values(node.props as Record<string, unknown>)) {
+    const found = findElement(value, type)
+    if (found) return found
+  }
+  return null
+}
+
+async function generateOf(projectId: string): Promise<GenerateProps> {
+  const tree = await ProjectRoundsPage({ params: Promise.resolve({ id: projectId }) })
+  const element = findElement(tree, GenerateResponses)
+  expect(element).toBeTruthy()
+  return element!.props as GenerateProps
+}
 
 function projectForm(projectId: string): FormData {
   const form = new FormData()
@@ -221,6 +253,7 @@ describe('app/projects/[id]/rounds — o ciclo completo de uma rodada da Fase 4'
       codebookVersion,
       promptVersion,
       referenceRound,
+      usedItem,
       ana,
       carla,
       davi,
@@ -310,6 +343,44 @@ describe('app/projects/[id]/rounds — o ciclo completo de uma rodada da Fase 4'
         expect(input).toContain(CODEBOOK_HEADING)
         expect(input).toContain('Busca por informação.')
       }
+    })
+
+    it('o item já usado na rodada de referência da Fase 3 é aceito na rodada da Fase 4', async () => {
+      const s = await scene()
+
+      auth.userId = s.admin
+      expect(await createRound(null, projectForm(s.project))).toMatchObject({
+        ok: true,
+        roundNumber: 2,
+      })
+      const round = (await roundsOf(s.project)).find((row) => row.roundNumber === 2)!
+
+      const before = await generateOf(s.project)
+      const offered = before.items.find((item) => item.id === s.usedItem)!
+      expect(offered.rounds).toEqual([{ roundNumber: 1, phase: PHASE_3 }])
+      expect(itemUsageLabel(offered.rounds)).toBe('usado na rodada 1 (Fase 3)')
+      expect(before.generated).toEqual([])
+      expect(
+        selectionBlockers([s.usedItem], {
+          available: before.items.map((item) => item.id),
+          usedInRound: before.generated.map((response) => response.itemId),
+        }),
+      ).toEqual([])
+
+      const generated = await generateResponses(
+        null,
+        generateForm(s.project, round.id, [s.usedItem]),
+      )
+      expect(generated).toMatchObject({ ok: true, failed: [] })
+      expect((await responsesOf(round.id)).map((row) => row.inputItemId)).toEqual([
+        s.usedItem,
+      ])
+
+      const after = await generateOf(s.project)
+      expect(after.items.find((item) => item.id === s.usedItem)!.rounds).toEqual([
+        { roundNumber: 1, phase: PHASE_3 },
+        { roundNumber: 2, phase: PHASE_4 },
+      ])
     })
   })
 

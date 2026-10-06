@@ -73,7 +73,7 @@ import {
   roundBlockerSummary,
   roundInputSummary,
 } from '@/app/projects/[id]/(tabs)/rounds/preconditions'
-import { itemUsageLabel } from '@/app/projects/[id]/pipeline/item-usage'
+import { itemUsageLabel } from '@/app/projects/[id]/round-usage'
 import { RoundChangesNote } from '@/app/projects/[id]/(tabs)/rounds/round-changes-note'
 import {
   CODEBOOK_AND_PROMPT_NOTICE,
@@ -1049,9 +1049,15 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     const props = generateOf(await render(project))
 
     expect(props.items.map((item) => item.id)).toEqual([reused, fresh])
-    expect(props.items.map((item) => item.roundNumbers)).toEqual([[1, 2], []])
-    expect(itemUsageLabel(props.items[0].roundNumbers)).toBe('usado nas rodadas 1, 2')
-    expect(itemUsageLabel(props.items[1].roundNumbers)).toBeNull()
+    expect(props.items.map((item) => item.rounds)).toEqual([
+      [
+        { roundNumber: 1, phase: PHASE_2 },
+        { roundNumber: 2, phase: PHASE_2 },
+      ],
+      [],
+    ])
+    expect(itemUsageLabel(props.items[0].rounds)).toBe('usado nas rodadas 1 e 2 (Fase 2)')
+    expect(itemUsageLabel(props.items[1].rounds)).toBeNull()
     expect(props.generated.map((response) => response.itemId)).toEqual([reused])
   })
 

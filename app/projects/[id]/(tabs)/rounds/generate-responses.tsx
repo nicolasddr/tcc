@@ -16,7 +16,7 @@ import {
 import type { InputItem } from '../../pipeline/items'
 import type { RoundResponse } from '../../pipeline/responses'
 import { itemPreview } from '../../pipeline/item-preview'
-import { itemUsageLabel } from '../../pipeline/item-usage'
+import { itemUsageLabel } from '../../round-usage'
 import { formatDate } from '@/app/notifications/labels'
 import { Alert } from '@/app/components/ui/alert'
 import { Badge } from '@/app/components/ui/badge'
@@ -131,7 +131,7 @@ export function GenerateResponses({
           {items.map((item) => {
             const used = usedHere.has(item.id)
             const checked = selected.includes(item.id)
-            const label = itemUsageLabel(item.roundNumbers)
+            const label = itemUsageLabel(item.rounds)
 
             return (
               <li key={item.id}>
@@ -158,7 +158,9 @@ export function GenerateResponses({
                         {used ? (
                           <Badge tone="info">já respondido nesta rodada</Badge>
                         ) : label ? (
-                          <Badge tone="neutral">{label}</Badge>
+                          <Badge tone="neutral" className="whitespace-normal!">
+                            {label}
+                          </Badge>
                         ) : null}
                       </span>
                       <span className="text-[13px] break-words text-muted">

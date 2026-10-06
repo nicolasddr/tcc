@@ -19,7 +19,7 @@ vi.mock('next/navigation', () => ({
 
 import ProjectItemsPage from '@/app/projects/[id]/(tabs)/items/page'
 import { ItemsEditor } from '@/app/projects/[id]/pipeline/items-editor'
-import { itemUsageLabel } from '@/app/projects/[id]/pipeline/item-usage'
+import { itemUsageLabel } from '@/app/projects/[id]/round-usage'
 import { PHASE_4 } from '@/app/projects/[id]/pipeline/preconditions'
 import { ownerDb } from '@/lib/db'
 import {
@@ -127,7 +127,7 @@ describe('app/projects/[id]/items — a tela dos itens de entrada', () => {
       admin,
       codebookVersion,
       promptVersion,
-      { roundNumber: 1, status: 'closed' },
+      { roundNumber: 1, status: 'closed', phase: 2 },
     )
     const second = await addRound(
       ownerDb,
@@ -135,7 +135,7 @@ describe('app/projects/[id]/items — a tela dos itens de entrada', () => {
       admin,
       codebookVersion,
       promptVersion,
-      { roundNumber: 2 },
+      { roundNumber: 2, phase: 3 },
     )
     await addResponse(ownerDb, first, reused, admin)
     await addResponse(ownerDb, second, reused, admin)
@@ -145,10 +145,19 @@ describe('app/projects/[id]/items — a tela dos itens de entrada', () => {
     const props = itemsOf(await render(project))
 
     expect(props.items.map((item) => item.id)).toEqual([reused, once, never])
-    expect(props.items.map((item) => item.roundNumbers)).toEqual([[1, 2], [2], []])
-    expect(itemUsageLabel(props.items[0].roundNumbers)).toBe('usado nas rodadas 1, 2')
-    expect(itemUsageLabel(props.items[1].roundNumbers)).toBe('usado na rodada 2')
-    expect(itemUsageLabel(props.items[2].roundNumbers)).toBeNull()
+    expect(props.items.map((item) => item.rounds)).toEqual([
+      [
+        { roundNumber: 1, phase: 2 },
+        { roundNumber: 2, phase: 3 },
+      ],
+      [{ roundNumber: 2, phase: 3 }],
+      [],
+    ])
+    expect(itemUsageLabel(props.items[0].rounds)).toBe(
+      'usado nas rodadas 1 (Fase 2) e 2 (Fase 3)',
+    )
+    expect(itemUsageLabel(props.items[1].rounds)).toBe('usado na rodada 2 (Fase 3)')
+    expect(itemUsageLabel(props.items[2].rounds)).toBeNull()
     expect(props.items.map((item) => item.isEditable)).toEqual([false, false, true])
   })
 

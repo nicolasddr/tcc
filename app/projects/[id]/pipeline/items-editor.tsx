@@ -4,7 +4,7 @@ import { useActionState, useState } from 'react'
 import { createItem, updateItem, deleteItem, type ItemState } from './actions'
 import type { InputItem } from './items'
 import { itemPreviewLines } from './item-preview'
-import { itemUsageLabel } from './item-usage'
+import { itemUsageLabel } from '../round-usage'
 import { Button } from '@/app/components/ui/button'
 import { RowActions, RowMenuItem } from '@/app/components/ui/row-actions'
 import { EditableRow } from '@/app/components/ui/editable-row'
@@ -307,7 +307,7 @@ function ItemRow({
   onToggle: () => void
 }) {
   const lines = item.content.split('\n').length
-  const usage = itemUsageLabel(item.roundNumbers)
+  const usage = itemUsageLabel(item.rounds)
 
   return (
     <EditableRow
@@ -322,7 +322,11 @@ function ItemRow({
       }
       badges={
         <>
-          {usage ? <Badge tone="neutral">{usage}</Badge> : null}
+          {usage ? (
+            <Badge tone="neutral" className="whitespace-normal!">
+              {usage}
+            </Badge>
+          ) : null}
           {item.isEditable ? null : (
             <span className="inline-flex items-center gap-1 text-muted">
               <LockIcon />

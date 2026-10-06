@@ -7,6 +7,7 @@ import {
 } from './codebook'
 import { loadPromptVersion } from './prompt'
 import { isUuid } from './versions'
+import type { RoundTag } from '../round-usage'
 
 export type RoundComposition = {
   phase: number
@@ -17,7 +18,7 @@ export type RoundComposition = {
   criteria: CodebookCriterion[]
 }
 
-export type ItemRoundUsage = Map<string, number[]>
+export type ItemRoundUsage = Map<string, RoundTag[]>
 
 export type RoundResponse = {
   id: string
@@ -68,7 +69,11 @@ export async function loadItemRoundUsage(
   db: DbExecutor = ownerDb,
 ): Promise<ItemRoundUsage> {
   const rows = await db
-    .select({ itemId: responses.inputItemId, roundNumber: rounds.roundNumber })
+    .select({
+      itemId: responses.inputItemId,
+      roundNumber: rounds.roundNumber,
+      phase: rounds.phase,
+    })
     .from(responses)
     .innerJoin(rounds, eq(rounds.id, responses.roundId))
     .where(eq(rounds.projectId, projectId))
@@ -76,10 +81,10 @@ export async function loadItemRoundUsage(
 
   const usage: ItemRoundUsage = new Map()
 
-  for (const row of rows) {
-    const roundNumbers = usage.get(row.itemId)
-    if (roundNumbers) roundNumbers.push(row.roundNumber)
-    else usage.set(row.itemId, [row.roundNumber])
+  for (const { itemId, roundNumber, phase } of rows) {
+    const tags = usage.get(itemId)
+    if (tags) tags.push({ roundNumber, phase })
+    else usage.set(itemId, [{ roundNumber, phase }])
   }
 
   return usage

@@ -623,7 +623,9 @@ describe('app/projects/[id]/rounds/actions — gerar respostas na rodada aberta'
     expect(await listResponses(round)).toHaveLength(3)
 
     const usage = await loadItemRoundUsage(project)
-    for (const item of items) expect(usage.get(item)).toEqual([1])
+    for (const item of items) {
+      expect(usage.get(item)).toEqual([{ roundNumber: 1, phase: PHASE_2 }])
+    }
   })
 
   it('recusa a seleção vazia e a seleção acima do máximo, sem chamar a LLM', async () => {

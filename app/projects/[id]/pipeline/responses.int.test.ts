@@ -146,6 +146,7 @@ describe('app/projects/[id]/pipeline/responses — a leitura que alimenta a gera
       })
       const round3 = await addRound(tx, project, admin, codebookVersion, promptVersion, {
         roundNumber: 3,
+        phase: 3,
       })
 
       const repeated = await addInputItem(tx, project, admin, { name: 'Repetido' })
@@ -158,8 +159,11 @@ describe('app/projects/[id]/pipeline/responses — a leitura que alimenta a gera
 
       const usage = await loadItemRoundUsage(project, tx)
 
-      expect(usage.get(repeated)).toEqual([1, 3])
-      expect(usage.get(once)).toEqual([2])
+      expect(usage.get(repeated)).toEqual([
+        { roundNumber: 1, phase: 2 },
+        { roundNumber: 3, phase: 3 },
+      ])
+      expect(usage.get(once)).toEqual([{ roundNumber: 2, phase: 2 }])
       expect(usage.has(unused)).toBe(false)
     })
   })
