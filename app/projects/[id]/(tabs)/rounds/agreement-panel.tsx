@@ -242,20 +242,34 @@ export function AgreementPanel({
   )
 }
 
-function ValuePart({ label, agreement }: { label: string; agreement: Agreement }) {
+function ValuePart({
+  label,
+  agreement,
+  band,
+}: {
+  label: string
+  agreement: Agreement
+  band: boolean
+}) {
   return (
     <>
       <span>
         {label}:{' '}
         <span className="font-semibold text-ink">{agreementText(agreement)}</span>
       </span>
-      {agreement.calculable ? <BandBadge alpha={agreement.alpha} /> : null}
+      {band && agreement.calculable ? <BandBadge alpha={agreement.alpha} /> : null}
       <span>{sampleSize(agreement)}</span>
     </>
   )
 }
 
-export function AgreementValue({ pair }: { pair: AgreementPair }) {
+export function AgreementValue({
+  pair,
+  band = true,
+}: {
+  pair: AgreementPair
+  band?: boolean
+}) {
   const { all, withoutOutliers } = pair
 
   return (
@@ -267,6 +281,7 @@ export function AgreementValue({ pair }: { pair: AgreementPair }) {
             : AGREEMENT_LABEL
         }
         agreement={all}
+        band={band}
       />
       {withoutOutliers ? (
         <>
@@ -274,6 +289,7 @@ export function AgreementValue({ pair }: { pair: AgreementPair }) {
           <ValuePart
             label={AGREEMENT_WITHOUT_OUTLIERS_LABEL}
             agreement={withoutOutliers}
+            band={band}
           />
         </>
       ) : null}

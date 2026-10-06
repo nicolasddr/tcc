@@ -34,6 +34,13 @@ import { QualityPanel } from './quality-panel'
 import { QualityMatrixTable } from './quality-matrix-table'
 import { hasReadingGuidance, readingGuidance } from './reading-guidance'
 import { ReadingGuidanceNote } from './reading-guidance-note'
+import { referenceComparison } from './reference-comparison'
+import {
+  REFERENCE_COMPARISON_HELP,
+  REFERENCE_COMPARISON_TITLE,
+  referenceComparisonHint,
+} from './reference-comparison-labels'
+import { ReferenceComparisonPanel } from './reference-comparison-panel'
 import { llmModel } from '@/lib/ai'
 import { projectResponsesLeft, projectResponsesMax } from '@/lib/ai/quota'
 import { Section } from '@/app/components/ui/section'
@@ -140,6 +147,9 @@ export default async function ProjectRoundsPage({
     (focusRound ? agreement.get(focusRound.id) : undefined) ??
     agreementPair([], EMPTY_SET)
   const focusQuality = focusRound ? quality.get(focusRound.id) : undefined
+  const focusComparison = focusRound
+    ? referenceComparison(rounds, focusRound, agreement, quality)
+    : null
   const focusObservations = focusRound ? (observations.get(focusRound.id) ?? []) : []
   const focusExcluded = focusRound
     ? (outliers.get(focusRound.id) ?? EMPTY_SET)
@@ -277,6 +287,26 @@ export default async function ProjectRoundsPage({
               codebookVersionNumber={focusRound.codebookVersionNumber}
             />
           </div>
+        </Section>
+      ) : null}
+
+      {focusRound && focusComparison && focusComparison.kind !== 'not_phase_4' ? (
+        <Section
+          title={REFERENCE_COMPARISON_TITLE}
+          hint={
+            focusComparison.kind === 'compared'
+              ? referenceComparisonHint(
+                  focusRound.roundNumber,
+                  focusComparison.reference.roundNumber,
+                )
+              : undefined
+          }
+          help={REFERENCE_COMPARISON_HELP}
+        >
+          <ReferenceComparisonPanel
+            roundNumber={focusRound.roundNumber}
+            comparison={focusComparison}
+          />
         </Section>
       ) : null}
 

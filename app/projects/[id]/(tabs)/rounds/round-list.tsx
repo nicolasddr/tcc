@@ -10,6 +10,8 @@ import type { QualityPair } from './quality'
 import { isOpen, type RoundSummary } from './rounds'
 import { previousRoundOf, roundChanges } from './round-changes'
 import { RoundChangesNote } from './round-changes-note'
+import { referenceComparison } from './reference-comparison'
+import { ReferenceRoundLine } from './reference-comparison-panel'
 
 function changesOf(rounds: readonly RoundSummary[], round: RoundSummary) {
   const changes = roundChanges(round, previousRoundOf(rounds, round))
@@ -20,6 +22,18 @@ function changesOf(rounds: readonly RoundSummary[], round: RoundSummary) {
       <RoundChangesNote changes={changes} compact />
     </div>
   )
+}
+
+function referenceOf(
+  rounds: readonly RoundSummary[],
+  round: RoundSummary,
+  agreement: Map<string, AgreementPair>,
+  quality: Map<string, QualityPair>,
+) {
+  const comparison = referenceComparison(rounds, round, agreement, quality)
+  if (comparison.kind !== 'compared') return null
+
+  return <ReferenceRoundLine reference={comparison.reference} />
 }
 
 export function RoundList({
@@ -76,6 +90,8 @@ export function RoundList({
             ) : null}
 
             {quality.has(round.id) ? <QualityValue pair={quality.get(round.id)!} /> : null}
+
+            {referenceOf(rounds, round, agreement, quality)}
 
             {isOpen(round) ? null : (
               <p className="m-0 mt-2 text-[13px]">
