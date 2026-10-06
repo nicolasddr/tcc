@@ -41,6 +41,7 @@ import {
   referenceLine,
 } from '@/app/projects/[id]/(tabs)/rounds/reference-comparison-labels'
 import { AGREEMENT_WITHOUT_OUTLIERS_LABEL } from '@/app/projects/[id]/(tabs)/rounds/agreement-labels'
+import { PARTICIPATION_HELP } from '@/app/projects/[id]/(tabs)/rounds/participation-labels'
 import { Section } from '@/app/components/ui/section'
 import { loadCodebookVersion } from '@/app/projects/[id]/pipeline/codebook'
 import { resolveCells } from '@/app/projects/[id]/pipeline/criteria'
@@ -146,6 +147,7 @@ function blockIndexOf(tree: unknown, type: unknown): number {
 }
 
 type ListProps = Parameters<typeof RoundList>[0]
+type PanelProps = Parameters<typeof AgreementPanel>[0]
 type ComparisonProps = Parameters<typeof ReferenceComparisonPanel>[0]
 type LineProps = Parameters<typeof ReferenceRoundLine>[0]
 type CodebookShape = Parameters<typeof addCodebookVersion>[3]
@@ -158,6 +160,12 @@ function listOf(tree: unknown): ListProps {
   const element = findElement(tree, RoundList)
   expect(element).toBeTruthy()
   return element!.props as ListProps
+}
+
+function panelOf(tree: unknown): PanelProps {
+  const element = findElement(tree, AgreementPanel)
+  expect(element).toBeTruthy()
+  return element!.props as PanelProps
 }
 
 function comparisonOf(tree: unknown): ComparisonProps {
@@ -218,15 +226,19 @@ function expectNoJudgment(element: ReactElement) {
   }
 }
 
+type EvaluatorName = 'ana' | 'bruno' | 'carla'
+
 type RoundSpec = {
   roundNumber: number
   phase: number
   status: 'open' | 'closed'
+  absent?: readonly EvaluatorName[]
 }
 
 type Scene = {
   project: string
   rounds: Map<number, string>
+  responses: Map<number, string[]>
   ana: string
   anaUser: string
   bruno: string
@@ -285,6 +297,8 @@ describe('app/projects/[id]/rounds — a rodada da Fase 4 ao lado da rodada de r
       }))
 
     const rounds = new Map<number, string>()
+    const responses = new Map<number, string[]>()
+    const members = { ana, bruno, carla }
     for (const spec of specs) {
       const round = await addRound(ownerDb, project, admin, codebookVersion, promptVersion, {
         roundNumber: spec.roundNumber,
@@ -293,25 +307,24 @@ describe('app/projects/[id]/rounds — a rodada da Fase 4 ao lado da rodada de r
         closedAt: spec.status === 'closed' ? closedAtOf(spec.roundNumber) : null,
       })
       rounds.set(spec.roundNumber, round)
+      responses.set(spec.roundNumber, [])
 
       for (let index = 0; index < 3; index += 1) {
         const item = await addInputItem(ownerDb, project, admin, {
           name: `Item ${spec.roundNumber}.${index + 1}`,
         })
         const response = await addResponse(ownerDb, round, item, admin)
-        for (const [member, notes] of [
-          [ana, NOTES.ana],
-          [bruno, NOTES.bruno],
-          [carla, NOTES.carla],
-        ] as const) {
-          await addEvaluation(ownerDb, round, response, member, {
-            cells: filled(notes[index]),
+        responses.get(spec.roundNumber)!.push(response)
+        for (const name of ['ana', 'bruno', 'carla'] as const) {
+          if (spec.absent?.includes(name)) continue
+          await addEvaluation(ownerDb, round, response, members[name], {
+            cells: filled(NOTES[name][index]),
           })
         }
       }
     }
 
-    return { project, rounds, ana, anaUser, bruno, carla }
+    return { project, rounds, responses, ana, anaUser, bruno, carla }
   }
 
   function basicScene(admin: string, status: 'open' | 'closed' = 'closed') {
@@ -563,5 +576,126 @@ describe('app/projects/[id]/rounds — a rodada da Fase 4 ao lado da rodada de r
     for (const word of ['rodada de referência', 'concordância', 'qualidade']) {
       expect(text).not.toContain(word)
     }
+  })
+
+  it('no painel da rodada da Fase 4, quem avaliou antes tem a marca e quem chegou agora não', async () => {
+    const admin = await newUser('Admin')
+    const scene = await phase4Scene(admin, [
+      { roundNumber: 1, phase: PHASE_3, status: 'closed', absent: ['carla'] },
+      { roundNumber: 2, phase: PHASE_4, status: 'closed' },
+    ])
+
+    auth.userId = admin
+    const tree = await render(scene.project)
+
+    expect(panelOf(tree).participation).toEqual({
+      [scene.ana]: 'avaliou na rodada 1 (Fase 3)',
+      [scene.bruno]: 'avaliou na rodada 1 (Fase 3)',
+    })
+
+    const text = markupTextOf(createElement(AgreementPanel, panelOf(tree)))
+    expect(text).toContain('Ana avaliou na rodada 1 (Fase 3)')
+    expect(text).toContain('Bruno avaliou na rodada 1 (Fase 3)')
+    expect(text).not.toContain('Carla avaliou')
+    expect(text).not.toContain('rodada 2')
+  })
+
+  it('com a rodada da Fase 4 aberta, as avaliações dela não entram na marca', async () => {
+    const admin = await newUser('Admin')
+    const scene = await phase4Scene(admin, [
+      { roundNumber: 1, phase: PHASE_3, status: 'closed', absent: ['carla'] },
+      { roundNumber: 2, phase: PHASE_4, status: 'open' },
+    ])
+
+    auth.userId = admin
+    const tree = await render(scene.project)
+
+    expect(panelOf(tree).participation).toEqual({
+      [scene.ana]: 'avaliou na rodada 1 (Fase 3)',
+      [scene.bruno]: 'avaliou na rodada 1 (Fase 3)',
+    })
+  })
+
+  it('depois de um retorno e de um novo avanço, a marca lista todas as rodadas anteriores', async () => {
+    const admin = await newUser('Admin')
+    const scene = await phase4Scene(admin, [
+      { roundNumber: 1, phase: PHASE_3, status: 'closed' },
+      { roundNumber: 2, phase: PHASE_4, status: 'closed' },
+      { roundNumber: 3, phase: PHASE_3, status: 'closed' },
+      { roundNumber: 4, phase: PHASE_4, status: 'open' },
+    ])
+
+    auth.userId = admin
+    const tree = await render(scene.project)
+
+    expect(panelOf(tree).participation?.[scene.ana]).toBe(
+      'avaliou nas rodadas 1 (Fase 3), 2 (Fase 4) e 3 (Fase 3)',
+    )
+  })
+
+  it('o Administrador-avaliador aparece com a marca pelo vínculo de avaliador', async () => {
+    const admin = await newUser('Admin')
+    const scene = await basicScene(admin)
+    const adminAsEvaluator = await addActiveEvaluator(ownerDb, scene.project, admin)
+    await addEvaluation(
+      ownerDb,
+      scene.rounds.get(1)!,
+      scene.responses.get(1)![0],
+      adminAsEvaluator,
+    )
+
+    auth.userId = admin
+    const tree = await render(scene.project)
+
+    expect(panelOf(tree).participation?.[adminAsEvaluator]).toBe(
+      'avaliou na rodada 1 (Fase 3)',
+    )
+  })
+
+  it('com a marca no painel, o texto de ajuda explica a marca e aponta a marca de outlier', async () => {
+    const admin = await newUser('Admin')
+    const scene = await basicScene(admin)
+
+    auth.userId = admin
+    const tree = await render(scene.project)
+
+    const markup = renderToStaticMarkup(createElement(AgreementPanel, panelOf(tree)))
+    const tooltips = [...markup.matchAll(/aria-label="([^"]*)"/g)].map((match) =>
+      match[1].replaceAll('&quot;', '"'),
+    )
+    expect(tooltips.some((text) => text.includes(PARTICIPATION_HELP))).toBe(true)
+  })
+
+  it('numa rodada em foco da Fase 3 ou da Fase 2, o painel não recebe marca', async () => {
+    const admin = await newUser('Admin')
+    const phase3 = await phase4Scene(admin, [
+      { roundNumber: 1, phase: PHASE_3, status: 'closed' },
+      { roundNumber: 2, phase: PHASE_4, status: 'closed' },
+      { roundNumber: 3, phase: PHASE_3, status: 'open' },
+    ])
+    const phase2 = await phase4Scene(admin, [
+      { roundNumber: 1, phase: PHASE_2, status: 'closed' },
+      { roundNumber: 2, phase: PHASE_2, status: 'closed' },
+    ])
+
+    auth.userId = admin
+    for (const scene of [phase3, phase2]) {
+      const tree = await render(scene.project)
+      expect(panelOf(tree).participation).toBeUndefined()
+      expect(markupTextOf(createElement(AgreementPanel, panelOf(tree)))).not.toContain(
+        'avaliou n',
+      )
+    }
+  })
+
+  it('o Avaliador não vê a marca de participação', async () => {
+    const admin = await newUser('Admin')
+    const scene = await basicScene(admin)
+
+    auth.userId = scene.anaUser
+    const tree = await render(scene.project)
+
+    expect(findElement(tree, AgreementPanel)).toBeNull()
+    expect(allTextOf(tree)).not.toContain('avaliou n')
   })
 })

@@ -18,6 +18,8 @@ import {
   type AgreementPair,
 } from './agreement-pair'
 import { loadProjectOutliers, loadRoundOutliers } from './outliers'
+import { loadEvaluatorParticipation } from './participation'
+import { participationBefore } from './participation-labels'
 import { hasQuality, qualityPair, type QualityPair } from './quality'
 import { QUALITY_HELP, QUALITY_HINT } from './quality-labels'
 import { evaluatorsNotFinished, isActiveEvaluator, roundBlockers } from './preconditions'
@@ -41,6 +43,7 @@ import {
   referenceComparisonHint,
 } from './reference-comparison-labels'
 import { ReferenceComparisonPanel } from './reference-comparison-panel'
+import { PHASE_4 } from '../../pipeline/preconditions'
 import { llmModel } from '@/lib/ai'
 import { projectResponsesLeft, projectResponsesMax } from '@/lib/ai/quota'
 import { Section } from '@/app/components/ui/section'
@@ -71,6 +74,7 @@ export default async function ProjectRoundsPage({
     outliers,
     focusOutliers,
     effort,
+    participation,
   } = await transaction(async (tx) => {
     const access = await requireReviewAccess(id, userId, tx)
     const projectId = access.project.id
@@ -106,6 +110,10 @@ export default async function ProjectRoundsPage({
       effort: focusRound
         ? await listEvaluatorEffort(focusRound.id, projectId, tx)
         : [],
+      participation:
+        isAdmin && focusRound?.phase === PHASE_4
+          ? await loadEvaluatorParticipation(projectId, tx)
+          : null,
     }
   })
 
@@ -150,6 +158,10 @@ export default async function ProjectRoundsPage({
   const focusComparison = focusRound
     ? referenceComparison(rounds, focusRound, agreement, quality)
     : null
+  const focusParticipation =
+    focusRound && participation
+      ? participationBefore(participation, focusRound.roundNumber)
+      : undefined
   const focusObservations = focusRound ? (observations.get(focusRound.id) ?? []) : []
   const focusExcluded = focusRound
     ? (outliers.get(focusRound.id) ?? EMPTY_SET)
@@ -250,6 +262,7 @@ export default async function ProjectRoundsPage({
               responses={responses}
               effort={effort}
               outliers={focusOutliers}
+              {...(focusParticipation ? { participation: focusParticipation } : {})}
             />
 
             <AgreementMatrixTable

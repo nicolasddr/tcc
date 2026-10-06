@@ -14,7 +14,7 @@ seguinte herda". Anote ali o que divergiu.
 | Parte | Entrega | Estado |
 |---|---|---|
 | 1 | A comparação: função pura que acha a referência de uma rodada da Fase 4 e monta o par das duas, o bloco "Comparação com a rodada de referência" na tela de rodadas e a linha da referência na lista de rodadas | ✅ |
-| 2 | A marca no painel: participação restrita às rodadas anteriores (pura), carregada só para o Administrador e só numa rodada da Fase 4, e a marca ao lado de cada avaliador no painel de concordância | ⬜ |
+| 2 | A marca no painel: participação restrita às rodadas anteriores (pura), carregada só para o Administrador e só numa rodada da Fase 4, e a marca ao lado de cada avaliador no painel de concordância | ✅ |
 | 3 | As séries: a de ICR com a Fase 4 agrupada e o texto de ajuda novo; a de Qualidade cobrindo as Fases 3 e 4, com a fase em cada ponto e os rótulos ajustados; verificação no navegador e varredura dos ACs | ⬜ |
 
 **Nenhuma ADR nova.** A regra está no glossário (`docs/CONTEXT.md`, verbete **Rodada de referência**:
@@ -456,7 +456,41 @@ Commit sugerido: `feat(rodadas): marca de participação no painel da rodada da 
 
 ### O que a Parte 3 herda
 
-_(preencher ao fim da Parte 2)_
+- **Decisão confirmada pelo dono em 2026-10-06, antes do código:** D8 com o texto do plano, no
+  `InfoTooltip` do título "Avaliações enviadas por avaliador".
+- **Nomes finais:**
+  - `participation-labels.ts`: `participationBefore(participation, roundNumber)`, como em D6, e
+    `PARTICIPATION_HELP` (o texto de D8, exportado para o teste ler).
+  - `AgreementPanel` e `EffortList` ganharam `participation?: Readonly<Record<string, string>>`. A
+    marca é `<Badge tone="neutral" className="whitespace-normal!">`, depois de "outlier" e
+    "desativado" (D7).
+- **Divergências do plano:**
+  - O tooltip aparece quando **algum avaliador da lista tem marca**, não só quando a prop existe: numa
+    rodada da Fase 4 em que ninguém avaliou antes, explicar uma marca que não aparece seria ruído. Com
+    desativado e marca juntos, os dois textos vão no mesmo balão, separados por linha em branco
+    (`whitespace-pre-wrap` do `InfoTooltip`).
+  - A página passa `participation` ao painel por spread condicional, só quando há marca a passar: o
+    teste antigo "a Qualidade é um bloco separado do ICR…" confere as chaves exatas das props do
+    painel, e `participation={undefined}` criava a chave. Assim nenhum teste antigo foi editado.
+  - A cena de `phase-4-reading.int.test.ts` ganhou `absent?` em `RoundSpec` (quem não avalia aquela
+    rodada) e devolve `responses` por rodada (para o caso do Administrador-avaliador). Também ganhou
+    `panelOf`.
+  - O caso do tooltip lê o `aria-label` do HTML renderizado: o `InfoTooltip` mora dentro de
+    `EffortList`, que a chamada direta de `AgreementPanel(...)` não expande.
+- **TDD:** o unitário falhou primeiro por módulo inexistente; o filtro `<` foi provado trocando por
+  `<=` (3 vermelhos). No teste de página, 5 casos ficaram vermelhos antes do código; os 2 negativos
+  ("Fase 3 ou Fase 2 sem marca" e "o Avaliador não vê a marca") passaram antes, como o plano previa,
+  e não contam como vermelho. Com o `agreement-panel.tsx` antigo e a página nova, os casos do texto da
+  marca e do tooltip ficam vermelhos.
+- **Tela (2.3), conferida em 2026-10-06** com a cena de retorno (1 F3, 2 F4, 3 F3, 4 F4 aberta) e
+  nome longo ("Ana Beatriz de Albuquerque", três fases no rótulo): Ana e Bruno (outlier) com a marca
+  das rodadas 1 a 3, Carla sem marca, tooltip com o texto de D8. Em iframe de 375 px: o `Badge`
+  quebra em duas linhas (`white-space: normal`), nada da lista nem do bloco de comparação passa de
+  375 px, a contagem "3 avaliações enviadas" desce para a linha de baixo quando o nome com a marca
+  ocupa a largura (como já acontecia com nome longo), e as duas colunas da comparação empilham. O que
+  passa de 375 px na página é dívida anterior (barra de abas e as matrizes, em caixa de rolagem).
+  Como Avaliador, a tela de rodadas só mostra "Rodadas para revisar". Cena apagada antes da suíte.
+- **Testes antigos:** nenhum editado. Suíte: 89 arquivos, 1.293 testes; lint e typecheck verdes.
 
 ---
 

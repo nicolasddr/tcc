@@ -3,6 +3,7 @@ import type { Agreement } from '@/lib/agreement'
 import type { EvaluatorEffort } from './agreement'
 import type { AgreementPair } from './agreement-pair'
 import type { OutlierMark } from './outliers'
+import { PARTICIPATION_HELP } from './participation-labels'
 import {
   AGREEMENT_ALL_LABEL,
   AGREEMENT_LABEL,
@@ -70,19 +71,25 @@ function AgreementStat({
 function EffortList({
   effort,
   excluded,
+  participation,
 }: {
   effort: EvaluatorEffort[]
   excluded: ReadonlySet<string>
+  participation?: Readonly<Record<string, string>>
 }) {
   if (effort.length === 0) return null
 
   const deactivated = effort.some((evaluator) => evaluator.status !== 'active')
+  const marked = effort.some((evaluator) => participation?.[evaluator.projectMemberId])
+  const help = [deactivated ? DEACTIVATED_HELP : null, marked ? PARTICIPATION_HELP : null]
+    .filter((text) => text !== null)
+    .join('\n\n')
 
   return (
     <Card tone="subtle" padding="sm">
       <span className="flex flex-wrap items-center gap-2 text-[13px] font-semibold text-label">
         Avaliações enviadas por avaliador
-        {deactivated ? <InfoTooltip text={DEACTIVATED_HELP} /> : null}
+        {help ? <InfoTooltip text={help} /> : null}
       </span>
       <ul className="m-0 mt-2 flex list-none flex-col gap-1 p-0">
         {effort.map((evaluator) => (
@@ -98,6 +105,11 @@ function EffortList({
               {evaluator.status === 'active' ? null : (
                 <Badge tone="neutral">desativado</Badge>
               )}
+              {participation?.[evaluator.projectMemberId] ? (
+                <Badge tone="neutral" className="whitespace-normal!">
+                  {participation[evaluator.projectMemberId]}
+                </Badge>
+              ) : null}
             </span>
             <span>
               {plural(evaluator.submitted, 'avaliação enviada', 'avaliações enviadas')}
@@ -145,11 +157,13 @@ export function AgreementPanel({
   responses,
   effort,
   outliers,
+  participation,
 }: {
   pair: AgreementPair
   responses: ResponseCounts
   effort: EvaluatorEffort[]
   outliers: OutlierMark[]
+  participation?: Readonly<Record<string, string>>
 }) {
   const { all, withoutOutliers } = pair
   const excluded = new Set(outliers.map((mark) => mark.projectMemberId))
@@ -237,7 +251,7 @@ export function AgreementPanel({
         </Alert>
       ))}
 
-      <EffortList effort={effort} excluded={excluded} />
+      <EffortList effort={effort} excluded={excluded} participation={participation} />
     </div>
   )
 }
