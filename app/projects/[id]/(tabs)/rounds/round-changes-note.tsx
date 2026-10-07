@@ -6,6 +6,7 @@ import {
   ENTERS_PHASE_3_NOTE,
   changesHeading,
   codebookChangeText,
+  entersPhase4Note,
   phaseChangeText,
   promptChangeText,
 } from './round-changes-labels'
@@ -73,6 +74,12 @@ export function RoundChangesNote({
 
       {changes.entersPhase3 ? (
         <p className="m-0 text-[13px] text-ink">{ENTERS_PHASE_3_NOTE}</p>
+      ) : null}
+
+      {changes.entersPhase4 ? (
+        <p className="m-0 text-[13px] text-ink">
+          {entersPhase4Note(changes.previousRoundNumber)}
+        </p>
       ) : null}
 
       {notice ? (

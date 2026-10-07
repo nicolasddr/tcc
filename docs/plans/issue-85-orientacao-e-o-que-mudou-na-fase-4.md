@@ -17,7 +17,7 @@ seguinte herda", e é ali que se anota o que divergiu.
 | Parte | Entrega | Estado |
 |---|---|---|
 | 1 | A orientação da Fase 4: a função passa a receber a fase da rodada, os três textos novos com as varreduras, e a orientação aparecendo na rodada da Fase 4 da tela de rodadas | ☑ |
-| 2 | O "o que mudou" da entrada na Fase 4: o caso novo em `roundChanges`, a frase com o número da rodada de referência, na revisão da rodada e no cartão da lista; verificação no navegador e varredura dos ACs | ☐ |
+| 2 | O "o que mudou" da entrada na Fase 4: o caso novo em `roundChanges`, a frase com o número da rodada de referência, na revisão da rodada e no cartão da lista; verificação no navegador e varredura dos ACs | ☑ |
 
 As duas Partes são independentes no código (arquivos diferentes), mas a Parte 2 fecha a issue e faz a
 varredura de todos os ACs, então vai por último.
@@ -282,7 +282,17 @@ comparação continuam renderizadas nas mesmas condições de hoje.
 | A orientação e a frase não aparecem para o Avaliador | 1, 2 | página: Avaliador na rodada da Fase 4 sem `ReadingGuidanceNote` nem os textos (Parte 1); Avaliador na revisão da rodada da Fase 4 sem `RoundChangesNote` nem a frase (Parte 2) |
 | Testes: unitário dos textos, varredura, mudanças na entrada da Fase 4, página, suíte verde | 1, 2 | — |
 
-A tabela "AC → nome do teste" é preenchida no fim da Parte 2.
+A tabela "AC → nome do teste" é preenchida no fim da Parte 2:
+
+| AC | Testes |
+|---|---|
+| Orientação própria nos três casos de ICR ☑ | `reading-guidance.unit`: "na Fase 4, os mesmos cortes dão os mesmos casos, com a fase da rodada"; `reading-guidance-labels.unit`: "na Fase 4, guidanceText devolve os textos da Fase 4", "na Fase 4, abaixo da faixa…", "na Fase 4, não calculável…", "na Fase 4, dentro da faixa…"; `phase-4-reading.int`: "numa rodada da Fase 4 abaixo da faixa…", "… dentro da faixa…", "… com um avaliador só…" |
+| Nenhum texto da Fase 4 fala em voltar, aprovação, replicação, generalização ☑ | `reading-guidance-labels.unit`: "nenhum texto da Fase 4 fala em voltar, refinar ou veredito"; `phase-4-reading.int`: "nenhum texto renderizado da orientação da Fase 4 fala em voltar, refinar ou veredito"; `round-changes-labels.unit`: "a frase da Fase 4 não fala em voltar, veredito nem novidade" |
+| Textos da Fase 3 não mudam ☑ | `reading-guidance-labels.unit`: "guidanceText devolve o texto de cada caso", "abaixo da faixa manda refinar…", "não calculável diz o motivo…", "dentro da faixa manda olhar a Qualidade…" (sem edição de texto); `phase-4-reading.int`: "num projeto na Fase 4 sem rodada da Fase 4, a rodada em foco da Fase 3 mostra o texto da Fase 3" |
+| A função não recebe Qualidade ☑ | `reading-guidance.unit`: "recebe só o Agreement e a fase, e nada de Qualidade" |
+| Primeira rodada da Fase 4 mostra a frase ☑ | `round-changes.unit`: "a primeira rodada da Fase 4 entra na Fase 4, com as mesmas versões", "a segunda rodada da Fase 4 não é mais a entrada na Fase 4", "retorno e novo avanço sem rodada da Fase 3 no meio…", "o retorno da Fase 4 para a Fase 3…"; `round-changes-labels.unit`: "a frase da Fase 4 nomeia a rodada de referência e diz o que deve mudar", "só a frase da entrada na Fase 4 menciona a Fase 4"; `[roundId]/page.int`: "na primeira rodada da Fase 4, a revisão diz…", "a frase da Fase 4 aparece mesmo com os mesmos itens e avaliadores da referência", "a segunda rodada da Fase 4 não repete a frase"; `phase-4-reading.int`: "no cartão da rodada da Fase 4, a frase nomeia a mesma rodada de referência do bloco de comparação", "depois de um retorno e de um novo avanço, a frase nomeia a referência da passagem" |
+| Orientação e frase não aparecem para o Avaliador ☑ | `phase-4-reading.int`: "o Avaliador não vê comparação, rodada de referência, Concordância nem Qualidade" (estendido com `RoundChangesNote` e a frase); `[roundId]/page.int`: "o avaliador na primeira rodada da Fase 4 não recebe o que mudou nem a frase" |
+| Testes, suíte verde ☑ | 89 arquivos, 1326 testes |
 
 ---
 
@@ -601,4 +611,33 @@ Closes #85
 
 ### Handoff
 
-_(preencher ao fim da Parte 2: o que divergiu do plano, contagem final da suíte, achados do navegador)_
+**Suíte:** 89 arquivos, 1326 testes verdes (11 novos); lint e typecheck verdes.
+
+**Nome final:** `entersPhase4Note(referenceRoundNumber)` em `round-changes-labels.ts`; texto: "Primeira
+rodada da Fase 4: o codebook e o prompt são os mesmos da rodada de referência, a rodada {N}. O que deve
+mudar são os itens de entrada e os avaliadores."
+
+**O que divergiu:**
+- O Avaliador da revisão ganhou um teste irmão na Fase 4 ("o avaliador na primeira rodada da Fase 4 não
+  recebe o que mudou nem a frase") em vez de estender o da Fase 3.
+- "a frase aparece mesmo com os mesmos itens e avaliadores": `nextRoundWith` cria itens novos e não
+  avalia, então a cena foi montada à mão (mesmo item da referência, lido de `responses`, e a mesma
+  avaliadora nas duas rodadas).
+- Vermelho visto: unitários (12 falhas) antes do código. Nos de página, com só `round-changes-note.tsx`
+  revertido, 4 falhas por frase ausente (revisão: 2; cartão: 2). Passaram antes do código, como
+  esperado: as asserções negativas do Avaliador (revisão e lista) e "a segunda rodada da Fase 4 não
+  repete a frase".
+
+**Navegador** (cena semeada e apagada; `scores` = 0 depois):
+- orientação da Fase 4 entre Concordância e Qualidade nos três casos (abaixo, dentro, sem ICR), com os
+  textos definitivos;
+- frase na revisão `[roundId]` (abaixo de "Fase: 3 → 4") e no cartão compacto;
+- 375 px (medido em iframe): os textos novos terminam em 317-336 px; o que passa de 375 é a barra de
+  abas e a matriz, dívida anterior;
+- Avaliador: nem orientação, nem "o que mudou", nem a frase, na lista e na revisão.
+- No cartão, a frase ("…da rodada de referência, a rodada 1…") e a linha "Rodada de referência: rodada
+  1 · …" da #84 repetem o número da referência, separadas pelo ICR e pela Qualidade. **A perguntar**
+  antes de esconder a frase no `compact`.
+- Achado fora do escopo: a ajuda da seção de Concordância (`rounds/page.tsx:255`) diz, na última
+  rodada, "é com ela que se decide onde refinar o codebook antes da próxima rodada" — também numa rodada
+  da Fase 4, onde não se refina (verbete **Refinar**).

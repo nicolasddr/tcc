@@ -1,4 +1,4 @@
-import { PHASE_3 } from '../../pipeline/preconditions'
+import { PHASE_3, PHASE_4 } from '../../pipeline/preconditions'
 
 export type RoundVersions = {
   roundNumber: number
@@ -16,6 +16,7 @@ export type RoundChanges = {
   phase: Change
   codebookAndPrompt: boolean
   entersPhase3: boolean
+  entersPhase4: boolean
 }
 
 export function previousRoundOf<R extends RoundVersions>(
@@ -52,5 +53,6 @@ export function roundChanges(
     phase: change(previous.phase, round.phase),
     codebookAndPrompt: codebook.changed && prompt.changed,
     entersPhase3: previous.phase < PHASE_3 && round.phase >= PHASE_3,
+    entersPhase4: previous.phase < PHASE_4 && round.phase >= PHASE_4,
   }
 }

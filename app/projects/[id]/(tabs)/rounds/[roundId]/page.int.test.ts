@@ -50,15 +50,16 @@ import { QueueNav } from '@/app/components/ui/queue-nav'
 import { Disclosure } from '@/app/components/ui/disclosure'
 import { loadCodebookVersion } from '@/app/projects/[id]/pipeline/codebook'
 import { resolveCells } from '@/app/projects/[id]/pipeline/criteria'
-import { PHASE_2, PHASE_3 } from '@/app/projects/[id]/pipeline/preconditions'
+import { PHASE_2, PHASE_3, PHASE_4 } from '@/app/projects/[id]/pipeline/preconditions'
 import { roundInputSummary } from '@/app/projects/[id]/(tabs)/rounds/preconditions'
 import { RoundChangesNote } from '@/app/projects/[id]/(tabs)/rounds/round-changes-note'
 import {
   CODEBOOK_AND_PROMPT_NOTICE,
   CODEBOOK_AND_PROMPT_WITH_INPUT_NOTICE,
   ENTERS_PHASE_3_NOTE,
+  entersPhase4Note,
 } from '@/app/projects/[id]/(tabs)/rounds/round-changes-labels'
-import { ownerDb, projectMembers } from '@/lib/db'
+import { ownerDb, projectMembers, responses as responsesTable } from '@/lib/db'
 import {
   createUser,
   createProject as seedProject,
@@ -899,6 +900,102 @@ describe('app/projects/[id]/rounds/[roundId] — a revisão de discordâncias', 
     expect(text).toContain(ENTERS_PHASE_3_NOTE)
     expect(text).toContain(CODEBOOK_AND_PROMPT_WITH_INPUT_NOTICE)
     expect(text).not.toContain(CODEBOOK_AND_PROMPT_NOTICE)
+  })
+
+  it('na primeira rodada da Fase 4, a revisão diz que codebook e prompt são os da rodada de referência e que mudam itens e avaliadores', async () => {
+    const admin = await newUser('Admin')
+    const first = await roundWith(admin, 1, { phase: PHASE_3 })
+    const second = await nextRoundWith(admin, first, 1, {
+      roundNumber: 2,
+      phase: PHASE_4,
+    })
+
+    auth.userId = admin
+    const text = changesTextOf(await render(second.project, second.round))
+
+    expect(text).toContain(`Fase: ${PHASE_3} → ${PHASE_4}`)
+    expect(text).toContain('Codebook: v1, o mesmo')
+    expect(text).toContain('Prompt: v1, o mesmo')
+    expect(text).toContain(entersPhase4Note(1))
+    expect(text).not.toContain(ENTERS_PHASE_3_NOTE)
+    expect(text).not.toContain(CODEBOOK_AND_PROMPT_NOTICE)
+    expect(text).not.toContain(CODEBOOK_AND_PROMPT_WITH_INPUT_NOTICE)
+  })
+
+  it('a frase da Fase 4 aparece mesmo com os mesmos itens e avaliadores da referência', async () => {
+    const admin = await newUser('Admin')
+    const first = await roundWith(admin, 1, { phase: PHASE_3 })
+    const ana = await newSignedEvaluator(first.project, 'Ana Avaliadora')
+    await addEvaluation(ownerDb, first.round, first.responses[0], ana.member, {
+      cells: [note(first, 'Informacional', 'Precisão', 'high')],
+    })
+    const [{ inputItemId }] = await ownerDb
+      .select({ inputItemId: responsesTable.inputItemId })
+      .from(responsesTable)
+      .where(eq(responsesTable.id, first.responses[0]))
+    const round = await addRound(
+      ownerDb,
+      first.project,
+      admin,
+      first.codebookVersion,
+      first.promptVersion,
+      { roundNumber: 2, status: 'closed', phase: PHASE_4 },
+    )
+    const response = await addResponse(ownerDb, round, inputItemId, admin)
+    await addEvaluation(ownerDb, round, response, ana.member, {
+      cells: [note(first, 'Informacional', 'Precisão', 'high')],
+    })
+
+    auth.userId = admin
+    const text = changesTextOf(await render(first.project, round))
+
+    expect(text).toContain(entersPhase4Note(1))
+  })
+
+  it('a segunda rodada da Fase 4 não repete a frase', async () => {
+    const admin = await newUser('Admin')
+    const first = await roundWith(admin, 1, { phase: PHASE_3 })
+    const second = await nextRoundWith(admin, first, 1, {
+      roundNumber: 2,
+      phase: PHASE_4,
+    })
+    const third = await nextRoundWith(admin, second, 1, {
+      roundNumber: 3,
+      phase: PHASE_4,
+    })
+
+    auth.userId = admin
+    const text = changesTextOf(await render(third.project, third.round))
+
+    expect(text).toContain('Em relação à rodada 2')
+    expect(text).toContain(`Fase: ${PHASE_4}, a mesma`)
+    expect(text).not.toMatch(/Primeira rodada da Fase 4/)
+  })
+
+  it('o avaliador na primeira rodada da Fase 4 não recebe o que mudou nem a frase', async () => {
+    const admin = await newUser('Admin')
+    const first = await roundWith(admin, 1, { phase: PHASE_3 })
+    const scene = await nextRoundWith(admin, first, 1, {
+      roundNumber: 2,
+      phase: PHASE_4,
+    })
+    const ana = await newSignedEvaluator(scene.project, 'Ana Avaliadora')
+    await addEvaluation(ownerDb, scene.round, scene.responses[0], ana.member, {
+      cells: [note(scene, 'Informacional', 'Precisão', 'high')],
+    })
+
+    auth.userId = admin
+    expect(findElement(await render(scene.project, scene.round), RoundChangesNote)).toBeTruthy()
+
+    auth.userId = ana.user
+    const tree = await render(scene.project, scene.round)
+    const text = `${textOf(tree)} ${listTextOf(tree)}`
+
+    expect(text).toContain('Ana Avaliadora')
+    expect(findElement(tree, RoundChangesNote)).toBeNull()
+    expect(text).not.toContain('Em relação à rodada')
+    expect(text).not.toContain(entersPhase4Note(1))
+    expect(text).not.toContain('rodada de referência')
   })
 
   it('a primeira rodada do projeto não mostra comparação nenhuma', async () => {

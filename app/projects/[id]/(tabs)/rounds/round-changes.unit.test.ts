@@ -76,6 +76,7 @@ describe('roundChanges — o que mudou em relação à rodada anterior', () => {
       phase: { changed: false, from: 2, to: 2 },
       codebookAndPrompt: false,
       entersPhase3: false,
+      entersPhase4: false,
     })
   })
 
@@ -101,6 +102,31 @@ describe('roundChanges — o que mudou em relação à rodada anterior', () => {
 
     expect(changes!.phase).toEqual({ changed: true, from: 4, to: 3 })
     expect(changes!.entersPhase3).toBe(false)
+    expect(changes!.entersPhase4).toBe(false)
+  })
+
+  it('a primeira rodada da Fase 4 entra na Fase 4, com as mesmas versões', () => {
+    const changes = roundChanges(versions(4, 4, 3, 2), versions(3, 3, 3, 2))
+
+    expect(changes!.entersPhase4).toBe(true)
+    expect(changes!.entersPhase3).toBe(false)
+    expect(changes!.phase).toEqual({ changed: true, from: 3, to: 4 })
+    expect(changes!.codebook.changed).toBe(false)
+    expect(changes!.prompt.changed).toBe(false)
+    expect(changes!.codebookAndPrompt).toBe(false)
+  })
+
+  it('a segunda rodada da Fase 4 não é mais a entrada na Fase 4', () => {
+    const changes = roundChanges(versions(5, 4, 3, 2), versions(4, 4, 3, 2))
+
+    expect(changes!.phase.changed).toBe(false)
+    expect(changes!.entersPhase4).toBe(false)
+  })
+
+  it('retorno e novo avanço sem rodada da Fase 3 no meio não é a entrada na Fase 4', () => {
+    const changes = roundChanges(versions(7, 4, 5, 3), versions(6, 4, 5, 3))
+
+    expect(changes!.entersPhase4).toBe(false)
   })
 
   it('a primeira rodada do projeto não tem comparação', () => {
@@ -123,6 +149,7 @@ describe('roundChanges — o que mudou em relação à rodada anterior', () => {
       'codebook',
       'codebookAndPrompt',
       'entersPhase3',
+      'entersPhase4',
       'phase',
       'previousRoundNumber',
       'prompt',

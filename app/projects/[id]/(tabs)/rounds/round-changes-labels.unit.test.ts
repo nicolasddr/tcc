@@ -6,6 +6,7 @@ import {
   ENTERS_PHASE_3_NOTE,
   changesHeading,
   codebookChangeText,
+  entersPhase4Note,
   phaseChangeText,
   promptChangeText,
 } from '@/app/projects/[id]/(tabs)/rounds/round-changes-labels'
@@ -22,10 +23,11 @@ const JUDGEMENT_WORDS = [
   'aprovad',
   'suficiente',
   'avançar',
-  'fase 4',
 ]
 
 const BLOCKING_WORDS = ['não pode abrir', 'bloque', 'trava', 'impede']
+
+const RETURN_AND_VERDICT_WORDS = ['voltar', 'retorn', 'aprova', 'replic', 'generaliz', 'novos']
 
 const changed = { changed: true, from: 3, to: 4 }
 const unchanged = { changed: false, from: 4, to: 4 }
@@ -39,6 +41,7 @@ function allTexts(): string[] {
   for (const text of [codebookChangeText, promptChangeText, phaseChangeText]) {
     texts.push(text(changed), text(unchanged))
   }
+  texts.push(entersPhase4Note(7))
   return texts
 }
 
@@ -74,12 +77,31 @@ describe('app/projects/[id]/rounds/round-changes-labels — o que mudou na tela'
     expect(CODEBOOK_AND_PROMPT_WITH_INPUT_NOTICE).toContain('nem só à forma de montar a entrada')
   })
 
+  it('a frase da Fase 4 nomeia a rodada de referência e diz o que deve mudar', () => {
+    const note = entersPhase4Note(7)
+
+    expect(note).toContain('Primeira rodada da Fase 4')
+    expect(note).toContain('os mesmos da rodada de referência')
+    expect(note).toContain('a rodada 7')
+    expect(note).toContain('itens de entrada')
+    expect(note).toContain('avaliadores')
+  })
+
+  it('a frase da Fase 4 não fala em voltar, veredito nem novidade', () => {
+    const note = entersPhase4Note(7).toLowerCase()
+
+    for (const word of RETURN_AND_VERDICT_WORDS) {
+      expect(note).not.toContain(word)
+    }
+  })
+
   it('a varredura alcança todas as frases exportadas', () => {
     expect(allTexts()).toEqual(
       expect.arrayContaining([
         CODEBOOK_AND_PROMPT_NOTICE,
         CODEBOOK_AND_PROMPT_WITH_INPUT_NOTICE,
         ENTERS_PHASE_3_NOTE,
+        entersPhase4Note(7),
       ]),
     )
   })
@@ -100,9 +122,13 @@ describe('app/projects/[id]/rounds/round-changes-labels — o que mudou na tela'
     }
   })
 
-  it('nenhum texto menciona a Fase 4', () => {
+  it('só a frase da entrada na Fase 4 menciona a Fase 4', () => {
+    const phase4Note = entersPhase4Note(7)
+
     for (const text of allTexts()) {
+      if (text === phase4Note) continue
       expect(text).not.toMatch(/Fase 4/i)
     }
+    expect(phase4Note).toMatch(/Fase 4/)
   })
 })

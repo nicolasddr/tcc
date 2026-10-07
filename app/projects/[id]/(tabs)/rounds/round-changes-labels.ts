@@ -1,4 +1,4 @@
-import { PHASE_3 } from '../../pipeline/preconditions'
+import { PHASE_3, PHASE_4 } from '../../pipeline/preconditions'
 import { QUALITY_LABEL } from './quality-labels'
 import type { Change } from './round-changes'
 
@@ -37,3 +37,11 @@ export const ENTERS_PHASE_3_NOTE =
   `Primeira rodada da Fase ${PHASE_3}: a mudança principal foi a forma de montar a ` +
   'entrada, que passou a levar o codebook completo à LLM junto com o prompt e o item ' +
   'de entrada.'
+
+export function entersPhase4Note(referenceRoundNumber: number): string {
+  return (
+    `Primeira rodada da Fase ${PHASE_4}: o codebook e o prompt são os mesmos da rodada de ` +
+    `referência, a rodada ${referenceRoundNumber}. O que deve mudar são os itens de entrada e ` +
+    'os avaliadores.'
+  )
+}

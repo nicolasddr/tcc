@@ -54,6 +54,8 @@ import {
   notCalculableGuidance,
   phase4NotCalculableGuidance,
 } from '@/app/projects/[id]/(tabs)/rounds/reading-guidance-labels'
+import { RoundChangesNote } from '@/app/projects/[id]/(tabs)/rounds/round-changes-note'
+import { entersPhase4Note } from '@/app/projects/[id]/(tabs)/rounds/round-changes-labels'
 import { PARTICIPATION_HELP } from '@/app/projects/[id]/(tabs)/rounds/participation-labels'
 import { Section } from '@/app/components/ui/section'
 import { loadCodebookVersion } from '@/app/projects/[id]/pipeline/codebook'
@@ -164,6 +166,7 @@ type PanelProps = Parameters<typeof AgreementPanel>[0]
 type ComparisonProps = Parameters<typeof ReferenceComparisonPanel>[0]
 type LineProps = Parameters<typeof ReferenceRoundLine>[0]
 type GuidanceProps = Parameters<typeof ReadingGuidanceNote>[0]
+type ChangesProps = Parameters<typeof RoundChangesNote>[0]
 type CodebookShape = Parameters<typeof addCodebookVersion>[3]
 
 function render(id: string) {
@@ -209,6 +212,17 @@ function cardsOf(list: ListProps): ReactElement[] {
 
 function referenceLineOf(card: ReactElement): ReactElement | null {
   return findElement(card, ReferenceRoundLine)
+}
+
+function changesOf(card: ReactElement): ChangesProps | null {
+  const element = findElement(card, RoundChangesNote)
+  return element ? (element.props as ChangesProps) : null
+}
+
+function changesTextOf(card: ReactElement): string {
+  const props = changesOf(card)
+  expect(props).toBeTruthy()
+  return markupTextOf(createElement(RoundChangesNote, props!))
 }
 
 function sidesOf(tree: unknown): { agreement: ReactElement; quality: ReactElement }[] {
@@ -560,6 +574,49 @@ describe('app/projects/[id]/rounds — a rodada da Fase 4 ao lado da rodada de r
     )
   })
 
+  it('no cartão da rodada da Fase 4, a frase nomeia a mesma rodada de referência do bloco de comparação', async () => {
+    const admin = await newUser('Admin')
+    const scene = await basicScene(admin)
+
+    auth.userId = admin
+    const tree = await render(scene.project)
+
+    const { comparison } = comparisonOf(tree)
+    expect(comparison.kind).toBe('compared')
+    const reference = comparison.kind === 'compared' ? comparison.reference.roundNumber : null
+    expect(reference).toBe(1)
+
+    const cards = cardsOf(listOf(tree))
+    const changes = changesOf(cards[1])
+    expect(changes).toBeTruthy()
+    expect(changes!.compact).toBe(true)
+    expect(changes!.changes.entersPhase4).toBe(true)
+    expect(changesTextOf(cards[1])).toContain(entersPhase4Note(reference!))
+  })
+
+  it('depois de um retorno e de um novo avanço, a frase nomeia a referência da passagem', async () => {
+    const admin = await newUser('Admin')
+    const scene = await phase4Scene(admin, [
+      { roundNumber: 1, phase: PHASE_3, status: 'closed' },
+      { roundNumber: 2, phase: PHASE_4, status: 'closed' },
+      { roundNumber: 3, phase: PHASE_3, status: 'closed' },
+      { roundNumber: 4, phase: PHASE_4, status: 'open' },
+    ])
+
+    auth.userId = admin
+    const tree = await render(scene.project)
+
+    const { comparison } = comparisonOf(tree)
+    expect(comparison.kind === 'compared' && comparison.reference.roundNumber).toBe(3)
+
+    const cards = cardsOf(listOf(tree))
+    expect(changesTextOf(cards[1])).toContain(entersPhase4Note(1))
+    expect(changesOf(cards[2])!.changes.entersPhase4).toBe(false)
+    expect(changesTextOf(cards[2])).not.toMatch(/Primeira rodada da Fase 4/)
+    expect(changesTextOf(cards[3])).toContain(entersPhase4Note(3))
+    expect(changesTextOf(cards[3])).not.toContain(entersPhase4Note(1))
+  })
+
   it('numa rodada em foco da Fase 3, o bloco não aparece, e nenhum cartão das Fases 2 e 3 traz a referência', async () => {
     const admin = await newUser('Admin')
     const scene = await phase4Scene(admin, [
@@ -727,6 +784,9 @@ describe('app/projects/[id]/rounds — a rodada da Fase 4 ao lado da rodada de r
     for (const guidance of PHASE_4_GUIDANCE_TEXTS) {
       expect(text).not.toContain(guidance.toLowerCase())
     }
+    expect(findElement(tree, RoundChangesNote)).toBeNull()
+    expect(text).not.toContain(entersPhase4Note(1).toLowerCase())
+    expect(text).not.toContain('primeira rodada da fase 4')
   })
 
   it('no painel da rodada da Fase 4, quem avaliou antes tem a marca e quem chegou agora não', async () => {
