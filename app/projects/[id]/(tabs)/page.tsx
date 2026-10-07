@@ -11,6 +11,7 @@ import { PhaseBar } from '../phase-bar'
 import { PipelineChecklist } from '../pipeline/pipeline-checklist'
 import { Phase2Checklist } from '../pipeline/phase-2-checklist'
 import { Phase3Checklist } from '../pipeline/phase-3-checklist'
+import { Phase4Return } from '../pipeline/phase-4-return'
 import type { LastClosedRound } from '../pipeline/last-round-summary'
 import {
   EMPTY_PIPELINE,
@@ -18,6 +19,7 @@ import {
   PHASE_3,
   PHASE_4,
   type Phase2Inputs,
+  type ReturnInputs,
 } from '../pipeline/preconditions'
 import { loadCodebook } from '../pipeline/codebook'
 import { loadPrompt } from '../pipeline/prompt'
@@ -29,13 +31,20 @@ import {
   roundsInPhase,
   type RoundSummary,
 } from './rounds/rounds'
-import { projectReferenceRound, referenceVersionsOf } from './rounds/reference-round'
+import {
+  lastClosedPhase4RoundOfPassage,
+  projectReferenceRound,
+  referenceRoundOf,
+  referenceVersionsOf,
+} from './rounds/reference-round'
+import { referenceComparison } from './rounds/reference-comparison'
+import { ReferenceComparisonPanel } from './rounds/reference-comparison-panel'
 import { loadProjectObservations, type RoundObservation } from './rounds/agreement'
 import { loadProjectOutliers } from './rounds/outliers'
 import { agreementSeries } from './rounds/agreement-series'
-import { agreementPair } from './rounds/agreement-pair'
+import { agreementPair, type AgreementPair } from './rounds/agreement-pair'
 import { AgreementSeriesChart } from './rounds/agreement-series-chart'
-import { hasQuality, qualityPair } from './rounds/quality'
+import { hasQuality, qualityPair, type QualityPair } from './rounds/quality'
 import {
   QUALITY_HELP,
   QUALITY_HINT,
@@ -101,6 +110,44 @@ function phase3ChecklistData(
       versions: referenceVersionsOf(agreement.rounds, current),
     },
     lastRound: lastClosedRoundOf(agreement, projectReferenceRound(agreement.rounds)),
+  }
+}
+
+function phase4ReturnData(agreement: AgreementData) {
+  const inputs: ReturnInputs = {
+    openRoundNumber: agreement.rounds.find(isOpen)?.roundNumber ?? null,
+  }
+
+  const round = lastClosedPhase4RoundOfPassage(agreement.rounds)
+  if (!round) return { inputs, summary: null }
+
+  const compared = [round, referenceRoundOf(agreement.rounds, round)].filter(
+    (candidate): candidate is RoundSummary => candidate !== null,
+  )
+  const pairs = new Map<string, AgreementPair>()
+  const qualities = new Map<string, QualityPair>()
+  for (const candidate of compared) {
+    const observations = agreement.observations.get(candidate.id) ?? []
+    const excluded = agreement.outliers.get(candidate.id) ?? new Set<string>()
+    pairs.set(candidate.id, agreementPair(observations, excluded))
+    if (hasQuality(candidate.phase)) {
+      qualities.set(candidate.id, qualityPair(observations, excluded))
+    }
+  }
+
+  const comparison = referenceComparison(agreement.rounds, round, pairs, qualities)
+  if (comparison.kind === 'not_phase_4') return { inputs, summary: null }
+
+  return {
+    inputs,
+    summary: (
+      <div className="flex flex-col gap-3">
+        <p className="m-0 text-[13px] font-semibold text-ink">
+          Última rodada fechada da Fase {PHASE_4}, ao lado da sua rodada de referência
+        </p>
+        <ReferenceComparisonPanel roundNumber={round.roundNumber} comparison={comparison} />
+      </div>
+    ),
   }
 }
 
@@ -224,6 +271,8 @@ export default async function ProjectPage({
           prompt: artifacts.prompt.version?.versionNumber ?? null,
         })
       : null
+  const phase4 =
+    agreement && artifacts && project.phase === PHASE_4 ? phase4ReturnData(agreement) : null
 
   const members = groupMembers(memberRows)
   const activeEvaluators = members.filter(
@@ -280,13 +329,17 @@ export default async function ProjectPage({
             className="mt-4"
             current={project.phase}
             action={
-              isAdmin &&
-              project.status === 'active' &&
-              project.phase < PHASE_4 ? (
-                <ButtonLink href="#avancar">
-                  Avançar fase
-                  <ArrowRightIcon />
-                </ButtonLink>
+              isAdmin && project.status === 'active' ? (
+                project.phase < PHASE_4 ? (
+                  <ButtonLink href="#avancar">
+                    Avançar fase
+                    <ArrowRightIcon />
+                  </ButtonLink>
+                ) : (
+                  <ButtonLink href="#voltar" variant="secondary">
+                    Voltar à Fase {PHASE_3}
+                  </ButtonLink>
+                )
               ) : null
             }
           />
@@ -428,6 +481,17 @@ export default async function ProjectPage({
                   lastRound={phase3.lastRound}
                 />
               ) : null}
+            </div>
+          ) : null}
+
+          {phase4 ? (
+            <div id="voltar" className="scroll-mt-6">
+              <Phase4Return
+                className="mt-3"
+                projectId={project.id}
+                inputs={phase4.inputs}
+                summary={phase4.summary}
+              />
             </div>
           ) : null}
         </>

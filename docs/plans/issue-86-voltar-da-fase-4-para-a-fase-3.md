@@ -15,7 +15,7 @@ seguinte herda", e é ali que se anota o que divergiu.
 |---|---|---|
 | 1 | Regras puras: pré-condições do retorno, mensagens, linhas da confirmação, a rodada da Fase 4 que a confirmação mostra e a frase nova na confirmação do avanço da Fase 3 | ✅ |
 | 2 | A action `returnToPhase3`: recusa com rodada aberta, papel, fase errada; prova de que nada além da fase muda, de que ninguém é notificado e de que o descongelamento e o novo avanço seguem as regras | ✅ |
-| 3 | A tela: painel "Para voltar à Fase 3" com a confirmação, link na barra de fases, testes de página, navegador e varredura dos ACs. Fecha a issue | ☐ |
+| 3 | A tela: painel "Para voltar à Fase 3" com a confirmação, link na barra de fases, testes de página, navegador e varredura dos ACs. Fecha a issue | ✅ |
 
 **Duas decisões ⚠ precisam de confirmação** (D4, antes da Parte 1, e D7, antes da Parte 3). Perguntar
 cada uma antes de escrever código da Parte em que entra.
@@ -216,7 +216,7 @@ já vale dentro do painel).
 Conferir no navegador o grid `sm:grid-cols-2` dentro do diálogo de 32rem: a 640 px os dois lados ficam
 com ~235 px cada; a 375 px empilham.
 
-**D7 ⚠. O peso visual do retorno — a confirmar antes da Parte 3.** O retorno não é próxima etapa, e a
+**D7 ⚠. O peso visual do retorno — confirmada (as três recomendações) em 2026-10-06.** O retorno não é próxima etapa, e a
 spec proíbe "nada que soe como conclusão ou próxima etapa". Recomendação:
 
 - **Barra de fases na Fase 4**: `ButtonLink variant="secondary"` "Voltar à Fase 3" apontando para
@@ -289,14 +289,14 @@ Preencher a coluna "Teste" com o nome real de cada teste ao fim de cada Parte.
 | O retorno é recusado no servidor com rodada aberta, com mensagem que nomeia a rodada | P1 (unitário) + P2 (integração) | P1: `returnBlockers › trava com rodada aberta, nomeando a rodada`; `returnBlockerMessage… › nomeia a rodada aberta duas vezes e manda fechá-la`. P2: `recusa o retorno com rodada aberta, nomeando a rodada, e nada muda` |
 | O retorno funciona sem nenhuma rodada da Fase 4 | P2 | P2: `sem nenhuma rodada da Fase 4, o Administrador volta para a Fase 3` |
 | O retorno funciona depois de rodadas fechadas da Fase 4, e elas continuam intactas | P2 | P2: `depois de rodadas fechadas da Fase 4, volta e não muda nada além da fase` |
-| Nenhum valor de ICR ou de Qualidade trava o retorno | P1 (assinatura) + P2 (ICR baixo e Qualidade em Baixo) + P3 (painel liberado) | P1: `returnBlockers › só lê a rodada aberta: nem rodada fechada nem métrica entram`. P2: `concordância baixa e Qualidade concentrada em Baixo na rodada da Fase 4 não impedem o retorno` |
+| Nenhum valor de ICR ou de Qualidade trava o retorno | P1 (assinatura) + P2 (ICR baixo e Qualidade em Baixo) + P3 (painel liberado) | P1: `returnBlockers › só lê a rodada aberta: nem rodada fechada nem métrica entram`. P2: `concordância baixa e Qualidade concentrada em Baixo na rodada da Fase 4 não impedem o retorno`. P3: `na Fase 4 sem rodada aberta, o painel aparece liberado com as linhas da confirmação` |
 | Depois do retorno, salvar o codebook e o texto do prompt funciona e cria versão nova | P2 | P2: `na Fase 4 o codebook é recusado, e depois do retorno salvá-lo cria a versão seguinte`; `na Fase 4 o prompt é recusado, e depois do retorno salvar o texto cria a versão seguinte` |
-| A confirmação diz o que fica, o que destrava e que voltar à Fase 4 segue as regras do avanço | P1 (linhas) + P3 (`lines` no `ReturnPhase`) | P1: `describe('returnConfirmationLines')` (6 testes) |
-| Com rodada fechada da Fase 4, a confirmação mostra a última delas ao lado da sua referência, sem veredito | P1 (D4) + P3 | P1: `reference-round — a rodada da Fase 4 da passagem atual` (6 testes) |
+| A confirmação diz o que fica, o que destrava e que voltar à Fase 4 segue as regras do avanço | P1 (linhas) + P3 (`lines` no `ReturnPhase`) | P1: `describe('returnConfirmationLines')` (6 testes). P3: `na Fase 4 sem rodada aberta, o painel aparece liberado com as linhas da confirmação` |
+| Com rodada fechada da Fase 4, a confirmação mostra a última delas ao lado da sua referência, sem veredito | P1 (D4) + P3 | P1: `reference-round — a rodada da Fase 4 da passagem atual` (6 testes). P3: `com rodadas fechadas da Fase 4, a confirmação mostra a última delas ao lado da sua referência, sem veredito`; `sem rodada fechada da Fase 4, a confirmação não mostra comparação`; `a rodada da Fase 4 de uma passagem anterior não entra na confirmação` |
 | O retorno não notifica ninguém | P2 | P2: `o retorno não notifica ninguém` (e a contagem em `depois de rodadas fechadas da Fase 4…`) |
-| A confirmação do avanço da Fase 3 para a 4 diz que é possível voltar | P1 (D5) + P3 | P1: `phase4ConfirmationLines › fala do retorno só na penúltima linha` |
-| O painel da Fase 4 não tem botão de concluir nem texto de aprovação | P3 (varredura de texto) | |
-| O Avaliador não vê o painel e é barrado na ação | P2 (action) + P3 (página) | P2: `o Avaliador é recusado, e quem não é membro recebe a mesma mensagem, sem mudar a fase` |
+| A confirmação do avanço da Fase 3 para a 4 diz que é possível voltar | P1 (D5) + P3 | P1: `phase4ConfirmationLines › fala do retorno só na penúltima linha`. P3: `na Fase 3, a confirmação do avanço para a Fase 4 diz que é possível voltar à Fase 3` |
+| O painel da Fase 4 não tem botão de concluir nem texto de aprovação | P3 (varredura de texto) | P3: `o painel da Fase 4 não tem botão de concluir nem texto de aprovação` |
+| O Avaliador não vê o painel e é barrado na ação | P2 (action) + P3 (página) | P2: `o Avaliador é recusado, e quem não é membro recebe a mesma mensagem, sem mudar a fase`. P3: `o Avaliador não vê o painel nem o link da barra, com e sem rodada fechada da Fase 4` |
 
 | Teste da issue | Onde |
 |---|---|
@@ -664,7 +664,41 @@ Closes #86
 
 ### Handoff
 
-_(preencher ao fim da Parte: suíte, divergências, vermelho visto, achados do navegador)_
+- **D7 confirmada** antes do código: link secundário "Voltar à Fase 3" na barra para `#voltar`;
+  botão do painel `secondary` sem ícone; badge `liberado` (tom `neutral`) / `1 pendência` (`warning`).
+- **Arquivos**: `pipeline/return-phase.tsx` (`ReturnPhase`), `pipeline/phase-4-return.tsx`
+  (`Phase4Return`), `advance-phase.tsx` passou a exportar `dialogClass`, `(tabs)/page.tsx` ganhou
+  `phase4ReturnData` (entradas + resumo com `referenceComparison` sobre mapas só das duas rodadas),
+  o bloco `#voltar` e o link da barra. Nenhuma consulta nova.
+- **Testes**: `(tabs)/phase-4-return.int.test.ts`, 11 casos. Nenhum teste antigo editado (o
+  `o botão de avançar fase da barra…` de `page.int.test.ts` continua valendo: na Fase 4 não há
+  `#avancar`).
+- **Vermelho visto**: primeiro na coleta (módulos inexistentes); com `ReturnPhase`/`Phase4Return`
+  provisórios devolvendo `null`, 7 falharam por asserção. Passaram antes do código, como esperado:
+  `o painel só existe na Fase 4` e `o Avaliador não vê o painel…` (asserções negativas), `na Fase 3,
+  a confirmação do avanço…` (a frase é da Parte 1) e `depois do retorno, a série…` (o `phaseRuns` já
+  abria grupo novo; o teste prova na página).
+- **Divergência pequena**: a cena de `depois do retorno, a série…` não tem rodada da Fase 2 (rodadas
+  2, 3 e 4), para a série ter exatamente os três grupos 3, 4 e 3 do plano.
+- **Navegador** (`/dev/login`, cena por teste descartável + `psql`, apagada no fim; `scores` = 0):
+  painel liberado, barra → `#voltar`, diálogo com as linhas e a comparação 3 × 2 lado a lado (diálogo
+  de 512 px, colunas de 221,5 px); Cancelar não muda nada; rodada 4 aberta → painel bloqueado
+  nomeando a rodada, "Resolver" → Rodadas, botão desabilitado; Confirmar → fase 3 no banco, rodadas
+  intactas, 0 notificações; codebook editável e salvar criou a v2 (v1 continua usada); o painel da
+  Fase 3 bloqueou por versões ("usou a versão 1, e a vigente é a 2"); com a rodada 4 da Fase 3 na v2,
+  série 2 · 3 · 4 · 3, avanço liberado e "Fase: 4 → 3" na lista de rodadas; 375 px em iframe: nada
+  passa da borda, a comparação empilha (uma coluna) e o diálogo rola até "Confirmar retorno"; como
+  Avaliador, nem painel nem link.
+- **Achado do navegador**: o alerta de sucesso do `ReturnPhase` nunca aparece, porque a revalidação
+  põe o projeto na Fase 3 e o `Phase4Return` deixa de ser renderizado junto com o alerta. O mesmo
+  já acontece com o `AdvancePhase` dentro do `Phase3Checklist` (que só o renderiza na Fase 3) e do
+  `Phase2Checklist`. A barra de fases e o painel de avanço reaparecendo mostram que a ação deu certo;
+  se quiser a mensagem, é uma fatia à parte (vale para os três).
+- **Sugestão (fora de escopo, § 7)**: link de `frozenMessage` e das recusas da #82 para `#voltar`.
+- **Suíte**: `npm run lint` e `npm run typecheck` limpos; `npm test` 91 arquivos, 1370 testes
+  verdes.
+- **Pendente**: marcar os checkboxes da issue no GitHub e citar os commits das três Partes no
+  fechamento.
 
 ---
 

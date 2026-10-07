@@ -1,34 +1,31 @@
 'use client'
 
 import { useActionState, useEffect, useRef } from 'react'
-import { advancePhase, type AdvancePhaseState } from './actions'
+import { returnToPhase3, type ReturnPhaseState } from './actions'
 import { PROJECT_PHASES } from '../phase-bar'
+import { PHASE_3 } from './preconditions'
+import { dialogClass } from './advance-phase'
 import { Button } from '@/app/components/ui/button'
 import { Alert } from '@/app/components/ui/alert'
-import { ArrowRightIcon } from '@/app/components/ui/icons'
 
-const initialState: AdvancePhaseState = null
+const initialState: ReturnPhaseState = null
 
-export const dialogClass =
-  'm-auto w-[min(32rem,calc(100vw-2rem))] rounded-card border border-line bg-surface ' +
-  'p-0 text-ink backdrop:bg-black/40'
+const titleId = 'voltar-fase-3-titulo'
 
-export function AdvancePhase({
+export function ReturnPhase({
   projectId,
-  target,
   blocked,
   hint,
   lines,
   summary,
 }: {
   projectId: string
-  target: number
   blocked: boolean
   hint: string
   lines: readonly string[]
   summary?: React.ReactNode
 }) {
-  const [state, action, isPending] = useActionState(advancePhase, initialState)
+  const [state, action, isPending] = useActionState(returnToPhase3, initialState)
   const dialog = useRef<HTMLDialogElement>(null)
 
   useEffect(() => {
@@ -36,14 +33,13 @@ export function AdvancePhase({
   }, [state])
 
   const error = state !== null && 'error' in state ? state.error : null
-  const targetName = PROJECT_PHASES[target - 1]?.name
-  const titleId = `avancar-fase-${target}-titulo`
+  const targetName = PROJECT_PHASES[PHASE_3 - 1]?.name
 
   if (state !== null && 'ok' in state) {
     return (
       <Alert tone="success" className="mt-4">
-        O projeto avançou para a Fase {target} — {targetName}. O que ficou para trás
-        continua acessível para consulta.
+        O projeto voltou para a Fase {PHASE_3} — {targetName}. As rodadas da Fase 4
+        continuam acessíveis para consulta.
       </Alert>
     )
   }
@@ -54,13 +50,13 @@ export function AdvancePhase({
 
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
         <Button
+          variant="secondary"
           onClick={() => dialog.current?.showModal()}
           disabled={blocked}
           loading={isPending}
-          loadingText="Avançando…"
+          loadingText="Voltando…"
         >
-          Avançar para a Fase {target}
-          <ArrowRightIcon />
+          Voltar à Fase {PHASE_3}
         </Button>
 
         <span className="text-[13px] text-muted">{hint}</span>
@@ -69,7 +65,7 @@ export function AdvancePhase({
       <dialog ref={dialog} className={dialogClass} aria-labelledby={titleId}>
         <div className="flex flex-col gap-4 p-5">
           <h3 id={titleId} className="m-0 text-[15px] font-bold text-ink">
-            Avançar para a Fase {target} — {targetName}?
+            Voltar à Fase {PHASE_3} — {targetName}?
           </h3>
 
           {summary}
@@ -93,8 +89,8 @@ export function AdvancePhase({
 
             <form action={action}>
               <input type="hidden" name="project_id" value={projectId} />
-              <Button type="submit" loading={isPending} loadingText="Avançando…">
-                Confirmar avanço
+              <Button type="submit" loading={isPending} loadingText="Voltando…">
+                Confirmar retorno
               </Button>
             </form>
           </div>
