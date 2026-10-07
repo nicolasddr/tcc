@@ -242,6 +242,55 @@ export function phase4ConfirmationLines(): string[] {
   return [
     `Na Fase ${PHASE_4}, a avaliação se repete sobre codebook e prompt congelados enquanto ela durar, para medir se o codebook generaliza. Ela pede itens de entrada novos e avaliadores novos, e quais são é escolha do Administrador: a ferramenta não recusa item já usado nem avaliador que já avaliou antes. A Fase ${PHASE_3} continua visível como está: rodadas, avaliações, concordância, Qualidade e anotações ficam onde estão.`,
     'A decisão de avançar é do Administrador. Nenhum valor de concordância ou de Qualidade libera nem impede o avanço: a faixa de referência do ICR é leitura, não regra, e a Qualidade não tem faixa.',
+    `Se o resultado não for o esperado, é possível voltar à Fase ${PHASE_3} para refinar de novo; as rodadas da Fase ${PHASE_4} ficam como histórico.`,
+    'Cancelar não muda nada.',
+  ]
+}
+
+export type ReturnInputs = { openRoundNumber: number | null }
+
+export type ReturnBlocker = { key: 'open_round'; roundNumber: number }
+
+export function returnBlockers(inputs: ReturnInputs): ReturnBlocker[] {
+  if (inputs.openRoundNumber === null) return []
+  return [{ key: 'open_round', roundNumber: inputs.openRoundNumber }]
+}
+
+export function canReturnFromPhase4(inputs: ReturnInputs): boolean {
+  return returnBlockers(inputs).length === 0
+}
+
+export function returnBlockerMessage(blocker: ReturnBlocker): string {
+  switch (blocker.key) {
+    case 'open_round':
+      return (
+        `A rodada ${blocker.roundNumber} ainda está aberta, e voltar à Fase ${PHASE_3} ` +
+        'deixaria para trás um ciclo que nunca se fecha. Feche a rodada ' +
+        `${blocker.roundNumber} e volte de novo.`
+      )
+  }
+}
+
+export function returnBlockedMessage(blockers: readonly ReturnBlocker[]): string {
+  const [first] = blockers
+  if (!first) return ''
+
+  return `Não foi possível voltar à Fase ${PHASE_3}. ${returnBlockerMessage(first)}`
+}
+
+export function returnWrongPhaseMessage(phase: number): string {
+  return (
+    `Este projeto está na Fase ${phase}, então não há de onde voltar aqui: o único retorno ` +
+    `é da Fase ${PHASE_4} para a Fase ${PHASE_3}. Recarregue a página para ver a fase atual.`
+  )
+}
+
+export function returnConfirmationLines(): string[] {
+  return [
+    `As rodadas da Fase ${PHASE_4} ficam como estão: notas, ICR, Qualidade, marcas de outlier e anotações de consenso continuam visíveis, como histórico.`,
+    'Codebook e prompt voltam a ser editáveis. As versões que as rodadas usaram não mudam: a próxima edição cria uma versão nova.',
+    `Para voltar à Fase ${PHASE_4}, valem de novo as regras do avanço: nenhuma rodada aberta, ao menos uma rodada fechada da Fase ${PHASE_3} e codebook e prompt iguais aos da rodada de referência, a última rodada fechada da Fase ${PHASE_3}. Se você editar o codebook ou o prompt, será preciso abrir e fechar mais uma rodada da Fase ${PHASE_3} antes de avançar.`,
+    'A decisão de voltar é do Administrador. Nenhum valor de concordância ou de Qualidade libera, impede ou sugere o retorno.',
     'Cancelar não muda nada.',
   ]
 }

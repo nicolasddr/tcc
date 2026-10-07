@@ -1,4 +1,4 @@
-import { PHASE_3 } from '../../pipeline/preconditions'
+import { PHASE_3, PHASE_4 } from '../../pipeline/preconditions'
 import { isOpen } from './round-status'
 
 export type ReferenceCandidate = { roundNumber: number; phase: number; status: string }
@@ -34,6 +34,18 @@ export function referenceRoundOf<T extends ReferenceCandidate>(
 
 export function projectReferenceRound<T extends ReferenceCandidate>(rounds: readonly T[]): T | null {
   return latestClosedPhase3Round(rounds, Infinity)
+}
+
+export function lastClosedPhase4RoundOfPassage<T extends ReferenceCandidate>(
+  rounds: readonly T[],
+): T | null {
+  const after = projectReferenceRound(rounds)?.roundNumber ?? -Infinity
+  let latest: T | null = null
+  for (const round of rounds) {
+    if (round.phase !== PHASE_4 || isOpen(round) || round.roundNumber <= after) continue
+    if (latest === null || round.roundNumber > latest.roundNumber) latest = round
+  }
+  return latest
 }
 
 export function versionChanges(reference: VersionPair, current: VersionPair): VersionChange[] {

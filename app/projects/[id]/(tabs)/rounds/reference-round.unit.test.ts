@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
+  lastClosedPhase4RoundOfPassage,
   projectReferenceRound,
   referenceRoundOf,
   referenceVersionsOf,
@@ -75,6 +76,51 @@ describe('app/projects/[id]/rounds/reference-round — a rodada de referência',
     expect(numberOf(referenceRoundOf(rounds, { roundNumber: 3 }))).toBe(2)
     expect(numberOf(referenceRoundOf(rounds, { roundNumber: 5 }))).toBe(4)
     expect(numberOf(projectReferenceRound(rounds))).toBe(4)
+  })
+})
+
+describe('app/projects/[id]/rounds/reference-round — a rodada da Fase 4 da passagem atual', () => {
+  it('é a fechada da Fase 4 de maior número', () => {
+    const rounds = [round(1, PHASE_2), round(2, PHASE_3), round(3, PHASE_4), round(4, PHASE_4)]
+    expect(numberOf(lastClosedPhase4RoundOfPassage(rounds))).toBe(4)
+  })
+
+  it('não conta a rodada aberta da Fase 4', () => {
+    const rounds = [
+      round(1, PHASE_2),
+      round(2, PHASE_3),
+      round(3, PHASE_4),
+      round(4, PHASE_4, ROUND_OPEN),
+    ]
+    expect(numberOf(lastClosedPhase4RoundOfPassage(rounds))).toBe(3)
+  })
+
+  it('não existe sem rodada da Fase 4, nem sem rodada nenhuma', () => {
+    expect(lastClosedPhase4RoundOfPassage([round(1, PHASE_2), round(2, PHASE_3)])).toBeNull()
+    expect(lastClosedPhase4RoundOfPassage([])).toBeNull()
+  })
+
+  it('não conta as rodadas da Fase 4 de uma passagem anterior', () => {
+    const rounds = [round(2, PHASE_3), round(3, PHASE_4), round(4, PHASE_3)]
+    expect(lastClosedPhase4RoundOfPassage(rounds)).toBeNull()
+    expect(numberOf(lastClosedPhase4RoundOfPassage([...rounds, round(5, PHASE_4)]))).toBe(5)
+  })
+
+  it('sem rodada de referência, conta todas as rodadas da Fase 4', () => {
+    const rounds = [round(1, PHASE_2), round(2, PHASE_4), round(3, PHASE_4)]
+    expect(numberOf(lastClosedPhase4RoundOfPassage(rounds))).toBe(3)
+  })
+
+  it('não depende da ordem de entrada', () => {
+    const rounds = [
+      round(5, PHASE_4),
+      round(4, PHASE_3),
+      round(6, PHASE_4),
+      round(2, PHASE_3),
+      round(3, PHASE_4),
+      round(1, PHASE_2),
+    ]
+    expect(numberOf(lastClosedPhase4RoundOfPassage(rounds))).toBe(6)
   })
 })
 

@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, expectTypeOf } from 'vitest'
 import {
   EMPTY_PIPELINE,
   PHASE_1,
@@ -20,6 +20,12 @@ import {
   phase3Blockers,
   phase3ConfirmationLines,
   phase4ConfirmationLines,
+  canReturnFromPhase4,
+  returnBlockedMessage,
+  returnBlockerMessage,
+  returnBlockers,
+  returnConfirmationLines,
+  returnWrongPhaseMessage,
   wrongPhaseMessage,
   type Phase2Blocker,
   type Phase2Inputs,
@@ -27,6 +33,7 @@ import {
   type Phase3Inputs,
   type PipelineInputKey,
   type PipelineInputs,
+  type ReturnInputs,
 } from './preconditions'
 
 const COMPLETE: PipelineInputs = {
@@ -527,15 +534,17 @@ describe('phase4ConfirmationLines', () => {
     expect(text).toContain('escolha do Administrador')
     expect(text).not.toContain('disponível')
     expect(text).not.toContain('marca')
-    expect(text).not.toContain('voltar')
   })
 
   it('termina dizendo que cancelar não muda nada', () => {
     expect(lines[lines.length - 1]).toBe('Cancelar não muda nada.')
   })
 
-  it('não fala em retorno', () => {
-    for (const line of lines) {
+  it('fala do retorno só na penúltima linha', () => {
+    const penultimate = lines[lines.length - 2]
+    expect(penultimate).toContain(`é possível voltar à Fase ${PHASE_3}`)
+    expect(penultimate).toContain(`as rodadas da Fase ${PHASE_4} ficam como histórico`)
+    for (const line of lines.filter((line) => line !== penultimate)) {
       expect(line).not.toMatch(/\b(voltar|volta|retorno|retornar)\b/i)
     }
   })
@@ -544,5 +553,101 @@ describe('phase4ConfirmationLines', () => {
 describe('a fase de destino do avanço da Fase 3', () => {
   it('o avanço da Fase 3 leva à Fase 4', () => {
     expect(PHASE_4).toBe(4)
+  })
+})
+
+describe('returnBlockers — o retorno da Fase 4 para a Fase 3', () => {
+  it('libera sem rodada aberta', () => {
+    expect(returnBlockers({ openRoundNumber: null })).toEqual([])
+    expect(canReturnFromPhase4({ openRoundNumber: null })).toBe(true)
+  })
+
+  it('trava com rodada aberta, nomeando a rodada', () => {
+    expect(returnBlockers({ openRoundNumber: 7 })).toEqual([
+      { key: 'open_round', roundNumber: 7 },
+    ])
+    expect(canReturnFromPhase4({ openRoundNumber: 7 })).toBe(false)
+  })
+
+  it('só lê a rodada aberta: nem rodada fechada nem métrica entram', () => {
+    expectTypeOf<ReturnInputs>().toEqualTypeOf<{ openRoundNumber: number | null }>()
+  })
+})
+
+describe('returnBlockerMessage, returnBlockedMessage e returnWrongPhaseMessage', () => {
+  it('nomeia a rodada aberta duas vezes e manda fechá-la', () => {
+    const message = returnBlockerMessage({ key: 'open_round', roundNumber: 5 })
+    expect(message.match(/rodada 5/g)).toHaveLength(2)
+    expect(message).toContain('aberta')
+    expect(message).toContain('Feche a rodada 5')
+  })
+
+  it('prefixa a recusa e repete a mensagem do bloqueio', () => {
+    const blocker = { key: 'open_round' as const, roundNumber: 3 }
+    expect(returnBlockedMessage([blocker])).toBe(
+      `Não foi possível voltar à Fase ${PHASE_3}. ${returnBlockerMessage(blocker)}`,
+    )
+  })
+
+  it('não produz mensagem quando o retorno está liberado', () => {
+    expect(returnBlockedMessage([])).toBe('')
+    expect(returnBlockedMessage(returnBlockers({ openRoundNumber: null }))).toBe('')
+  })
+
+  it('na fase errada, nomeia a fase atual e diz que o único retorno é da Fase 4 para a Fase 3', () => {
+    const message = returnWrongPhaseMessage(PHASE_3)
+    expect(message).toContain(`Este projeto está na Fase ${PHASE_3}`)
+    expect(message).toContain(`o único retorno é da Fase ${PHASE_4} para a Fase ${PHASE_3}`)
+    expect(message).toContain('Recarregue a página')
+  })
+
+  it('nenhuma mensagem fala em ICR, Qualidade, concordância, aprovação ou conclusão', () => {
+    const messages = [
+      returnBlockerMessage({ key: 'open_round', roundNumber: 2 }),
+      returnBlockedMessage([{ key: 'open_round', roundNumber: 2 }]),
+      returnWrongPhaseMessage(PHASE_2),
+    ]
+    for (const message of messages) {
+      expect(message).not.toMatch(/ICR|Qualidade|concordância|aprova|conclu/i)
+    }
+  })
+})
+
+describe('returnConfirmationLines', () => {
+  const lines = returnConfirmationLines()
+  const text = lines.join(' ')
+
+  it('diz que as rodadas da Fase 4 ficam como estão, com notas, ICR, Qualidade, marcas e anotações', () => {
+    expect(text).toContain(`As rodadas da Fase ${PHASE_4} ficam como estão`)
+    for (const what of ['notas', 'ICR', 'Qualidade', 'marcas de outlier', 'anotações de consenso']) {
+      expect(text).toContain(what)
+    }
+  })
+
+  it('diz que codebook e prompt voltam a ser editáveis e que a próxima edição cria versão nova', () => {
+    expect(text).toContain('Codebook e prompt voltam a ser editáveis')
+    expect(text).toContain('a próxima edição cria uma versão nova')
+  })
+
+  it('diz que voltar à Fase 4 segue as regras do avanço, citando a rodada de referência', () => {
+    expect(text).toContain(`Para voltar à Fase ${PHASE_4}, valem de novo as regras do avanço`)
+    expect(text).toContain('rodada de referência')
+  })
+
+  it('diz que nenhum valor de concordância ou de Qualidade libera, impede ou sugere o retorno', () => {
+    expect(text).toContain('A decisão de voltar é do Administrador.')
+    expect(text).toContain(
+      'Nenhum valor de concordância ou de Qualidade libera, impede ou sugere o retorno.',
+    )
+  })
+
+  it('termina dizendo que cancelar não muda nada', () => {
+    expect(lines[lines.length - 1]).toBe('Cancelar não muda nada.')
+  })
+
+  it('não fala em aprovação, conclusão, replicação, generalização nem próxima etapa', () => {
+    for (const line of lines) {
+      expect(line).not.toMatch(/aprova|conclu|replic|generaliz|próxima etapa/i)
+    }
   })
 })
