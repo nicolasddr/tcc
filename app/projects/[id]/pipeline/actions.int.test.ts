@@ -455,6 +455,7 @@ describe('app/projects/[id]/pipeline/actions — definições salvas de forma ve
       'deleteItem',
       'testPrompt',
       'advancePhase',
+      'returnToPhase3',
     ])
   })
 

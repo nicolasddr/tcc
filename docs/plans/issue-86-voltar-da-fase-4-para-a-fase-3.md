@@ -14,7 +14,7 @@ seguinte herda", e é ali que se anota o que divergiu.
 | Parte | Entrega | Estado |
 |---|---|---|
 | 1 | Regras puras: pré-condições do retorno, mensagens, linhas da confirmação, a rodada da Fase 4 que a confirmação mostra e a frase nova na confirmação do avanço da Fase 3 | ✅ |
-| 2 | A action `returnToPhase3`: recusa com rodada aberta, papel, fase errada; prova de que nada além da fase muda, de que ninguém é notificado e de que o descongelamento e o novo avanço seguem as regras | ☐ |
+| 2 | A action `returnToPhase3`: recusa com rodada aberta, papel, fase errada; prova de que nada além da fase muda, de que ninguém é notificado e de que o descongelamento e o novo avanço seguem as regras | ✅ |
 | 3 | A tela: painel "Para voltar à Fase 3" com a confirmação, link na barra de fases, testes de página, navegador e varredura dos ACs. Fecha a issue | ☐ |
 
 **Duas decisões ⚠ precisam de confirmação** (D4, antes da Parte 1, e D7, antes da Parte 3). Perguntar
@@ -286,17 +286,17 @@ Preencher a coluna "Teste" com o nome real de cada teste ao fim de cada Parte.
 
 | AC da issue | Onde | Teste |
 |---|---|---|
-| O retorno é recusado no servidor com rodada aberta, com mensagem que nomeia a rodada | P1 (unitário) + P2 (integração) | P1: `returnBlockers › trava com rodada aberta, nomeando a rodada`; `returnBlockerMessage… › nomeia a rodada aberta duas vezes e manda fechá-la` |
-| O retorno funciona sem nenhuma rodada da Fase 4 | P2 | |
-| O retorno funciona depois de rodadas fechadas da Fase 4, e elas continuam intactas | P2 | |
-| Nenhum valor de ICR ou de Qualidade trava o retorno | P1 (assinatura) + P2 (ICR baixo e Qualidade em Baixo) + P3 (painel liberado) | P1: `returnBlockers › só lê a rodada aberta: nem rodada fechada nem métrica entram` |
-| Depois do retorno, salvar o codebook e o texto do prompt funciona e cria versão nova | P2 | |
+| O retorno é recusado no servidor com rodada aberta, com mensagem que nomeia a rodada | P1 (unitário) + P2 (integração) | P1: `returnBlockers › trava com rodada aberta, nomeando a rodada`; `returnBlockerMessage… › nomeia a rodada aberta duas vezes e manda fechá-la`. P2: `recusa o retorno com rodada aberta, nomeando a rodada, e nada muda` |
+| O retorno funciona sem nenhuma rodada da Fase 4 | P2 | P2: `sem nenhuma rodada da Fase 4, o Administrador volta para a Fase 3` |
+| O retorno funciona depois de rodadas fechadas da Fase 4, e elas continuam intactas | P2 | P2: `depois de rodadas fechadas da Fase 4, volta e não muda nada além da fase` |
+| Nenhum valor de ICR ou de Qualidade trava o retorno | P1 (assinatura) + P2 (ICR baixo e Qualidade em Baixo) + P3 (painel liberado) | P1: `returnBlockers › só lê a rodada aberta: nem rodada fechada nem métrica entram`. P2: `concordância baixa e Qualidade concentrada em Baixo na rodada da Fase 4 não impedem o retorno` |
+| Depois do retorno, salvar o codebook e o texto do prompt funciona e cria versão nova | P2 | P2: `na Fase 4 o codebook é recusado, e depois do retorno salvá-lo cria a versão seguinte`; `na Fase 4 o prompt é recusado, e depois do retorno salvar o texto cria a versão seguinte` |
 | A confirmação diz o que fica, o que destrava e que voltar à Fase 4 segue as regras do avanço | P1 (linhas) + P3 (`lines` no `ReturnPhase`) | P1: `describe('returnConfirmationLines')` (6 testes) |
 | Com rodada fechada da Fase 4, a confirmação mostra a última delas ao lado da sua referência, sem veredito | P1 (D4) + P3 | P1: `reference-round — a rodada da Fase 4 da passagem atual` (6 testes) |
-| O retorno não notifica ninguém | P2 | |
+| O retorno não notifica ninguém | P2 | P2: `o retorno não notifica ninguém` (e a contagem em `depois de rodadas fechadas da Fase 4…`) |
 | A confirmação do avanço da Fase 3 para a 4 diz que é possível voltar | P1 (D5) + P3 | P1: `phase4ConfirmationLines › fala do retorno só na penúltima linha` |
 | O painel da Fase 4 não tem botão de concluir nem texto de aprovação | P3 (varredura de texto) | |
-| O Avaliador não vê o painel e é barrado na ação | P2 (action) + P3 (página) | |
+| O Avaliador não vê o painel e é barrado na ação | P2 (action) + P3 (página) | P2: `o Avaliador é recusado, e quem não é membro recebe a mesma mensagem, sem mudar a fase` |
 
 | Teste da issue | Onde |
 |---|---|
@@ -542,7 +542,28 @@ Refs #86
 
 ### O que a Parte 3 herda
 
-_(preencher ao fim da Parte)_
+- **A action**: `returnToPhase3(_prev, formData)` e o tipo `ReturnPhaseState = AdvancePhaseState` em
+  `pipeline/actions.ts`. Sucesso: `{ ok: true, nonce, phase: PHASE_3 }` (o `ReturnPhase` lê `phase`
+  para o nome da fase, como o `AdvancePhase`). Recusas, nesta ordem: `Projeto inválido.` sem
+  `project_id`; `RETURN_DENIED` (privada, texto exato de D2) para quem não é Administrador, antes da
+  transação; `returnWrongPhaseMessage(fase)` fora da Fase 4; `returnBlockedMessage(blockers)` com
+  rodada aberta. Revalida `/projects/<id>`, `/rounds`, `/codebook` e `/prompt`.
+- **Outcome**: tipo próprio `ReturnOutcome` (`returned` sem `phase`, `denied`, `wrong_phase`,
+  `incomplete`), não o `AdvanceOutcome`. `advancePhase` não mudou.
+- **`RETURN_DENIED` não é exportada**: arquivo `'use server'` só exporta funções assíncronas. O teste
+  compara a string literal.
+- **Testes**: `pipeline/return-phase-3.int.test.ts`, 13 casos (o `it.each` de fase errada cobre as
+  Fases 1 e 2; a 3 é o "segundo retorno seguido"). O controle "antes do retorno é recusado" ficou
+  dentro dos testes do codebook e do prompt, no mesmo projeto, em vez de teste separado.
+- **Vermelho visto**: com a action provisória devolvendo `{ error: '' }`, os 13 falharam por
+  asserção. Depois do código, um falhou por erro do próprio teste (comparava a v1 inteira, e o
+  `isLatest` dela muda por definição); passou a comparar definições, critérios e `usedAt`.
+- **Divergência**: um teste antigo editado, que o plano não previu — `pipeline/actions.int.test.ts ›
+  não existe ação de apagar versão` lista as exportações de `actions.ts` e ganhou `'returnToPhase3'`
+  (o mesmo aconteceu com `advancePhase` em `f3fc54a`). `advance-phase-3`, `phase-4-freeze` e
+  `(tabs)/rounds/actions` passaram sem edição.
+- **Suíte**: `npm run lint` e `npm run typecheck` limpos; `npm test` 90 arquivos, 1359 testes
+  verdes.
 
 ---
 

@@ -43,6 +43,9 @@ import {
   phase2Blockers,
   phase3BlockedMessage,
   phase3Blockers,
+  returnBlockedMessage,
+  returnBlockers,
+  returnWrongPhaseMessage,
   wrongPhaseMessage,
 } from './preconditions'
 import { frozenMessage, isFrozen } from './freeze'
@@ -938,4 +941,60 @@ export async function advancePhase(
   revalidatePath(`/projects/${projectId}`)
   revalidatePath(`/projects/${projectId}/rounds`)
   return { ok: true, nonce: Date.now(), phase: outcome.phase }
+}
+
+export type ReturnPhaseState = AdvancePhaseState
+
+const RETURN_DENIED =
+  'Não foi possível voltar de fase. Apenas o administrador do projeto pode fazê-lo.'
+
+type ReturnOutcome =
+  | { status: 'returned' }
+  | { status: 'denied' }
+  | { status: 'wrong_phase'; phase: number }
+  | { status: 'incomplete'; message: string }
+
+export async function returnToPhase3(
+  _prev: ReturnPhaseState,
+  formData: FormData,
+): Promise<ReturnPhaseState> {
+  const userId = await requireUserId()
+
+  const projectId = String(formData.get('project_id') ?? '')
+  if (!projectId) return { error: 'Projeto inválido.' }
+
+  if (!(await isProjectAdmin(userId, projectId))) return { error: RETURN_DENIED }
+
+  const outcome = await transaction<ReturnOutcome>(async (tx) => {
+    const [project] = await tx
+      .select({ id: projects.id, phase: projects.phase })
+      .from(projects)
+      .where(eq(projects.id, projectId))
+      .limit(1)
+      .for('update')
+
+    if (!project) return { status: 'denied' }
+    if (project.phase !== PHASE_4) return { status: 'wrong_phase', phase: project.phase }
+
+    const open = await loadOpenRound(projectId, tx)
+    const blockers = returnBlockers({ openRoundNumber: open?.roundNumber ?? null })
+    if (blockers.length > 0) {
+      return { status: 'incomplete', message: returnBlockedMessage(blockers) }
+    }
+
+    await tx.update(projects).set({ phase: PHASE_3 }).where(eq(projects.id, projectId))
+    return { status: 'returned' }
+  })
+
+  if (outcome.status === 'denied') return { error: RETURN_DENIED }
+  if (outcome.status === 'wrong_phase') {
+    return { error: returnWrongPhaseMessage(outcome.phase) }
+  }
+  if (outcome.status === 'incomplete') return { error: outcome.message }
+
+  revalidatePath(`/projects/${projectId}`)
+  revalidatePath(`/projects/${projectId}/rounds`)
+  revalidatePath(`/projects/${projectId}/codebook`)
+  revalidatePath(`/projects/${projectId}/prompt`)
+  return { ok: true, nonce: Date.now(), phase: PHASE_3 }
 }
