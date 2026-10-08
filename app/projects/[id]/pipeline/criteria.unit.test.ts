@@ -7,6 +7,7 @@ import {
   isGeneral,
   missingCriteriaMessage,
   notesPerResponse,
+  notesPerResponseFormula,
   ownCriteria,
   resolveCells,
 } from '@/app/projects/[id]/pipeline/criteria'
@@ -153,6 +154,44 @@ describe('app/projects/[id]/pipeline/criteria — a conta de notas por resposta'
   it('sem definição ou sem critério, não há nota nenhuma', () => {
     expect(notesPerResponse([], [criterion('g1', null)])).toBe(0)
     expect(notesPerResponse([informacional], [])).toBe(0)
+  })})
+
+describe('app/projects/[id]/pipeline/criteria — a conta mostrada no card de notas por resposta', () => {
+  it('só com gerais, mostra definições vezes gerais', () => {
+    expect(
+      notesPerResponseFormula(
+        [informacional, transacional],
+        [criterion('g1', null), criterion('g2', null)],
+      ),
+    ).toBe('2 definições × 2 critérios gerais')
+  })
+
+  it('com gerais e específicos, soma os específicos à multiplicação', () => {
+    expect(
+      notesPerResponseFormula(
+        [informacional, transacional],
+        [criterion('g1', null), criterion('g2', null), criterion('c1', 'd1')],
+      ),
+    ).toBe('2 definições × 2 critérios gerais + 1 específico')
+  })
+
+  it('concorda no singular e no plural', () => {
+    expect(
+      notesPerResponseFormula(
+        [informacional],
+        [criterion('g1', null), criterion('c1', 'd1'), criterion('c2', 'd1')],
+      ),
+    ).toBe('1 definição × 1 critério geral + 2 específicos')
+  })
+
+  it('só com específicos, mostra a contagem deles', () => {
+    expect(
+      notesPerResponseFormula([informacional, transacional], [criterion('c1', 'd1')]),
+    ).toBe('1 critério específico')
+  })
+
+  it('sem critério nenhum, diz que são zero', () => {
+    expect(notesPerResponseFormula([informacional], [])).toBe('0 critérios')
   })
 })
 

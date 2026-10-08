@@ -1,3 +1,5 @@
+import { plural } from '@/lib/plural'
+
 export type CriterionScope = { definitionId: string | null }
 
 export type DefinitionKey = { id: string }
@@ -50,6 +52,28 @@ export function notesPerResponse(
   criteria: readonly CriterionScope[],
 ): number {
   return resolveCells(definitions, criteria).length
+}
+
+export const NOTES_PER_RESPONSE_HELP =
+  'Cada critério geral vira uma nota em cada definição, e não uma nota por resposta. É esse o esforço que o avaliador terá a cada resposta.'
+
+export function notesPerResponseFormula(
+  definitions: readonly DefinitionKey[],
+  criteria: readonly CriterionScope[],
+): string {
+  const general = generalCriteria(criteria).length
+  const specific = criteria.length - general
+
+  if (general === 0) {
+    return specific === 0
+      ? plural(0, 'critério', 'critérios')
+      : plural(specific, 'critério específico', 'critérios específicos')
+  }
+
+  const product = `${plural(definitions.length, 'definição', 'definições')} × ${plural(general, 'critério geral', 'critérios gerais')}`
+  return specific === 0
+    ? product
+    : `${product} + ${plural(specific, 'específico', 'específicos')}`
 }
 
 export function definitionsWithoutCriteria<D extends DefinitionKey>(

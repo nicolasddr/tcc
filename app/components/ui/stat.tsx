@@ -1,5 +1,6 @@
 import { Card } from './card'
 import { cx } from './cx'
+import { InfoTooltip } from './tooltip'
 
 export function ProgressBar({
   value,
@@ -27,6 +28,7 @@ export function ProgressBar({
 
 export function StatCard({
   label,
+  help,
   value,
   suffix,
   hint,
@@ -34,6 +36,7 @@ export function StatCard({
   children,
 }: {
   label: string
+  help?: string
   value: React.ReactNode
   suffix?: React.ReactNode
   hint?: React.ReactNode
@@ -43,8 +46,11 @@ export function StatCard({
   return (
     <Card padding="lg" tone="subtle" className="flex flex-col gap-2">
       <div className="flex items-start justify-between gap-2">
-        <span className="text-[11px] font-semibold tracking-[0.06em] text-muted uppercase">
-          {label}
+        <span className="inline-flex items-center gap-1.5">
+          <span className="text-[11px] font-semibold tracking-[0.06em] text-muted uppercase">
+            {label}
+          </span>
+          {help ? <InfoTooltip text={help} /> : null}
         </span>
         {badge}
       </div>

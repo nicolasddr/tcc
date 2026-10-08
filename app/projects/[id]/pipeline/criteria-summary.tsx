@@ -2,7 +2,9 @@ import { StatCard } from '@/app/components/ui/stat'
 import { plural } from '@/lib/plural'
 import {
   generalCriteria,
+  NOTES_PER_RESPONSE_HELP,
   notesPerResponse,
+  notesPerResponseFormula,
   type CriterionScope,
   type DefinitionKey,
 } from './criteria'
@@ -15,23 +17,14 @@ export function NotesPerResponse({
   criteria: readonly CriterionScope[]
 }) {
   const notes = notesPerResponse(definitions, criteria)
-  const general = generalCriteria(criteria).length
-  const specific = criteria.length - general
 
   return (
     <StatCard
       label="Notas por resposta"
+      help={NOTES_PER_RESPONSE_HELP}
       value={notes}
       suffix={notes === 1 ? 'nota' : 'notas'}
-      hint={
-        <>
-          {plural(definitions.length, 'definição', 'definições')} ·{' '}
-          {plural(specific, 'critério específico', 'critérios específicos')} ·{' '}
-          {plural(general, 'critério geral', 'critérios gerais')}. Cada critério geral
-          vira uma nota em cada definição, e não uma nota por resposta. É esse o esforço
-          que o avaliador terá a cada resposta.
-        </>
-      }
+      hint={notesPerResponseFormula(definitions, criteria)}
     />
   )
 }
