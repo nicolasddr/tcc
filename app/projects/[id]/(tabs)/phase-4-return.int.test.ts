@@ -34,8 +34,11 @@ import {
   returnConfirmationLines,
 } from '@/app/projects/[id]/pipeline/preconditions'
 import { ReferenceComparisonPanel } from '@/app/projects/[id]/(tabs)/rounds/reference-comparison-panel'
-import { AgreementValue } from '@/app/projects/[id]/(tabs)/rounds/agreement-panel'
-import { QualityValue } from '@/app/projects/[id]/(tabs)/rounds/quality-panel'
+import {
+  COMPARISON_AGREEMENT_ROW,
+  COMPARISON_TOTAL_ROW,
+} from '@/app/projects/[id]/(tabs)/rounds/reference-comparison-labels'
+import { SCALE, scaleLabel } from '@/app/projects/[id]/(tabs)/evaluate/scale'
 import { AgreementSeriesChart } from '@/app/projects/[id]/(tabs)/rounds/agreement-series-chart'
 import { phaseRuns } from '@/app/projects/[id]/(tabs)/rounds/agreement-series'
 import { bandLabel } from '@/app/projects/[id]/(tabs)/rounds/agreement-labels'
@@ -311,13 +314,13 @@ describe('app/projects/[id]/page — painel para voltar da Fase 4 para a Fase 3'
     expect(comparison.comparison.round.quality).not.toBeNull()
     expect(comparison.comparison.reference.quality).not.toBeNull()
 
-    const rendered = ReferenceComparisonPanel(comparison)
-    const agreement = findAll(rendered, AgreementValue)
-    expect(agreement).toHaveLength(2)
-    for (const side of agreement) {
-      expect((side.props as Parameters<typeof AgreementValue>[0]).band).toBe(false)
+    const markup = renderToStaticMarkup(createElement(ReferenceComparisonPanel, comparison))
+    expect(markup).toContain('<table')
+    expect(markup).not.toContain('group/tooltip')
+    const table = markupText(createElement(ReferenceComparisonPanel, comparison))
+    for (const label of [COMPARISON_AGREEMENT_ROW, COMPARISON_TOTAL_ROW, ...SCALE.map(scaleLabel)]) {
+      expect(table).toContain(label)
     }
-    expect(findAll(rendered, QualityValue)).toHaveLength(2)
 
     const text = markupText(createElement(Fragment, null, summary))
     expect(text).toContain('Última rodada fechada da Fase 4')

@@ -1,36 +1,52 @@
 import { Badge } from '@/app/components/ui/badge'
-import { Card } from '@/app/components/ui/card'
-import { formatDate } from '@/app/notifications/labels'
+import { cx } from '@/app/components/ui/cx'
 import { AgreementValue } from './agreement-panel'
+import { QualitySwatch } from './quality-bar'
 import { QualityValue } from './quality-panel'
 import type { ComparedRound, ReferenceComparison } from './reference-comparison'
-import { noReferenceMessage, referenceLine, referenceSentence } from './reference-comparison-labels'
+import {
+  COMPARISON_EMPTY,
+  closedOn,
+  comparedPhase,
+  comparedVersions,
+  comparisonRows,
+  noReferenceMessage,
+  referenceLine,
+  type ComparisonCell,
+} from './reference-comparison-labels'
 import { isOpen } from './round-status'
 
-function comparedSide(round: ComparedRound) {
+const cellClass = 'border-b border-line px-3 py-2'
+
+function SideHeading({ round, isReference }: { round: ComparedRound; isReference: boolean }) {
   return (
-    <Card key={round.id} tone="subtle" padding="sm">
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-        <span className="text-sm font-semibold text-ink">
+    <th scope="col" className={cx(cellClass, 'text-right align-bottom font-normal')}>
+      <span className="flex flex-col items-end gap-0.5">
+        <span className="flex items-center gap-1.5 font-semibold whitespace-nowrap text-ink">
           {`Rodada ${round.roundNumber}`}
-          <span className="font-normal text-muted">{` · Fase ${round.phase}`}</span>
+          {isOpen(round) ? <Badge tone="info">aberta</Badge> : null}
         </span>
-        {isOpen(round) ? <Badge tone="info">aberta</Badge> : null}
-      </div>
+        <span className="text-xs whitespace-nowrap text-muted">
+          {comparedPhase(round, isReference)}
+        </span>
+        {round.closedAt ? (
+          <span className="text-xs whitespace-nowrap text-muted">{closedOn(round.closedAt)}</span>
+        ) : null}
+      </span>
+    </th>
+  )
+}
 
-      <p className="m-0 mt-1.5 text-[13px] text-muted">
-        {`Codebook v${round.codebookVersionNumber} · Prompt v${round.promptVersionNumber}`}
-      </p>
+function Value({ cell, secondary }: { cell: ComparisonCell; secondary: boolean }) {
+  if (cell === null) return <span className="text-faint">{COMPARISON_EMPTY}</span>
 
-      {round.closedAt ? (
-        <p className="m-0 mt-1.5 text-[13px] text-muted">
-          {`fechada em ${formatDate(round.closedAt)}`}
-        </p>
-      ) : null}
-
-      <AgreementValue pair={round.agreement} band={false} />
-      {round.quality ? <QualityValue pair={round.quality} /> : null}
-    </Card>
+  return (
+    <span className={secondary || cell.muted ? 'text-muted' : 'text-ink'}>
+      {cell.text}
+      {cell.count === undefined ? null : (
+        <span className="text-muted">{` (${cell.count})`}</span>
+      )}
+    </span>
   )
 }
 
@@ -45,11 +61,49 @@ export function ReferenceComparisonPanel({
     return <p className="m-0 text-[13px] text-muted">{noReferenceMessage(roundNumber)}</p>
   }
 
+  const { reference, round } = comparison
+  const rows = comparisonRows(reference, round)
+
   return (
-    <div className="flex flex-col gap-3">
-      <p className="m-0 text-[13px] text-ink">{referenceSentence(comparison.reference)}</p>
-      <div className="grid gap-3 sm:grid-cols-2">
-        {[comparison.reference, comparison.round].map(comparedSide)}
+    <div className="flex flex-col gap-2">
+      <p className="m-0 text-[13px] text-muted">{comparedVersions(reference, round)}</p>
+      <div className="overflow-x-auto">
+        <table className="w-full border-collapse text-[13px] tabular-nums">
+          <thead>
+            <tr>
+              <td className={cellClass} />
+              <SideHeading round={reference} isReference />
+              <SideHeading round={round} isReference={false} />
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row) => (
+              <tr key={row.key}>
+                <th
+                  scope="row"
+                  className={cx(
+                    cellClass,
+                    'text-left align-top',
+                    row.secondary ? 'font-normal text-muted' : 'font-semibold text-ink',
+                  )}
+                >
+                  <span className="flex items-center gap-1.5">
+                    {row.level ? <QualitySwatch value={row.level} /> : null}
+                    {row.label}
+                  </span>
+                </th>
+                {row.cells.map((cell, index) => (
+                  <td
+                    key={index === 0 ? reference.id : round.id}
+                    className={cx(cellClass, 'text-right align-top whitespace-nowrap')}
+                  >
+                    <Value cell={cell} secondary={row.secondary} />
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   )

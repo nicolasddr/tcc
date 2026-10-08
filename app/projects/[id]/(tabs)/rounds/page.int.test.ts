@@ -287,7 +287,9 @@ function guidanceMarkupOf(tree: unknown): string {
 
 function blockIndexOf(tree: unknown, type: unknown): number {
   const children = (tree as ReactElement<{ children: unknown[] }>).props.children
-  return children.findIndex((child) => findElement(child, type) !== null)
+  return children
+    .filter((child) => child !== null)
+    .findIndex((child) => findElement(child, type) !== null)
 }
 
 function markupTextOf(element: ReactElement): string {

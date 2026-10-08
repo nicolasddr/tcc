@@ -28,12 +28,18 @@ import {
   AgreementPanel,
   AgreementValue,
 } from '@/app/projects/[id]/(tabs)/rounds/agreement-panel'
-import { QualityPanel, QualityValue } from '@/app/projects/[id]/(tabs)/rounds/quality-panel'
+import { QualityPanel } from '@/app/projects/[id]/(tabs)/rounds/quality-panel'
+import { formatShare } from '@/app/projects/[id]/(tabs)/rounds/quality-labels'
+import type { Quality } from '@/app/projects/[id]/(tabs)/rounds/quality'
+import { scaleLabel } from '@/app/projects/[id]/(tabs)/evaluate/scale'
 import {
   ReferenceComparisonPanel,
   ReferenceRoundLine,
 } from '@/app/projects/[id]/(tabs)/rounds/reference-comparison-panel'
 import {
+  COMPARISON_AGREEMENT_ROW,
+  COMPARISON_EMPTY,
+  COMPARISON_TOTAL_ROW,
   REFERENCE_COMPARISON_HELP,
   REFERENCE_COMPARISON_TITLE,
   noReferenceMessage,
@@ -43,6 +49,7 @@ import {
 import {
   AGREEMENT_BANDS,
   AGREEMENT_WITHOUT_OUTLIERS_LABEL,
+  formatAlpha,
 } from '@/app/projects/[id]/(tabs)/rounds/agreement-labels'
 import { ReadingGuidanceNote } from '@/app/projects/[id]/(tabs)/rounds/reading-guidance-note'
 import {
@@ -226,13 +233,26 @@ function changesTextOf(card: ReactElement): string {
   return markupTextOf(createElement(RoundChangesNote, props!))
 }
 
-function sidesOf(tree: unknown): { agreement: ReactElement; quality: ReactElement }[] {
-  const rendered = ReferenceComparisonPanel(comparisonOf(tree))
-  const agreement = findAll(rendered, AgreementValue)
-  const quality = findAll(rendered, QualityValue)
-  expect(agreement).toHaveLength(2)
-  expect(quality).toHaveLength(2)
-  return [0, 1].map((index) => ({ agreement: agreement[index], quality: quality[index] }))
+function tableOf(tree: unknown): string[][] {
+  const markup = renderToStaticMarkup(comparisonElementOf(tree))
+  return [...markup.matchAll(/<tr[^>]*>([\s\S]*?)<\/tr>/g)].map((row) =>
+    [...row[1].matchAll(/<t[hd][^>]*>([\s\S]*?)<\/t[hd]>/g)].map((cell) =>
+      cell[1].replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim(),
+    ),
+  )
+}
+
+function rowOf(tree: unknown, label: string): string[] | undefined {
+  return tableOf(tree).find((row) => row[0] === label)
+}
+
+function withoutOutliersRows(tree: unknown): string[][] {
+  return tableOf(tree).filter((row) => row[0].endsWith(AGREEMENT_WITHOUT_OUTLIERS_LABEL))
+}
+
+function levelCells(quality: Quality | null | undefined): string[] {
+  if (!quality?.rated) return []
+  return quality.levels.map((level) => `${formatShare(level.share)} (${level.count})`)
 }
 
 const JUDGMENT_WORDS = [
@@ -412,7 +432,7 @@ describe('app/projects/[id]/rounds — a rodada da Fase 4 ao lado da rodada de r
     await cleanup(projs, users)
   })
 
-  it('o bloco aparece logo abaixo da Qualidade e nomeia a rodada de referência, a data e as versões', async () => {
+  it('o bloco aparece logo abaixo da orientação e nomeia a rodada de referência, a data e as versões', async () => {
     const admin = await newUser('Admin')
     const scene = await basicScene(admin)
 
@@ -425,10 +445,10 @@ describe('app/projects/[id]/rounds — a rodada da Fase 4 ao lado da rodada de r
     const comparison = blockIndexOf(tree, ReferenceComparisonPanel)
     const list = blockIndexOf(tree, RoundList)
     expect(guidance).toBeGreaterThanOrEqual(0)
-    expect(agreement).toBe(guidance + 1)
+    expect(comparison).toBe(guidance + 1)
+    expect(agreement).toBe(comparison + 1)
     expect(quality).toBe(agreement + 1)
-    expect(comparison).toBe(quality + 1)
-    expect(list).toBe(comparison + 1)
+    expect(list).toBe(quality + 1)
 
     const section = findSection(tree, ReferenceComparisonPanel)
     expect(section).toBeTruthy()
@@ -438,15 +458,15 @@ describe('app/projects/[id]/rounds — a rodada da Fase 4 ao lado da rodada de r
     expect(props.help).toBe(REFERENCE_COMPARISON_HELP)
 
     const text = markupTextOf(comparisonElementOf(tree))
-    expect(text).toContain(
-      'Rodada de referência: rodada 1, fechada em 15/01/2026. Ela validou o codebook na ' +
-        'versão 3 e o prompt na versão 2.',
-    )
-    expect(text).toContain('Rodada 1 · Fase 3')
-    expect(text).toContain('Rodada 2 · Fase 4')
-    expect(text).toContain('fechada em 15/02/2026')
-    expect(text.indexOf('Rodada 1 · Fase 3')).toBeLessThan(text.indexOf('Rodada 2 · Fase 4'))
-    expect(text.split('Codebook v3 · Prompt v2')).toHaveLength(3)
+    expect(text).not.toContain('Rodada de referência:')
+    expect(text.split('Codebook v3 · Prompt v2 nas duas')).toHaveLength(2)
+
+    const [heading] = tableOf(tree)
+    expect(heading).toEqual([
+      '',
+      'Rodada 1 Fase 3 · referência fechada em 15/01/2026',
+      'Rodada 2 Fase 4 fechada em 15/02/2026',
+    ])
   })
 
   it('com a rodada da Fase 4 aberta, o bloco aparece e o lado dela diz que está aberta', async () => {
@@ -462,8 +482,8 @@ describe('app/projects/[id]/rounds — a rodada da Fase 4 ao lado da rodada de r
     expect(comparison.reference.roundNumber).toBe(1)
     expect(comparison.round.closedAt).toBeNull()
 
-    const text = markupTextOf(comparisonElementOf(tree))
-    expect(text).toContain('Rodada 2 · Fase 4 aberta')
+    const [heading] = tableOf(tree)
+    expect(heading[2]).toBe('Rodada 2 aberta Fase 4')
   })
 
   it('os dois lados trazem ICR e Qualidade com os mesmos números da lista de rodadas', async () => {
@@ -486,11 +506,25 @@ describe('app/projects/[id]/rounds — a rodada da Fase 4 ao lado da rodada de r
     expect(comparison.reference.agreement.all.calculable).toBe(true)
     expect(comparison.round.agreement.all.calculable).toBe(true)
 
-    const [left, right] = sidesOf(tree)
-    expect((left.agreement.props as { pair: unknown }).pair).toBe(list.agreement.get(reference))
-    expect((right.agreement.props as { pair: unknown }).pair).toBe(list.agreement.get(round))
-    expect((left.quality.props as { pair: unknown }).pair).toBe(list.quality.get(reference))
-    expect((right.quality.props as { pair: unknown }).pair).toBe(list.quality.get(round))
+    const referenceAll = list.agreement.get(reference)!.all
+    const roundAll = list.agreement.get(round)!.all
+    expect(rowOf(tree, COMPARISON_AGREEMENT_ROW)).toEqual([
+      COMPARISON_AGREEMENT_ROW,
+      referenceAll.calculable ? formatAlpha(referenceAll.alpha) : null,
+      roundAll.calculable ? formatAlpha(roundAll.alpha) : null,
+    ])
+
+    const referenceLevels = levelCells(list.quality.get(reference)?.all)
+    const roundLevels = levelCells(list.quality.get(round)?.all)
+    expect(referenceLevels).toHaveLength(3)
+    expect(roundLevels).toHaveLength(3)
+    for (const [index, value] of (['high', 'medium', 'low'] as const).entries()) {
+      expect(rowOf(tree, scaleLabel(value))).toEqual([
+        scaleLabel(value),
+        referenceLevels[index],
+        roundLevels[index],
+      ])
+    }
   })
 
   it('com outlier só na referência, só o lado dela traz os dois valores', async () => {
@@ -499,12 +533,19 @@ describe('app/projects/[id]/rounds — a rodada da Fase 4 ao lado da rodada de r
     await addOutlier(ownerDb, scene.rounds.get(1)!, scene.carla, admin)
 
     auth.userId = admin
-    const [left, right] = sidesOf(await render(scene.project))
+    const rows = withoutOutliersRows(await render(scene.project))
 
-    expect(markupTextOf(left.agreement)).toContain(AGREEMENT_WITHOUT_OUTLIERS_LABEL)
-    expect(markupTextOf(left.quality)).toContain(AGREEMENT_WITHOUT_OUTLIERS_LABEL)
-    expect(markupTextOf(right.agreement)).not.toContain(AGREEMENT_WITHOUT_OUTLIERS_LABEL)
-    expect(markupTextOf(right.quality)).not.toContain(AGREEMENT_WITHOUT_OUTLIERS_LABEL)
+    expect(rows.map((row) => row[0])).toEqual([
+      `${COMPARISON_AGREEMENT_ROW} ${AGREEMENT_WITHOUT_OUTLIERS_LABEL}`,
+      `${scaleLabel('high')} ${AGREEMENT_WITHOUT_OUTLIERS_LABEL}`,
+      `${scaleLabel('medium')} ${AGREEMENT_WITHOUT_OUTLIERS_LABEL}`,
+      `${scaleLabel('low')} ${AGREEMENT_WITHOUT_OUTLIERS_LABEL}`,
+      `${COMPARISON_TOTAL_ROW} ${AGREEMENT_WITHOUT_OUTLIERS_LABEL}`,
+    ])
+    for (const row of rows) {
+      expect(row[1]).not.toBe(COMPARISON_EMPTY)
+      expect(row[2]).toBe(COMPARISON_EMPTY)
+    }
   })
 
   it('com outlier só na rodada da Fase 4, só o lado dela traz os dois valores', async () => {
@@ -513,12 +554,13 @@ describe('app/projects/[id]/rounds — a rodada da Fase 4 ao lado da rodada de r
     await addOutlier(ownerDb, scene.rounds.get(2)!, scene.carla, admin)
 
     auth.userId = admin
-    const [left, right] = sidesOf(await render(scene.project))
+    const rows = withoutOutliersRows(await render(scene.project))
 
-    expect(markupTextOf(left.agreement)).not.toContain(AGREEMENT_WITHOUT_OUTLIERS_LABEL)
-    expect(markupTextOf(left.quality)).not.toContain(AGREEMENT_WITHOUT_OUTLIERS_LABEL)
-    expect(markupTextOf(right.agreement)).toContain(AGREEMENT_WITHOUT_OUTLIERS_LABEL)
-    expect(markupTextOf(right.quality)).toContain(AGREEMENT_WITHOUT_OUTLIERS_LABEL)
+    expect(rows).toHaveLength(5)
+    for (const row of rows) {
+      expect(row[1]).toBe(COMPARISON_EMPTY)
+      expect(row[2]).not.toBe(COMPARISON_EMPTY)
+    }
   })
 
   it('com outlier nas duas rodadas, os dois lados trazem os dois valores', async () => {
@@ -528,11 +570,12 @@ describe('app/projects/[id]/rounds — a rodada da Fase 4 ao lado da rodada de r
     await addOutlier(ownerDb, scene.rounds.get(2)!, scene.bruno, admin)
 
     auth.userId = admin
-    const sides = sidesOf(await render(scene.project))
+    const rows = withoutOutliersRows(await render(scene.project))
 
-    for (const side of sides) {
-      expect(markupTextOf(side.agreement)).toContain(AGREEMENT_WITHOUT_OUTLIERS_LABEL)
-      expect(markupTextOf(side.quality)).toContain(AGREEMENT_WITHOUT_OUTLIERS_LABEL)
+    expect(rows).toHaveLength(5)
+    for (const row of rows) {
+      expect(row[1]).not.toBe(COMPARISON_EMPTY)
+      expect(row[2]).not.toBe(COMPARISON_EMPTY)
     }
   })
 

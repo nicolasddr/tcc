@@ -9,7 +9,7 @@ ainda não estiver feito, a tabela sai sem a amostra e ela entra depois.
 | Parte | Entrega | Commit sugerido | Estado |
 |---|---|---|---|
 | 1 | "Por onde ler esta rodada" no topo, com atalho para a seção certa (ajuste 01) | `feat(rodadas): orientação de leitura no topo da rodada` | ✅ |
-| 2 | Comparação com a referência em tabela e logo após a orientação (ajuste 02) | `feat(rodadas): comparação com a referência em tabela` | ⬜ |
+| 2 | Comparação com a referência em tabela e logo após a orientação (ajuste 02) | `feat(rodadas): comparação com a referência em tabela` | ✅ |
 
 ## Contexto comum
 
@@ -101,3 +101,12 @@ Notas         40                32
   Fase 3" (`(tabs)/page.tsx`, `phase4ReturnData`). A tabela precisa caber em 512 px e não pode ter
   `InfoTooltip` lá dentro (memória `infotooltip-nao-cabe-em-dialog`).
 - `ReferenceRoundLine` (linha da referência na lista de rodadas) fica para o Plano C.
+
+**Feito**: as linhas da tabela saem de `comparisonRows(reference, round)` em
+`reference-comparison-labels.ts` (`{ key, label, level?, secondary, cells }`, célula `null` = "—"),
+com `COMPARISON_AGREEMENT_ROW` (`'ICR'`), `COMPARISON_TOTAL_ROW` (`'Notas'`) e `COMPARISON_EMPTY`.
+O cabeçalho usa `comparedPhase` e `closedOn`, e a linha acima da tabela `comparedVersions` (com
+versões diferentes, cada rodada aparece com as suas). `referenceSentence` saiu. Com outlier, a linha
+"Notas sem os marcados como outlier" também entra, para não perder o total que `QualityValue`
+mostrava. No diálogo de "Voltar à Fase 3" a tabela ocupa 455 px dos 512, sem rolagem horizontal; os
+rótulos "… sem os marcados como outlier" quebram em três linhas ali. `ReferenceRoundLine` não mudou.

@@ -249,6 +249,26 @@ export default async function ProjectRoundsPage({
         />
       ) : null}
 
+      {focusRound && focusComparison && focusComparison.kind !== 'not_phase_4' ? (
+        <Section
+          title={REFERENCE_COMPARISON_TITLE}
+          hint={
+            focusComparison.kind === 'compared'
+              ? referenceComparisonHint(
+                  focusRound.roundNumber,
+                  focusComparison.reference.roundNumber,
+                )
+              : undefined
+          }
+          help={REFERENCE_COMPARISON_HELP}
+        >
+          <ReferenceComparisonPanel
+            roundNumber={focusRound.roundNumber}
+            comparison={focusComparison}
+          />
+        </Section>
+      ) : null}
+
       {focusRound ? (
         <Section
           title={
@@ -309,26 +329,6 @@ export default async function ProjectRoundsPage({
               codebookVersionNumber={focusRound.codebookVersionNumber}
             />
           </div>
-        </Section>
-      ) : null}
-
-      {focusRound && focusComparison && focusComparison.kind !== 'not_phase_4' ? (
-        <Section
-          title={REFERENCE_COMPARISON_TITLE}
-          hint={
-            focusComparison.kind === 'compared'
-              ? referenceComparisonHint(
-                  focusRound.roundNumber,
-                  focusComparison.reference.roundNumber,
-                )
-              : undefined
-          }
-          help={REFERENCE_COMPARISON_HELP}
-        >
-          <ReferenceComparisonPanel
-            roundNumber={focusRound.roundNumber}
-            comparison={focusComparison}
-          />
         </Section>
       ) : null}
 

@@ -1,5 +1,19 @@
 import { formatDate } from '@/app/notifications/labels'
+import type { Agreement } from '@/lib/agreement'
+import { SCALE, scaleLabel, type ScaleValue } from '../evaluate/scale'
 import { PHASE_3 } from '../../pipeline/preconditions'
+import {
+  AGREEMENT_WITHOUT_OUTLIERS_LABEL,
+  NOT_CALCULABLE_LABEL,
+  formatAlpha,
+} from './agreement-labels'
+import type { Quality } from './quality'
+import {
+  QUALITY_UNRATED,
+  QUALITY_UNRATED_WITHOUT_OUTLIERS,
+  formatShare,
+} from './quality-labels'
+import type { ComparedRound } from './reference-comparison'
 
 export const REFERENCE_COMPARISON_TITLE = 'Comparação com a rodada de referência'
 
@@ -15,18 +29,131 @@ export function referenceComparisonHint(roundNumber: number, referenceNumber: nu
   )
 }
 
-export function referenceSentence(reference: {
-  roundNumber: number
-  closedAt: string | null
-  codebookVersionNumber: number
-  promptVersionNumber: number
-}): string {
-  const closed = reference.closedAt ? `, fechada em ${formatDate(reference.closedAt)}` : ''
-  return (
-    `Rodada de referência: rodada ${reference.roundNumber}${closed}. Ela validou o codebook ` +
-    `na versão ${reference.codebookVersionNumber} e o prompt na versão ` +
-    `${reference.promptVersionNumber}.`
-  )
+export const COMPARISON_AGREEMENT_ROW = 'ICR'
+
+export const COMPARISON_TOTAL_ROW = 'Notas'
+
+export const COMPARISON_EMPTY = '—'
+
+export type ComparisonCell = { text: string; count?: number; muted?: boolean } | null
+
+export type ComparisonRow = {
+  key: string
+  label: string
+  level?: ScaleValue
+  secondary: boolean
+  cells: ComparisonCell[]
+}
+
+type Versions = { codebookVersionNumber: number; promptVersionNumber: number }
+
+function versionsText(round: Versions): string {
+  return `Codebook v${round.codebookVersionNumber} · Prompt v${round.promptVersionNumber}`
+}
+
+export function comparedVersions(
+  reference: Versions & { roundNumber: number },
+  round: Versions & { roundNumber: number },
+): string {
+  if (versionsText(reference) === versionsText(round)) return `${versionsText(round)} nas duas`
+  return [reference, round]
+    .map((side) => `Rodada ${side.roundNumber}: ${versionsText(side)}`)
+    .join(' · ')
+}
+
+export function comparedPhase(round: { phase: number }, isReference: boolean): string {
+  return isReference ? `Fase ${round.phase} · referência` : `Fase ${round.phase}`
+}
+
+export function closedOn(closedAt: string): string {
+  return `fechada em ${formatDate(closedAt)}`
+}
+
+function agreementCell(agreement: Agreement | null): ComparisonCell {
+  if (!agreement) return null
+  return agreement.calculable
+    ? { text: formatAlpha(agreement.alpha) }
+    : { text: NOT_CALCULABLE_LABEL, muted: true }
+}
+
+function levelCell(quality: Quality | null | undefined, value: ScaleValue): ComparisonCell {
+  if (!quality?.rated) return null
+  const level = quality.levels.find((candidate) => candidate.value === value)
+  return level ? { text: formatShare(level.share), count: level.count } : null
+}
+
+function totalCell(quality: Quality | null | undefined, unrated: string): ComparisonCell {
+  if (!quality) return null
+  return quality.rated ? { text: String(quality.total) } : { text: unrated, muted: true }
+}
+
+function withoutOutliers(label: string): string {
+  return `${label} ${AGREEMENT_WITHOUT_OUTLIERS_LABEL}`
+}
+
+export function comparisonRows(
+  reference: ComparedRound,
+  round: ComparedRound,
+): ComparisonRow[] {
+  const sides = [reference, round]
+  const agreementOutliers = sides.some((side) => side.agreement.withoutOutliers !== null)
+  const qualityOutliers = sides.some((side) => (side.quality?.withoutOutliers ?? null) !== null)
+
+  const rows: ComparisonRow[] = [
+    {
+      key: 'agreement',
+      label: COMPARISON_AGREEMENT_ROW,
+      secondary: false,
+      cells: sides.map((side) => agreementCell(side.agreement.all)),
+    },
+  ]
+  if (agreementOutliers) {
+    rows.push({
+      key: 'agreement-without',
+      label: withoutOutliers(COMPARISON_AGREEMENT_ROW),
+      secondary: true,
+      cells: sides.map((side) => agreementCell(side.agreement.withoutOutliers)),
+    })
+  }
+
+  for (const value of SCALE) {
+    rows.push({
+      key: value,
+      label: scaleLabel(value),
+      level: value,
+      secondary: false,
+      cells: sides.map((side) => levelCell(side.quality?.all, value)),
+    })
+    if (qualityOutliers) {
+      rows.push({
+        key: `${value}-without`,
+        label: withoutOutliers(scaleLabel(value)),
+        secondary: true,
+        cells: sides.map((side) => levelCell(side.quality?.withoutOutliers, value)),
+      })
+    }
+  }
+
+  rows.push({
+    key: 'total',
+    label: COMPARISON_TOTAL_ROW,
+    secondary: true,
+    cells: sides.map((side) => totalCell(side.quality?.all, QUALITY_UNRATED)),
+  })
+  if (qualityOutliers) {
+    rows.push({
+      key: 'total-without',
+      label: withoutOutliers(COMPARISON_TOTAL_ROW),
+      secondary: true,
+      cells: sides.map((side) =>
+        side.quality?.withoutOutliers
+          ? totalCell(side.quality.withoutOutliers, QUALITY_UNRATED_WITHOUT_OUTLIERS)
+          : null,
+      ),
+    })
+  }
+
+  return rows
 }
 
 export function referenceLine(reference: {
