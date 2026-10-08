@@ -47,6 +47,7 @@ import {
 import { ReadingGuidanceNote } from '@/app/projects/[id]/(tabs)/rounds/reading-guidance-note'
 import {
   BELOW_BAND_GUIDANCE,
+  CODEBOOK_SHORTCUT,
   GUIDANCE_HEADING,
   PHASE_4_BELOW_BAND_GUIDANCE,
   PHASE_4_WITHIN_BAND_GUIDANCE,
@@ -418,14 +419,14 @@ describe('app/projects/[id]/rounds — a rodada da Fase 4 ao lado da rodada de r
     auth.userId = admin
     const tree = await render(scene.project)
 
-    const agreement = blockIndexOf(tree, AgreementPanel)
     const guidance = blockIndexOf(tree, ReadingGuidanceNote)
+    const agreement = blockIndexOf(tree, AgreementPanel)
     const quality = blockIndexOf(tree, QualityPanel)
     const comparison = blockIndexOf(tree, ReferenceComparisonPanel)
     const list = blockIndexOf(tree, RoundList)
-    expect(agreement).toBeGreaterThanOrEqual(0)
-    expect(guidance).toBe(agreement + 1)
-    expect(quality).toBe(guidance + 1)
+    expect(guidance).toBeGreaterThanOrEqual(0)
+    expect(agreement).toBe(guidance + 1)
+    expect(quality).toBe(agreement + 1)
     expect(comparison).toBe(quality + 1)
     expect(list).toBe(comparison + 1)
 
@@ -686,7 +687,10 @@ describe('app/projects/[id]/rounds — a rodada da Fase 4 ao lado da rodada de r
     expect(all.calculable).toBe(true)
     expect(all.calculable && all.alpha).toBeLessThan(AGREEMENT_BANDS.acceptable)
 
-    expect(guidanceOf(tree)).toEqual({ guidance: { phase: PHASE_4, kind: 'below_band' } })
+    expect(guidanceOf(tree)).toEqual({
+      guidance: { phase: PHASE_4, kind: 'below_band' },
+      projectId: scene.project,
+    })
     expect(guidanceTextOf(tree)).toBe(`${GUIDANCE_HEADING} ${PHASE_4_BELOW_BAND_GUIDANCE}`)
   })
 
@@ -702,7 +706,10 @@ describe('app/projects/[id]/rounds — a rodada da Fase 4 ao lado da rodada de r
 
     expect(panelOf(tree).pair.all).toMatchObject({ calculable: true, alpha: 1 })
 
-    expect(guidanceOf(tree)).toEqual({ guidance: { phase: PHASE_4, kind: 'within_band' } })
+    expect(guidanceOf(tree)).toEqual({
+      guidance: { phase: PHASE_4, kind: 'within_band' },
+      projectId: scene.project,
+    })
     expect(guidanceTextOf(tree)).toBe(`${GUIDANCE_HEADING} ${PHASE_4_WITHIN_BAND_GUIDANCE}`)
   })
 
@@ -722,13 +729,14 @@ describe('app/projects/[id]/rounds — a rodada da Fase 4 ao lado da rodada de r
     })
     expect(guidanceOf(tree)).toEqual({
       guidance: { phase: PHASE_4, kind: 'not_calculable', reason: 'few_evaluators' },
+      projectId: scene.project,
     })
     expect(guidanceTextOf(tree)).toBe(
       `${GUIDANCE_HEADING} ${phase4NotCalculableGuidance('few_evaluators')}`,
     )
   })
 
-  it('nenhum texto renderizado da orientação da Fase 4 fala em voltar, refinar ou veredito', async () => {
+  it('nenhum texto renderizado da orientação da Fase 4 fala em voltar, refinar ou veredito, e ela não tem atalho', async () => {
     const admin = await newUser('Admin')
     const absences: (readonly EvaluatorName[])[] = [[], ['carla'], ['bruno', 'carla']]
 
@@ -741,6 +749,11 @@ describe('app/projects/[id]/rounds — a rodada da Fase 4 ao lado da rodada de r
       ])
       const tree = await render(scene.project)
       kinds.push(guidanceOf(tree)!.guidance.kind)
+
+      const markup = renderToStaticMarkup(
+        createElement(ReadingGuidanceNote, guidanceOf(tree)!),
+      )
+      expect(markup).not.toContain('<a ')
 
       const text = guidanceTextOf(tree)
       const lower = text.toLowerCase()
@@ -761,8 +774,13 @@ describe('app/projects/[id]/rounds — a rodada da Fase 4 ao lado da rodada de r
     auth.userId = admin
     const tree = await render(scene.project)
 
-    expect(guidanceOf(tree)).toEqual({ guidance: { phase: PHASE_3, kind: 'below_band' } })
-    expect(guidanceTextOf(tree)).toBe(`${GUIDANCE_HEADING} ${BELOW_BAND_GUIDANCE}`)
+    expect(guidanceOf(tree)).toEqual({
+      guidance: { phase: PHASE_3, kind: 'below_band' },
+      projectId: scene.project,
+    })
+    expect(guidanceTextOf(tree)).toBe(
+      `${GUIDANCE_HEADING} ${BELOW_BAND_GUIDANCE} ${CODEBOOK_SHORTCUT}`,
+    )
   })
 
   it('o Avaliador não vê comparação, rodada de referência, Concordância nem Qualidade', async () => {

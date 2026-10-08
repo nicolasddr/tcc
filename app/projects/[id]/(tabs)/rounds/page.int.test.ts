@@ -82,7 +82,9 @@ import {
 import { ReadingGuidanceNote } from '@/app/projects/[id]/(tabs)/rounds/reading-guidance-note'
 import {
   BELOW_BAND_GUIDANCE,
+  CODEBOOK_SHORTCUT,
   GUIDANCE_HEADING,
+  QUALITY_SHORTCUT,
   WITHIN_BAND_GUIDANCE,
   notCalculableGuidance,
 } from '@/app/projects/[id]/(tabs)/rounds/reading-guidance-labels'
@@ -275,6 +277,12 @@ function guidanceTextOf(tree: unknown): string {
   const props = guidanceOf(tree)
   expect(props).toBeTruthy()
   return markupTextOf(createElement(ReadingGuidanceNote, props!))
+}
+
+function guidanceMarkupOf(tree: unknown): string {
+  const props = guidanceOf(tree)
+  expect(props).toBeTruthy()
+  return renderToStaticMarkup(createElement(ReadingGuidanceNote, props!))
 }
 
 function blockIndexOf(tree: unknown, type: unknown): number {
@@ -1867,8 +1875,14 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     expect(all.calculable).toBe(true)
     expect(all.calculable && all.alpha).toBeLessThan(0.667)
 
-    expect(guidanceOf(tree)).toEqual({ guidance: { phase: PHASE_3, kind: 'below_band' } })
-    expect(guidanceTextOf(tree)).toBe(`${GUIDANCE_HEADING} ${BELOW_BAND_GUIDANCE}`)
+    expect(guidanceOf(tree)).toEqual({
+      guidance: { phase: PHASE_3, kind: 'below_band' },
+      projectId: scene.project,
+    })
+    expect(guidanceTextOf(tree)).toBe(
+      `${GUIDANCE_HEADING} ${BELOW_BAND_GUIDANCE} ${CODEBOOK_SHORTCUT}`,
+    )
+    expect(guidanceMarkupOf(tree)).toContain(`href="/projects/${scene.project}/codebook"`)
   })
 
   it('numa rodada da Fase 3 dentro da faixa, o Administrador lê que é hora de olhar a Qualidade', async () => {
@@ -1880,8 +1894,14 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
 
     expect(panelOf(tree).pair.all).toMatchObject({ calculable: true, alpha: 1 })
 
-    expect(guidanceOf(tree)).toEqual({ guidance: { phase: PHASE_3, kind: 'within_band' } })
-    expect(guidanceTextOf(tree)).toBe(`${GUIDANCE_HEADING} ${WITHIN_BAND_GUIDANCE}`)
+    expect(guidanceOf(tree)).toEqual({
+      guidance: { phase: PHASE_3, kind: 'within_band' },
+      projectId: scene.project,
+    })
+    expect(guidanceTextOf(tree)).toBe(
+      `${GUIDANCE_HEADING} ${WITHIN_BAND_GUIDANCE} ${QUALITY_SHORTCUT}`,
+    )
+    expect(guidanceMarkupOf(tree)).toContain('href="#qualidade"')
   })
 
   it('numa rodada da Fase 3 com um avaliador só, a orientação diz por que não há ICR', async () => {
@@ -1903,10 +1923,12 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     })
     expect(guidanceOf(tree)).toEqual({
       guidance: { phase: PHASE_3, kind: 'not_calculable', reason: 'few_evaluators' },
+      projectId: scene.project,
     })
     expect(guidanceTextOf(tree)).toBe(
       `${GUIDANCE_HEADING} ${notCalculableGuidance('few_evaluators')}`,
     )
+    expect(guidanceMarkupOf(tree)).not.toContain('<a ')
   })
 
   it('a Qualidade não decide a orientação: notas todas em Alto e todas em Baixo dão o mesmo texto', async () => {
@@ -1938,8 +1960,8 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     const expected = {
       guidance: { phase: PHASE_3, kind: 'not_calculable', reason: 'no_variation' },
     }
-    expect(guidanceOf(highTree)).toEqual(expected)
-    expect(guidanceOf(lowTree)).toEqual(expected)
+    expect(guidanceOf(highTree)).toEqual({ ...expected, projectId: high.project })
+    expect(guidanceOf(lowTree)).toEqual({ ...expected, projectId: low.project })
     expect(guidanceTextOf(highTree)).toBe(guidanceTextOf(lowTree))
   })
 
@@ -1961,7 +1983,10 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     expect(all.calculable && all.alpha).toBeLessThan(0.667)
     expect(withoutOutliers).toMatchObject({ calculable: true, alpha: 1 })
 
-    expect(guidanceOf(tree)).toEqual({ guidance: { phase: PHASE_3, kind: 'below_band' } })
+    expect(guidanceOf(tree)).toEqual({
+      guidance: { phase: PHASE_3, kind: 'below_band' },
+      projectId: scene.project,
+    })
   })
 
   it('numa rodada da Fase 2, a orientação não aparece', async () => {
@@ -2007,6 +2032,7 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     expect(findElement(tree, CloseRound)).toBeTruthy()
     expect(guidanceOf(tree)).toEqual({
       guidance: { phase: PHASE_3, kind: 'not_calculable', reason: 'few_evaluators' },
+      projectId: scene.project,
     })
   })
 
@@ -2016,6 +2042,12 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
 
     auth.userId = admin
     const phase2NewRound = newRoundOf(await render(phase2.project))
+
+    const SHORTCUT_HREFS = {
+      below: (project: string) => `/projects/${project}/codebook`,
+      within: () => '#qualidade',
+      high: () => null,
+    }
 
     for (const kind of ['below', 'within', 'high'] as const) {
       const scene = await guidanceScene(admin, kind)
@@ -2044,8 +2076,10 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
       expect(newRoundOf(tree).blockers).toEqual([])
 
       const markup = renderToStaticMarkup(createElement(ReadingGuidanceNote, guidance!))
+      const href = SHORTCUT_HREFS[kind](scene.project)
       expect(markup).not.toContain('<button')
-      expect(markup).not.toContain('<a ')
+      expect(markup.split('<a ')).toHaveLength(href ? 2 : 1)
+      if (href) expect(markup).toContain(`href="${href}"`)
       expect(markup).not.toContain('disabled')
       expect(markup).not.toContain('role="alert"')
 
@@ -2055,20 +2089,55 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     }
   })
 
-  it('a orientação fica entre o bloco de Concordância e o de Qualidade', async () => {
+  it('a orientação abre a leitura: vem logo depois da nova rodada e antes da Concordância', async () => {
     const admin = await newUser('Admin')
     const scene = await guidanceScene(admin, 'within')
 
     auth.userId = admin
     const tree = await render(scene.project)
 
-    const agreement = blockIndexOf(tree, AgreementPanel)
+    const newRound = blockIndexOf(tree, NewRound)
     const guidance = blockIndexOf(tree, ReadingGuidanceNote)
+    const agreement = blockIndexOf(tree, AgreementPanel)
     const quality = blockIndexOf(tree, QualityPanel)
-    expect(agreement).toBeGreaterThanOrEqual(0)
-    expect(guidance).toBe(agreement + 1)
-    expect(quality).toBe(guidance + 1)
+    expect(newRound).toBeGreaterThanOrEqual(0)
+    expect(guidance).toBe(newRound + 1)
+    expect(agreement).toBe(guidance + 1)
+    expect(quality).toBe(agreement + 1)
     expect(findSection(tree, ReadingGuidanceNote)).toBeNull()
+  })
+
+  it('numa rodada aberta, a orientação vem depois de fechar a rodada e antes da Concordância', async () => {
+    const admin = await newUser('Admin')
+    const scene = await roundWith(admin, 2, { phase: PHASE_3 })
+    const ana = await newEvaluator(scene.project, 'Ana')
+    await addEvaluation(ownerDb, scene.round, scene.responses[0], ana, {
+      cells: filled(scene.cells, 'medium'),
+    })
+
+    auth.userId = admin
+    const tree = await render(scene.project)
+
+    const close = blockIndexOf(tree, CloseRound)
+    const guidance = blockIndexOf(tree, ReadingGuidanceNote)
+    const agreement = blockIndexOf(tree, AgreementPanel)
+    expect(close).toBeGreaterThanOrEqual(0)
+    expect(guidance).toBe(close + 1)
+    expect(agreement).toBe(guidance + 1)
+  })
+
+  it('a seção de Qualidade é a âncora do atalho da orientação', async () => {
+    const admin = await newUser('Admin')
+    const scene = await guidanceScene(admin, 'within')
+
+    auth.userId = admin
+    const tree = await render(scene.project)
+
+    const section = findSection(tree, QualityPanel)
+    expect(section).toBeTruthy()
+    const markup = renderToStaticMarkup(section!)
+    expect(markup).toContain('id="qualidade"')
+    expect(markup).toMatch(/<section id="qualidade" class="[^"]*\bscroll-mt-6\b/)
   })
 
   it('a lista do avaliador traz só as rodadas fechadas em que ele avaliou, em ordem', async () => {

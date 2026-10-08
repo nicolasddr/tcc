@@ -1,5 +1,7 @@
 import { describe, it, expect, expectTypeOf } from 'vitest'
 import {
+  QUALITY_SECTION_ID,
+  guidanceShortcut,
   hasReadingGuidance,
   readingGuidance,
   type GuidedPhase,
@@ -123,5 +125,34 @@ describe('app/projects/[id]/rounds/reading-guidance — por onde ler a rodada', 
     expect(hasReadingGuidance(PHASE_3)).toBe(true)
     expect(hasReadingGuidance(PHASE_4)).toBe(true)
     expect(hasReadingGuidance(5)).toBe(false)
+  })
+
+  it('na Fase 3 dentro da faixa, o atalho leva à seção de Qualidade', () => {
+    expect(guidanceShortcut({ phase: PHASE_3, kind: 'within_band' }, 'p1')).toEqual({
+      kind: 'quality',
+      href: `#${QUALITY_SECTION_ID}`,
+    })
+    expect(QUALITY_SECTION_ID).toBe('qualidade')
+  })
+
+  it('na Fase 3 abaixo da faixa, o atalho abre o codebook do projeto', () => {
+    expect(guidanceShortcut({ phase: PHASE_3, kind: 'below_band' }, 'p1')).toEqual({
+      kind: 'codebook',
+      href: '/projects/p1/codebook',
+    })
+  })
+
+  it('na Fase 3 sem ICR, não há atalho', () => {
+    for (const reason of REASONS) {
+      expect(guidanceShortcut({ phase: PHASE_3, kind: 'not_calculable', reason }, 'p1')).toBeNull()
+    }
+  })
+
+  it('na Fase 4, não há atalho em nenhum caso', () => {
+    expect(guidanceShortcut({ phase: PHASE_4, kind: 'within_band' }, 'p1')).toBeNull()
+    expect(guidanceShortcut({ phase: PHASE_4, kind: 'below_band' }, 'p1')).toBeNull()
+    for (const reason of REASONS) {
+      expect(guidanceShortcut({ phase: PHASE_4, kind: 'not_calculable', reason }, 'p1')).toBeNull()
+    }
   })
 })

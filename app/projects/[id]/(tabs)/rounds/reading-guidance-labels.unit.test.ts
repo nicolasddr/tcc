@@ -2,14 +2,17 @@ import { describe, it, expect } from 'vitest'
 import * as labels from '@/app/projects/[id]/(tabs)/rounds/reading-guidance-labels'
 import {
   BELOW_BAND_GUIDANCE,
+  CODEBOOK_SHORTCUT,
   GUIDANCE_HEADING,
   PHASE_4_BELOW_BAND_GUIDANCE,
   PHASE_4_WITHIN_BAND_GUIDANCE,
+  QUALITY_SHORTCUT,
   WITHIN_BAND_GUIDANCE,
   guidanceText,
   notCalculableGuidance,
   notCalculableReasonText,
   phase4NotCalculableGuidance,
+  shortcutLabel,
 } from '@/app/projects/[id]/(tabs)/rounds/reading-guidance-labels'
 import type {
   GuidedPhase,
@@ -67,7 +70,13 @@ function allGuidances(phase: GuidedPhase): ReadingGuidance[] {
 }
 
 function phase3Texts(): string[] {
-  const texts = [GUIDANCE_HEADING, BELOW_BAND_GUIDANCE, WITHIN_BAND_GUIDANCE]
+  const texts = [
+    GUIDANCE_HEADING,
+    BELOW_BAND_GUIDANCE,
+    WITHIN_BAND_GUIDANCE,
+    QUALITY_SHORTCUT,
+    CODEBOOK_SHORTCUT,
+  ]
   for (const reason of REASONS) {
     texts.push(notCalculableReasonText(reason), notCalculableGuidance(reason))
   }
@@ -211,6 +220,13 @@ describe('app/projects/[id]/rounds/reading-guidance-labels — as palavras da or
     for (const text of others) {
       expect(text).not.toContain('é hora de')
     }
+  })
+
+  it('os atalhos nomeiam para onde levam', () => {
+    expect(QUALITY_SHORTCUT).toBe(`Ver a ${QUALITY_LABEL} ↓`)
+    expect(CODEBOOK_SHORTCUT).toBe('Abrir o codebook')
+    expect(shortcutLabel('quality')).toBe(QUALITY_SHORTCUT)
+    expect(shortcutLabel('codebook')).toBe(CODEBOOK_SHORTCUT)
   })
 
   it('a varredura alcança o cabeçalho e os três casos com os três motivos, nas duas fases', () => {

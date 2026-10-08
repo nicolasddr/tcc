@@ -16,6 +16,27 @@ export function readingGuidance(agreement: Agreement, phase: GuidedPhase): Readi
   return { phase, kind: 'within_band' }
 }
 
+export const QUALITY_SECTION_ID = 'qualidade'
+
+export type GuidanceShortcutKind = 'quality' | 'codebook'
+
+export type GuidanceShortcut = { kind: GuidanceShortcutKind; href: string }
+
+export function guidanceShortcut(
+  guidance: ReadingGuidance,
+  projectId: string,
+): GuidanceShortcut | null {
+  if (guidance.phase !== PHASE_3) return null
+  switch (guidance.kind) {
+    case 'within_band':
+      return { kind: 'quality', href: `#${QUALITY_SECTION_ID}` }
+    case 'below_band':
+      return { kind: 'codebook', href: `/projects/${projectId}/codebook` }
+    case 'not_calculable':
+      return null
+  }
+}
+
 export function hasReadingGuidance(phase: number): phase is GuidedPhase {
   return phase === PHASE_3 || phase === PHASE_4
 }

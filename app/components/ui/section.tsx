@@ -9,6 +9,7 @@ export function Section({
   title,
   hint,
   help,
+  id,
   divider = true,
   className,
   children,
@@ -16,12 +17,14 @@ export function Section({
   title: React.ReactNode
   hint?: React.ReactNode
   help?: string
+  id?: string
   divider?: boolean
   className?: string
   children: React.ReactNode
 }) {
   return (
     <section
+      id={id}
       className={cx(
         divider ? 'mt-8 border-t border-line pt-6' : 'mt-6',
         className,

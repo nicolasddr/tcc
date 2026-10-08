@@ -2,9 +2,26 @@ import type { NotCalculableReason } from '@/lib/agreement'
 import { scaleLabel } from '../evaluate/scale'
 import { QUALITY_LABEL } from './quality-labels'
 import { PHASE_3, PHASE_4 } from '../../pipeline/preconditions'
-import type { GuidedPhase, ReadingGuidance } from './reading-guidance'
+import type {
+  GuidanceShortcutKind,
+  GuidedPhase,
+  ReadingGuidance,
+} from './reading-guidance'
 
 export const GUIDANCE_HEADING = 'Por onde ler esta rodada'
+
+export const QUALITY_SHORTCUT = `Ver a ${QUALITY_LABEL} ↓`
+
+export const CODEBOOK_SHORTCUT = 'Abrir o codebook'
+
+export function shortcutLabel(kind: GuidanceShortcutKind): string {
+  switch (kind) {
+    case 'quality':
+      return QUALITY_SHORTCUT
+    case 'codebook':
+      return CODEBOOK_SHORTCUT
+  }
+}
 
 export const BELOW_BAND_GUIDANCE =
   'O ICR desta rodada ficou abaixo da faixa de referência: os avaliadores não estão ' +

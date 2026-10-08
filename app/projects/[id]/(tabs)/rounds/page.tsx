@@ -34,7 +34,11 @@ import { AgreementPanel } from './agreement-panel'
 import { AgreementMatrixTable } from './agreement-matrix-table'
 import { QualityPanel } from './quality-panel'
 import { QualityMatrixTable } from './quality-matrix-table'
-import { hasReadingGuidance, readingGuidance } from './reading-guidance'
+import {
+  QUALITY_SECTION_ID,
+  hasReadingGuidance,
+  readingGuidance,
+} from './reading-guidance'
 import { ReadingGuidanceNote } from './reading-guidance-note'
 import { referenceComparison } from './reference-comparison'
 import {
@@ -238,6 +242,13 @@ export default async function ProjectRoundsPage({
         </Section>
       )}
 
+      {focusRound && hasReadingGuidance(focusRound.phase) ? (
+        <ReadingGuidanceNote
+          guidance={readingGuidance(focusPair.all, focusRound.phase)}
+          projectId={project.id}
+        />
+      ) : null}
+
       {focusRound ? (
         <Section
           title={
@@ -275,12 +286,10 @@ export default async function ProjectRoundsPage({
         </Section>
       ) : null}
 
-      {focusRound && hasReadingGuidance(focusRound.phase) ? (
-        <ReadingGuidanceNote guidance={readingGuidance(focusPair.all, focusRound.phase)} />
-      ) : null}
-
       {focusRound && focusQuality ? (
         <Section
+          id={QUALITY_SECTION_ID}
+          className="scroll-mt-6"
           title={
             focusRound.closedAt
               ? `Qualidade na rodada ${focusRound.roundNumber}, fechada`

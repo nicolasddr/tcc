@@ -8,7 +8,7 @@ ainda não estiver feito, a tabela sai sem a amostra e ela entra depois.
 
 | Parte | Entrega | Commit sugerido | Estado |
 |---|---|---|---|
-| 1 | "Por onde ler esta rodada" no topo, com atalho para a seção certa (ajuste 01) | `feat(rodadas): orientação de leitura no topo da rodada` | ⬜ |
+| 1 | "Por onde ler esta rodada" no topo, com atalho para a seção certa (ajuste 01) | `feat(rodadas): orientação de leitura no topo da rodada` | ✅ |
 | 2 | Comparação com a referência em tabela e logo após a orientação (ajuste 02) | `feat(rodadas): comparação com a referência em tabela` | ⬜ |
 
 ## Contexto comum
@@ -55,6 +55,15 @@ Concordância na rodada 5 ⓘ
 - Só a âncora `id="qualidade"` é necessária.
 
 **A Parte 2 herda**: as âncoras e o lugar da orientação.
+
+**Feito**: `ReadingGuidanceNote` recebe `projectId` e fica logo depois de nova rodada / fechar
+rodada, com `mt-8`. O atalho sai de `guidanceShortcut(guidance, projectId)` em
+`reading-guidance.ts` (`{ kind, href }` ou `null`), e o texto de `shortcutLabel(kind)`
+(`QUALITY_SHORTCUT`, `CODEBOOK_SHORTCUT`). `Section` ganhou a prop `id`; a de Qualidade usa
+`QUALITY_SECTION_ID` (`'qualidade'`) com `className="scroll-mt-6"`. O link é `OpenLink`. Hoje a
+ordem na Fase 4 é orientação → Concordância → Qualidade → comparação → lista; a Parte 2 sobe a
+comparação para logo depois da orientação (o teste de ordem em `phase-4-reading.int.test.ts` muda
+junto).
 
 ## Parte 2: comparação em tabela, logo após a orientação (ajuste 02)
 
