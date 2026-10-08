@@ -4,14 +4,14 @@ import { useActionState, useState } from 'react'
 import { createItem, updateItem, deleteItem, type ItemState } from './actions'
 import type { InputItem } from './items'
 import { itemPreviewLines } from './item-preview'
-import { itemUsageLabel } from '../round-usage'
+import { itemUsageMark } from '../round-usage'
+import { RoundMarkBadge } from '../round-mark-badge'
 import { Button } from '@/app/components/ui/button'
 import { RowActions, RowMenuItem } from '@/app/components/ui/row-actions'
 import { EditableRow } from '@/app/components/ui/editable-row'
 import { Field, Input, Textarea } from '@/app/components/ui/field'
 import { Form, FormActions } from '@/app/components/ui/form'
 import { Panel } from '@/app/components/ui/panel'
-import { Badge } from '@/app/components/ui/badge'
 import { Alert } from '@/app/components/ui/alert'
 import { EmptyState } from '@/app/components/ui/empty-state'
 import { InfoTooltip } from '@/app/components/ui/tooltip'
@@ -307,7 +307,7 @@ function ItemRow({
   onToggle: () => void
 }) {
   const lines = item.content.split('\n').length
-  const usage = itemUsageLabel(item.rounds)
+  const usage = itemUsageMark(item.rounds)
 
   return (
     <EditableRow
@@ -322,11 +322,7 @@ function ItemRow({
       }
       badges={
         <>
-          {usage ? (
-            <Badge tone="neutral" className="whitespace-normal!">
-              {usage}
-            </Badge>
-          ) : null}
+          {usage ? <RoundMarkBadge mark={usage} /> : null}
           {item.isEditable ? null : (
             <span className="inline-flex items-center gap-1 text-muted">
               <LockIcon />

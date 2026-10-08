@@ -8,7 +8,7 @@ Independente dos outros planos, mas se o Plano A ou o B já tiverem mexido nos m
 
 | Parte | Entrega | Commit sugerido | Estado |
 |---|---|---|---|
-| 1 | Marcas de participação e de uso curtas, com a lista no ⓘ (ajuste 10) | `feat(rodadas): marcas de uso e participação curtas` | ⬜ |
+| 1 | Marcas de participação e de uso curtas, com a lista no ⓘ (ajuste 10) | `feat(rodadas): marcas de uso e participação curtas` | ✅ |
 | 2 | Notas de rodapé repetidas viram ⓘ (ajuste 11) | `refactor(telas): notas de rodapé em tooltips` | ⬜ |
 
 ## Contexto comum

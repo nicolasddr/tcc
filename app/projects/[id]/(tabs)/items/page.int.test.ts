@@ -19,7 +19,7 @@ vi.mock('next/navigation', () => ({
 
 import ProjectItemsPage from '@/app/projects/[id]/(tabs)/items/page'
 import { ItemsEditor } from '@/app/projects/[id]/pipeline/items-editor'
-import { itemUsageLabel } from '@/app/projects/[id]/round-usage'
+import { itemUsageMark } from '@/app/projects/[id]/round-usage'
 import { PHASE_4 } from '@/app/projects/[id]/pipeline/preconditions'
 import { ownerDb } from '@/lib/db'
 import {
@@ -153,11 +153,15 @@ describe('app/projects/[id]/items — a tela dos itens de entrada', () => {
       [{ roundNumber: 2, phase: 3 }],
       [],
     ])
-    expect(itemUsageLabel(props.items[0].rounds)).toBe(
-      'usado nas rodadas 1 (Fase 2) e 2 (Fase 3)',
-    )
-    expect(itemUsageLabel(props.items[1].rounds)).toBe('usado na rodada 2 (Fase 3)')
-    expect(itemUsageLabel(props.items[2].rounds)).toBeNull()
+    expect(itemUsageMark(props.items[0].rounds)).toEqual({
+      short: 'usado em 2 rodadas',
+      full: 'usado nas rodadas 1 (Fase 2) e 2 (Fase 3)',
+    })
+    expect(itemUsageMark(props.items[1].rounds)).toEqual({
+      short: 'usado em 1 rodada',
+      full: 'usado na rodada 2 (Fase 3)',
+    })
+    expect(itemUsageMark(props.items[2].rounds)).toBeNull()
     expect(props.items.map((item) => item.isEditable)).toEqual([false, false, true])
   })
 

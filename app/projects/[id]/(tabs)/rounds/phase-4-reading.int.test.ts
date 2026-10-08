@@ -61,7 +61,10 @@ import {
 } from '@/app/projects/[id]/(tabs)/rounds/reading-guidance-labels'
 import { RoundChangeChips } from '@/app/projects/[id]/(tabs)/rounds/round-changes-note'
 import { entersPhase4Note } from '@/app/projects/[id]/(tabs)/rounds/round-changes-labels'
-import { PARTICIPATION_HELP } from '@/app/projects/[id]/(tabs)/rounds/participation-labels'
+import {
+  PARTICIPATED_BEFORE,
+  PARTICIPATION_HELP,
+} from '@/app/projects/[id]/(tabs)/rounds/participation-labels'
 import { Section } from '@/app/components/ui/section'
 import { loadCodebookVersion } from '@/app/projects/[id]/pipeline/codebook'
 import { resolveCells } from '@/app/projects/[id]/pipeline/criteria'
@@ -852,16 +855,20 @@ describe('app/projects/[id]/rounds — a rodada da Fase 4 ao lado da rodada de r
     auth.userId = admin
     const tree = await render(scene.project)
 
-    expect(panelOf(tree).participation).toEqual({
-      [scene.ana]: 'avaliou na rodada 1 (Fase 3)',
-      [scene.bruno]: 'avaliou na rodada 1 (Fase 3)',
-    })
+    const mark = { short: PARTICIPATED_BEFORE, full: 'avaliou na rodada 1 (Fase 3)' }
+    expect(panelOf(tree).participation).toEqual({ [scene.ana]: mark, [scene.bruno]: mark })
 
-    const text = markupTextOf(createElement(AgreementPanel, panelOf(tree)))
-    expect(text).toContain('Ana avaliou na rodada 1 (Fase 3)')
-    expect(text).toContain('Bruno avaliou na rodada 1 (Fase 3)')
-    expect(text).not.toContain('Carla avaliou')
+    const element = createElement(AgreementPanel, panelOf(tree))
+    const text = markupTextOf(element)
+    expect(text).toContain('Ana já avaliou antes')
+    expect(text).toContain('Bruno já avaliou antes')
+    expect(text).not.toContain('Carla já avaliou')
     expect(text).not.toContain('rodada 2')
+
+    const tooltips = [...renderToStaticMarkup(element).matchAll(/aria-label="([^"]*)"/g)].map(
+      (match) => match[1],
+    )
+    expect(tooltips.filter((label) => label === mark.full)).toHaveLength(2)
   })
 
   it('com a rodada da Fase 4 aberta, as avaliações dela não entram na marca', async () => {
@@ -874,10 +881,8 @@ describe('app/projects/[id]/rounds — a rodada da Fase 4 ao lado da rodada de r
     auth.userId = admin
     const tree = await render(scene.project)
 
-    expect(panelOf(tree).participation).toEqual({
-      [scene.ana]: 'avaliou na rodada 1 (Fase 3)',
-      [scene.bruno]: 'avaliou na rodada 1 (Fase 3)',
-    })
+    const mark = { short: PARTICIPATED_BEFORE, full: 'avaliou na rodada 1 (Fase 3)' }
+    expect(panelOf(tree).participation).toEqual({ [scene.ana]: mark, [scene.bruno]: mark })
   })
 
   it('depois de um retorno e de um novo avanço, a marca lista todas as rodadas anteriores', async () => {
@@ -892,7 +897,7 @@ describe('app/projects/[id]/rounds — a rodada da Fase 4 ao lado da rodada de r
     auth.userId = admin
     const tree = await render(scene.project)
 
-    expect(panelOf(tree).participation?.[scene.ana]).toBe(
+    expect(panelOf(tree).participation?.[scene.ana]?.full).toBe(
       'avaliou nas rodadas 1 (Fase 3), 2 (Fase 4) e 3 (Fase 3)',
     )
   })
@@ -911,9 +916,10 @@ describe('app/projects/[id]/rounds — a rodada da Fase 4 ao lado da rodada de r
     auth.userId = admin
     const tree = await render(scene.project)
 
-    expect(panelOf(tree).participation?.[adminAsEvaluator]).toBe(
-      'avaliou na rodada 1 (Fase 3)',
-    )
+    expect(panelOf(tree).participation?.[adminAsEvaluator]).toEqual({
+      short: PARTICIPATED_BEFORE,
+      full: 'avaliou na rodada 1 (Fase 3)',
+    })
   })
 
   it('com a marca no painel, o texto de ajuda explica a marca e aponta a marca de outlier', async () => {
@@ -946,9 +952,9 @@ describe('app/projects/[id]/rounds — a rodada da Fase 4 ao lado da rodada de r
     for (const scene of [phase3, phase2]) {
       const tree = await render(scene.project)
       expect(panelOf(tree).participation).toBeUndefined()
-      expect(markupTextOf(createElement(AgreementPanel, panelOf(tree)))).not.toContain(
-        'avaliou n',
-      )
+      const text = markupTextOf(createElement(AgreementPanel, panelOf(tree)))
+      expect(text).not.toContain('avaliou n')
+      expect(text).not.toContain(PARTICIPATED_BEFORE)
     }
   })
 
@@ -961,5 +967,6 @@ describe('app/projects/[id]/rounds — a rodada da Fase 4 ao lado da rodada de r
 
     expect(findElement(tree, AgreementPanel)).toBeNull()
     expect(allTextOf(tree)).not.toContain('avaliou n')
+    expect(allTextOf(tree)).not.toContain(PARTICIPATED_BEFORE)
   })
 })

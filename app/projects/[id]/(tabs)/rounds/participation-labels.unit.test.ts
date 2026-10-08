@@ -1,12 +1,16 @@
 import { describe, it, expect } from 'vitest'
 import type { RoundTag } from '../../round-usage'
-import { participationBefore } from './participation-labels'
+import { PARTICIPATED_BEFORE, participationBefore } from './participation-labels'
 
 function participationOf(entries: [string, RoundTag[]][]): Map<string, RoundTag[]> {
   return new Map(entries)
 }
 
 describe('participationBefore', () => {
+  it('a marca curta é a mesma para todos, porque a rodada em foco é sempre a mais nova', () => {
+    expect(PARTICIPATED_BEFORE).toBe('já avaliou antes')
+  })
+
   it('só as rodadas de número menor que a do painel entram', () => {
     const participation = participationOf([
       [
@@ -20,7 +24,7 @@ describe('participationBefore', () => {
     ])
 
     expect(participationBefore(participation, 5)).toEqual({
-      ana: 'avaliou nas rodadas 1 (Fase 2) e 3 (Fase 3)',
+      ana: { short: PARTICIPATED_BEFORE, full: 'avaliou nas rodadas 1 (Fase 2) e 3 (Fase 3)' },
     })
   })
 
@@ -43,7 +47,7 @@ describe('participationBefore', () => {
     ])
 
     expect(participationBefore(participation, 2)).toEqual({
-      ana: 'avaliou na rodada 1 (Fase 3)',
+      ana: { short: PARTICIPATED_BEFORE, full: 'avaliou na rodada 1 (Fase 3)' },
     })
   })
 
@@ -54,7 +58,7 @@ describe('participationBefore', () => {
     ])
 
     expect(participationBefore(participation, 2)).toEqual({
-      ana: 'avaliou na rodada 1 (Fase 3)',
+      ana: { short: PARTICIPATED_BEFORE, full: 'avaliou na rodada 1 (Fase 3)' },
     })
   })
 

@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest'
-import { itemUsageLabel, participationLabel, roundsLabel } from './round-usage'
+import {
+  itemUsageLabel,
+  itemUsageMark,
+  participationLabel,
+  participationMark,
+  roundsLabel,
+} from './round-usage'
 
 describe('roundsLabel', () => {
   it('não rotula quando não há rodada nenhuma', () => {
@@ -70,5 +76,38 @@ describe('roundsLabel', () => {
     expect(roundsLabel(rounds)).toBe('nas rodadas 1 (Fase 2) e 4 (Fase 3)')
     expect(itemUsageLabel(rounds)).toBe(`usado ${roundsLabel(rounds)}`)
     expect(participationLabel(rounds)).toBe(`avaliou ${roundsLabel(rounds)}`)
+  })
+})
+
+describe('itemUsageMark e participationMark', () => {
+  const threePhases = [
+    { roundNumber: 1, phase: 2 },
+    { roundNumber: 2, phase: 2 },
+    { roundNumber: 4, phase: 3 },
+    { roundNumber: 6, phase: 4 },
+  ]
+
+  it('sem rodada nenhuma, não há marca', () => {
+    expect(itemUsageMark([])).toBeNull()
+    expect(participationMark([])).toBeNull()
+  })
+
+  it('a marca curta conta as rodadas e a longa guarda a lista por fase', () => {
+    expect(itemUsageMark(threePhases)).toEqual({
+      short: 'usado em 4 rodadas',
+      full: 'usado nas rodadas 1 e 2 (Fase 2), 4 (Fase 3) e 6 (Fase 4)',
+    })
+    expect(participationMark(threePhases)).toEqual({
+      short: 'avaliou em 4 rodadas',
+      full: 'avaliou nas rodadas 1 e 2 (Fase 2), 4 (Fase 3) e 6 (Fase 4)',
+    })
+  })
+
+  it('usa o singular com uma rodada só', () => {
+    expect(itemUsageMark([{ roundNumber: 3, phase: 2 }])).toEqual({
+      short: 'usado em 1 rodada',
+      full: 'usado na rodada 3 (Fase 2)',
+    })
+    expect(participationMark([{ roundNumber: 3, phase: 2 }])?.short).toBe('avaliou em 1 rodada')
   })
 })

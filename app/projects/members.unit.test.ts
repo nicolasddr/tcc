@@ -91,7 +91,12 @@ describe('participationByUser', () => {
         ],
       ]),
     )
-    expect(result).toEqual({ u1: 'avaliou nas rodadas 1 (Fase 2) e 2 (Fase 3)' })
+    expect(result).toEqual({
+      u1: {
+        short: 'avaliou em 2 rodadas',
+        full: 'avaliou nas rodadas 1 (Fase 2) e 2 (Fase 3)',
+      },
+    })
   })
 
   it('avaliador sem rodadas não tem chave', () => {
@@ -102,7 +107,9 @@ describe('participationByUser', () => {
       ],
       new Map([['m1', [{ roundNumber: 3, phase: 2 }]]]),
     )
-    expect(result).toEqual({ u1: 'avaliou na rodada 3 (Fase 2)' })
+    expect(result).toEqual({
+      u1: { short: 'avaliou em 1 rodada', full: 'avaliou na rodada 3 (Fase 2)' },
+    })
   })
 
   it('só o vínculo de avaliador conta: a linha de administrador é ignorada', () => {
@@ -124,6 +131,8 @@ describe('participationByUser', () => {
         ['m-eval', [{ roundNumber: 2, phase: 3 }]],
       ]),
     )
-    expect(result).toEqual({ u1: 'avaliou na rodada 2 (Fase 3)' })
+    expect(result).toEqual({
+      u1: { short: 'avaliou em 1 rodada', full: 'avaliou na rodada 2 (Fase 3)' },
+    })
   })
 })

@@ -1,4 +1,8 @@
+import { plural } from '@/lib/plural'
+
 export type RoundTag = { roundNumber: number; phase: number }
+
+export type RoundMark = { short: string; full: string }
 
 function joinList(parts: readonly string[]): string {
   if (parts.length <= 1) return parts.join('')
@@ -31,4 +35,18 @@ export function itemUsageLabel(rounds: readonly RoundTag[]): string | null {
 export function participationLabel(rounds: readonly RoundTag[]): string | null {
   const label = roundsLabel(rounds)
   return label && `avaliou ${label}`
+}
+
+function roundCount(rounds: readonly RoundTag[]): string {
+  return plural(rounds.length, 'rodada', 'rodadas')
+}
+
+export function itemUsageMark(rounds: readonly RoundTag[]): RoundMark | null {
+  const full = itemUsageLabel(rounds)
+  return full ? { short: `usado em ${roundCount(rounds)}`, full } : null
+}
+
+export function participationMark(rounds: readonly RoundTag[]): RoundMark | null {
+  const full = participationLabel(rounds)
+  return full ? { short: `avaliou em ${roundCount(rounds)}`, full } : null
 }

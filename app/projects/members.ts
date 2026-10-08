@@ -1,5 +1,5 @@
 import type { EvaluatorParticipation } from './[id]/(tabs)/rounds/participation'
-import { participationLabel } from './[id]/round-usage'
+import { participationMark, type RoundMark } from './[id]/round-usage'
 
 export type MemberRow = {
   memberId: string
@@ -51,12 +51,12 @@ export function groupMembers(rows: MemberRow[]): ListedMember[] {
 export function participationByUser(
   rows: readonly MemberRow[],
   participation: EvaluatorParticipation,
-): Record<string, string> {
-  const labels: Record<string, string> = {}
+): Record<string, RoundMark> {
+  const labels: Record<string, RoundMark> = {}
   for (const row of rows) {
     if (row.role !== 'evaluator') continue
-    const label = participationLabel(participation.get(row.memberId) ?? [])
-    if (label) labels[row.userId] = label
+    const mark = participationMark(participation.get(row.memberId) ?? [])
+    if (mark) labels[row.userId] = mark
   }
   return labels
 }

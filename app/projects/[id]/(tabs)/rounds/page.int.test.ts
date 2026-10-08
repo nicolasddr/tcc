@@ -75,7 +75,7 @@ import {
   roundBlockerSummary,
   roundInputSummary,
 } from '@/app/projects/[id]/(tabs)/rounds/preconditions'
-import { itemUsageLabel } from '@/app/projects/[id]/round-usage'
+import { itemUsageMark } from '@/app/projects/[id]/round-usage'
 import { RoundChangeChips } from '@/app/projects/[id]/(tabs)/rounds/round-changes-note'
 import {
   CODEBOOK_AND_PROMPT_NOTICE,
@@ -1114,8 +1114,11 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
       ],
       [],
     ])
-    expect(itemUsageLabel(props.items[0].rounds)).toBe('usado nas rodadas 1 e 2 (Fase 2)')
-    expect(itemUsageLabel(props.items[1].rounds)).toBeNull()
+    expect(itemUsageMark(props.items[0].rounds)).toEqual({
+      short: 'usado em 2 rodadas',
+      full: 'usado nas rodadas 1 e 2 (Fase 2)',
+    })
+    expect(itemUsageMark(props.items[1].rounds)).toBeNull()
     expect(props.generated.map((response) => response.itemId)).toEqual([reused])
   })
 

@@ -1,8 +1,10 @@
 import { roleLabel, memberStatusLabel } from '../labels'
 import type { ListedMember } from '../members'
+import type { RoundMark } from './round-usage'
+import { RoundMarkBadge } from './round-mark-badge'
 import { DeactivateMemberButton } from './member-actions'
 import { ButtonLink } from '@/app/components/ui/button'
-import { Badge, StatusBadge } from '@/app/components/ui/badge'
+import { StatusBadge } from '@/app/components/ui/badge'
 import { Avatar } from '@/app/components/ui/avatar'
 
 export function MemberList({
@@ -16,7 +18,7 @@ export function MemberList({
   members: ListedMember[]
   viewerId: string
   canManage: boolean
-  participation?: Readonly<Record<string, string>>
+  participation?: Readonly<Record<string, RoundMark>>
 }) {
   return (
     <ul className="m-0 flex list-none flex-col gap-0.5 p-0">
@@ -33,9 +35,9 @@ export function MemberList({
               {m.email !== m.name ? ` · ${m.email}` : ''}
             </span>
             {participation?.[m.userId] ? (
-              <Badge tone="neutral" className="mt-1 self-start whitespace-normal!">
-                {participation[m.userId]}
-              </Badge>
+              <span className="mt-1 self-start">
+                <RoundMarkBadge mark={participation[m.userId]} />
+              </span>
             ) : null}
           </span>
           <span className="flex shrink-0 items-center gap-2.5">

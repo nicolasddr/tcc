@@ -4,6 +4,8 @@ import type { EvaluatorEffort } from './agreement'
 import type { AgreementPair } from './agreement-pair'
 import type { OutlierMark } from './outliers'
 import { PARTICIPATION_HELP } from './participation-labels'
+import type { RoundMark } from '../../round-usage'
+import { RoundMarkBadge } from '../../round-mark-badge'
 import {
   AGREEMENT_ALL_LABEL,
   AGREEMENT_LABEL,
@@ -75,7 +77,7 @@ function EffortList({
 }: {
   effort: EvaluatorEffort[]
   excluded: ReadonlySet<string>
-  participation?: Readonly<Record<string, string>>
+  participation?: Readonly<Record<string, RoundMark>>
 }) {
   if (effort.length === 0) return null
 
@@ -106,9 +108,7 @@ function EffortList({
                 <Badge tone="neutral">desativado</Badge>
               )}
               {participation?.[evaluator.projectMemberId] ? (
-                <Badge tone="neutral" className="whitespace-normal!">
-                  {participation[evaluator.projectMemberId]}
-                </Badge>
+                <RoundMarkBadge mark={participation[evaluator.projectMemberId]} />
               ) : null}
             </span>
             <span>
@@ -163,7 +163,7 @@ export function AgreementPanel({
   responses: ResponseCounts
   effort: EvaluatorEffort[]
   outliers: OutlierMark[]
-  participation?: Readonly<Record<string, string>>
+  participation?: Readonly<Record<string, RoundMark>>
 }) {
   const { all, withoutOutliers } = pair
   const excluded = new Set(outliers.map((mark) => mark.projectMemberId))

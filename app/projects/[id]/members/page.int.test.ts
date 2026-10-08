@@ -197,8 +197,11 @@ describe('app/projects/[id]/members — só quem participa ativamente entra', ()
 
     auth.userId = s.admin
     expect((await listOf(s.project)).participation).toEqual({
-      [ana.user]: 'avaliou nas rodadas 1 (Fase 2) e 2 (Fase 3)',
-      [bia.user]: 'avaliou na rodada 2 (Fase 3)',
+      [ana.user]: {
+        short: 'avaliou em 2 rodadas',
+        full: 'avaliou nas rodadas 1 (Fase 2) e 2 (Fase 3)',
+      },
+      [bia.user]: { short: 'avaliou em 1 rodada', full: 'avaliou na rodada 2 (Fase 3)' },
     })
   })
 
@@ -223,7 +226,7 @@ describe('app/projects/[id]/members — só quem participa ativamente entra', ()
 
     auth.userId = s.admin
     expect((await listOf(s.project)).participation).toEqual({
-      [s.admin]: 'avaliou na rodada 1 (Fase 2)',
+      [s.admin]: { short: 'avaliou em 1 rodada', full: 'avaliou na rodada 1 (Fase 2)' },
     })
   })
 

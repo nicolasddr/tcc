@@ -125,7 +125,7 @@ export default async function ProjectMembersPage({
         }
         help={
           isAdmin
-            ? 'Desativar é sobre acesso: a pessoa deixa de entrar no projeto, e as avaliações que ela já enviou continuam gravadas e continuam no cálculo de concordância. Tirar notas do cálculo é a outra porta, e se faz marcando a pessoa como outlier em uma rodada. A marca "avaliou nas rodadas" mostra em quais rodadas, e de quais fases, cada avaliador já enviou avaliação. Ela não impede ninguém de avaliar: para tirar do cálculo quem já tinha avaliado antes, use a marca de outlier na rodada.'
+            ? 'Desativar é sobre acesso: a pessoa deixa de entrar no projeto, e as avaliações que ela já enviou continuam gravadas e continuam no cálculo de concordância. Tirar notas do cálculo é a outra porta, e se faz marcando a pessoa como outlier em uma rodada. A marca "avaliou em N rodadas" mostra em quais rodadas, e de quais fases, cada avaliador já enviou avaliação. Ela não impede ninguém de avaliar: para tirar do cálculo quem já tinha avaliado antes, use a marca de outlier na rodada.'
             : undefined
         }
       >

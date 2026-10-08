@@ -52,7 +52,7 @@ import { listRounds } from '@/app/projects/[id]/(tabs)/rounds/rounds'
 import ProjectRoundsPage from '@/app/projects/[id]/(tabs)/rounds/page'
 import { GenerateResponses } from '@/app/projects/[id]/(tabs)/rounds/generate-responses'
 import { selectionBlockers } from '@/app/projects/[id]/(tabs)/rounds/preconditions'
-import { itemUsageLabel } from '@/app/projects/[id]/round-usage'
+import { itemUsageMark } from '@/app/projects/[id]/round-usage'
 import { projectReferenceRound } from '@/app/projects/[id]/(tabs)/rounds/reference-round'
 import { loadCodebookVersion } from '@/app/projects/[id]/pipeline/codebook'
 import { resolveCells } from '@/app/projects/[id]/pipeline/criteria'
@@ -358,7 +358,10 @@ describe('app/projects/[id]/rounds — o ciclo completo de uma rodada da Fase 4'
       const before = await generateOf(s.project)
       const offered = before.items.find((item) => item.id === s.usedItem)!
       expect(offered.rounds).toEqual([{ roundNumber: 1, phase: PHASE_3 }])
-      expect(itemUsageLabel(offered.rounds)).toBe('usado na rodada 1 (Fase 3)')
+      expect(itemUsageMark(offered.rounds)).toEqual({
+        short: 'usado em 1 rodada',
+        full: 'usado na rodada 1 (Fase 3)',
+      })
       expect(before.generated).toEqual([])
       expect(
         selectionBlockers([s.usedItem], {
