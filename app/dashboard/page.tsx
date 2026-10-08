@@ -13,7 +13,7 @@ import { isSuperAdmin, listMyPendingInvitations, type PendingInvitation } from '
 import { signOut } from '@/app/auth/actions'
 import { declineInvitation } from '@/app/invitations/actions'
 import { acceptInvitation } from '@/app/onboarding/actions'
-import { ProcessOverview } from '@/app/components/process-overview'
+import { CollapsedProcessOverview, ProcessOverview } from '@/app/components/process-overview'
 import { ProcessPhasesFooter } from '@/app/components/process-phases-footer'
 import { NotificationBell, type InboxItem } from '@/app/components/notification-bell'
 import { SubmitButton } from '@/app/components/submit-button'
@@ -266,13 +266,17 @@ export default async function Dashboard({
         )}
       </section>
 
-      <ProcessOverview
-        createAction={
-          <ButtonLink href="/projects/new" fullWidth>
-            Criar Novo Projeto
-          </ButtonLink>
-        }
-      />
+      {hasProjects ? (
+        <CollapsedProcessOverview />
+      ) : (
+        <ProcessOverview
+          createAction={
+            <ButtonLink href="/projects/new" fullWidth>
+              Criar Novo Projeto
+            </ButtonLink>
+          }
+        />
+      )}
     </PageShell>
   )
 }

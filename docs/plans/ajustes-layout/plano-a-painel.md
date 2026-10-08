@@ -6,7 +6,7 @@ Ajustes **01 e 02** da referência visual `docs/plans/ajustes-layout/referencia-
 | Parte | Entrega | Commit sugerido | Estado |
 |---|---|---|---|
 | 1 | Textos do painel que não batem com a ferramenta (ajuste 01) | `fix(painel): textos de entrada por convite e fase 4` | ✅ |
-| 2 | Guia do processo recolhido quando já há projetos (ajuste 02) | `feat(painel): guia do processo recolhido` | ⬜ |
+| 2 | Guia do processo recolhido quando já há projetos (ajuste 02) | `feat(painel): guia do processo recolhido` | ✅ |
 
 ## Contexto comum
 
