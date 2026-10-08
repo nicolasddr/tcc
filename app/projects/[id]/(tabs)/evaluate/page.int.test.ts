@@ -201,8 +201,12 @@ describe('app/projects/[id]/evaluate — a tela do avaliador', () => {
   async function scenario(
     admin: string,
     opts: {
-      definitions?: { title: string; description?: string; criteria?: { name: string }[] }[]
-      generalCriteria?: { name: string }[]
+      definitions?: {
+        title: string
+        description?: string
+        criteria?: { name: string; description?: string }[]
+      }[]
+      generalCriteria?: { name: string; description?: string }[]
       responses?: number
       phase?: number
       openRound?: boolean
@@ -319,22 +323,45 @@ describe('app/projects/[id]/evaluate — a tela do avaliador', () => {
     expect(html).toContain('<textarea')
   })
 
-  it('a descrição da definição e a do critério ficam no tooltip ao lado do nome', async () => {
+  it('a descrição da definição e a do critério ficam visíveis abaixo do nome, sem ⓘ e sem o selo geral', async () => {
     const admin = await newUser('Admin')
     const scene = await scenario(admin, {
       definitions: [
         {
           title: 'Informacional',
           description: 'busca informação',
-          criteria: [{ name: 'Clareza' }],
+          criteria: [{ name: 'Cita a fonte', description: 'menciona de onde veio' }],
         },
       ],
+      generalCriteria: [{ name: 'Clareza', description: 'linha um\nlinha dois' }],
     })
     const evaluator = await newEvaluator(scene.project)
 
     auth.userId = evaluator
-    const html = markupOf(formOf(await open(scene.project)))
-    expect(html).toContain('busca informa')
+    const props = formOf(await open(scene.project))
+
+    const member = await memberIdOf(ownerDb, scene.project, evaluator)
+    const codebook = await loadCodebookVersion(scene.project, scene.codebookVersion)
+    const cells = resolveCells(codebook!.definitions, codebook!.criteria)
+    await addEvaluation(ownerDb, scene.round, scene.responses[0], member, {
+      cells: cells.map((cell) => ({
+        definitionId: cell.definition.id,
+        criterionId: cell.criterion.id,
+        value: 'high' as const,
+      })),
+    })
+    const reading = formOf(await open(scene.project))
+    expect(reading.submitted).not.toBeNull()
+
+    for (const html of [markupOf(props), markupOf(reading)]) {
+      expect(html).toContain('>busca informação</')
+      expect(html).toContain('>menciona de onde veio</')
+      expect(html).toContain('>linha um\nlinha dois</')
+      expect(html).not.toContain('aria-label="busca informação"')
+      expect(html).not.toContain('aria-label="menciona de onde veio"')
+      expect(html).not.toContain('aria-label="linha um')
+      expect(html).not.toContain('>geral<')
+    }
   })
 
   it('o envio definitivo é dito uma vez, ao lado do botão, e o aviso do total vai para o ⓘ', async () => {

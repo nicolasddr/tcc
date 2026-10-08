@@ -20,11 +20,11 @@ import { Alert } from '@/app/components/ui/alert'
 import { Badge } from '@/app/components/ui/badge'
 import { Button, buttonClass } from '@/app/components/ui/button'
 import { Card } from '@/app/components/ui/card'
+import { cx } from '@/app/components/ui/cx'
 import { Disclosure } from '@/app/components/ui/disclosure'
 import { Textarea } from '@/app/components/ui/field'
 import { Form, FormActions } from '@/app/components/ui/form'
 import { preWrapClass, scrollBoxClass } from '@/app/components/ui/prose'
-import { InfoTooltip } from '@/app/components/ui/tooltip'
 
 type Cell = CodebookCell<CodebookDefinition, CodebookCriterion>
 
@@ -70,13 +70,26 @@ function storedJustifications(
   return texts
 }
 
-function CriterionName({ criterion, isGeneral }: { criterion: CodebookCriterion; isGeneral: boolean }) {
+function Description({ text, className }: { text: string | null; className?: string }) {
+  if (!text) return null
+  return <p className={cx('m-0 text-xs text-muted', preWrapClass, className)}>{text}</p>
+}
+
+function CriterionName({
+  criterion,
+  children,
+}: {
+  criterion: CodebookCriterion
+  children?: React.ReactNode
+}) {
   return (
-    <span className="flex flex-wrap items-center gap-2">
-      <span className="text-[13px] font-semibold text-ink">{criterion.name}</span>
-      {criterion.description ? <InfoTooltip text={criterion.description} /> : null}
-      {isGeneral ? <Badge tone="info">geral</Badge> : null}
-    </span>
+    <div className="flex flex-col gap-0.5">
+      <span className="flex flex-wrap items-center gap-2">
+        <span className="text-[13px] font-semibold text-ink">{criterion.name}</span>
+        {children}
+      </span>
+      <Description text={criterion.description} />
+    </div>
   )
 }
 
@@ -92,7 +105,6 @@ function DefinitionSummary({
   return (
     <span className="flex flex-wrap items-center gap-2">
       <span className="text-sm font-semibold text-ink">{definition.title}</span>
-      {definition.description ? <InfoTooltip text={definition.description} /> : null}
       <Badge tone={scored === total ? 'success' : 'neutral'}>
         {scored} de {total}
       </Badge>
@@ -175,14 +187,10 @@ export function EvaluationForm({
           {groups.map((group) => (
             <li key={group.definition.id}>
               <Card padding="sm">
-                <span className="flex flex-wrap items-center gap-2">
-                  <span className="text-sm font-semibold text-ink">
-                    {group.definition.title}
-                  </span>
-                  {group.definition.description ? (
-                    <InfoTooltip text={group.definition.description} />
-                  ) : null}
+                <span className="text-sm font-semibold text-ink">
+                  {group.definition.title}
                 </span>
+                <Description text={group.definition.description} className="mt-0.5" />
 
                 <ul className="m-0 mt-3 flex list-none flex-col gap-3 border-t border-line p-0 pt-3">
                   {group.cells.map((cell) => {
@@ -192,15 +200,11 @@ export function EvaluationForm({
 
                     return (
                       <li key={key} className="flex flex-col gap-1.5">
-                        <span className="flex flex-wrap items-center gap-2">
-                          <CriterionName
-                            criterion={cell.criterion}
-                            isGeneral={cell.isGeneral}
-                          />
+                        <CriterionName criterion={cell.criterion}>
                           {isScaleValue(value) ? (
                             <Badge tone={scaleTone(value)}>{scaleLabel(value)}</Badge>
                           ) : null}
-                        </span>
+                        </CriterionName>
                         <p className={`m-0 text-[13px] ${preWrapClass} text-muted`}>
                           {justification === '' ? 'Sem justificativa.' : justification}
                         </p>
@@ -248,6 +252,8 @@ export function EvaluationForm({
                   />
                 }
               >
+                <Description text={group.definition.description} className="mt-1" />
+
                 <ul className="m-0 mt-3 flex list-none flex-col gap-4 border-t border-line p-0 pt-3">
                   {group.cells.map((cell) => {
                     const key = keyOf(cell)
@@ -255,10 +261,7 @@ export function EvaluationForm({
 
                     return (
                       <li key={key} className="flex flex-col gap-2">
-                        <CriterionName
-                          criterion={cell.criterion}
-                          isGeneral={cell.isGeneral}
-                        />
+                        <CriterionName criterion={cell.criterion} />
 
                         <input type="hidden" name={`score_${key}`} value={value} />
 
