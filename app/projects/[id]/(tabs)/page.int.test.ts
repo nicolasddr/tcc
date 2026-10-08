@@ -546,6 +546,71 @@ describe('app/projects/[id]/page — escopo de visibilidade', () => {
     expect(hasProp(await overview(phase3, evaluator), 'href', '#avancar')).toBe(false)
   })
 
+  it('com pendências, a barra mostra "N pendências ↓" num botão secundário; sem pendências, o primário "Avançar fase"', async () => {
+    const admin = await newUser('Admin')
+    const pending1 = await newProject(admin)
+    const pending2 = await newProject(admin, PHASE_2)
+    const ready1 = await newProject(admin)
+    const ready2 = await newProject(admin, PHASE_2)
+
+    await addCodebookVersion(ownerDb, ready1, admin)
+    await addPromptVersion(ownerDb, ready1, admin, { text: 'Classifique a consulta.' })
+    await addInputItem(ownerDb, ready1, admin)
+    const promptVersion = await addPromptVersion(ownerDb, ready2, admin)
+    await roundWith(ready2, admin, promptVersion, { roundNumber: 1, versionNumber: 1 })
+
+    auth.userId = admin
+    async function barLinkOf(id: string) {
+      const link = elementWithProp(await render(id), 'href', '#avancar')
+      expect(link).toBeTruthy()
+      return {
+        text: deepText((link!.props as { children: unknown }).children)
+          .replace(/\s+/g, ' ')
+          .trim(),
+        variant: (link!.props as { variant?: string }).variant,
+      }
+    }
+
+    const first = await render(pending1)
+    expect(pendingRequirements(checklistOf(first)!.inputs)).toHaveLength(3)
+    expect(await barLinkOf(pending1)).toEqual({ text: '3 pendências ↓', variant: 'secondary' })
+    expect(await barLinkOf(pending2)).toEqual({ text: '1 pendência ↓', variant: 'secondary' })
+
+    for (const ready of [ready1, ready2]) {
+      const link = await barLinkOf(ready)
+      expect(link.text).toBe('Avançar fase')
+      expect(link.variant).toBeUndefined()
+    }
+  })
+
+  it('a ação da fase fica logo abaixo da barra, antes dos cartões de números e dos gráficos', async () => {
+    const admin = await newUser('Admin')
+    const phases = [PHASE_1, PHASE_2, PHASE_3, PHASE_4]
+    const anchors = ['avancar', 'avancar', 'avancar', 'voltar']
+
+    auth.userId = admin
+    for (const [index, phase] of phases.entries()) {
+      const project = await newProject(admin, phase)
+      const promptVersion = await addPromptVersion(ownerDb, project, admin)
+      await roundWith(project, admin, promptVersion, {
+        roundNumber: 1,
+        versionNumber: 1,
+        phase: PHASE_2,
+      })
+
+      const tree = await render(project)
+      const bar = findElement(tree, PhaseBar)!
+      const siblings = [(parentOf(tree, bar)!.props as { children: unknown }).children]
+        .flat(Infinity)
+        .filter(isValidElement)
+      const at = siblings.indexOf(bar)
+      const action = siblings[at + 1]
+      expect((action.props as { id?: string }).id).toBe(anchors[index])
+      expect(siblings.indexOf(gridOf(tree))).toBeGreaterThan(at + 1)
+      expect(siblings.indexOf(sectionWith(tree, AgreementSeriesChart)!)).toBeGreaterThan(at + 1)
+    }
+  })
+
   it('só o painel da fase atual fica aberto; os das fases anteriores vão para "Fases concluídas (N)", fechado', async () => {
     const admin = await newUser('Admin')
     const evaluator = await newUser('Avaliador')

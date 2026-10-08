@@ -18,6 +18,10 @@ import {
   PHASE_2,
   PHASE_3,
   PHASE_4,
+  pendingRequirements,
+  phase2Blockers,
+  phase3Blockers,
+  type PipelineInputs,
   type Phase2Inputs,
   type ReturnInputs,
 } from '../pipeline/preconditions'
@@ -278,19 +282,23 @@ export default async function ProjectPage({
   const phase4 =
     agreement && artifacts && project.phase === PHASE_4 ? phase4ReturnData(agreement) : null
 
-  const checklists = artifacts
+  const phase1Inputs: PipelineInputs | null = artifacts
+    ? {
+        ...EMPTY_PIPELINE,
+        definitions: artifacts.codebook.definitions.length,
+        promptText: artifacts.prompt.version?.text ?? null,
+        items: artifacts.items,
+      }
+    : null
+
+  const checklists = phase1Inputs
     ? [
         <PipelineChecklist
           key="phase-1"
           className="mt-3"
           projectId={project.id}
           phase={project.phase}
-          inputs={{
-            ...EMPTY_PIPELINE,
-            definitions: artifacts.codebook.definitions.length,
-            promptText: artifacts.prompt.version?.text ?? null,
-            items: artifacts.items,
-          }}
+          inputs={phase1Inputs}
         />,
         phase2 && project.phase >= PHASE_2 ? (
           <Phase2Checklist
@@ -318,6 +326,15 @@ export default async function ProjectPage({
   const completedChecklists = phase4 ? checklists : checklists.slice(0, -1)
 
   const canSteerPhase = isAdmin && project.status === 'active'
+
+  const pendingCount =
+    project.phase === PHASE_3 && phase3
+      ? phase3Blockers(phase3.inputs).length
+      : project.phase === PHASE_2 && phase2
+        ? phase2Blockers(phase2.inputs).length
+        : phase1Inputs
+          ? pendingRequirements(phase1Inputs).length
+          : 0
 
   const members = groupMembers(memberRows)
   const activeEvaluators = members.filter(
@@ -384,10 +401,16 @@ export default async function ProjectPage({
             action={
               canSteerPhase ? (
                 project.phase < PHASE_4 ? (
-                  <ButtonLink href="#avancar">
-                    Avançar fase
-                    <ArrowRightIcon />
-                  </ButtonLink>
+                  pendingCount > 0 ? (
+                    <ButtonLink href="#avancar" variant="secondary">
+                      {`${pendingCount} ${pendingCount === 1 ? 'pendência' : 'pendências'} ↓`}
+                    </ButtonLink>
+                  ) : (
+                    <ButtonLink href="#avancar">
+                      Avançar fase
+                      <ArrowRightIcon />
+                    </ButtonLink>
+                  )
                 ) : (
                   <ButtonLink href="#voltar" variant="secondary">
                     Voltar à Fase {PHASE_3}
@@ -396,6 +419,21 @@ export default async function ProjectPage({
               ) : null
             }
           />
+
+          {phase4 ? (
+            <div id="voltar" className="scroll-mt-6">
+              <Phase4Return
+                className="mt-3"
+                projectId={project.id}
+                inputs={phase4.inputs}
+                summary={phase4.summary}
+              />
+            </div>
+          ) : currentChecklist ? (
+            <div id="avancar" className="scroll-mt-6">
+              {currentChecklist}
+            </div>
+          ) : null}
 
           <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <StatCard
@@ -500,21 +538,6 @@ export default async function ProjectPage({
             <p className="m-0 mt-4 text-xs">
               <OpenLink href={`/projects/${project.id}/rounds`}>Abrir rodadas →</OpenLink>
             </p>
-          ) : null}
-
-          {phase4 ? (
-            <div id="voltar" className="scroll-mt-6">
-              <Phase4Return
-                className="mt-3"
-                projectId={project.id}
-                inputs={phase4.inputs}
-                summary={phase4.summary}
-              />
-            </div>
-          ) : currentChecklist ? (
-            <div id="avancar" className="scroll-mt-6">
-              {currentChecklist}
-            </div>
           ) : null}
 
           {completedChecklists.length > 0 ? (
