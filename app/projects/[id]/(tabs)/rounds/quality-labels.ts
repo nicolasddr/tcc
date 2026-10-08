@@ -31,8 +31,10 @@ export const QUALITY_HELP =
 
 export const QUALITY_MATRIX_LEGEND =
   'Na matriz, cada célula traz a distribuição das notas daquela definição × critério ' +
-  `entre ${scaleLabel('high')}, ${scaleLabel('medium')} e ${scaleLabel('low')}, com a ` +
-  `contagem ao lado. “${CELL_UNRATED_LABEL}” é célula que existe no codebook e que ` +
+  `entre ${scaleLabel('high')}, ${scaleLabel('medium')} e ${scaleLabel('low')}: a barra e ` +
+  `os percentuais em ${scaleLabel('high')} · ${scaleLabel('medium')} · ${scaleLabel('low')}; ` +
+  'a contagem aparece ao passar o mouse na célula. ' +
+  `“${CELL_UNRATED_LABEL}” é célula que existe no codebook e que ` +
   'ninguém avaliou ainda, e não vale 0%; ' +
   `“${CELL_NOT_APPLICABLE}” é ${CELL_NOT_APPLICABLE_TITLE}, que não se aplica a esta. ` +
   'Com avaliador marcado como outlier, cada célula traz os dois valores, ' +
@@ -62,8 +64,12 @@ export const QUALITY_SERIES_NOTE_SINGLE =
 
 const SHARE_FORMAT = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 1 })
 
+function shareNumber(share: number): string {
+  return SHARE_FORMAT.format(share * 100)
+}
+
 export function formatShare(share: number): string {
-  return `${SHARE_FORMAT.format(share * 100)}%`
+  return `${shareNumber(share)}%`
 }
 
 export function qualityTotal(total: number): string {
@@ -72,4 +78,12 @@ export function qualityTotal(total: number): string {
 
 export function levelText(level: QualityLevel): string {
   return `${scaleLabel(level.value)} ${formatShare(level.share)} (${level.count})`
+}
+
+export function levelsText(levels: QualityLevel[]): string {
+  return levels.map(levelText).join(' · ')
+}
+
+export function levelShares(levels: QualityLevel[]): string {
+  return levels.map((level) => shareNumber(level.share)).join(' · ')
 }

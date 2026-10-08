@@ -5,7 +5,7 @@ import {
   QUALITY_LABEL,
   QUALITY_UNRATED,
   QUALITY_UNRATED_WITHOUT_OUTLIERS,
-  levelText,
+  levelsText,
   qualityTotal,
 } from './quality-labels'
 import {
@@ -72,7 +72,7 @@ export function QualityPanel({ pair }: { pair: QualityPair }) {
 
 function distributionText(quality: Quality, unrated: string): string {
   if (!quality.rated) return unrated
-  return quality.levels.map(levelText).join(' · ')
+  return levelsText(quality.levels)
 }
 
 function ValuePart({

@@ -8,7 +8,9 @@ import {
   QUALITY_SERIES_NOTE,
   QUALITY_SERIES_NOTE_SINGLE,
   formatShare,
+  levelShares,
   levelText,
+  levelsText,
   qualityTotal,
 } from '@/app/projects/[id]/(tabs)/rounds/quality-labels'
 import {
@@ -76,6 +78,23 @@ describe('app/projects/[id]/rounds/quality-labels — a Qualidade na tela', () =
   it('uma linha da distribuição traz o ponto da escala, a porcentagem e a contagem', () => {
     expect(levelText({ value: 'high', count: 5, share: 0.625 })).toBe('Alto 62,5% (5)')
     expect(levelText({ value: 'low', count: 0, share: 0 })).toBe('Baixo 0% (0)')
+  })
+
+  it('a distribuição inteira junta as três linhas, e a versão curta traz só os percentuais na ordem da escala', () => {
+    const levels = [
+      { value: 'high' as const, count: 5, share: 0.625 },
+      { value: 'medium' as const, count: 2, share: 0.25 },
+      { value: 'low' as const, count: 1, share: 0.125 },
+    ]
+
+    expect(levelsText(levels)).toBe('Alto 62,5% (5) · Médio 25% (2) · Baixo 12,5% (1)')
+    expect(levelShares(levels)).toBe('62,5 · 25 · 12,5')
+  })
+
+  it('a legenda da matriz explica a barra e os percentuais, e diz onde está a contagem', () => {
+    expect(QUALITY_MATRIX_LEGEND).not.toContain('contagem ao lado')
+    expect(QUALITY_MATRIX_LEGEND).toContain('Alto · Médio · Baixo')
+    expect(QUALITY_MATRIX_LEGEND).toContain('ao passar o mouse na célula')
   })
 
   it('a legenda da matriz usa as mesmas expressões da matriz de ICR e diz que sem nota não é 0%', () => {

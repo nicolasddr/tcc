@@ -1,5 +1,5 @@
 import { cx } from '@/app/components/ui/cx'
-import { scaleLabel, type ScaleValue } from '../evaluate/scale'
+import { SCALE, scaleLabel, type ScaleValue } from '../evaluate/scale'
 import type { QualityLevel } from './quality'
 import { formatShare, levelText } from './quality-labels'
 
@@ -52,5 +52,19 @@ export function QualityLegend({ levels }: { levels: QualityLevel[] }) {
         </li>
       ))}
     </ul>
+  )
+}
+
+export function QualityScaleLegend({ suffix }: { suffix?: string }) {
+  return (
+    <p className="m-0 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-muted">
+      {SCALE.map((value, index) => (
+        <span key={value} className="flex items-center gap-1.5">
+          <QualitySwatch value={value} />
+          {scaleLabel(value)}
+          {index < SCALE.length - 1 ? ' ·' : suffix ? `, ${suffix}` : null}
+        </span>
+      ))}
+    </p>
   )
 }

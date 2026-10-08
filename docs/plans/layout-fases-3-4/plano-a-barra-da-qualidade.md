@@ -8,7 +8,7 @@ Faça este plano primeiro: os Planos B e C reaproveitam a barra que a Parte 1 cr
 | Parte | Entrega | Commit sugerido | Estado |
 |---|---|---|---|
 | 1 | Componente da barra empilhada + `QualityPanel` usando ele (ajuste 03) | `feat(rodadas): qualidade em barra empilhada` | ✅ |
-| 2 | Matriz de Qualidade compacta (ajuste 04) | `feat(rodadas): matriz de qualidade compacta` | ⬜ |
+| 2 | Matriz de Qualidade compacta (ajuste 04) | `feat(rodadas): matriz de qualidade compacta` | ✅ |
 | 3 | "Qualidade por rodada" como barras (ajuste 08) | `feat(visao-geral): série de qualidade em barras` | ⬜ |
 
 ## Contexto comum
@@ -68,7 +68,12 @@ da célula. Abaixo da tabela, uma legenda de cores: "■ Alto · ■ Médio · �
   contagem ao lado" por algo como "a barra e os percentuais em Alto · Médio · Baixo; a contagem aparece
   ao passar o mouse na célula".
 
-**A Parte 3 herda**: a forma "barra + legenda de cores" já validada em tabela.
+**A Parte 3 herda**: a forma "barra + legenda de cores" já validada em tabela. A legenda só de cores é
+`QualityScaleLegend` (em `quality-bar.tsx`, com `suffix` opcional; a matriz usa `suffix="em %"`). Em
+`quality-labels.ts`: `levelsText(levels)` (os três `levelText` unidos por " · ", bom para `title`) e
+`levelShares(levels)` ("50 · 25 · 25"). O `whitespace-nowrap` saiu da célula e ficou só na linha dos
+números: com outlier e cinco critérios, o rótulo "sem os marcados como outlier" quebra e a tabela deixa
+de rolar.
 
 ## Parte 3: "Qualidade por rodada" como barras (ajuste 08)
 

@@ -311,12 +311,16 @@ function qualityMatrixTextOf(tree: unknown): string {
   return markupTextOf(createElement(QualityMatrixTable, qualityMatrixOf(tree)))
 }
 
-function qualityCellsOf(tree: unknown): string[] {
+function qualityCellMarkupsOf(tree: unknown): string[] {
   const markup = renderToStaticMarkup(
     createElement(QualityMatrixTable, qualityMatrixOf(tree)),
   )
-  return [...markup.matchAll(/<td[^>]*>(.*?)<\/td>/g)].map((match) =>
-    match[1]
+  return [...markup.matchAll(/<td[^>]*>(.*?)<\/td>/g)].map((match) => match[1])
+}
+
+function qualityCellsOf(tree: unknown): string[] {
+  return qualityCellMarkupsOf(tree).map((cell) =>
+    cell
       .replace(/<[^>]*>/g, ' ')
       .replace(/\s+/g, ' ')
       .trim(),
@@ -1505,11 +1509,23 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
 
     const cells = qualityCellsOf(tree)
     expect(cells).toHaveLength(6)
-    expect(cells[0]).toBe('Alto 75% (3) Médio 0% (0) Baixo 25% (1)')
-    expect(cells[1]).toBe('Alto 25% (1) Médio 50% (2) Baixo 25% (1)')
-    expect(cells[3]).toBe('Alto 0% (0) Médio 50% (2) Baixo 50% (2)')
+    expect(cells[0]).toBe('75 · 0 · 25')
+    expect(cells[1]).toBe('25 · 50 · 25')
+    expect(cells[3]).toBe('0 · 50 · 50')
+
+    const markups = qualityCellMarkupsOf(tree)
+    expect(markups[0]).toContain('title="Alto 75% (3) · Médio 0% (0) · Baixo 25% (1)"')
+    expect(markups[3]).toContain('title="Alto 0% (0) · Médio 50% (2) · Baixo 50% (2)"')
+    for (const index of [0, 1, 3]) {
+      expect(markups[index].match(/<div aria-hidden="true" class="flex [^"]*h-1\.5/g)).toHaveLength(1)
+      expect(markups[index].match(/class="h-full bg-quality-[a-z]+"/g)).toHaveLength(3)
+    }
+    for (const index of [2, 4, 5]) {
+      expect(markups[index]).not.toContain('bg-quality-')
+    }
 
     const text = qualityMatrixTextOf(tree)
+    expect(text).toContain('Alto · Médio · Baixo, em %')
     expect(text).toContain('Informacional')
     expect(text).toContain('Transacional')
     expect(text.indexOf('Clareza')).toBeLessThan(text.indexOf('Profundidade'))
@@ -1584,14 +1600,19 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
 
     const cells = qualityCellsOf(tree)
     expect(cells[0]).toBe(
-      `${AGREEMENT_ALL_LABEL} Alto 60% (3) Médio 0% (0) Baixo 40% (2) ` +
-        `${AGREEMENT_WITHOUT_OUTLIERS_LABEL} Alto 75% (3) Médio 0% (0) Baixo 25% (1)`,
+      `${AGREEMENT_ALL_LABEL} 60 · 0 · 40 ${AGREEMENT_WITHOUT_OUTLIERS_LABEL} 75 · 0 · 25`,
     )
     expect(cells[1]).toBe(
-      `${AGREEMENT_ALL_LABEL} Alto 25% (1) Médio 50% (2) Baixo 25% (1) ` +
-        `${AGREEMENT_WITHOUT_OUTLIERS_LABEL} Alto 25% (1) Médio 50% (2) Baixo 25% (1)`,
+      `${AGREEMENT_ALL_LABEL} 25 · 50 · 25 ${AGREEMENT_WITHOUT_OUTLIERS_LABEL} 25 · 50 · 25`,
     )
     expect(cells[5]).toBe(CELL_UNRATED_LABEL)
+
+    const markup = qualityCellMarkupsOf(tree)[0]
+    const all = markup.indexOf('title="Alto 60% (3) · Médio 0% (0) · Baixo 40% (2)"')
+    const without = markup.indexOf('title="Alto 75% (3) · Médio 0% (0) · Baixo 25% (1)"')
+    expect(all).toBeGreaterThanOrEqual(0)
+    expect(without).toBeGreaterThan(all)
+    expect(markup.match(/<div aria-hidden="true" class="flex [^"]*h-1\.5/g)).toHaveLength(2)
   })
 
   it('sem ninguém marcado, a matriz de Qualidade não traz os rótulos do par', async () => {
@@ -1601,7 +1622,7 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     auth.userId = admin
     const cells = qualityCellsOf(await render(scene.project))
 
-    expect(cells[0]).toBe('Alto 60% (3) Médio 0% (0) Baixo 40% (2)')
+    expect(cells[0]).toBe('60 · 0 · 40')
     for (const cell of cells) {
       expect(cell).not.toContain(AGREEMENT_ALL_LABEL)
       expect(cell).not.toContain(AGREEMENT_WITHOUT_OUTLIERS_LABEL)
@@ -1625,7 +1646,7 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     const cells = qualityCellsOf(await render(scene.project))
 
     expect(cells[3]).toBe(
-      `${AGREEMENT_ALL_LABEL} Alto 0% (0) Médio 0% (0) Baixo 100% (1) ` +
+      `${AGREEMENT_ALL_LABEL} 0 · 0 · 100 ` +
         `${AGREEMENT_WITHOUT_OUTLIERS_LABEL} ${QUALITY_UNRATED_WITHOUT_OUTLIERS}`,
     )
   })

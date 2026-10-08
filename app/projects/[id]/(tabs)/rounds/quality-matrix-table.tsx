@@ -8,11 +8,13 @@ import type {
 import type { RoundObservation } from './agreement'
 import type { MeasuredCell } from './agreement-matrix'
 import { qualityMatrix, type Quality, type QualityPair } from './quality'
+import { QualityBar, QualityScaleLegend } from './quality-bar'
 import {
   QUALITY_MATRIX_LEGEND,
   QUALITY_UNRATED,
   QUALITY_UNRATED_WITHOUT_OUTLIERS,
-  levelText,
+  levelShares,
+  levelsText,
 } from './quality-labels'
 import {
   AGREEMENT_ALL_LABEL,
@@ -32,14 +34,18 @@ function Levels({
   unrated: string
 }) {
   return (
-    <span className="flex flex-col">
+    <span
+      className="flex min-w-24 flex-col gap-1"
+      title={quality.rated ? levelsText(quality.levels) : undefined}
+    >
       {label ? <span className="text-[11px] text-muted">{label}</span> : null}
       {quality.rated ? (
-        quality.levels.map((level) => (
-          <span key={level.value} className="text-ink">
-            {levelText(level)}
+        <>
+          <QualityBar levels={quality.levels} size="sm" />
+          <span className="text-xs whitespace-nowrap text-muted tabular-nums">
+            {levelShares(quality.levels)}
           </span>
-        ))
+        </>
       ) : (
         <span className="text-muted">{unrated}</span>
       )}
@@ -141,7 +147,7 @@ export function QualityMatrixTable({
                 {row.cells.map((entry) => (
                   <td
                     key={entry.column.criterion.id}
-                    className="border-b border-line px-3 py-2 align-top whitespace-nowrap"
+                    className="border-b border-line px-3 py-2 align-top"
                   >
                     <Cell cell={entry.cell} />
                   </td>
@@ -151,6 +157,8 @@ export function QualityMatrixTable({
           </tbody>
         </table>
       </div>
+
+      <QualityScaleLegend suffix="em %" />
 
       <p className="m-0 flex flex-wrap items-center gap-2 text-xs text-muted">
         <span>
