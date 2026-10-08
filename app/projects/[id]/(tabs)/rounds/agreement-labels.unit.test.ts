@@ -11,6 +11,7 @@ import {
   MATRIX_LEGEND,
   OUTLIER_PAIR_RESULT,
   OUTLIER_PAIR_SUMMARY,
+  SMALL_SAMPLE_HELP,
   SMALL_SAMPLE_RATERS,
   SMALL_SAMPLE_RESPONSES,
   agreementBand,
@@ -117,11 +118,22 @@ describe('app/projects/[id]/rounds/agreement-labels — o coeficiente na tela', 
     expect(smallSampleWarning({ raters: 8, responses: 40 })).toBeNull()
   })
 
-  it('o aviso de amostra pequena não se apresenta como literatura', () => {
-    const warning = smallSampleWarning({ raters: 2, responses: 4 })!
+  it('o aviso de amostra pequena cabe numa linha, com o N de avaliadores e de respostas', () => {
+    expect(smallSampleWarning({ raters: 2, responses: 2 })).toBe(
+      'Amostra pequena (2 avaliadores, 2 respostas): leia com cautela.',
+    )
+    expect(smallSampleWarning({ raters: 1, responses: 1 })).toBe(
+      'Amostra pequena (1 avaliador, 1 resposta): leia com cautela.',
+    )
+  })
 
-    expect(warning).toContain('convenção desta ferramenta')
-    expect(warning).not.toContain(AGREEMENT_SOURCE)
+  it('a ajuda da amostra pequena traz o corte e não se apresenta como literatura', () => {
+    expect(SMALL_SAMPLE_HELP).toContain(
+      `Abaixo de ${SMALL_SAMPLE_RATERS} avaliadores ou de ${SMALL_SAMPLE_RESPONSES} respostas avaliadas`,
+    )
+    expect(SMALL_SAMPLE_HELP).toContain('convenção desta ferramenta')
+    expect(SMALL_SAMPLE_HELP).toContain('continua valendo')
+    expect(SMALL_SAMPLE_HELP).not.toContain(AGREEMENT_SOURCE)
   })
 
   it('cada motivo de não calculável tem o seu texto, e nenhum promete zero ou um', () => {

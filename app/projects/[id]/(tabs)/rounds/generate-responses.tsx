@@ -3,6 +3,7 @@
 import { useActionState, useRef, useState } from 'react'
 import { generateResponses, type GenerateResponsesState } from './actions'
 import {
+  RESPONSES_LEFT_HELP,
   SELECTION_MAX,
   ceilingReachedMessage,
   generatedCountMessage,
@@ -12,6 +13,7 @@ import {
   retryLabel,
   selectionBlockerMessage,
   selectionBlockers,
+  selectionCountLabel,
 } from './preconditions'
 import type { InputItem } from '../../pipeline/items'
 import type { RoundResponse } from '../../pipeline/responses'
@@ -25,6 +27,7 @@ import { Button } from '@/app/components/ui/button'
 import { Card } from '@/app/components/ui/card'
 import { EmptyState } from '@/app/components/ui/empty-state'
 import { Form, FormActions } from '@/app/components/ui/form'
+import { InfoTooltip } from '@/app/components/ui/tooltip'
 
 const initialState: GenerateResponsesState = null
 
@@ -118,13 +121,13 @@ export function GenerateResponses({
         <input type="hidden" name="project_id" value={projectId} />
         <input type="hidden" name="round_id" value={round.id} />
 
-        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+        <div className="flex flex-col gap-1">
           <p className="m-0 text-[13px] font-semibold text-ink">
-            {selected.length} de {max}{' '}
-            {max === 1 ? 'item selecionado' : 'itens selecionados'}
+            {selectionCountLabel(selected.length, max)}
           </p>
-          <p className="m-0 text-[13px] text-muted">
+          <p className="m-0 flex items-center gap-1.5 text-[13px] text-muted">
             {responsesLeftMessage(responsesLeft, responsesMax)}
+            <InfoTooltip text={RESPONSES_LEFT_HELP} />
           </p>
         </div>
 

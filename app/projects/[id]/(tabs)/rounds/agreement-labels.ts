@@ -132,14 +132,15 @@ export function smallSampleWarning({
   if (raters >= SMALL_SAMPLE_RATERS && responses >= SMALL_SAMPLE_RESPONSES) return null
 
   return (
-    `Amostra pequena: ${plural(raters, 'avaliador', 'avaliadores')} e ` +
-    `${plural(responses, 'resposta avaliada', 'respostas avaliadas')} nesta rodada. ` +
-    `Abaixo de ${SMALL_SAMPLE_RATERS} avaliadores ou de ${SMALL_SAMPLE_RESPONSES} ` +
-    'respostas avaliadas, o coeficiente oscila muito de uma nota para outra. O corte é ' +
-    'convenção desta ferramenta, não da literatura, e o valor acima continua valendo — ' +
-    'leia com cautela.'
+    `Amostra pequena (${plural(raters, 'avaliador', 'avaliadores')}, ` +
+    `${plural(responses, 'resposta', 'respostas')}): leia com cautela.`
   )
 }
+
+export const SMALL_SAMPLE_HELP =
+  `Abaixo de ${SMALL_SAMPLE_RATERS} avaliadores ou de ${SMALL_SAMPLE_RESPONSES} ` +
+  'respostas avaliadas, o coeficiente oscila muito de uma nota para outra. O corte é ' +
+  'convenção desta ferramenta, não da literatura, e o valor acima continua valendo.'
 
 export function notCalculableMessage(reason: NotCalculableReason): string {
   switch (reason) {

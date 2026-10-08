@@ -58,6 +58,7 @@ import {
   OUTLIER_PAIR_HINT,
   OUTLIER_PAIR_RESULT,
   OUTLIER_PAIR_SUMMARY,
+  SMALL_SAMPLE_HELP,
   matrixVersionNote,
 } from '@/app/projects/[id]/(tabs)/rounds/agreement-labels'
 import { Section } from '@/app/components/ui/section'
@@ -1228,11 +1229,13 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     }
 
     auth.userId = admin
-    const text = panelTextOf(await render(scene.project))
+    const tree = await render(scene.project)
+    const text = panelTextOf(tree)
 
-    expect(text).toContain('Amostra pequena')
+    expect(text).toContain('Amostra pequena (2 avaliadores, 2 respostas): leia com cautela.')
     expect(text).toContain('1,000')
     expect(text).toContain('2 unidades · 2 avaliadores')
+    expect(tooltipTextsOf(AgreementPanel(panelOf(tree)))).toContain(SMALL_SAMPLE_HELP)
   })
 
   it('o esforço por avaliador mostra a contagem de cada um, inclusive quem enviou zero', async () => {

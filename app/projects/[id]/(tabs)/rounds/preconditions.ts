@@ -1,4 +1,5 @@
 import type { LlmFailure } from '@/lib/ai/failure'
+import { plural } from '@/lib/plural'
 import { RESPONSE_TEXT_MAX } from '@/lib/limits'
 import {
   definitionsWithoutCriteria,
@@ -300,9 +301,16 @@ export function ceilingReachedMessage(max: number): string {
 }
 
 export function responsesLeftMessage(left: number, max: number): string {
-  return left === 1
-    ? `Resta 1 vaga de resposta de LLM neste projeto, de ${max}.`
-    : `Restam ${left} vagas de resposta de LLM neste projeto, de ${max}.`
+  return `${left} de ${max} ${max === 1 ? 'resposta disponível' : 'respostas disponíveis'}`
+}
+
+export const RESPONSES_LEFT_HELP =
+  'É o teto de respostas de LLM deste projeto, contado em todas as rodadas: cada item ' +
+  'selecionado gera uma resposta e gasta uma vaga. O teto existe para o teste não virar ' +
+  'fatura; para revisá-lo, fale com quem cuida da instalação.'
+
+export function selectionCountLabel(count: number, max: number): string {
+  return `${plural(count, 'selecionado', 'selecionados')} · até ${max} por geração`
 }
 
 export function retryLabel(count: number): string {

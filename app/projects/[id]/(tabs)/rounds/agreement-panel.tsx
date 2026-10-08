@@ -21,6 +21,7 @@ import {
   bandTone,
   formatAlpha,
   notCalculableMessage,
+  SMALL_SAMPLE_HELP,
   sampleSize,
   smallSampleWarning,
 } from './agreement-labels'
@@ -261,7 +262,7 @@ export function AgreementPanel({
 
       {warnings.map((warning) => (
         <Alert key={warning.key} tone="notice">
-          {warning.text}
+          {warning.text} <InfoTooltip text={SMALL_SAMPLE_HELP} />
         </Alert>
       ))}
 

@@ -10,6 +10,7 @@ import {
   codebookLockedMessage,
   phase4RoundLockedMessage,
   generationMax,
+  RESPONSES_LEFT_HELP,
   responsesLeftMessage,
   retryLabel,
   roundBlockerMessage,
@@ -19,6 +20,7 @@ import {
   roundLockedMessage,
   selectionBlockerMessage,
   selectionBlockers,
+  selectionCountLabel,
   SELECTION_MAX,
   type RoundBlocker,
   type RoundInputs,
@@ -336,14 +338,26 @@ describe('app/projects/[id]/rounds/preconditions — o teto do projeto no seleto
     expect(generationMax(-1)).toBe(0)
   })
 
-  it('a tela diz quantas vagas restam, de quantas', () => {
-    expect(responsesLeftMessage(7, 200)).toBe(
-      'Restam 7 vagas de resposta de LLM neste projeto, de 200.',
+  it('a tela diz quantas respostas restam, de quantas', () => {
+    expect(responsesLeftMessage(7, 200)).toBe('7 de 200 respostas disponíveis')
+    expect(responsesLeftMessage(1, 200)).toBe('1 de 200 respostas disponíveis')
+    expect(responsesLeftMessage(0, 200)).toBe('0 de 200 respostas disponíveis')
+    expect(responsesLeftMessage(1, 1)).toBe('1 de 1 resposta disponível')
+  })
+
+  it('a ajuda da cota explica que é o teto de respostas de LLM do projeto', () => {
+    expect(RESPONSES_LEFT_HELP).toContain('teto de respostas de LLM deste projeto')
+    expect(RESPONSES_LEFT_HELP).toContain('cada item selecionado')
+  })
+
+  it('o contador separa o que foi selecionado do máximo por geração', () => {
+    expect(selectionCountLabel(0, SELECTION_MAX)).toBe(
+      `0 selecionados · até ${SELECTION_MAX} por geração`,
     )
-    expect(responsesLeftMessage(1, 200)).toBe(
-      'Resta 1 vaga de resposta de LLM neste projeto, de 200.',
+    expect(selectionCountLabel(1, SELECTION_MAX)).toBe(
+      `1 selecionado · até ${SELECTION_MAX} por geração`,
     )
-    expect(responsesLeftMessage(0, 200)).toContain('Restam 0 vagas')
+    expect(selectionCountLabel(2, 2)).toBe('2 selecionados · até 2 por geração')
   })
 
   it('o teto atingido nomeia o limite', () => {
