@@ -24,10 +24,7 @@ vi.mock('next/navigation', () => ({
 
 import ProjectRoundsPage from '@/app/projects/[id]/(tabs)/rounds/page'
 import { RoundList } from '@/app/projects/[id]/(tabs)/rounds/round-list'
-import {
-  AgreementPanel,
-  AgreementValue,
-} from '@/app/projects/[id]/(tabs)/rounds/agreement-panel'
+import { AgreementPanel } from '@/app/projects/[id]/(tabs)/rounds/agreement-panel'
 import { QualityPanel } from '@/app/projects/[id]/(tabs)/rounds/quality-panel'
 import { formatShare } from '@/app/projects/[id]/(tabs)/rounds/quality-labels'
 import type { Quality } from '@/app/projects/[id]/(tabs)/rounds/quality'
@@ -62,7 +59,7 @@ import {
   notCalculableGuidance,
   phase4NotCalculableGuidance,
 } from '@/app/projects/[id]/(tabs)/rounds/reading-guidance-labels'
-import { RoundChangesNote } from '@/app/projects/[id]/(tabs)/rounds/round-changes-note'
+import { RoundChangeChips } from '@/app/projects/[id]/(tabs)/rounds/round-changes-note'
 import { entersPhase4Note } from '@/app/projects/[id]/(tabs)/rounds/round-changes-labels'
 import { PARTICIPATION_HELP } from '@/app/projects/[id]/(tabs)/rounds/participation-labels'
 import { Section } from '@/app/components/ui/section'
@@ -174,7 +171,7 @@ type PanelProps = Parameters<typeof AgreementPanel>[0]
 type ComparisonProps = Parameters<typeof ReferenceComparisonPanel>[0]
 type LineProps = Parameters<typeof ReferenceRoundLine>[0]
 type GuidanceProps = Parameters<typeof ReadingGuidanceNote>[0]
-type ChangesProps = Parameters<typeof RoundChangesNote>[0]
+type ChangesProps = Parameters<typeof RoundChangeChips>[0]
 type CodebookShape = Parameters<typeof addCodebookVersion>[3]
 
 function render(id: string) {
@@ -215,7 +212,7 @@ function comparisonElementOf(tree: unknown): ReactElement {
 }
 
 function cardsOf(list: ListProps): ReactElement[] {
-  return (RoundList(list).props as { children: ReactElement[] }).children
+  return findAll(RoundList(list), 'li')
 }
 
 function referenceLineOf(card: ReactElement): ReactElement | null {
@@ -223,14 +220,14 @@ function referenceLineOf(card: ReactElement): ReactElement | null {
 }
 
 function changesOf(card: ReactElement): ChangesProps | null {
-  const element = findElement(card, RoundChangesNote)
+  const element = findElement(card, RoundChangeChips)
   return element ? (element.props as ChangesProps) : null
 }
 
 function changesTextOf(card: ReactElement): string {
   const props = changesOf(card)
   expect(props).toBeTruthy()
-  return markupTextOf(createElement(RoundChangesNote, props!))
+  return markupTextOf(createElement(RoundChangeChips, props!))
 }
 
 function tableOf(tree: unknown): string[][] {
@@ -601,21 +598,17 @@ describe('app/projects/[id]/rounds — a rodada da Fase 4 ao lado da rodada de r
       return line ? markupTextOf(line) : null
     })
 
-    const versions = { codebookVersionNumber: 3, promptVersionNumber: 2 }
     expect(lines[0]).toBeNull()
-    expect(lines[1]).toContain(referenceLine({ roundNumber: 1, ...versions }))
+    expect(lines[1]).toMatch(/^Referência: rodada 1 · ICR /)
     expect(lines[2]).toBeNull()
-    expect(lines[3]).toContain(referenceLine({ roundNumber: 3, ...versions }))
+    expect(lines[3]).toMatch(/^Referência: rodada 3 · ICR /)
+    expect(lines[1]).not.toContain('Codebook')
+    expect(lines[1]).not.toContain('Prompt')
 
-    const secondLine = referenceLineOf(cards[1])!
-    const pairs = findAll(
-      ReferenceRoundLine(secondLine.props as LineProps),
-      AgreementValue,
-    )
-    expect(pairs).toHaveLength(1)
-    expect((pairs[0].props as { pair: unknown }).pair).toBe(
-      list.agreement.get(scene.rounds.get(1)!),
-    )
+    const { reference } = referenceLineOf(cards[1])!.props as LineProps
+    expect(reference.agreement).toBe(list.agreement.get(scene.rounds.get(1)!))
+    expect(reference.quality).toBe(list.quality.get(scene.rounds.get(1)!))
+    expect(lines[1]).toBe(referenceLine(reference))
   })
 
   it('no cartão da rodada da Fase 4, a frase nomeia a mesma rodada de referência do bloco de comparação', async () => {
@@ -633,8 +626,7 @@ describe('app/projects/[id]/rounds — a rodada da Fase 4 ao lado da rodada de r
     const cards = cardsOf(listOf(tree))
     const changes = changesOf(cards[1])
     expect(changes).toBeTruthy()
-    expect(changes!.compact).toBe(true)
-    expect(changes!.changes.entersPhase4).toBe(true)
+    expect(changes!.changes?.entersPhase4).toBe(true)
     expect(changesTextOf(cards[1])).toContain(entersPhase4Note(reference!))
   })
 
@@ -655,7 +647,7 @@ describe('app/projects/[id]/rounds — a rodada da Fase 4 ao lado da rodada de r
 
     const cards = cardsOf(listOf(tree))
     expect(changesTextOf(cards[1])).toContain(entersPhase4Note(1))
-    expect(changesOf(cards[2])!.changes.entersPhase4).toBe(false)
+    expect(changesOf(cards[2])!.changes?.entersPhase4).toBe(false)
     expect(changesTextOf(cards[2])).not.toMatch(/Primeira rodada da Fase 4/)
     expect(changesTextOf(cards[3])).toContain(entersPhase4Note(3))
     expect(changesTextOf(cards[3])).not.toContain(entersPhase4Note(1))
@@ -845,7 +837,7 @@ describe('app/projects/[id]/rounds — a rodada da Fase 4 ao lado da rodada de r
     for (const guidance of PHASE_4_GUIDANCE_TEXTS) {
       expect(text).not.toContain(guidance.toLowerCase())
     }
-    expect(findElement(tree, RoundChangesNote)).toBeNull()
+    expect(findElement(tree, RoundChangeChips)).toBeNull()
     expect(text).not.toContain(entersPhase4Note(1).toLowerCase())
     expect(text).not.toContain('primeira rodada da fase 4')
   })

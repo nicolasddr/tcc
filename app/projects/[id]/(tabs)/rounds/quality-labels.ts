@@ -86,6 +86,10 @@ export function levelsText(levels: QualityLevel[]): string {
   return levels.map(levelText).join(' · ')
 }
 
+export function levelsShareText(levels: QualityLevel[]): string {
+  return levels.map((level) => `${scaleLabel(level.value)} ${formatShare(level.share)}`).join(' · ')
+}
+
 export function levelShares(levels: QualityLevel[]): string {
   return levels.map((level) => shareNumber(level.share)).join(' · ')
 }

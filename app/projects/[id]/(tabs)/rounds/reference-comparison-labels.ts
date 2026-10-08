@@ -12,6 +12,7 @@ import {
   QUALITY_UNRATED,
   QUALITY_UNRATED_WITHOUT_OUTLIERS,
   formatShare,
+  levelsShareText,
 } from './quality-labels'
 import type { ComparedRound } from './reference-comparison'
 
@@ -156,15 +157,21 @@ export function comparisonRows(
   return rows
 }
 
-export function referenceLine(reference: {
-  roundNumber: number
-  codebookVersionNumber: number
-  promptVersionNumber: number
-}): string {
-  return (
-    `Rodada de referência: rodada ${reference.roundNumber} · Codebook ` +
-    `v${reference.codebookVersionNumber} · Prompt v${reference.promptVersionNumber}`
-  )
+function referenceQualityText(quality: Quality | null | undefined): string | null {
+  if (!quality) return null
+  return quality.rated ? levelsShareText(quality.levels) : QUALITY_UNRATED
+}
+
+export function referenceLine(reference: ComparedRound): string {
+  const agreement = reference.agreement.all
+  const alpha = agreement.calculable ? formatAlpha(agreement.alpha) : NOT_CALCULABLE_LABEL
+  return [
+    `Referência: rodada ${reference.roundNumber}`,
+    `${COMPARISON_AGREEMENT_ROW} ${alpha}`,
+    referenceQualityText(reference.quality?.all),
+  ]
+    .filter((part) => part !== null)
+    .join(' · ')
 }
 
 export function noReferenceMessage(roundNumber: number): string {

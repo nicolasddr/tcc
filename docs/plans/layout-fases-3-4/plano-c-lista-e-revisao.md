@@ -8,7 +8,7 @@ no mesmo plano. Depende do **Plano A, Parte 1** (`QualityBar`) para a barra na l
 
 | Parte | Entrega | Commit sugerido | Estado |
 |---|---|---|---|
-| 1 | Lista "Rodadas do projeto" agrupada por fase, mudanças em chips, revisão como botão (ajuste 05) | `feat(rodadas): lista de rodadas agrupada por fase` | ⬜ |
+| 1 | Lista "Rodadas do projeto" agrupada por fase, mudanças em chips, revisão como botão (ajuste 05) | `feat(rodadas): lista de rodadas agrupada por fase` | ✅ |
 | 2 | Cabeçalho da revisão em uma linha de chips (ajuste 06) | `feat(rodadas): cabeçalho da revisão em chips` | ⬜ |
 
 ## Contexto comum
@@ -57,7 +57,16 @@ FASE 3
   62,5 · Médio 25 · Baixo 12,5". As versões saem dessa linha: na Fase 4 elas são, por regra, as mesmas
   da rodada, e já estão nos chips. A comparação completa fica na seção de comparação (Plano B).
 
-**A Parte 2 herda**: o modo de chips do `RoundChangesNote` (se a revisão quiser o mesmo).
+**A Parte 2 herda**: o modo de chips virou um componente próprio, `RoundChangeChips` (em
+`round-changes-note.tsx`), que recebe `round` (versões) e `changes` (pode ser `null`, na primeira rodada).
+Ele mostra Codebook e Prompt sempre, a Fase só quando mudou, com `ENTERS_PHASE_3_NOTE`/`entersPhase4Note`
+no ⓘ do chip, e o `Alert` de "mudaram juntos" logo abaixo. O chip que mudou leva `border-brand!
+font-semibold text-brand!` (com `!`, porque `cx` não resolve conflito). Os textos dos chips estão em
+`round-changes-labels.ts`: `codebookChipText`, `promptChipText`, `phaseChipText` ("Fase 2 → 3" ou
+"Fase 3"). O `RoundChangesNote` perdeu o `compact` e ficou só com o modo completo, que é o que a revisão
+usa hoje. Para a Parte 2, que quer o chip da fase sempre visível, falta uma opção no `RoundChangeChips`.
+Na lista, a Qualidade curta é `QualitySummary` (`quality-panel.tsx`) e a linha da referência é
+`referenceLine(reference: ComparedRound)`, com `levelsShareText` de `quality-labels.ts`.
 
 ## Parte 2: cabeçalho da revisão em chips (ajuste 06)
 

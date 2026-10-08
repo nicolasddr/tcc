@@ -6,9 +6,12 @@ import {
   ENTERS_PHASE_3_NOTE,
   changesHeading,
   codebookChangeText,
+  codebookChipText,
   entersPhase4Note,
   phaseChangeText,
+  phaseChipText,
   promptChangeText,
+  promptChipText,
 } from '@/app/projects/[id]/(tabs)/rounds/round-changes-labels'
 import { roundInputSummary } from '@/app/projects/[id]/(tabs)/rounds/preconditions'
 import { PHASE_3 } from '@/app/projects/[id]/pipeline/preconditions'
@@ -38,9 +41,19 @@ function allTexts(): string[] {
     if (typeof value === 'string') texts.push(value)
   }
   texts.push(changesHeading(3))
-  for (const text of [codebookChangeText, promptChangeText, phaseChangeText]) {
+  for (const text of [
+    codebookChangeText,
+    promptChangeText,
+    phaseChangeText,
+    codebookChipText,
+    promptChipText,
+  ]) {
     texts.push(text(changed), text(unchanged))
   }
+  texts.push(
+    phaseChipText({ changed: true, from: 2, to: 3 }),
+    phaseChipText({ changed: false, from: 3, to: 3 }),
+  )
   texts.push(entersPhase4Note(7))
   return texts
 }
@@ -57,6 +70,15 @@ describe('app/projects/[id]/rounds/round-changes-labels — o que mudou na tela'
     expect(promptChangeText({ changed: false, from: 2, to: 2 })).toBe('Prompt: v2, o mesmo')
     expect(phaseChangeText({ changed: true, from: 2, to: 3 })).toBe('Fase: 2 → 3')
     expect(phaseChangeText({ changed: false, from: 3, to: 3 })).toBe('Fase: 3, a mesma')
+  })
+
+  it('cada chip diz as duas versões quando mudou e só a da rodada quando não mudou', () => {
+    expect(codebookChipText(changed)).toBe('Codebook v3 → v4')
+    expect(codebookChipText(unchanged)).toBe('Codebook v4')
+    expect(promptChipText({ changed: true, from: 1, to: 2 })).toBe('Prompt v1 → v2')
+    expect(promptChipText({ changed: false, from: 2, to: 2 })).toBe('Prompt v2')
+    expect(phaseChipText({ changed: true, from: 2, to: 3 })).toBe('Fase 2 → 3')
+    expect(phaseChipText({ changed: false, from: 3, to: 3 })).toBe('Fase 3')
   })
 
   it('a frase da Fase 3 fala da forma de montar a entrada com as palavras da linha do que foi à LLM', () => {

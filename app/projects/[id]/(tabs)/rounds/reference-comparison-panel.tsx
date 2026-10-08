@@ -1,8 +1,6 @@
 import { Badge } from '@/app/components/ui/badge'
 import { cx } from '@/app/components/ui/cx'
-import { AgreementValue } from './agreement-panel'
 import { QualitySwatch } from './quality-bar'
-import { QualityValue } from './quality-panel'
 import type { ComparedRound, ReferenceComparison } from './reference-comparison'
 import {
   COMPARISON_EMPTY,
@@ -111,10 +109,8 @@ export function ReferenceComparisonPanel({
 
 export function ReferenceRoundLine({ reference }: { reference: ComparedRound }) {
   return (
-    <div className="mt-2 border-t border-line pt-2">
-      <p className="m-0 text-[13px] text-muted">{referenceLine(reference)}</p>
-      <AgreementValue pair={reference.agreement} band={false} />
-      {reference.quality ? <QualityValue pair={reference.quality} /> : null}
-    </div>
+    <p className="m-0 mt-2 border-t border-line pt-2 text-[13px] text-muted tabular-nums">
+      {referenceLine(reference)}
+    </p>
   )
 }

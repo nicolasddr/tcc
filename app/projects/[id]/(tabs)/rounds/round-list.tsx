@@ -1,27 +1,24 @@
 import { Badge } from '@/app/components/ui/badge'
+import { ButtonLink } from '@/app/components/ui/button'
 import { Card } from '@/app/components/ui/card'
 import { EmptyState } from '@/app/components/ui/empty-state'
-import { OpenLink } from '@/app/components/ui/open-link'
+import { InfoTooltip } from '@/app/components/ui/tooltip'
 import { formatDate } from '@/app/notifications/labels'
 import { AgreementValue } from './agreement-panel'
 import type { AgreementPair } from './agreement-pair'
-import { QualityValue } from './quality-panel'
+import { phaseRuns } from './agreement-series'
+import { QualitySummary } from './quality-panel'
 import type { QualityPair } from './quality'
 import { isOpen, type RoundSummary } from './rounds'
 import { previousRoundOf, roundChanges } from './round-changes'
-import { RoundChangesNote } from './round-changes-note'
+import { RoundChangeChips } from './round-changes-note'
 import { referenceComparison } from './reference-comparison'
+import { closedOn } from './reference-comparison-labels'
 import { ReferenceRoundLine } from './reference-comparison-panel'
 
-function changesOf(rounds: readonly RoundSummary[], round: RoundSummary) {
-  const changes = roundChanges(round, previousRoundOf(rounds, round))
-  if (!changes) return null
-
-  return (
-    <div className="mt-2">
-      <RoundChangesNote changes={changes} compact />
-    </div>
-  )
+function openedText(round: RoundSummary): string {
+  const opened = `Aberta em ${formatDate(round.createdAt)} por ${round.authorName}`
+  return round.closedAt ? `${opened} · ${closedOn(round.closedAt)}` : opened
 }
 
 function referenceOf(
@@ -57,52 +54,61 @@ export function RoundList({
   }
 
   return (
-    <ul className="m-0 flex list-none flex-col gap-3 p-0">
-      {rounds.map((round) => (
-        <li key={round.id}>
-          <Card>
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-              <span className="text-sm font-semibold text-ink">
-                Rodada {round.roundNumber}
-                <span className="font-normal text-muted"> · Fase {round.phase}</span>
-              </span>
-              {isOpen(round) ? (
-                <Badge tone="info">aberta</Badge>
-              ) : (
-                <Badge tone="neutral">fechada</Badge>
-              )}
-            </div>
+    <div className="flex flex-col gap-5">
+      {phaseRuns(rounds).map((run) => (
+        <section key={run.points[0].id} className="flex flex-col gap-2">
+          <h3 className="m-0 text-[11px] font-semibold tracking-[0.06em] text-muted uppercase">
+            Fase {run.phase}
+          </h3>
+          <ul className="m-0 flex list-none flex-col gap-3 p-0">
+            {run.points.map((round) => (
+              <li key={round.id}>
+                <Card>
+                  <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+                    <span className="flex flex-wrap items-center gap-2">
+                      <span className="text-sm font-semibold text-ink">
+                        Rodada {round.roundNumber}
+                      </span>
+                      {isOpen(round) ? (
+                        <Badge tone="info">aberta</Badge>
+                      ) : (
+                        <Badge tone="neutral">fechada</Badge>
+                      )}
+                      <InfoTooltip text={openedText(round)} />
+                    </span>
+                    {isOpen(round) ? null : (
+                      <ButtonLink
+                        href={`/projects/${projectId}/rounds/${round.id}`}
+                        variant="secondary"
+                        size="sm"
+                      >
+                        Abrir revisão
+                      </ButtonLink>
+                    )}
+                  </div>
 
-            <p className="m-0 mt-1.5 text-[13px] text-muted">
-              Codebook v{round.codebookVersionNumber} · Prompt v
-              {round.promptVersionNumber}
-            </p>
+                  <div className="mt-2">
+                    <RoundChangeChips
+                      round={round}
+                      changes={roundChanges(round, previousRoundOf(rounds, round))}
+                    />
+                  </div>
 
-            <p className="m-0 mt-1.5 text-[13px] text-muted">
-              Aberta em {formatDate(round.createdAt)} por {round.authorName}
-              {round.closedAt ? ` · fechada em ${formatDate(round.closedAt)}` : null}
-            </p>
+                  {agreement.has(round.id) ? (
+                    <AgreementValue pair={agreement.get(round.id)!} />
+                  ) : null}
 
-            {changesOf(rounds, round)}
+                  {quality.has(round.id) ? (
+                    <QualitySummary pair={quality.get(round.id)!} />
+                  ) : null}
 
-            {agreement.has(round.id) ? (
-              <AgreementValue pair={agreement.get(round.id)!} />
-            ) : null}
-
-            {quality.has(round.id) ? <QualityValue pair={quality.get(round.id)!} /> : null}
-
-            {referenceOf(rounds, round, agreement, quality)}
-
-            {isOpen(round) ? null : (
-              <p className="m-0 mt-2 text-[13px]">
-                <OpenLink href={`/projects/${projectId}/rounds/${round.id}`}>
-                  Abrir revisão
-                </OpenLink>
-              </p>
-            )}
-          </Card>
-        </li>
+                  {referenceOf(rounds, round, agreement, quality)}
+                </Card>
+              </li>
+            ))}
+          </ul>
+        </section>
       ))}
-    </ul>
+    </div>
   )
 }

@@ -37,7 +37,7 @@ import { AgreementMatrixTable } from '@/app/projects/[id]/(tabs)/rounds/agreemen
 import { QualityMatrixTable } from '@/app/projects/[id]/(tabs)/rounds/quality-matrix-table'
 import {
   QualityPanel,
-  QualityValue,
+  QualitySummary,
 } from '@/app/projects/[id]/(tabs)/rounds/quality-panel'
 import {
   QUALITY_MATRIX_LEGEND,
@@ -55,6 +55,8 @@ import {
   OUTLIER_PAIR_SUMMARY,
 } from '@/app/projects/[id]/(tabs)/rounds/agreement-labels'
 import { Section } from '@/app/components/ui/section'
+import { ButtonLink } from '@/app/components/ui/button'
+import { InfoTooltip } from '@/app/components/ui/tooltip'
 import { loadCodebookVersion } from '@/app/projects/[id]/pipeline/codebook'
 import { resolveCells } from '@/app/projects/[id]/pipeline/criteria'
 import { formatDate } from '@/app/notifications/labels'
@@ -74,7 +76,7 @@ import {
   roundInputSummary,
 } from '@/app/projects/[id]/(tabs)/rounds/preconditions'
 import { itemUsageLabel } from '@/app/projects/[id]/round-usage'
-import { RoundChangesNote } from '@/app/projects/[id]/(tabs)/rounds/round-changes-note'
+import { RoundChangeChips } from '@/app/projects/[id]/(tabs)/rounds/round-changes-note'
 import {
   CODEBOOK_AND_PROMPT_NOTICE,
   ENTERS_PHASE_3_NOTE,
@@ -122,6 +124,15 @@ function findElement(node: unknown, type: unknown): ReactElement | null {
     if (found) return found
   }
   return null
+}
+
+function findAll(node: unknown, type: unknown): ReactElement[] {
+  if (Array.isArray(node)) return node.flatMap((child) => findAll(child, type))
+  if (!isValidElement(node)) return []
+  if (node.type === type) return [node]
+  return Object.values(node.props as Record<string, unknown>).flatMap((value) =>
+    findAll(value, type),
+  )
 }
 
 function findSection(node: unknown, type: unknown): ReactElement | null {
@@ -199,7 +210,7 @@ type MatrixProps = Parameters<typeof AgreementMatrixTable>[0]
 type EvaluatorProps = Parameters<typeof EvaluatorRounds>[0]
 type QualityProps = Parameters<typeof QualityPanel>[0]
 type QualityMatrixProps = Parameters<typeof QualityMatrixTable>[0]
-type ChangesProps = Parameters<typeof RoundChangesNote>[0]
+type ChangesProps = Parameters<typeof RoundChangeChips>[0]
 type GuidanceProps = Parameters<typeof ReadingGuidanceNote>[0]
 
 const GUIDANCE_TEXTS = [
@@ -338,12 +349,17 @@ function qualityCellsOf(tree: unknown): string[] {
 }
 
 function cardsOf(list: ListProps): ReactElement[] {
-  return (RoundList(list).props as { children: ReactElement[] }).children
+  return findAll(RoundList(list), 'li')
 }
 
-function cardChangesOf(card: ReactElement): ChangesProps | null {
-  const element = findElement(card, RoundChangesNote)
-  return element ? (element.props as ChangesProps) : null
+function cardChangesOf(card: ReactElement): ChangesProps {
+  const element = findElement(card, RoundChangeChips)
+  expect(element).toBeTruthy()
+  return element!.props as ChangesProps
+}
+
+function cardChangesTextOf(card: ReactElement): string {
+  return markupTextOf(createElement(RoundChangeChips, cardChangesOf(card)))
 }
 
 function disabledCountOf(element: ReactElement): number {
@@ -656,14 +672,27 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     const list = listOf(await render(project))
     expect(list.rounds.map((round) => round.roundNumber)).toEqual([1, 2])
 
-    const text = textOf(RoundList(list))
+    const text = markupTextOf(createElement(RoundList, list))
     expect(text).toContain('Rodada 1')
     expect(text).toContain('fechada')
     expect(text).toContain('Rodada 2')
     expect(text).toContain('aberta')
-    expect(text).toContain('Codebook v1 · Prompt v1')
+    expect(text).toContain('Codebook v1')
+    expect(text).toContain('Prompt v1')
     expect(text).toContain(formatDate(list.rounds[1].createdAt))
     expect(text).toContain('Ana Pesquisadora')
+
+    const tooltips = findAll(RoundList(list), InfoTooltip).map(
+      (tooltip) => (tooltip.props as { text: string }).text,
+    )
+    expect(tooltips[0]).toContain(`fechada em ${formatDate(list.rounds[0].closedAt!)}`)
+    expect(tooltips[1]).toBe(
+      `Aberta em ${formatDate(list.rounds[1].createdAt)} por Ana Pesquisadora`,
+    )
+
+    const cards = cardsOf(list)
+    expect(findAll(cards[0], ButtonLink)).toHaveLength(1)
+    expect(findAll(cards[1], ButtonLink)).toHaveLength(0)
   })
 
   it('a lista mostra a fase de cada rodada, e o painel da rodada aberta diz o que vai à LLM', async () => {
@@ -687,9 +716,13 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
 
     const list = listOf(tree)
     expect(list.rounds.map((round) => round.phase)).toEqual([PHASE_2, PHASE_3])
-    const text = markupTextOf(createElement(RoundList, list))
-    expect(text).toContain(`Rodada 1 · Fase ${PHASE_2}`)
-    expect(text).toContain(`Rodada 2 · Fase ${PHASE_3}`)
+    const groups = findAll(RoundList(list), 'section')
+    expect(groups.map((group) => textOf(findElement(group, 'h3')))).toEqual([
+      `Fase ${PHASE_2}`,
+      `Fase ${PHASE_3}`,
+    ])
+    expect(groups.map((group) => findAll(group, 'li').length)).toEqual([1, 1])
+    expect(markupTextOf(createElement(RoundList, list))).not.toContain(' · Fase ')
 
     const close = closeRoundOf(tree)
     expect(close.round.phase).toBe(PHASE_3)
@@ -728,26 +761,37 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     const cards = cardsOf(listOf(await render(project)))
     expect(cards).toHaveLength(3)
 
-    expect(cardChangesOf(cards[0])).toBeNull()
+    expect(cardChangesOf(cards[0]).changes).toBeNull()
     expect(markupTextOf(cards[0])).not.toContain('→')
+    expect(cardChangesTextOf(cards[0])).toBe('Codebook v1 Prompt v1')
 
     const second = cardChangesOf(cards[1])
-    expect(second?.changes.previousRoundNumber).toBe(1)
-    const secondText = markupTextOf(createElement(RoundChangesNote, second!))
-    expect(secondText).toContain('Codebook: v1 → v2')
-    expect(secondText).toContain('Prompt: v1 → v2')
-    expect(secondText).toContain(`Fase: ${PHASE_2}, a mesma`)
+    expect(second.changes?.previousRoundNumber).toBe(1)
+    const secondText = cardChangesTextOf(cards[1])
+    expect(secondText).toContain('Codebook v1 → v2')
+    expect(secondText).toContain('Prompt v1 → v2')
+    expect(secondText).not.toContain('Fase')
     expect(secondText).toContain(CODEBOOK_AND_PROMPT_NOTICE)
     expect(secondText).not.toContain(ENTERS_PHASE_3_NOTE)
 
     const third = cardChangesOf(cards[2])
-    expect(third?.changes.previousRoundNumber).toBe(2)
-    const thirdText = markupTextOf(createElement(RoundChangesNote, third!))
-    expect(thirdText).toContain('Codebook: v2, o mesmo')
-    expect(thirdText).toContain('Prompt: v2, o mesmo')
-    expect(thirdText).toContain(`Fase: ${PHASE_2} → ${PHASE_3}`)
+    expect(third.changes?.previousRoundNumber).toBe(2)
+    const thirdText = cardChangesTextOf(cards[2])
+    expect(thirdText).toContain('Codebook v2 Prompt v2')
+    expect(thirdText).not.toContain('Codebook v1')
+    expect(thirdText).toContain(`Fase ${PHASE_2} → ${PHASE_3}`)
     expect(thirdText).toContain(ENTERS_PHASE_3_NOTE)
     expect(thirdText).not.toContain(CODEBOOK_AND_PROMPT_NOTICE)
+
+    const highlightedOf = (card: ReactElement) =>
+      [
+        ...renderToStaticMarkup(
+          createElement(RoundChangeChips, cardChangesOf(card)),
+        ).matchAll(/<span class="[^"]*border-brand![^"]*">([^<]*)/g),
+      ].map((match) => match[1])
+    expect(highlightedOf(cards[0])).toEqual([])
+    expect(highlightedOf(cards[1])).toEqual(['Codebook v1 → v2', 'Prompt v1 → v2'])
+    expect(highlightedOf(cards[2])).toEqual([`Fase ${PHASE_2} → ${PHASE_3}`])
   })
 
   it('com codebook e prompt mudados juntos na última rodada, a nova rodada continua liberada', async () => {
@@ -760,8 +804,8 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     const sameTree = await render(same)
 
     const withNotice = cardChangesOf(cardsOf(listOf(changedTree))[1])
-    expect(withNotice?.changes.codebookAndPrompt).toBe(true)
-    expect(cardChangesOf(cardsOf(listOf(sameTree))[1])?.changes.codebookAndPrompt).toBe(
+    expect(withNotice.changes?.codebookAndPrompt).toBe(true)
+    expect(cardChangesOf(cardsOf(listOf(sameTree))[1]).changes?.codebookAndPrompt).toBe(
       false,
     )
 
@@ -783,7 +827,7 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     const sameTree = await render(same)
 
     expect(
-      cardChangesOf(cardsOf(listOf(changedTree))[1])?.changes.codebookAndPrompt,
+      cardChangesOf(cardsOf(listOf(changedTree))[1]).changes?.codebookAndPrompt,
     ).toBe(true)
 
     const changedClose = closeRoundOf(changedTree)
@@ -1312,7 +1356,7 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     })
 
     const rendered = RoundList(list)
-    expect(textOf(rendered)).toContain('Codebook v1 · Prompt v1')
+    expect(markupTextOf(createElement(RoundList, list))).toContain('Codebook v1 Prompt v1')
 
     const value = findElement(rendered, AgreementValue)
     expect(value).toBeTruthy()
@@ -1415,9 +1459,8 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     expect(text).toContain(QUALITY_UNRATED)
     expect(text).not.toContain('0%')
 
-    const value = findElement(RoundList(listOf(tree)), QualityValue)
-    expect(markupTextOf(value!)).toContain(`Qualidade: ${QUALITY_UNRATED}`)
-    expect(markupTextOf(value!)).not.toContain('0%')
+    const value = findElement(RoundList(listOf(tree)), QualitySummary)
+    expect(markupTextOf(value!)).toBe(`Qualidade: ${QUALITY_UNRATED}`)
   })
 
   it('com alguém marcado, a Qualidade mostra os dois valores, o com todos primeiro', async () => {
@@ -1450,12 +1493,13 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     expect(text).toContain('1 avaliador fora')
     expect(text).toContain(OUTLIER_PAIR_SUMMARY)
 
-    const value = markupTextOf(findElement(RoundList(listOf(tree)), QualityValue)!)
-    expect(value).toContain(
-      `Qualidade ${AGREEMENT_ALL_LABEL}: Alto 62,5% (5) · Médio 25% (2) · Baixo 12,5% (1)`,
-    )
-    expect(value).toContain(
-      `${AGREEMENT_WITHOUT_OUTLIERS_LABEL}: Alto 75% (3) · Médio 25% (1) · Baixo 0% (0)`,
+    const summary = findElement(RoundList(listOf(tree)), QualitySummary)!
+    const value = markupTextOf(summary)
+    const allLine = `Qualidade ${AGREEMENT_ALL_LABEL}: Alto 62,5% · Médio 25% · Baixo 12,5% · 8 notas`
+    const withoutLine = `${AGREEMENT_WITHOUT_OUTLIERS_LABEL}: Alto 75% · Médio 25% · Baixo 0% · 4 notas`
+    expect(value).toBe(`${allLine} ${withoutLine}`)
+    expect(renderToStaticMarkup(summary)).toContain(
+      'title="Alto 62,5% (5) · Médio 25% (2) · Baixo 12,5% (1) · 8 notas"',
     )
   })
 
@@ -1487,7 +1531,7 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
 
     const classes = [
       ...classNamesOf(createElement(QualityPanel, qualityPanelOf(tree))),
-      ...classNamesOf(findElement(RoundList(listOf(tree)), QualityValue)!),
+      ...classNamesOf(findElement(RoundList(listOf(tree)), QualitySummary)!),
     ]
     expect(classes.length).toBeGreaterThan(0)
     for (const className of classes) {
@@ -1730,11 +1774,10 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     expect([...list.quality.keys()]).toEqual([phase3])
     expect(list.agreement.has(phase2)).toBe(true)
 
-    const rendered = RoundList(list)
     const values: ReactElement[] = []
-    const cards = (rendered.props as { children: ReactElement[] }).children
+    const cards = cardsOf(list)
     for (const card of cards) {
-      const value = findElement(card, QualityValue)
+      const value = findElement(card, QualitySummary)
       if (value) values.push(value)
     }
     expect(values).toHaveLength(1)

@@ -5,6 +5,7 @@ import {
   QUALITY_LABEL,
   QUALITY_UNRATED,
   QUALITY_UNRATED_WITHOUT_OUTLIERS,
+  levelsShareText,
   levelsText,
   qualityTotal,
 } from './quality-labels'
@@ -116,5 +117,61 @@ export function QualityValue({ pair }: { pair: QualityPair }) {
         </>
       ) : null}
     </p>
+  )
+}
+
+function SummaryPart({
+  label,
+  quality,
+  unrated,
+  size,
+}: {
+  label: string
+  quality: Quality
+  unrated: string
+  size: 'md' | 'sm'
+}) {
+  if (!quality.rated) {
+    return (
+      <p className="m-0 text-[13px] text-muted">
+        {label}: {unrated}
+      </p>
+    )
+  }
+
+  return (
+    <>
+      <QualityBar
+        levels={quality.levels}
+        size={size}
+        title={`${levelsText(quality.levels)} · ${qualityTotal(quality.total)}`}
+      />
+      <p className="m-0 text-[13px] text-muted tabular-nums">
+        {label}: {levelsShareText(quality.levels)} · {qualityTotal(quality.total)}
+      </p>
+    </>
+  )
+}
+
+export function QualitySummary({ pair }: { pair: QualityPair }) {
+  const { all, withoutOutliers } = pair
+
+  return (
+    <div className="mt-2 flex flex-col gap-1.5">
+      <SummaryPart
+        label={withoutOutliers ? `${QUALITY_LABEL} ${AGREEMENT_ALL_LABEL}` : QUALITY_LABEL}
+        quality={all}
+        unrated={QUALITY_UNRATED}
+        size="sm"
+      />
+      {withoutOutliers ? (
+        <SummaryPart
+          label={AGREEMENT_WITHOUT_OUTLIERS_LABEL}
+          quality={withoutOutliers}
+          unrated={QUALITY_UNRATED_WITHOUT_OUTLIERS}
+          size="sm"
+        />
+      ) : null}
+    </div>
   )
 }

@@ -24,6 +24,18 @@ export function phaseChangeText(change: Change): string {
     : `Fase: ${change.to}, a mesma`
 }
 
+export function codebookChipText(change: Change): string {
+  return change.changed ? `Codebook v${change.from} → v${change.to}` : `Codebook v${change.to}`
+}
+
+export function promptChipText(change: Change): string {
+  return change.changed ? `Prompt v${change.from} → v${change.to}` : `Prompt v${change.to}`
+}
+
+export function phaseChipText(change: Change): string {
+  return change.changed ? `Fase ${change.from} → ${change.to}` : `Fase ${change.to}`
+}
+
 export const CODEBOOK_AND_PROMPT_NOTICE =
   'O codebook e o prompt mudaram juntos em relação à rodada anterior: uma diferença ' +
   `no ICR ou na ${QUALITY_LABEL} desta rodada não se atribui a um nem ao outro.`
