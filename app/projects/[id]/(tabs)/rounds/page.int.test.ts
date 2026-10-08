@@ -1331,9 +1331,9 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     const text = qualityTextOf(tree)
     expect(text).toContain('Qualidade')
     expect(text).toContain('8 notas')
-    expect(text).toContain('Alto 62,5% · 5 notas')
-    expect(text).toContain('Médio 25% · 2 notas')
-    expect(text).toContain('Baixo 12,5% · 1 nota')
+    expect(text).toContain('Alto 62,5% (5)')
+    expect(text).toContain('Médio 25% (2)')
+    expect(text).toContain('Baixo 12,5% (1)')
 
     const section = findSection(tree, QualityPanel)
     expect(textOf((section!.props as { title: ReactNode }).title)).toBe(
@@ -1432,7 +1432,7 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     const withoutAt = text.indexOf(`Qualidade — ${AGREEMENT_WITHOUT_OUTLIERS_LABEL}`)
     expect(allAt).toBeGreaterThanOrEqual(0)
     expect(withoutAt).toBeGreaterThan(allAt)
-    expect(text).toContain('Alto 75% · 3 notas')
+    expect(text).toContain('Alto 75% (3)')
     expect(text).toContain('1 avaliador fora')
     expect(text).toContain(OUTLIER_PAIR_SUMMARY)
 
@@ -1459,7 +1459,7 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     expect(pair.withoutOutliers).toEqual({ rated: false, total: 0 })
 
     const text = qualityTextOf(tree)
-    expect(text).toContain('Alto 62,5% · 5 notas')
+    expect(text).toContain('Alto 62,5% (5)')
     expect(text).toContain(QUALITY_UNRATED_WITHOUT_OUTLIERS)
   })
 
@@ -1482,10 +1482,11 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
       }
     }
 
-    const bars = renderToStaticMarkup(createElement(QualityPanel, qualityPanelOf(tree)))
-      .match(/class="h-full rounded-full [^"]*"/g)
-    expect(bars).toHaveLength(6)
-    expect(new Set(bars).size).toBe(1)
+    const markup = renderToStaticMarkup(createElement(QualityPanel, qualityPanelOf(tree)))
+    expect(markup.match(/<div aria-hidden="true" class="flex [^"]*"/g)).toHaveLength(2)
+    const slices = markup.match(/class="h-full bg-quality-[a-z]+"/g)
+    const tones = ['high', 'medium', 'low'].map((tone) => `class="h-full bg-quality-${tone}"`)
+    expect(slices).toEqual([...tones, ...tones])
   })
 
   it('numa rodada da Fase 3, o Administrador vê a matriz de Qualidade da versão fixada', async () => {

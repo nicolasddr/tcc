@@ -1,0 +1,733 @@
+<title>Ajustes das Fases 3 e 4</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&family=Inter:wght@400;600;700&display=swap">
+<style>
+/* Layout: coluna única de leitura; cada sugestão é um bloco com "hoje / proposta", um antes-e-depois em miniatura e a decisão; barra fixa no rodapé junta as escolhas. */
+:root {
+  --bg: #f6f6f3;
+  --paper: #ffffff;
+  --fg: #1d1f24;
+  --soft: #5b606b;
+  --rule: #e2e1db;
+  --accent: #2f4fa8;
+  --accent-tint: #e9edf8;
+  --do: #1f6b45; --do-bg: #e3f2e9;
+  --maybe: #8a5a00; --maybe-bg: #fbf0d6;
+  --no: #8b2b2b; --no-bg: #f7e4e4;
+  --font-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --font-app: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  /* Miniaturas: reproduzem a tela clara do app, nos dois temas */
+  --m-surface: #ffffff;
+  --m-subtle: #f9fafb;
+  --m-ink: #111827;
+  --m-muted: #6b7280;
+  --m-faint: #9ca3af;
+  --m-line: #e5e7eb;
+  --m-brand: #1d4ed8;
+  --m-info-bg: #dbeafe; --m-info-fg: #1e40af;
+  --m-neutral-bg: #e5e7eb; --m-neutral-fg: #4b5563;
+  --m-warn-bg: #fef3c7; --m-warn-fg: #92400e;
+  --m-ok-bg: #dcfce7; --m-ok-fg: #166534;
+  --q-high: #1e3a8a; --q-mid: #6b8fd6; --q-low: #c9d6f2;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #15171c; --paper: #1d2027; --fg: #e8e9ec; --soft: #a3a8b4; --rule: #2e323b;
+    --accent: #9db2ff; --accent-tint: #252c44;
+    --do: #8fd6ad; --do-bg: #1d3328; --maybe: #f0c36b; --maybe-bg: #3a3020; --no: #f0a1a1; --no-bg: #3d2224;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #15171c; --paper: #1d2027; --fg: #e8e9ec; --soft: #a3a8b4; --rule: #2e323b;
+  --accent: #9db2ff; --accent-tint: #252c44;
+  --do: #8fd6ad; --do-bg: #1d3328; --maybe: #f0c36b; --maybe-bg: #3a3020; --no: #f0a1a1; --no-bg: #3d2224;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 15px; line-height: 1.55; }
+.wrap { max-width: 920px; margin: 0 auto; padding-inline: 20px; padding-block: 40px 140px; }
+h1, h2, h3 { text-wrap: balance; margin: 0; }
+h1 { font-size: 30px; line-height: 1.2; font-weight: 700; letter-spacing: -0.01em; }
+.lede { color: var(--soft); max-width: 62ch; margin: 12px 0 0; }
+.legend { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 18px; font-size: 13px; color: var(--soft); }
+.legend b { color: var(--fg); font-weight: 600; }
+
+.group { margin-top: 48px; }
+.group-head { display: flex; align-items: baseline; gap: 12px; padding-bottom: 10px; border-bottom: 2px solid var(--fg); }
+.group-head h2 { font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 700; }
+.group-head span { font-size: 13px; color: var(--soft); }
+
+.sug { background: var(--paper); border: 1px solid var(--rule); border-radius: 10px; margin-top: 18px; padding: 22px 22px 18px; }
+.sug[data-choice="fazer"] { border-color: var(--do); }
+.sug[data-choice="talvez"] { border-color: var(--maybe); }
+.sug[data-choice="nao"] { opacity: 0.62; }
+.sug-top { display: flex; gap: 14px; align-items: flex-start; }
+.num { font-family: var(--font-mono); font-size: 13px; color: var(--accent); padding-top: 3px; min-width: 2ch; }
+.sug-title { flex: 1; min-width: 0; }
+.sug-title h3 { font-size: 18px; line-height: 1.3; font-weight: 600; }
+.tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.tag { font-size: 12px; padding: 2px 8px; border-radius: 999px; background: var(--bg); color: var(--soft); border: 1px solid var(--rule); white-space: nowrap; }
+.tag.rec { background: var(--accent-tint); color: var(--accent); border-color: transparent; font-weight: 600; }
+
+.body { margin-left: calc(2ch + 14px); }
+.cols { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-top: 14px; }
+.cols > div { min-width: 0; }
+.k { font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 700; color: var(--soft); margin: 0 0 4px; }
+.cols p { margin: 0; font-size: 14px; }
+.where { margin-top: 12px; font-family: var(--font-mono); font-size: 12px; color: var(--soft); overflow-wrap: anywhere; }
+
+.compare { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 16px; }
+.compare > figure { margin: 0; min-width: 0; }
+.compare figcaption { font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 700; color: var(--soft); margin-bottom: 6px; }
+.compare figure.after figcaption { color: var(--accent); }
+
+/* Miniatura do app */
+.m { font-family: var(--font-app); background: var(--m-surface); color: var(--m-ink); border: 1px solid var(--m-line); border-radius: 8px; padding: 12px; font-size: 11.5px; line-height: 1.45; overflow-x: auto; }
+.m .h { font-size: 12.5px; font-weight: 700; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.m .mu { color: var(--m-muted); }
+.m .fa { color: var(--m-faint); }
+.m .card { background: var(--m-subtle); border: 1px solid var(--m-line); border-radius: 7px; padding: 8px; }
+.m .stack > * + * { margin-top: 7px; }
+.m .rule { border-top: 1px solid var(--m-line); padding-top: 7px; }
+.m .i { display: inline-grid; place-items: center; width: 13px; height: 13px; border-radius: 50%; border: 1px solid var(--m-faint); color: var(--m-muted); font-size: 9px; font-weight: 700; font-style: normal; flex: none; }
+.m .b { display: inline-block; padding: 1px 6px; border-radius: 999px; font-size: 10px; font-weight: 600; white-space: nowrap; }
+.m .b.info { background: var(--m-info-bg); color: var(--m-info-fg); }
+.m .b.neu { background: var(--m-neutral-bg); color: var(--m-neutral-fg); }
+.m .b.warn { background: var(--m-warn-bg); color: var(--m-warn-fg); }
+.m .b.ok { background: var(--m-ok-bg); color: var(--m-ok-fg); }
+.m .b.wrap { white-space: normal; }
+.m .link { color: var(--m-brand); font-weight: 600; }
+.m .btn { display: inline-block; border: 1px solid var(--m-line); border-radius: 6px; padding: 2px 8px; font-weight: 600; background: var(--m-surface); white-space: nowrap; }
+.m .sec { font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 700; color: var(--m-muted); }
+.m .ghost { height: 7px; border-radius: 3px; background: var(--m-line); }
+.m .hl { outline: 2px dashed var(--m-brand); outline-offset: 2px; border-radius: 6px; }
+.m .row { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+.m table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+.m th, .m td { border-bottom: 1px solid var(--m-line); padding: 4px 6px; text-align: left; vertical-align: top; }
+.m th { font-weight: 600; }
+.m td.n { text-align: right; white-space: nowrap; }
+.m .num-t { font-variant-numeric: tabular-nums; }
+.bar { display: flex; height: 8px; border-radius: 4px; overflow: hidden; background: var(--m-line); }
+.bar.sm { height: 6px; }
+.bar > span { display: block; height: 100%; }
+.bar .q1 { background: var(--q-high); } .bar .q2 { background: var(--q-mid); } .bar .q3 { background: var(--q-low); }
+.thin { height: 5px; border-radius: 3px; background: var(--m-line); overflow: hidden; }
+.thin > span { display: block; height: 100%; background: var(--m-faint); }
+.sw { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 3px; vertical-align: 0; }
+.sw.q1 { background: var(--q-high); } .sw.q2 { background: var(--q-mid); } .sw.q3 { background: var(--q-low); }
+.chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.chip { display: inline-flex; align-items: center; gap: 4px; padding: 1px 7px; border: 1px solid var(--m-line); border-radius: 999px; background: var(--m-subtle); font-size: 10.5px; white-space: nowrap; }
+.chip.ch { border-color: var(--m-brand); color: var(--m-brand); font-weight: 600; background: var(--m-surface); }
+.tip { position: relative; }
+.tipbox { margin-top: 5px; padding: 6px 8px; border-radius: 6px; background: var(--m-ink); color: var(--m-surface); font-size: 10.5px; max-width: 230px; }
+
+/* Decisão */
+.decide { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--rule); }
+.seg { display: inline-flex; border: 1px solid var(--rule); border-radius: 8px; overflow: hidden; }
+.seg input { position: absolute; opacity: 0; pointer-events: none; }
+.seg label { padding: 6px 14px; font-size: 13px; font-weight: 600; cursor: pointer; color: var(--soft); border-left: 1px solid var(--rule); user-select: none; }
+.seg label:first-of-type { border-left: 0; }
+.seg input:focus-visible + label { outline: 2px solid var(--accent); outline-offset: -2px; }
+.seg input[value="fazer"]:checked + label { background: var(--do-bg); color: var(--do); }
+.seg input[value="talvez"]:checked + label { background: var(--maybe-bg); color: var(--maybe); }
+.seg input[value="nao"]:checked + label { background: var(--no-bg); color: var(--no); }
+.note { flex: 1 1 220px; min-width: 0; font: inherit; font-size: 13px; padding: 6px 10px; border: 1px solid var(--rule); border-radius: 8px; background: var(--bg); color: var(--fg); }
+.note:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+/* Barra fixa */
+.dock { position: fixed; left: 0; right: 0; bottom: 0; background: var(--paper); border-top: 1px solid var(--rule); padding: 12px 20px calc(12px + env(safe-area-inset-bottom, 0px)); z-index: 5; }
+.dock-in { max-width: 920px; margin: 0 auto; display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; }
+.count { font-size: 13px; color: var(--soft); flex: 1; min-width: 0; font-variant-numeric: tabular-nums; }
+.count b { color: var(--fg); }
+.btn-main { font: inherit; font-size: 14px; font-weight: 600; padding: 8px 16px; border-radius: 8px; border: 0; background: var(--accent); color: var(--paper); cursor: pointer; }
+.btn-ghost { font: inherit; font-size: 13px; padding: 7px 12px; border-radius: 8px; border: 1px solid var(--rule); background: transparent; color: var(--soft); cursor: pointer; }
+.btn-main:focus-visible, .btn-ghost:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
+.out { display: none; width: 100%; font-family: var(--font-mono); font-size: 12px; min-height: 120px; padding: 10px; border-radius: 8px; border: 1px solid var(--rule); background: var(--bg); color: var(--fg); }
+.out.show { display: block; }
+.status { font-size: 13px; color: var(--do); }
+
+@media (max-width: 680px) {
+  .wrap { padding-inline: 16px; padding-block: 28px 170px; }
+  h1 { font-size: 24px; }
+  .body { margin-left: 0; }
+  .cols, .compare { grid-template-columns: 1fr; }
+  .sug { padding: 18px 16px 16px; }
+}
+@media (prefers-reduced-motion: no-preference) { .sug { transition: border-color .15s, opacity .15s; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>Ajustes de layout nas Fases 3 e 4</h1>
+    <p class="lede">Onze mudanças pequenas nas telas de Rodadas, Revisão e Visão geral, tiradas da leitura do código atual (<code>main</code>, 16acd29). Nenhuma mexe em regra, cálculo ou texto de domínio. A maioria só reorganiza, encurta ou passa um texto longo para um ⓘ. Marque cada uma e use "Copiar escolhas" no rodapé para colar a resposta no chat.</p>
+    <div class="legend">
+      <span><b>Pequeno</b> = um componente, sem lógica nova</span>
+      <span><b>Médio</b> = componente novo ou troca de formato de dado na tela</span>
+      <span><b>Recomendo</b> = o que eu faria primeiro</span>
+    </div>
+  </header>
+
+  <!-- ===================== RODADAS ===================== -->
+  <section class="group">
+    <div class="group-head"><h2>Tela de Rodadas</h2><span>visão do Administrador</span></div>
+
+    <article class="sug" data-id="1">
+      <div class="sug-top">
+        <span class="num">01</span>
+        <div class="sug-title">
+          <h3>"Por onde ler esta rodada" no topo da leitura, com atalho</h3>
+          <div class="tags"><span class="tag rec">Recomendo</span><span class="tag">Fases 3 e 4</span><span class="tag">Pequeno</span></div>
+        </div>
+      </div>
+      <div class="body">
+        <div class="cols">
+          <div><p class="k">Hoje</p><p>A orientação aparece depois do painel de Concordância e da matriz inteira, solta entre duas seções. Quem precisa dela já leu tudo antes de chegar nela.</p></div>
+          <div><p class="k">Proposta</p><p>Subir o cartão para logo antes da Concordância e terminar com um link de âncora: "Ver a Qualidade ↓" na Fase 3, "Ver a comparação ↓" na Fase 4.</p></div>
+        </div>
+        <div class="compare">
+          <figure><figcaption>Antes</figcaption>
+            <div class="m stack">
+              <div class="h">Concordância na rodada 5 <i class="i">i</i></div>
+              <div class="card"><span class="mu">Concordância</span><div class="h num-t">0,712 <span class="b ok">aceitável</span></div></div>
+              <div class="ghost" style="width:100%"></div><div class="ghost" style="width:90%"></div><div class="ghost" style="width:95%"></div>
+              <div class="card hl"><b>Por onde ler esta rodada</b><div class="mu">O ICR está dentro da faixa: os avaliadores concordam, e é hora de olhar a Qualidade…</div></div>
+              <div class="h">Qualidade na rodada 5</div>
+            </div>
+          </figure>
+          <figure class="after"><figcaption>Depois</figcaption>
+            <div class="m stack">
+              <div class="card hl"><b>Por onde ler esta rodada</b><div class="mu">O ICR está dentro da faixa: os avaliadores concordam, e é hora de olhar a Qualidade…</div><div style="margin-top:4px"><span class="link">Ver a Qualidade ↓</span></div></div>
+              <div class="h">Concordância na rodada 5 <i class="i">i</i></div>
+              <div class="card"><span class="mu">Concordância</span><div class="h num-t">0,712 <span class="b ok">aceitável</span></div></div>
+              <div class="ghost" style="width:100%"></div><div class="ghost" style="width:90%"></div>
+              <div class="h">Qualidade na rodada 5</div>
+            </div>
+          </figure>
+        </div>
+        <p class="where">rounds/page.tsx · reading-guidance-note.tsx</p>
+      </div>
+    </article>
+
+    <article class="sug" data-id="2">
+      <div class="sug-top">
+        <span class="num">02</span>
+        <div class="sug-title">
+          <h3>Comparação com a rodada de referência como tabela, e mais acima</h3>
+          <div class="tags"><span class="tag rec">Recomendo</span><span class="tag">Fase 4</span><span class="tag">Médio</span></div>
+        </div>
+      </div>
+      <div class="body">
+        <div class="cols">
+          <div><p class="k">Hoje</p><p>É a leitura central da Fase 4, mas fica no fim da página, depois das duas matrizes. Os dois lados são cartões com frases ("Qualidade: Alto 62,5% (25) · Médio 25% (10) · …"), e comparar exige ler número dentro de texto.</p></div>
+          <div><p class="k">Proposta</p><p>Uma tabela com uma coluna por rodada e uma linha por medida (ICR, Alto, Médio, Baixo, notas). Na Fase 4 ela vem logo depois da orientação. Sem coluna de diferença e sem cor de melhor ou pior, para não virar veredito.</p></div>
+        </div>
+        <div class="compare">
+          <figure><figcaption>Antes</figcaption>
+            <div class="m stack">
+              <div class="card"><b>Rodada 4</b> <span class="mu">· Fase 3</span><div class="mu">Codebook v4 · Prompt v3</div><div class="mu">fechada em 28/09/2026</div><div class="mu">Concordância: <b style="color:var(--m-ink)">0,741</b> 120 unidades</div><div class="mu">Qualidade: <b style="color:var(--m-ink)">Alto 62,5% (25) · Médio 25% (10) · Baixo 12,5% (5)</b> 40 notas</div></div>
+              <div class="card"><b>Rodada 6</b> <span class="mu">· Fase 4</span><div class="mu">Codebook v4 · Prompt v3</div><div class="mu">fechada em 06/10/2026</div><div class="mu">Concordância: <b style="color:var(--m-ink)">0,688</b> 96 unidades</div><div class="mu">Qualidade: <b style="color:var(--m-ink)">Alto 50% (16) · Médio 34,4% (11) · Baixo 15,6% (5)</b> 32 notas</div></div>
+            </div>
+          </figure>
+          <figure class="after"><figcaption>Depois</figcaption>
+            <div class="m">
+              <div class="mu" style="margin-bottom:6px">Codebook v4 · Prompt v3 nas duas</div>
+              <table>
+                <thead><tr><th></th><th class="n" style="text-align:right">Rodada 4<br><span class="mu" style="font-weight:400">Fase 3 · ref.</span></th><th class="n" style="text-align:right">Rodada 6<br><span class="mu" style="font-weight:400">Fase 4</span></th></tr></thead>
+                <tbody>
+                  <tr><th>ICR</th><td class="n">0,741</td><td class="n">0,688</td></tr>
+                  <tr><th><span class="sw q1"></span>Alto</th><td class="n">62,5% <span class="mu">(25)</span></td><td class="n">50,0% <span class="mu">(16)</span></td></tr>
+                  <tr><th><span class="sw q2"></span>Médio</th><td class="n">25,0% <span class="mu">(10)</span></td><td class="n">34,4% <span class="mu">(11)</span></td></tr>
+                  <tr><th><span class="sw q3"></span>Baixo</th><td class="n">12,5% <span class="mu">(5)</span></td><td class="n">15,6% <span class="mu">(5)</span></td></tr>
+                  <tr><th class="mu" style="font-weight:400">Notas</th><td class="n mu">40</td><td class="n mu">32</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </figure>
+        </div>
+        <p class="where">reference-comparison-panel.tsx · rounds/page.tsx (ordem das seções) · visão geral reaproveita no diálogo "Voltar à Fase 3"</p>
+      </div>
+    </article>
+
+    <article class="sug" data-id="3">
+      <div class="sug-top">
+        <span class="num">03</span>
+        <div class="sug-title">
+          <h3>Qualidade numa barra única empilhada</h3>
+          <div class="tags"><span class="tag rec">Recomendo</span><span class="tag">Fases 3 e 4</span><span class="tag">Pequeno</span></div>
+        </div>
+      </div>
+      <div class="body">
+        <div class="cols">
+          <div><p class="k">Hoje</p><p>Três barras separadas, todas no mesmo cinza claro. A barra não ajuda a ver a proporção, e o olho volta para os números.</p></div>
+          <div><p class="k">Proposta</p><p>Uma barra de 100% dividida em Alto, Médio e Baixo, em três tons de um mesmo azul (nada de verde e vermelho, que leriam como aprovado/reprovado). A legenda embaixo mantém % e contagem.</p></div>
+        </div>
+        <div class="compare">
+          <figure><figcaption>Antes</figcaption>
+            <div class="m stack">
+              <div class="sec">Qualidade</div><div class="h">40 notas</div>
+              <div><div class="row"><b>Alto</b><span class="mu"><b style="color:var(--m-ink)">62,5%</b> · 25 notas</span></div><div class="thin"><span style="width:62.5%"></span></div></div>
+              <div><div class="row"><b>Médio</b><span class="mu"><b style="color:var(--m-ink)">25%</b> · 10 notas</span></div><div class="thin"><span style="width:25%"></span></div></div>
+              <div><div class="row"><b>Baixo</b><span class="mu"><b style="color:var(--m-ink)">12,5%</b> · 5 notas</span></div><div class="thin"><span style="width:12.5%"></span></div></div>
+            </div>
+          </figure>
+          <figure class="after"><figcaption>Depois</figcaption>
+            <div class="m stack">
+              <div class="sec">Qualidade</div><div class="h">40 notas</div>
+              <div class="bar"><span class="q1" style="width:62.5%"></span><span class="q2" style="width:25%"></span><span class="q3" style="width:12.5%"></span></div>
+              <div class="chips num-t" style="gap:10px">
+                <span><span class="sw q1"></span><b>Alto</b> 62,5% <span class="mu">(25)</span></span>
+                <span><span class="sw q2"></span><b>Médio</b> 25% <span class="mu">(10)</span></span>
+                <span><span class="sw q3"></span><b>Baixo</b> 12,5% <span class="mu">(5)</span></span>
+              </div>
+            </div>
+          </figure>
+        </div>
+        <p class="where">quality-panel.tsx (QualityLevels) · a mesma barra serve à 04 e à 09</p>
+      </div>
+    </article>
+
+    <article class="sug" data-id="4">
+      <div class="sug-top">
+        <span class="num">04</span>
+        <div class="sug-title">
+          <h3>Matriz de Qualidade mais compacta</h3>
+          <div class="tags"><span class="tag">Fases 3 e 4</span><span class="tag">Médio</span></div>
+        </div>
+      </div>
+      <div class="body">
+        <div class="cols">
+          <div><p class="k">Hoje</p><p>Cada célula tem três linhas de texto ("Alto 50% (4)"), e seis quando há outlier. Com 4 ou 5 critérios a tabela rola na horizontal e fica difícil achar a célula fraca.</p></div>
+          <div><p class="k">Proposta</p><p>Cada célula mostra a mini-barra empilhada da 03 e os três percentuais numa linha só ("50 · 25 · 25"). A contagem vai para o ⓘ ou para o <code>title</code> da célula.</p></div>
+        </div>
+        <div class="compare">
+          <figure><figcaption>Antes</figcaption>
+            <div class="m">
+              <table>
+                <thead><tr><th class="mu">Definição</th><th>Clareza</th><th>Fidelidade</th></tr></thead>
+                <tbody>
+                  <tr><th>Tarefa</th><td style="white-space:nowrap">Alto 50% (4)<br>Médio 25% (2)<br>Baixo 25% (2)</td><td style="white-space:nowrap">Alto 75% (6)<br>Médio 25% (2)<br>Baixo 0% (0)</td></tr>
+                  <tr><th>Evento</th><td style="white-space:nowrap">Alto 37,5% (3)<br>Médio 50% (4)<br>Baixo 12,5% (1)</td><td style="white-space:nowrap">Alto 62,5% (5)<br>Médio 37,5% (3)<br>Baixo 0% (0)</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </figure>
+          <figure class="after"><figcaption>Depois</figcaption>
+            <div class="m">
+              <table>
+                <thead><tr><th class="mu">Definição</th><th>Clareza</th><th>Fidelidade</th></tr></thead>
+                <tbody>
+                  <tr><th>Tarefa</th><td><div class="bar sm"><span class="q1" style="width:50%"></span><span class="q2" style="width:25%"></span><span class="q3" style="width:25%"></span></div><span class="num-t mu">50 · 25 · 25</span></td><td><div class="bar sm"><span class="q1" style="width:75%"></span><span class="q2" style="width:25%"></span></div><span class="num-t mu">75 · 25 · 0</span></td></tr>
+                  <tr><th>Evento</th><td><div class="bar sm"><span class="q1" style="width:37.5%"></span><span class="q2" style="width:50%"></span><span class="q3" style="width:12.5%"></span></div><span class="num-t mu">37,5 · 50 · 12,5</span></td><td><div class="bar sm"><span class="q1" style="width:62.5%"></span><span class="q2" style="width:37.5%"></span></div><span class="num-t mu">62,5 · 37,5 · 0</span></td></tr>
+                </tbody>
+              </table>
+              <div class="mu" style="margin-top:5px"><span class="sw q1"></span>Alto · <span class="sw q2"></span>Médio · <span class="sw q3"></span>Baixo, em %</div>
+            </div>
+          </figure>
+        </div>
+        <p class="where">quality-matrix-table.tsx</p>
+      </div>
+    </article>
+
+    <article class="sug" data-id="5">
+      <div class="sug-top">
+        <span class="num">05</span>
+        <div class="sug-title">
+          <h3>Lista "Rodadas do projeto" agrupada por fase e mais enxuta</h3>
+          <div class="tags"><span class="tag rec">Recomendo</span><span class="tag">Fases 3 e 4</span><span class="tag">Pequeno</span></div>
+        </div>
+      </div>
+      <div class="body">
+        <div class="cols">
+          <div><p class="k">Hoje</p><p>Cada cartão empilha até sete linhas: título, versões, "aberta em… por…", o que mudou (incluindo "Codebook: v4, o mesmo · Prompt: v3, o mesmo · Fase: 3, a mesma"), ICR, Qualidade e a linha da referência. "Abrir revisão" fica no pé.</p></div>
+          <div><p class="k">Proposta</p><p>Subtítulos "Fase 2 / Fase 3 / Fase 4", como a série de Qualidade já faz. O que mudou vira chip e só aparece quando algo mudou. "Aberta em… por…" vai para o ⓘ. "Abrir revisão" vira botão ao lado do título.</p></div>
+        </div>
+        <div class="compare">
+          <figure><figcaption>Antes</figcaption>
+            <div class="m">
+              <div class="card stack">
+                <div><b>Rodada 5</b> <span class="mu">· Fase 3</span> <span class="b neu">fechada</span></div>
+                <div class="mu">Codebook v4 · Prompt v3</div>
+                <div class="mu">Aberta em 25/09/2026 por Nicolas · fechada em 28/09/2026</div>
+                <div class="mu">Codebook: v4, o mesmo · <span style="color:var(--m-ink)">Prompt: v2 → v3</span> · Fase: 3, a mesma</div>
+                <div class="mu">Concordância: <b style="color:var(--m-ink)">0,741</b> <span class="b ok">aceitável</span> 120 unidades</div>
+                <div class="mu">Qualidade: <b style="color:var(--m-ink)">Alto 62,5% (25) · Médio 25% (10) · Baixo 12,5% (5)</b> 40 notas</div>
+                <div><span class="link">Abrir revisão</span></div>
+              </div>
+            </div>
+          </figure>
+          <figure class="after"><figcaption>Depois</figcaption>
+            <div class="m stack">
+              <div class="sec">Fase 3</div>
+              <div class="card stack">
+                <div class="row"><span><b>Rodada 5</b> <span class="b neu">fechada</span> <i class="i">i</i></span><span class="btn">Abrir revisão</span></div>
+                <div class="chips"><span class="chip">Codebook v4</span><span class="chip ch">Prompt v2 → v3</span></div>
+                <div class="mu">Concordância: <b style="color:var(--m-ink)">0,741</b> <span class="b ok">aceitável</span></div>
+                <div class="bar sm"><span class="q1" style="width:62.5%"></span><span class="q2" style="width:25%"></span><span class="q3" style="width:12.5%"></span></div>
+                <div class="mu num-t">Alto 62,5 · Médio 25 · Baixo 12,5 · 40 notas</div>
+              </div>
+            </div>
+          </figure>
+        </div>
+        <p class="where">round-list.tsx · round-changes-note.tsx (modo compact)</p>
+      </div>
+    </article>
+  </section>
+
+  <!-- ===================== REVISÃO ===================== -->
+  <section class="group">
+    <div class="group-head"><h2>Revisão da rodada</h2><span>/rounds/[roundId]</span></div>
+
+    <article class="sug" data-id="6">
+      <div class="sug-top">
+        <span class="num">06</span>
+        <div class="sug-title">
+          <h3>Cabeçalho da revisão em uma linha de chips</h3>
+          <div class="tags"><span class="tag rec">Recomendo</span><span class="tag">Fases 3 e 4</span><span class="tag">Pequeno</span></div>
+        </div>
+      </div>
+      <div class="body">
+        <div class="cols">
+          <div><p class="k">Hoje</p><p>Antes do título, a página abre com uma frase longa solta ("Rodada da Fase 3: a LLM recebe o prompt, o codebook completo — título, descrição e critérios…") e com o bloco "Em relação à rodada 4" em três linhas. A identidade da rodada (fase, versões, data) fica espalhada.</p></div>
+          <div><p class="k">Proposta</p><p>Uma linha só: "Rodada 5 · Fase 3 · Codebook v4 · Prompt v3 · fechada em 28/09". O que a LLM recebeu vai para o ⓘ do chip da fase. As mudanças entram como chips destacados, e o aviso amarelo de "mudaram juntos" continua aparecendo quando vale.</p></div>
+        </div>
+        <div class="compare">
+          <figure><figcaption>Antes</figcaption>
+            <div class="m stack">
+              <div class="mu">← Voltar às rodadas</div>
+              <div class="mu">Rodada da Fase 3: a LLM recebe o prompt, o codebook completo — título, descrição e critérios de cada definição, e os critérios gerais — e o item de entrada.</div>
+              <div><b>Em relação à rodada 4</b><div class="mu">Codebook: v4, o mesmo</div><div>Prompt: v2 → v3</div><div class="mu">Fase: 3, a mesma</div></div>
+              <div class="h rule">Revisão de discordâncias da rodada 5 <i class="i">i</i></div>
+            </div>
+          </figure>
+          <figure class="after"><figcaption>Depois</figcaption>
+            <div class="m stack">
+              <div class="mu">← Voltar às rodadas</div>
+              <div class="chips"><span class="chip"><b>Rodada 5</b></span><span class="chip">Fase 3 <i class="i">i</i></span><span class="chip">Codebook v4</span><span class="chip ch">Prompt v2 → v3</span><span class="chip">fechada em 28/09</span></div>
+              <div class="tipbox">A LLM recebeu o prompt, o codebook completo (título, descrição e critérios de cada definição, e os critérios gerais) e o item de entrada.</div>
+              <div class="h rule">Revisão de discordâncias <i class="i">i</i></div>
+            </div>
+          </figure>
+        </div>
+        <p class="where">rounds/[roundId]/page.tsx · round-changes-note.tsx</p>
+      </div>
+    </article>
+  </section>
+
+  <!-- ===================== VISÃO GERAL ===================== -->
+  <section class="group">
+    <div class="group-head"><h2>Visão geral do projeto</h2><span>aba inicial</span></div>
+
+    <article class="sug" data-id="7">
+      <div class="sug-top">
+        <span class="num">07</span>
+        <div class="sug-title">
+          <h3>Fases concluídas recolhidas, e o cartão de Avaliadores na mesma grade</h3>
+          <div class="tags"><span class="tag rec">Recomendo</span><span class="tag">Fases 3 e 4</span><span class="tag">Pequeno</span></div>
+        </div>
+      </div>
+      <div class="body">
+        <div class="cols">
+          <div><p class="k">Hoje</p><p>Na Fase 4 a página empilha quatro painéis no fim: os três checklists já concluídos (Fases 1, 2 e 3, cada um com "concluída" e um parágrafo) e o de voltar. No topo, "Avaliadores" fica sozinho numa linha de três colunas, e Codebook, Prompt e Itens vêm noutra linha.</p></div>
+          <div><p class="k">Proposta</p><p>Mostrar aberto só o painel da fase atual. Os concluídos ficam num <code>Disclosure</code> "Fases concluídas (3)", que já existe no app. Os quatro números vão numa grade só: 4 colunas no desktop, 2 no celular.</p></div>
+        </div>
+        <div class="compare">
+          <figure><figcaption>Antes</figcaption>
+            <div class="m stack">
+              <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:5px"><div class="card"><span class="mu">Avaliadores</span><div class="h">6</div></div></div>
+              <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:5px"><div class="card"><span class="mu">Codebook</span><div class="h">8</div></div><div class="card"><span class="mu">Prompt</span><div class="h">v3</div></div><div class="card"><span class="mu">Itens</span><div class="h">42</div></div></div>
+              <div class="fa">⋯ gráficos ⋯</div>
+              <div class="card row"><b>Para avançar para a Fase 2</b><span class="b ok">concluída</span></div>
+              <div class="card row"><b>Para avançar para a Fase 3</b><span class="b ok">concluída</span></div>
+              <div class="card row"><b>Para avançar para a Fase 4</b><span class="b ok">concluída</span></div>
+              <div class="card row"><b>Para voltar à Fase 3</b><span class="b neu">liberado</span></div>
+            </div>
+          </figure>
+          <figure class="after"><figcaption>Depois</figcaption>
+            <div class="m stack">
+              <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:5px"><div class="card"><span class="mu">Avaliadores</span><div class="h">6</div></div><div class="card"><span class="mu">Codebook</span><div class="h">8</div></div><div class="card"><span class="mu">Prompt</span><div class="h">v3</div></div><div class="card"><span class="mu">Itens</span><div class="h">42</div></div></div>
+              <div class="fa">⋯ gráficos ⋯</div>
+              <div class="card row"><b>Para voltar à Fase 3</b><span class="b neu">liberado</span></div>
+              <div class="mu">▸ Fases concluídas (3)</div>
+            </div>
+          </figure>
+        </div>
+        <p class="where">(tabs)/page.tsx</p>
+      </div>
+    </article>
+
+    <article class="sug" data-id="8">
+      <div class="sug-top">
+        <span class="num">08</span>
+        <div class="sug-title">
+          <h3>"Qualidade por rodada" como barras, não como cartões de texto</h3>
+          <div class="tags"><span class="tag">Fases 3 e 4</span><span class="tag">Médio</span></div>
+        </div>
+      </div>
+      <div class="body">
+        <div class="cols">
+          <div><p class="k">Hoje</p><p>Um cartão por rodada com versões, data e a distribuição em texto corrido. Para ver se o Alto subiu da rodada 3 para a 5 é preciso ler e comparar números em linhas diferentes.</p></div>
+          <div><p class="k">Proposta</p><p>Uma linha por rodada com a barra empilhada da 03, todas alinhadas. As versões ficam numa coluna à esquerda, e os grupos de fase continuam. A tendência aparece de relance, sem soma e sem média entre rodadas.</p></div>
+        </div>
+        <div class="compare">
+          <figure><figcaption>Antes</figcaption>
+            <div class="m stack">
+              <b>Fase 3</b>
+              <div class="card"><b>Rodada 3</b> <span class="mu">Codebook v3 · Prompt v2 · Fase 3 · fechada em 18/09/2026</span><div class="mu">Qualidade: <b style="color:var(--m-ink)">Alto 40% (16) · Médio 42,5% (17) · Baixo 17,5% (7)</b> 40 notas</div></div>
+              <div class="card"><b>Rodada 4</b> <span class="mu">Codebook v4 · Prompt v2 · Fase 3 · fechada em 22/09/2026</span><div class="mu">Qualidade: <b style="color:var(--m-ink)">Alto 52,5% (21) · Médio 32,5% (13) · Baixo 15% (6)</b> 40 notas</div></div>
+            </div>
+          </figure>
+          <figure class="after"><figcaption>Depois</figcaption>
+            <div class="m stack">
+              <div class="sec">Fase 3</div>
+              <div style="display:grid;grid-template-columns:auto 1fr;gap:6px 10px;align-items:center">
+                <span><b>R3</b> <span class="mu">cb v3 · pr v2</span></span><div class="bar"><span class="q1" style="width:40%"></span><span class="q2" style="width:42.5%"></span><span class="q3" style="width:17.5%"></span></div>
+                <span><b>R4</b> <span class="mu">cb v4 · pr v2</span></span><div class="bar"><span class="q1" style="width:52.5%"></span><span class="q2" style="width:32.5%"></span><span class="q3" style="width:15%"></span></div>
+                <span><b>R5</b> <span class="mu">cb v4 · pr v3</span></span><div class="bar"><span class="q1" style="width:62.5%"></span><span class="q2" style="width:25%"></span><span class="q3" style="width:12.5%"></span></div>
+              </div>
+              <div class="sec">Fase 4</div>
+              <div style="display:grid;grid-template-columns:auto 1fr;gap:6px 10px;align-items:center">
+                <span><b>R6</b> <span class="mu">cb v4 · pr v3</span></span><div class="bar"><span class="q1" style="width:50%"></span><span class="q2" style="width:34.4%"></span><span class="q3" style="width:15.6%"></span></div>
+              </div>
+              <div class="mu"><span class="sw q1"></span>Alto · <span class="sw q2"></span>Médio · <span class="sw q3"></span>Baixo · passe o mouse para ver % e contagem</div>
+            </div>
+          </figure>
+        </div>
+        <p class="where">quality-series-list.tsx</p>
+      </div>
+    </article>
+
+    <article class="sug" data-id="9">
+      <div class="sug-top">
+        <span class="num">09</span>
+        <div class="sug-title">
+          <h3>Selo "codebook e prompt congelados" na barra de fases</h3>
+          <div class="tags"><span class="tag">Fase 4</span><span class="tag">Pequeno</span></div>
+        </div>
+      </div>
+      <div class="body">
+        <div class="cols">
+          <div><p class="k">Hoje</p><p>O congelamento da Fase 4 só aparece quando o Administrador abre o Codebook ou o Prompt. Na visão geral nada indica que editar está travado. A <code>PhaseBar</code> já aceita um <code>badge</code>, que a visão geral não usa.</p></div>
+          <div><p class="k">Proposta</p><p>Na Fase 4, um selo ao lado de "Fase 4 de 4" com ⓘ: "Codebook e prompt ficam como na rodada de referência enquanto o projeto estiver na Fase 4. Metadados do prompt e itens continuam editáveis."</p></div>
+        </div>
+        <div class="compare">
+          <figure><figcaption>Antes</figcaption>
+            <div class="m card">
+              <div class="row"><span class="sec">Fase 4 de 4</span><span class="btn">Voltar à Fase 3</span></div>
+              <div class="h">Validação final</div>
+            </div>
+          </figure>
+          <figure class="after"><figcaption>Depois</figcaption>
+            <div class="m card">
+              <div class="row"><span class="chips" style="align-items:center"><span class="sec">Fase 4 de 4</span><span class="b neu">codebook e prompt congelados</span><i class="i">i</i></span><span class="btn">Voltar à Fase 3</span></div>
+              <div class="h">Validação final</div>
+            </div>
+          </figure>
+        </div>
+        <p class="where">(tabs)/page.tsx (prop badge da PhaseBar) · reaproveita frozenMessage de pipeline/freeze</p>
+      </div>
+    </article>
+  </section>
+
+  <!-- ===================== VÁRIAS TELAS ===================== -->
+  <section class="group">
+    <div class="group-head"><h2>Em várias telas</h2><span>texto e marcas</span></div>
+
+    <article class="sug" data-id="10">
+      <div class="sug-top">
+        <span class="num">10</span>
+        <div class="sug-title">
+          <h3>Marcas de participação e de uso curtas, com a lista no ⓘ</h3>
+          <div class="tags"><span class="tag rec">Recomendo</span><span class="tag">Fase 4</span><span class="tag">Pequeno</span></div>
+        </div>
+      </div>
+      <div class="body">
+        <div class="cols">
+          <div><p class="k">Hoje</p><p>O selo traz a lista inteira: "avaliou 1 e 2 (Fase 2) e 4 (Fase 3)" na lista de avaliações por avaliador, "usado 1, 2 (Fase 2), 4 (Fase 3) e 6 (Fase 4)" nos itens. O selo quebra em várias linhas (<code>whitespace-normal!</code>) e já estourou 375 px uma vez.</p></div>
+          <div><p class="k">Proposta</p><p>Selo curto, "já avaliou antes" e "usado em 4 rodadas", com a lista de rodadas por fase no ⓘ ao lado.</p></div>
+        </div>
+        <div class="compare">
+          <figure><figcaption>Antes</figcaption>
+            <div class="m card stack">
+              <div class="row"><span>Ana Souza <span class="b neu wrap" style="max-width:130px">avaliou 1 e 2 (Fase 2) e 4 (Fase 3)</span></span><span class="mu">8 avaliações enviadas</span></div>
+              <div class="row"><span>Bruno Lima</span><span class="mu">8 avaliações enviadas</span></div>
+            </div>
+          </figure>
+          <figure class="after"><figcaption>Depois</figcaption>
+            <div class="m card stack">
+              <div class="row"><span class="chips" style="align-items:center">Ana Souza <span class="b neu">já avaliou antes</span><i class="i">i</i></span><span class="mu">8 avaliações enviadas</span></div>
+              <div class="row"><span>Bruno Lima</span><span class="mu">8 avaliações enviadas</span></div>
+            </div>
+          </figure>
+        </div>
+        <p class="where">agreement-panel.tsx (EffortList) · members/page.tsx · items (marca de uso) · round-usage.ts</p>
+      </div>
+    </article>
+
+    <article class="sug" data-id="11">
+      <div class="sug-top">
+        <span class="num">11</span>
+        <div class="sug-title">
+          <h3>Notas de rodapé repetidas viram ⓘ</h3>
+          <div class="tags"><span class="tag">Fases 3 e 4</span><span class="tag">Pequeno</span></div>
+        </div>
+      </div>
+      <div class="body">
+        <div class="cols">
+          <div><p class="k">Hoje</p><p>Frases explicativas ficam visíveis, e algumas se repetem na mesma tela:</p>
+            <ul style="margin:6px 0 0;padding-left:18px;font-size:14px">
+              <li>"A matriz é da versão de codebook que a rodada fixou… e não da versão vigente", sob as duas matrizes</li>
+              <li>"Os dois valores saem do mesmo dado desta rodada…", sob a Concordância e sob a Qualidade</li>
+              <li>A faixa de Krippendorff inteira, dentro do cartão do ICR</li>
+              <li>"Nenhuma rodada aberta, ao menos uma fechada na Fase 3, e codebook e prompt…", que repete os três itens já marcados no checklist</li>
+            </ul>
+          </div>
+          <div><p class="k">Proposta</p><p>Deixar visível só o rótulo curto ("Codebook v4 da rodada", "Faixa de referência") e mover a frase para o ⓘ. A dica do checklist pronto fica "Tudo pronto. O avanço pede confirmação." Nenhum texto some, só muda de lugar, como no redesenho do Codebook.</p></div>
+        </div>
+        <div class="compare">
+          <figure><figcaption>Antes</figcaption>
+            <div class="m stack">
+              <div class="card"><span class="mu">Concordância</span><div class="h num-t">0,741 <span class="b ok">aceitável</span></div><div class="mu">120 unidades · 10 respostas avaliadas<br>Faixa de referência de Krippendorff (2004): abaixo de 0,667 é questionável, de 0,667 a 0,8 é aceitável, e 0,8 ou mais é boa. É referência de…</div></div>
+              <div class="mu">A matriz é da versão de codebook que a rodada fixou, Codebook v4, e não da versão vigente do projeto. <i class="i">i</i></div>
+            </div>
+          </figure>
+          <figure class="after"><figcaption>Depois</figcaption>
+            <div class="m stack">
+              <div class="card"><span class="mu">Concordância</span><div class="h num-t">0,741 <span class="b ok">aceitável</span></div><div class="mu chips" style="align-items:center">120 unidades · 10 respostas avaliadas · Faixa de referência <i class="i">i</i></div></div>
+              <div class="mu chips" style="align-items:center">Codebook v4 da rodada <i class="i">i</i></div>
+            </div>
+          </figure>
+        </div>
+        <p class="where">agreement-panel.tsx · quality-panel.tsx · *-matrix-table.tsx · phase-3-checklist.tsx · last-round-summary.tsx</p>
+      </div>
+    </article>
+  </section>
+
+  <p style="margin-top:40px;font-size:13px;color:var(--soft);max-width:62ch">Fora desta lista de propósito: qualquer cor de aprovado ou meta para a Qualidade, coluna de diferença na comparação da Fase 4 e qualquer mudança na tela do Avaliador. O PRD dos Épicos 3 e 4 descarta os três.</p>
+</div>
+
+<div class="dock" role="region" aria-label="Escolhas">
+  <div class="dock-in">
+    <span class="count" id="count">Nenhuma escolha ainda</span>
+    <span class="status" id="status" aria-live="polite"></span>
+    <button type="button" class="btn-ghost" id="mark-rec">Marcar as recomendadas</button>
+    <button type="button" class="btn-main" id="copy">Copiar escolhas</button>
+    <textarea class="out" id="out" readonly aria-label="Texto das escolhas"></textarea>
+  </div>
+</div>
+
+<script>
+(function () {
+  var KEY = 'ajustes-fases-3-4';
+  var state = {};
+  try { state = JSON.parse(localStorage.getItem(KEY) || '{}') || {}; } catch (e) { state = {}; }
+  function save() { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} }
+
+  var cards = Array.prototype.slice.call(document.querySelectorAll('.sug'));
+  var OPTS = [['fazer', 'Fazer'], ['talvez', 'Talvez'], ['nao', 'Não']];
+
+  cards.forEach(function (card) {
+    var id = card.getAttribute('data-id');
+    var entry = state[id] || {};
+    var box = document.createElement('div');
+    box.className = 'decide';
+    var seg = document.createElement('div');
+    seg.className = 'seg';
+    seg.setAttribute('role', 'radiogroup');
+    seg.setAttribute('aria-label', 'Decisão sobre a sugestão ' + id);
+    OPTS.forEach(function (o) {
+      var inp = document.createElement('input');
+      inp.type = 'radio'; inp.name = 'd' + id; inp.value = o[0]; inp.id = 'd' + id + '-' + o[0];
+      if (entry.choice === o[0]) inp.checked = true;
+      var lab = document.createElement('label');
+      lab.htmlFor = inp.id; lab.textContent = o[1];
+      inp.addEventListener('change', function () {
+        state[id] = state[id] || {}; state[id].choice = o[0];
+        card.setAttribute('data-choice', o[0]); save(); update();
+      });
+      lab.addEventListener('click', function (ev) {
+        if (inp.checked) {
+          ev.preventDefault(); inp.checked = false;
+          if (state[id]) delete state[id].choice;
+          card.removeAttribute('data-choice'); save(); update();
+        }
+      });
+      seg.appendChild(inp); seg.appendChild(lab);
+    });
+    var note = document.createElement('input');
+    note.type = 'text'; note.className = 'note'; note.id = 'n' + id;
+    note.placeholder = 'Observação (opcional)';
+    note.setAttribute('aria-label', 'Observação sobre a sugestão ' + id);
+    note.value = entry.note || '';
+    note.addEventListener('input', function () {
+      state[id] = state[id] || {}; state[id].note = note.value; save(); update();
+    });
+    box.appendChild(seg); box.appendChild(note);
+    card.querySelector('.body').appendChild(box);
+    if (entry.choice) card.setAttribute('data-choice', entry.choice);
+  });
+
+  function title(card) { return card.querySelector('h3').textContent.trim(); }
+
+  function text() {
+    var groups = { fazer: [], talvez: [], nao: [] };
+    cards.forEach(function (card) {
+      var id = card.getAttribute('data-id');
+      var e = state[id];
+      if (!e || !e.choice) return;
+      var line = '#' + id + ' ' + title(card) + (e.note && e.note.trim() ? ' (obs.: ' + e.note.trim() + ')' : '');
+      groups[e.choice].push(line);
+    });
+    var parts = ['Ajustes de layout das Fases 3 e 4'];
+    if (groups.fazer.length) parts.push('\nFazer:\n- ' + groups.fazer.join('\n- '));
+    if (groups.talvez.length) parts.push('\nTalvez:\n- ' + groups.talvez.join('\n- '));
+    if (groups.nao.length) parts.push('\nNão fazer:\n- ' + groups.nao.join('\n- '));
+    return parts.join('\n');
+  }
+
+  function update() {
+    var c = { fazer: 0, talvez: 0, nao: 0 };
+    Object.keys(state).forEach(function (k) { var ch = state[k] && state[k].choice; if (ch) c[ch]++; });
+    var total = c.fazer + c.talvez + c.nao;
+    document.getElementById('count').innerHTML = total === 0
+      ? 'Nenhuma escolha ainda'
+      : '<b>' + c.fazer + '</b> fazer · <b>' + c.talvez + '</b> talvez · <b>' + c.nao + '</b> não · ' + (cards.length - total) + ' sem resposta';
+    document.getElementById('status').textContent = '';
+  }
+
+  document.getElementById('mark-rec').addEventListener('click', function () {
+    cards.forEach(function (card) {
+      if (!card.querySelector('.tag.rec')) return;
+      var id = card.getAttribute('data-id');
+      if (state[id] && state[id].choice) return;
+      state[id] = state[id] || {}; state[id].choice = 'fazer';
+      var inp = document.getElementById('d' + id + '-fazer'); if (inp) inp.checked = true;
+      card.setAttribute('data-choice', 'fazer');
+    });
+    save(); update();
+  });
+
+  document.getElementById('copy').addEventListener('click', function () {
+    var t = text();
+    var out = document.getElementById('out');
+    var status = document.getElementById('status');
+    out.value = t;
+    function fallback() {
+      out.classList.add('show'); out.focus(); out.select();
+      status.textContent = 'Selecionado. Copie com Cmd+C.';
+    }
+    try {
+      navigator.clipboard.writeText(t).then(function () {
+        out.classList.remove('show');
+        status.textContent = 'Copiado. Cole no chat.';
+      }, fallback);
+    } catch (e) { fallback(); }
+  });
+
+  update();
+})();
+</script>

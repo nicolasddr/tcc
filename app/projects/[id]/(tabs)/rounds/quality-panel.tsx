@@ -1,11 +1,10 @@
 import { plural } from '@/lib/plural'
-import { scaleLabel } from '../evaluate/scale'
-import type { Quality, QualityLevel, QualityPair } from './quality'
+import type { Quality, QualityPair } from './quality'
+import { QualityBar, QualityLegend } from './quality-bar'
 import {
   QUALITY_LABEL,
   QUALITY_UNRATED,
   QUALITY_UNRATED_WITHOUT_OUTLIERS,
-  formatShare,
   levelText,
   qualityTotal,
 } from './quality-labels'
@@ -18,31 +17,6 @@ import { StatCard } from '@/app/components/ui/stat'
 
 function qualityText(quality: Quality, unrated: string): string {
   return quality.rated ? qualityTotal(quality.total) : unrated
-}
-
-function QualityLevels({ levels }: { levels: QualityLevel[] }) {
-  return (
-    <ul className="m-0 flex list-none flex-col gap-2 p-0">
-      {levels.map((level) => (
-        <li key={level.value} className="flex flex-col gap-1">
-          <span className="flex flex-wrap items-baseline justify-between gap-x-3 text-[13px] text-muted">
-            <span className="font-semibold text-ink">{scaleLabel(level.value)}</span>
-            <span>
-              <span className="font-semibold text-ink">{formatShare(level.share)}</span>
-              {' · '}
-              {qualityTotal(level.count)}
-            </span>
-          </span>
-          <div aria-hidden className="h-1.5 w-full overflow-hidden rounded-full bg-line">
-            <div
-              className="h-full rounded-full bg-faint"
-              style={{ width: `${level.share * 100}%` }}
-            />
-          </div>
-        </li>
-      ))}
-    </ul>
-  )
 }
 
 function QualityStat({
@@ -58,7 +32,12 @@ function QualityStat({
 }) {
   return (
     <StatCard label={label} value={qualityText(quality, unrated)} hint={hint}>
-      {quality.rated ? <QualityLevels levels={quality.levels} /> : null}
+      {quality.rated ? (
+        <>
+          <QualityBar levels={quality.levels} />
+          <QualityLegend levels={quality.levels} />
+        </>
+      ) : null}
     </StatCard>
   )
 }

@@ -1008,9 +1008,9 @@ describe('app/projects/[id]/page — escopo de visibilidade', () => {
     expect(pair).toEqual(qualityOf(await renderRounds(project)).pair)
 
     const text = qualityTextOf(tree)
-    expect(text).toContain('Alto 62,5% · 5 notas')
-    expect(text).toContain('Médio 25% · 2 notas')
-    expect(text).toContain('Baixo 12,5% · 1 nota')
+    expect(text).toContain('Alto 62,5% (5)')
+    expect(text).toContain('Médio 25% (2)')
+    expect(text).toContain('Baixo 12,5% (1)')
 
     const section = sectionWith(tree, QualityPanel)
     expect((section!.props as { title: unknown }).title).toBe(

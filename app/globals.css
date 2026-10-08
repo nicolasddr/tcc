@@ -59,6 +59,10 @@
   --color-danger-tint: #fef2f2;
   --color-danger-tint-border: #fca5a5;
 
+  --color-quality-high: #1e3a8a;
+  --color-quality-medium: #6b8fd6;
+  --color-quality-low: #c9d6f2;
+
   --radius-control: 8px;
   --radius-card: 12px;
 }
