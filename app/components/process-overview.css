@@ -252,17 +252,6 @@
   margin-top: 5px;
 }
 
-.out-tag {
-  display: inline-block;
-  font-size: 10px;
-  font-weight: 600;
-  background: #f3f4f6;
-  color: #6b7280;
-  padding: 2px 8px;
-  border-radius: 12px;
-  margin-top: 5px;
-}
-
 .phase-card-body {
   padding: 12px 14px;
 }
@@ -312,7 +301,6 @@
 .phase-3 .loop-tag         { background: #fde68a; color: #92400e; }
 .phase-3 .phase-outcome    { background: #fde68a; color: #92400e; }
 
-.phase-4                   { opacity: 0.45; }
 .phase-4 .phase-card-head  { background: #f9fafb; border-bottom-color: #e5e7eb; }
 .phase-4 .phase-num-tag    { color: #9ca3af; }
 .phase-4 .phase-card-name  { color: #6b7280; }

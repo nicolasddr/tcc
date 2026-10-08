@@ -38,11 +38,6 @@ export default async function Home() {
 
         <ProcessOverview
           createAction={<LoginButton fullWidth>Criar Novo Projeto</LoginButton>}
-          joinAction={
-            <LoginButton variant="secondary" fullWidth>
-              Entrar no Projeto
-            </LoginButton>
-          }
         />
       </main>
 

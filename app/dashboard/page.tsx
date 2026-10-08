@@ -18,7 +18,7 @@ import { ProcessPhasesFooter } from '@/app/components/process-phases-footer'
 import { NotificationBell, type InboxItem } from '@/app/components/notification-bell'
 import { SubmitButton } from '@/app/components/submit-button'
 import { Badge, StatusBadge } from '@/app/components/ui/badge'
-import { Button, ButtonLink } from '@/app/components/ui/button'
+import { ButtonLink } from '@/app/components/ui/button'
 import { Avatar } from '@/app/components/ui/avatar'
 import { Card, cardClassName } from '@/app/components/ui/card'
 import { EmptyState } from '@/app/components/ui/empty-state'
@@ -271,11 +271,6 @@ export default async function Dashboard({
           <ButtonLink href="/projects/new" fullWidth>
             Criar Novo Projeto
           </ButtonLink>
-        }
-        joinAction={
-          <Button variant="secondary" fullWidth>
-            Entrar no Projeto
-          </Button>
         }
       />
     </PageShell>

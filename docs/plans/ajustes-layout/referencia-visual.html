@@ -1,0 +1,481 @@
+<!doctype html>
+<html lang="pt-BR">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ajustes de layout do TCC</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: coluna única de cartões de decisão, cada um com "Hoje" × "Proposta" em miniatura do app, e uma barra fixa com o placar e o botão de copiar. */
+:root {
+  --bg: #eef0f4;
+  --paper: #ffffff;
+  --ink: #141a26;
+  --soft: #4a5468;
+  --muted: #7a8396;
+  --line: #dde1e8;
+  --brand: #1d4ed8;
+  --brand-tint: #eaf0ff;
+  --yes: #15803d;
+  --yes-bg: #dcfce7;
+  --no: #b91c1c;
+  --no-bg: #fee2e2;
+  --maybe: #92400e;
+  --maybe-bg: #fef3c7;
+  --app-canvas: #f3f4f6;
+  --app-surface: #ffffff;
+  --app-line: #e5e7eb;
+  --app-ink: #111827;
+  --app-muted: #6b7280;
+  --del-bg: #fde2e2;
+  --del-fg: #9b1c1c;
+  --add-bg: #dff5e6;
+  --add-fg: #14532d;
+  --font-ui: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --font-app: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f131a; --paper: #171c25; --ink: #e8ecf3; --soft: #b3bccb; --muted: #8590a3; --line: #2a3140;
+    --brand: #7aa2ff; --brand-tint: #1c2640;
+    --yes: #6ee79a; --yes-bg: #133222; --no: #ff9b9b; --no-bg: #3a1717; --maybe: #f8cf6a; --maybe-bg: #3a2d10;
+    --app-canvas: #11151c; --app-surface: #1b212c; --app-line: #2c3442; --app-ink: #e5e9f0; --app-muted: #97a1b3;
+    --del-bg: #3d1a1a; --del-fg: #ffb4b4; --add-bg: #13321f; --add-fg: #a7f0c0;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f131a; --paper: #171c25; --ink: #e8ecf3; --soft: #b3bccb; --muted: #8590a3; --line: #2a3140;
+  --brand: #7aa2ff; --brand-tint: #1c2640;
+  --yes: #6ee79a; --yes-bg: #133222; --no: #ff9b9b; --no-bg: #3a1717; --maybe: #f8cf6a; --maybe-bg: #3a2d10;
+  --app-canvas: #11151c; --app-surface: #1b212c; --app-line: #2c3442; --app-ink: #e5e9f0; --app-muted: #97a1b3;
+  --del-bg: #3d1a1a; --del-fg: #ffb4b4; --add-bg: #13321f; --add-fg: #a7f0c0;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font-family: var(--font-ui); font-size: 15px; line-height: 1.55; }
+.wrap { max-width: 880px; margin: 0 auto; padding-inline: 16px; padding-block: 40px 140px; }
+
+header.top { display: grid; gap: 10px; margin-bottom: 28px; }
+.eyebrow { font-family: var(--font-mono); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+h1 { margin: 0; font-size: clamp(26px, 4vw, 34px); line-height: 1.15; text-wrap: balance; }
+.lede { margin: 0; color: var(--soft); max-width: 64ch; }
+.how { display: flex; flex-wrap: wrap; gap: 8px 18px; font-size: 13px; color: var(--muted); }
+.how span { display: inline-flex; align-items: center; gap: 6px; }
+.dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+
+.group-title { display: flex; align-items: baseline; gap: 10px; margin: 36px 0 12px; }
+.group-title h2 { margin: 0; font-size: 13px; font-family: var(--font-mono); font-weight: 500; letter-spacing: .08em; text-transform: uppercase; color: var(--soft); }
+.group-title .route { font-family: var(--font-mono); font-size: 12px; color: var(--muted); }
+
+.card { background: var(--paper); border: 1px solid var(--line); border-radius: 14px; padding: 20px; display: grid; gap: 14px; margin-bottom: 14px; }
+.card[data-choice="sim"] { border-color: var(--yes); box-shadow: inset 4px 0 0 var(--yes); }
+.card[data-choice="nao"] { opacity: .62; }
+.card[data-choice="talvez"] { border-color: var(--maybe); }
+.card-head { display: flex; gap: 12px; align-items: flex-start; }
+.num { font-family: var(--font-mono); font-size: 13px; font-weight: 500; color: var(--brand); background: var(--brand-tint); border-radius: 6px; padding: 2px 8px; flex-shrink: 0; margin-top: 2px; font-variant-numeric: tabular-nums; }
+.card h3 { margin: 0; font-size: 18px; line-height: 1.3; text-wrap: balance; }
+.meta { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.tag { font-size: 11.5px; font-weight: 500; border: 1px solid var(--line); color: var(--soft); border-radius: 999px; padding: 1px 9px; }
+.tag.rec { border-color: transparent; background: var(--brand-tint); color: var(--brand); }
+.why { margin: 0; color: var(--soft); max-width: 70ch; }
+
+.compare { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 640px) { .compare { grid-template-columns: 1fr; } }
+.side { min-width: 0; display: grid; gap: 6px; align-content: start; }
+.side-label { font-family: var(--font-mono); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.side-label.after { color: var(--yes); }
+
+/* Miniaturas no estilo do app */
+.mock { font-family: var(--font-app); font-size: 12.5px; line-height: 1.45; color: var(--app-ink); background: var(--app-canvas); border: 1px solid var(--app-line); border-radius: 10px; padding: 12px; display: grid; gap: 8px; min-width: 0; }
+.m-card { background: var(--app-surface); border: 1px solid var(--app-line); border-radius: 8px; padding: 10px; display: grid; gap: 6px; }
+.m-title { font-weight: 600; font-size: 13px; }
+.m-muted { color: var(--app-muted); font-size: 11.5px; }
+.m-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.m-btn { display: inline-flex; align-items: center; justify-content: center; gap: 4px; font-weight: 600; font-size: 11.5px; border-radius: 6px; padding: 4px 10px; border: 1px solid var(--app-line); background: var(--app-surface); color: var(--app-ink); white-space: nowrap; }
+.m-btn.primary { background: #1d4ed8; border-color: #1d4ed8; color: #fff; }
+.m-btn.disabled { opacity: .45; }
+.m-btn.danger { background: #dc2626; border-color: #dc2626; color: #fff; }
+.m-i { display: inline-grid; place-items: center; width: 14px; height: 14px; border-radius: 50%; border: 1px solid var(--app-line); font-size: 9px; color: var(--app-muted); vertical-align: middle; margin-left: 3px; }
+.m-pill { font-size: 10px; font-weight: 600; border-radius: 999px; padding: 1px 7px; background: var(--app-line); color: var(--app-muted); }
+.m-pill.warn { background: #fef3c7; color: #92400e; }
+.m-pill.blue { background: #dbeafe; color: #1e40af; }
+.m-alert { background: #fef3c7; color: #92400e; border: 1px solid #fde68a; border-radius: 6px; padding: 7px 9px; font-size: 11.5px; }
+.m-bar { height: 6px; border-radius: 3px; background: linear-gradient(90deg, #1e3a8a 0 37%, #6b8fd6 37% 81%, #c9d6f2 81%); }
+.m-steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
+.m-steps i { height: 4px; border-radius: 2px; background: #1d4ed8; }
+.m-steps i.off { background: var(--app-line); }
+.m-link { color: #1d4ed8; font-weight: 600; font-size: 11.5px; }
+.m-chk { display: flex; gap: 6px; align-items: flex-start; font-size: 11.5px; }
+.m-chk::before { content: ""; width: 10px; height: 10px; border: 1.5px solid var(--app-muted); border-radius: 50%; flex-shrink: 0; margin-top: 2px; }
+.m-input { border: 1px solid var(--app-line); background: var(--app-surface); border-radius: 6px; padding: 5px 8px; color: var(--app-muted); font-size: 11.5px; }
+.m-drop { border: 1.5px dashed var(--app-line); border-radius: 8px; padding: 14px 8px; text-align: center; display: grid; gap: 6px; justify-items: center; }
+.m-scale { display: flex; gap: 4px; }
+.m-gap { height: 4px; }
+del.x { background: var(--del-bg); color: var(--del-fg); text-decoration: line-through; text-decoration-thickness: 1px; border-radius: 3px; padding: 0 2px; }
+ins.y { background: var(--add-bg); color: var(--add-fg); text-decoration: none; border-radius: 3px; padding: 0 2px; }
+.m-faded { opacity: .45; }
+
+.decide { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding-top: 12px; border-top: 1px dashed var(--line); }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 9px; overflow: hidden; }
+.seg button { font: inherit; font-size: 13.5px; font-weight: 500; background: transparent; color: var(--soft); border: 0; padding: 6px 14px; cursor: pointer; }
+.seg button + button { border-left: 1px solid var(--line); }
+.seg button:hover { background: var(--bg); }
+.seg button:focus-visible, .note:focus-visible, .copy:focus-visible, .reset:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+.seg button[aria-pressed="true"][data-v="sim"] { background: var(--yes-bg); color: var(--yes); }
+.seg button[aria-pressed="true"][data-v="nao"] { background: var(--no-bg); color: var(--no); }
+.seg button[aria-pressed="true"][data-v="talvez"] { background: var(--maybe-bg); color: var(--maybe); }
+.note { flex: 1 1 220px; min-width: 0; font: inherit; font-size: 13.5px; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 9px; padding: 6px 10px; }
+.note::placeholder { color: var(--muted); }
+
+.dock { position: fixed; left: 0; right: 0; bottom: 0; padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px)); background: color-mix(in srgb, var(--paper) 92%, transparent); backdrop-filter: blur(8px); border-top: 1px solid var(--line); }
+.dock-in { max-width: 880px; margin: 0 auto; display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; justify-content: space-between; }
+.tally { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 13.5px; color: var(--soft); font-variant-numeric: tabular-nums; }
+.tally b { color: var(--ink); }
+.actions { display: flex; gap: 8px; align-items: center; }
+.copy { font: inherit; font-weight: 600; font-size: 14px; background: var(--brand); color: #fff; border: 0; border-radius: 9px; padding: 8px 16px; cursor: pointer; }
+:root[data-theme="dark"] .copy { color: #0f131a; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .copy { color: #0f131a; } }
+.reset { font: inherit; font-size: 13px; background: none; border: 0; color: var(--muted); cursor: pointer; text-decoration: underline; }
+.toast { font-size: 13px; color: var(--yes); }
+#fallback { width: 100%; font-family: var(--font-mono); font-size: 12px; min-height: 90px; background: var(--bg); color: var(--ink); border: 1px solid var(--line); border-radius: 8px; padding: 8px; }
+@media (prefers-reduced-motion: no-preference) { .card { transition: border-color .15s, opacity .15s, box-shadow .15s; } }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div class="eyebrow">Análise de layout · 08/10/2026</div>
+    <h1>Dez ajustes pequenos para deixar as telas mais diretas</h1>
+    <p class="lede">Percorri o painel e todas as abas do projeto como Administrador e como Avaliador, com uma cena de exemplo na Fase 3. Cada cartão mostra o que está na tela hoje e o que eu mudaria. Nada foi alterado no código. Marque Sim, Não ou Talvez e copie a decisão no fim para colar no chat.</p>
+    <div class="how">
+      <span><del class="x">texto riscado</del> sai</span>
+      <span><ins class="y">texto verde</ins> entra</span>
+      <span><span class="dot" style="background:var(--brand)"></span> recomendado = maior ganho pelo menor esforço</span>
+    </div>
+  </header>
+
+  <div id="list"></div>
+</div>
+
+<div class="dock">
+  <div class="dock-in">
+    <div class="tally" id="tally"></div>
+    <div class="actions">
+      <span class="toast" id="toast" role="status"></span>
+      <button class="reset" id="reset" type="button">Limpar</button>
+      <button class="copy" id="copy" type="button">Copiar decisão</button>
+    </div>
+    <textarea id="fallback" hidden readonly aria-label="Texto da decisão para copiar"></textarea>
+  </div>
+</div>
+
+<template id="t1">
+  <div class="compare">
+    <div class="side"><div class="side-label">Hoje</div>
+      <div class="mock">
+        <div class="m-card"><div class="m-title">🛡 Administrador</div>
+          <div class="m-muted">→ Crie projetos com <del class="x">código de acesso</del></div>
+          <span class="m-btn primary">Criar Novo Projeto</span></div>
+        <div class="m-card"><div class="m-title">👥 Avaliador</div>
+          <div class="m-muted">→ <del class="x">Entre com o código fornecido</del></div>
+          <span class="m-btn"><del class="x">Entrar no Projeto</del></span>
+          <div class="m-muted">(o botão não tem ação)</div></div>
+        <div class="m-card"><div class="m-row"><b>Fase 4</b><span class="m-pill"><del class="x">🔒 fora do protótipo</del></span></div></div>
+      </div></div>
+    <div class="side"><div class="side-label after">Proposta</div>
+      <div class="mock">
+        <div class="m-card"><div class="m-title">🛡 Administrador</div>
+          <div class="m-muted">→ Crie projetos e <ins class="y">convide avaliadores por e-mail</ins></div>
+          <span class="m-btn primary">Criar Novo Projeto</span></div>
+        <div class="m-card"><div class="m-title">👥 Avaliador</div>
+          <div class="m-muted">→ <ins class="y">Você entra por convite. O convite aparece em Meus projetos, com Aceitar e Recusar.</ins></div></div>
+        <div class="m-card"><div class="m-row"><b>Fase 4</b><span class="m-pill">Validação Final</span></div></div>
+      </div></div>
+  </div>
+</template>
+
+<template id="t2">
+  <div class="compare">
+    <div class="side"><div class="side-label">Hoje, com projetos na lista</div>
+      <div class="mock">
+        <div class="m-row"><b>Meus projetos</b><span class="m-btn primary">+ Novo projeto</span></div>
+        <div class="m-card">Classificação de intenção…</div>
+        <div class="m-card m-row"><span>Administrador</span><span class="m-btn primary">Criar Novo Projeto</span></div>
+        <div class="m-card"><b>Como funciona o processo</b><span class="m-muted">Codebook · 4 fases · Por que · Referência</span><span class="m-muted">≈ 1.500 px de leitura, sempre aberto</span></div>
+      </div></div>
+    <div class="side"><div class="side-label after">Proposta</div>
+      <div class="mock">
+        <div class="m-row"><b>Meus projetos</b><span class="m-btn primary">+ Novo projeto</span></div>
+        <div class="m-card">Classificação de intenção…</div>
+        <div class="m-card"><span>▸ <ins class="y">Como funciona o processo</ins></span><span class="m-muted">fechado; abre com um clique</span></div>
+      </div>
+      <div class="m-muted" style="font-family:var(--font-app)">Com zero projetos, o painel continua como está hoje: ali o guia é a porta de entrada.</div>
+    </div>
+  </div>
+</template>
+
+<template id="t3">
+  <div class="compare">
+    <div class="side"><div class="side-label">Hoje</div>
+      <div class="mock"><span><del class="x">← Voltar</del></span><b style="font-size:15px">Classificação de intenção de busca</b></div></div>
+    <div class="side"><div class="side-label after">Proposta</div>
+      <div class="mock"><span><ins class="y">← Meus projetos</ins></span><b style="font-size:15px">Classificação de intenção de busca</b></div></div>
+  </div>
+</template>
+
+<template id="t4">
+  <div class="compare">
+    <div class="side"><div class="side-label">Hoje</div>
+      <div class="mock">
+        <div class="m-card"><div class="m-row"><span><span class="m-muted">FASE 3 DE 4</span><br><b>Validação do prompt</b></span><span class="m-btn primary">Avançar fase →</span></div><div class="m-steps"><i></i><i></i><i></i><i class="off"></i></div></div>
+        <div class="m-card m-muted">4 cards de números</div>
+        <div class="m-card m-muted">Concordância por rodada</div>
+        <div class="m-card m-muted">Qualidade na rodada 2</div>
+        <div class="m-card m-muted">Qualidade por rodada</div>
+        <div class="m-card"><div class="m-row"><b>Para avançar para a Fase 4</b><span class="m-pill warn">2 de 3 pendentes</span></div><span class="m-btn primary disabled">Avançar para a Fase 4</span></div>
+      </div></div>
+    <div class="side"><div class="side-label after">Proposta</div>
+      <div class="mock">
+        <div class="m-card"><div class="m-row"><span><span class="m-muted">FASE 3 DE 4</span><br><b>Validação do prompt</b></span><span class="m-btn"><ins class="y">2 pendências ↓</ins></span></div><div class="m-steps"><i></i><i></i><i></i><i class="off"></i></div></div>
+        <div class="m-card"><div class="m-row"><b>Para avançar para a Fase 4</b><span class="m-pill warn">2 de 3 pendentes</span></div>
+          <div class="m-chk">Feche a rodada 2</div><div class="m-chk">Feche ao menos uma rodada da Fase 3</div></div>
+        <div class="m-card m-muted">4 cards de números</div>
+        <div class="m-card m-muted">Concordância · Qualidade</div>
+      </div></div>
+  </div>
+</template>
+
+<template id="t5">
+  <div class="compare">
+    <div class="side"><div class="side-label">Hoje, com uma rodada na Fase 3</div>
+      <div class="mock">
+        <div class="m-card"><b>Concordância por rodada</b><span class="m-muted">gráfico + lista</span><span class="m-link">Abrir rodadas</span></div>
+        <div class="m-card"><b>Qualidade na rodada 2</b><div class="m-bar"></div><span class="m-link"><del class="x">Abrir rodadas</del></span></div>
+        <div class="m-card"><del class="x"><b>Qualidade por rodada</b></del><div class="m-bar m-faded"></div><span class="m-muted"><del class="x">a próxima rodada rende o segundo ponto</del></span><span class="m-link"><del class="x">Abrir rodadas</del></span></div>
+      </div></div>
+    <div class="side"><div class="side-label after">Proposta</div>
+      <div class="mock">
+        <div class="m-card"><b>Concordância por rodada</b><span class="m-muted">gráfico + lista</span></div>
+        <div class="m-card"><b>Qualidade na rodada 2</b><div class="m-bar"></div></div>
+        <span class="m-link"><ins class="y">Abrir rodadas →</ins></span>
+        <div class="m-muted">"Qualidade por rodada" aparece a partir do 2º ponto.</div>
+      </div></div>
+  </div>
+</template>
+
+<template id="t6">
+  <div class="compare">
+    <div class="side"><div class="side-label">Hoje</div>
+      <div class="mock">
+        <div class="m-row"><b class="m-muted" style="color:var(--app-ink)"><del class="x">0 de 5 itens selecionados</del></b></div>
+        <div class="m-muted"><del class="x">Restam 200 vagas de resposta de LLM neste projeto, de 200.</del></div>
+        <div class="m-muted">(o pool tem 4 itens; o 5 é o máximo por geração)</div>
+        <div class="m-alert"><del class="x">Amostra pequena: 2 avaliadores e 2 respostas avaliadas nesta rodada. Abaixo de 3 avaliadores ou de 10 respostas avaliadas, o coeficiente oscila muito de uma nota para outra. O corte é convenção desta ferramenta, não da literatura, e o valor acima continua valendo — leia com cautela.</del></div>
+      </div></div>
+    <div class="side"><div class="side-label after">Proposta</div>
+      <div class="mock">
+        <div class="m-row"><b><ins class="y">0 selecionados · até 5 por geração</ins></b></div>
+        <div class="m-muted"><ins class="y">200 de 200 respostas disponíveis</ins><span class="m-i">i</span></div>
+        <div class="m-alert"><ins class="y">Amostra pequena (2 avaliadores, 2 respostas): leia com cautela.</ins><span class="m-i">i</span></div>
+        <div class="m-muted">O corte de 3 avaliadores / 10 respostas e a ressalva sobre a literatura vão para o ⓘ.</div>
+      </div></div>
+  </div>
+</template>
+
+<template id="t7">
+  <div class="compare">
+    <div class="side"><div class="side-label">Hoje</div>
+      <div class="mock">
+        <div><b>Avaliar na rodada 2</b><span class="m-i">i</span> <span class="m-muted">← "o envio é definitivo" (1)</span></div>
+        <div class="m-muted"><del class="x">Cada resposta é avaliada uma vez, e o envio é definitivo.</del> (2)</div>
+        <div class="m-muted">0 de 2 respostas avaliadas por você nesta rodada. <del class="x">O total pode crescer se o administrador gerar mais respostas.</del></div>
+        <div class="m-card">Resposta 1 …</div>
+        <div class="m-muted"><del class="x">Dê uma nota em cada critério de cada definição, com justificativa opcional. O envio é definitivo: depois de enviar, esta avaliação da rodada 2 fica em leitura.</del> (3)</div>
+        <div class="m-card m-muted">formulário</div>
+        <span class="m-btn primary disabled" style="justify-self:start">Enviar avaliação</span>
+      </div></div>
+    <div class="side"><div class="side-label after">Proposta</div>
+      <div class="mock">
+        <div><b>Avaliar na rodada 2</b></div>
+        <div class="m-muted">0 de 2 respostas avaliadas por você<span class="m-i">i</span></div>
+        <div class="m-card">Resposta 1 …</div>
+        <div class="m-muted">Dê uma nota em cada critério. Justificativa é opcional.</div>
+        <div class="m-card m-muted">formulário</div>
+        <div class="m-row" style="justify-content:flex-start"><span class="m-btn primary disabled">Enviar avaliação</span><span class="m-muted"><ins class="y">O envio é definitivo.</ins></span></div>
+      </div></div>
+  </div>
+</template>
+
+<template id="t8">
+  <div class="compare">
+    <div class="side"><div class="side-label">Hoje</div>
+      <div class="mock"><div class="m-card">
+        <div><b>Informacional</b><span class="m-i">i</span> <span class="m-pill">0 de 2</span></div>
+        <div><b>Corretude</b><span class="m-i">i</span> <span class="m-pill blue">geral</span></div>
+        <div class="m-scale"><span class="m-btn">Alto</span><span class="m-btn">Médio</span><span class="m-btn">Baixo</span></div>
+        <div class="m-input">Justificativa (opcional)</div>
+        <div class="m-muted">A régua ("A classificação está certa?") só aparece passando o mouse no ⓘ.</div>
+      </div></div></div>
+    <div class="side"><div class="side-label after">Proposta</div>
+      <div class="mock"><div class="m-card">
+        <div><b>Informacional</b> <span class="m-pill">0 de 2</span></div>
+        <div class="m-muted"><ins class="y">O usuário quer aprender algo sobre um tema.</ins></div>
+        <div><b>Corretude</b></div>
+        <div class="m-muted"><ins class="y">A classificação está certa?</ins></div>
+        <div class="m-scale"><span class="m-btn">Alto</span><span class="m-btn">Médio</span><span class="m-btn">Baixo</span></div>
+        <div class="m-input">Justificativa (opcional)</div>
+      </div></div></div>
+  </div>
+</template>
+
+<template id="t9">
+  <div class="compare">
+    <div class="side"><div class="side-label">Hoje</div>
+      <div class="mock"><div class="m-card">
+        <span class="m-muted">NOTAS POR RESPOSTA</span><b style="font-size:18px">4 <span class="m-muted">notas</span></b>
+        <span class="m-muted">2 definições · 0 critérios específicos · 2 critérios gerais. <del class="x">Cada critério geral vira uma nota em cada definição, e não uma nota por resposta. É esse o esforço que o avaliador terá a cada resposta.</del></span>
+      </div><div class="m-muted">Os cards vizinhos têm uma linha cada; este fica com o dobro da altura.</div></div></div>
+    <div class="side"><div class="side-label after">Proposta</div>
+      <div class="mock"><div class="m-card">
+        <span class="m-muted">NOTAS POR RESPOSTA <span class="m-i">i</span></span><b style="font-size:18px">4 <span class="m-muted">notas</span></b>
+        <span class="m-muted"><ins class="y">2 definições × 2 critérios gerais</ins></span>
+      </div></div></div>
+  </div>
+</template>
+
+<template id="t10">
+  <div class="compare">
+    <div class="side"><div class="side-label">Hoje</div>
+      <div class="mock">
+        <div class="m-card"><b>Upload de itens</b><div class="m-drop"><b>Arraste um arquivo de texto aqui</b><span class="m-input"><del class="x">Choose File</del> <del class="x">No file chosen</del></span><span class="m-muted">Formatos de texto…</span></div></div>
+        <div class="m-row"><span class="m-muted">4 itens no pool</span><span class="m-btn primary">+ Novo item</span></div>
+        <div class="m-card">consulta-01</div>
+      </div></div>
+    <div class="side"><div class="side-label after">Proposta</div>
+      <div class="mock">
+        <div class="m-row"><span class="m-muted">4 itens no pool</span><span style="display:flex;gap:4px"><span class="m-btn"><ins class="y">Importar arquivo</ins></span><span class="m-btn primary">+ Novo item</span></span></div>
+        <div class="m-card">consulta-01</div>
+        <div class="m-card">consulta-02</div>
+        <div class="m-muted">Arrastar um arquivo para cima da lista continua funcionando. Com o pool vazio, a área grande de upload volta como estado inicial.</div>
+      </div></div>
+  </div>
+</template>
+
+<script>
+const ITEMS = [
+  { group: "Painel", route: "/dashboard" },
+  { n: 1, title: "Corrigir os textos do painel que não batem mais com a ferramenta", tags: ["só texto", "pequeno"], rec: true,
+    why: "O cartão do Avaliador manda \"entrar com o código fornecido\" e tem um botão \"Entrar no Projeto\" que não faz nada, mas a entrada é por convite. O cartão do Administrador fala em \"código de acesso\". O diagrama ainda marca a Fase 4 como fora do protótipo, e ela já existe." },
+  { n: 2, title: "Recolher o guia do processo quando a pessoa já tem projetos", tags: ["layout", "pequeno"],
+    why: "O guia é ótimo no primeiro acesso, mas fica sempre aberto abaixo da lista e ocupa a maior parte da página. Os cartões de papel também repetem o botão de criar projeto que já está no topo." },
+  { group: "Projeto, cabeçalho", route: "/projects/[id]/*" },
+  { n: 3, title: "Trocar \"← Voltar\" por \"← Meus projetos\"", tags: ["só texto", "mínimo"],
+    why: "De dentro de uma aba, \"Voltar\" pode significar a aba anterior. O link sempre leva ao painel, então o rótulo pode dizer isso." },
+  { group: "Visão geral", route: "/projects/[id]" },
+  { n: 4, title: "Mostrar as pendências junto do \"Avançar fase\"", tags: ["layout", "médio"], rec: true,
+    why: "O botão azul do topo parece pronto para clicar. Ao clicar, a página rola até o fim, onde o checklist diz \"2 de 3 pendentes\" e o botão de verdade está desabilitado. O checklist da fase atual é a resposta a \"o que eu faço agora?\" e pode ficar logo abaixo da barra de fases." },
+  { n: 5, title: "Um só \"Abrir rodadas\" e menos repetição na Qualidade", tags: ["layout", "pequeno"],
+    why: "O link \"Abrir rodadas\" aparece três vezes seguidas. Com uma única rodada na Fase 3, \"Qualidade na rodada 2\" e \"Qualidade por rodada\" mostram a mesma barra." },
+  { group: "Rodadas", route: "/projects/[id]/rounds" },
+  { n: 6, title: "Encurtar os contadores e o aviso de amostra pequena", tags: ["texto + tooltip", "pequeno"],
+    why: "\"0 de 5 itens selecionados\" com 4 itens no pool faz o 5 parecer o total. A frase da cota termina com \"de 200\" solto. O aviso amarelo tem quatro linhas, e a mensagem cabe numa." },
+  { group: "Avaliar", route: "/projects/[id]/evaluate" },
+  { n: 7, title: "Dizer \"o envio é definitivo\" uma vez, ao lado do botão", tags: ["texto + tooltip", "pequeno"], rec: true,
+    why: "A mesma advertência aparece três vezes antes do formulário e nenhuma vez junto do botão Enviar, que é onde a decisão acontece." },
+  { n: 8, title: "Deixar visível a descrição de cada definição e critério", tags: ["layout", "pequeno"], rec: true,
+    why: "Aqui a regra se inverte: a descrição é a régua que o avaliador aplica em cada nota, e hoje ela só aparece passando o mouse no ⓘ (no celular, nem isso). Uma linha cinza abaixo do nome resolve. Junto, dá para tirar o selo \"geral\", que só importa para quem monta o codebook." },
+  { group: "Codebook", route: "/projects/[id]/codebook" },
+  { n: 9, title: "Tirar o parágrafo de dentro do card \"Notas por resposta\"", tags: ["texto + tooltip", "mínimo"],
+    why: "Os três cards de número ficam com alturas diferentes porque um deles carrega uma explicação de cinco linhas. A conta cabe numa linha, e o porquê vai para o ⓘ." },
+  { group: "Itens", route: "/projects/[id]/items" },
+  { n: 10, title: "Transformar o upload em botão e tirar o \"Choose File\" em inglês", tags: ["layout", "médio"],
+    why: "A área de upload ocupa o topo da aba, acima da lista que é o conteúdo principal. O input nativo do navegador mostra \"Choose File / No file chosen\" em inglês no meio da interface em português." },
+];
+
+const KEY = "tcc-layout-decisoes-v1";
+let state = {};
+try { state = JSON.parse(localStorage.getItem(KEY) || "{}") || {}; } catch (e) { state = {}; }
+function save() { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} }
+
+const list = document.getElementById("list");
+for (const it of ITEMS) {
+  if (it.group) {
+    const g = document.createElement("div");
+    g.className = "group-title";
+    g.innerHTML = `<h2>${it.group}</h2><span class="route">${it.route}</span>`;
+    list.appendChild(g);
+    continue;
+  }
+  const s = state[it.n] || {};
+  const card = document.createElement("article");
+  card.className = "card";
+  card.id = "s" + it.n;
+  if (s.v) card.dataset.choice = s.v;
+  const tags = (it.rec ? ['<span class="tag rec">recomendado</span>'] : []).concat(it.tags.map(t => `<span class="tag">${t}</span>`)).join("");
+  card.innerHTML = `
+    <div class="card-head"><span class="num">${String(it.n).padStart(2, "0")}</span>
+      <div><h3>${it.title}</h3><div class="meta">${tags}</div></div></div>
+    <p class="why">${it.why}</p>`;
+  card.appendChild(document.getElementById("t" + it.n).content.cloneNode(true));
+  const d = document.createElement("div");
+  d.className = "decide";
+  d.innerHTML = `<div class="seg" role="group" aria-label="Decisão sobre a sugestão ${it.n}">
+      <button type="button" data-v="sim">Sim</button><button type="button" data-v="talvez">Talvez</button><button type="button" data-v="nao">Não</button></div>
+    <input class="note" id="note-${it.n}" type="text" placeholder="Observação (opcional)" aria-label="Observação sobre a sugestão ${it.n}">`;
+  card.appendChild(d);
+  const btns = d.querySelectorAll("button");
+  btns.forEach(b => {
+    b.setAttribute("aria-pressed", String(s.v === b.dataset.v));
+    b.addEventListener("click", () => {
+      const cur = state[it.n] || {};
+      cur.v = cur.v === b.dataset.v ? undefined : b.dataset.v;
+      state[it.n] = cur;
+      btns.forEach(x => x.setAttribute("aria-pressed", String(cur.v === x.dataset.v)));
+      if (cur.v) card.dataset.choice = cur.v; else delete card.dataset.choice;
+      save(); tally();
+    });
+  });
+  const note = d.querySelector(".note");
+  note.value = s.note || "";
+  note.addEventListener("input", () => { const cur = state[it.n] || {}; cur.note = note.value; state[it.n] = cur; save(); });
+  list.appendChild(card);
+}
+
+const real = ITEMS.filter(i => i.n);
+function pick(v) { return real.filter(i => (state[i.n] || {}).v === v).map(i => i.n); }
+function tally() {
+  const sim = pick("sim").length, tal = pick("talvez").length, nao = pick("nao").length;
+  const open = real.length - sim - tal - nao;
+  document.getElementById("tally").innerHTML =
+    `<span><b>${sim}</b> sim</span><span><b>${tal}</b> talvez</span><span><b>${nao}</b> não</span><span><b>${open}</b> sem decisão</span>`;
+}
+tally();
+
+function text() {
+  const line = (label, ns) => ns.length ? `${label}: ${ns.join(", ")}` : null;
+  const out = ["Decisão sobre os ajustes de layout:",
+    line("Fazer", pick("sim")), line("Talvez", pick("talvez")), line("Não fazer", pick("nao"))].filter(Boolean);
+  const notes = real.filter(i => ((state[i.n] || {}).note || "").trim()).map(i => `- ${i.n}: ${state[i.n].note.trim()}`);
+  if (notes.length) out.push("", "Observações:", ...notes);
+  return out.join("\n");
+}
+const toast = document.getElementById("toast");
+const fb = document.getElementById("fallback");
+document.getElementById("copy").addEventListener("click", () => {
+  const t = text();
+  const fallback = () => { fb.hidden = false; fb.value = t; fb.focus(); fb.select(); toast.textContent = "Selecionado. Use Cmd+C."; };
+  try {
+    navigator.clipboard.writeText(t).then(() => { fb.hidden = true; toast.textContent = "Copiado. Cole no chat."; }, fallback);
+  } catch (e) { fallback(); }
+});
+document.getElementById("reset").addEventListener("click", () => {
+  state = {}; save();
+  document.querySelectorAll(".card").forEach(c => delete c.dataset.choice);
+  document.querySelectorAll(".seg button").forEach(b => b.setAttribute("aria-pressed", "false"));
+  document.querySelectorAll(".note").forEach(n => n.value = "");
+  fb.hidden = true; toast.textContent = ""; tally();
+});
+</script>

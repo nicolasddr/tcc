@@ -1,13 +1,7 @@
 import type { ReactNode } from 'react'
 import './process-overview.css'
 
-export function ProcessOverview({
-  createAction,
-  joinAction,
-}: {
-  createAction: ReactNode
-  joinAction: ReactNode
-}) {
+export function ProcessOverview({ createAction }: { createAction: ReactNode }) {
   return (
     <div className="process-overview">
       <div className="role-cards">
@@ -20,7 +14,7 @@ export function ProcessOverview({
             </div>
           </div>
           <ul className="role-features">
-            <li>Crie projetos com código de acesso</li>
+            <li>Crie projetos e convide avaliadores por e-mail</li>
             <li>Defina o codebook com definições e critérios</li>
             <li>Acompanhe métricas de concordância</li>
           </ul>
@@ -36,11 +30,10 @@ export function ProcessOverview({
             </div>
           </div>
           <ul className="role-features">
-            <li>Entre com o código fornecido</li>
+            <li>Você entra por convite. O convite aparece em Meus projetos, com Aceitar e Recusar.</li>
             <li>Avalie respostas de forma independente</li>
             <li>Contribua para a validação do prompt</li>
           </ul>
-          {joinAction}
         </div>
       </div>
 
@@ -163,20 +156,17 @@ export function ProcessOverview({
               </div>
             </div>
 
-            <div className="phase-arrow-col" style={{ opacity: 0.35 }}>→</div>
+            <div className="phase-arrow-col">→</div>
 
             <div className="phase-card phase-4">
               <div className="phase-card-head">
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '2px' }}>
-                  <div className="phase-num-tag" style={{ marginBottom: 0 }}>Fase 4</div>
-                  <span className="out-tag" style={{ marginTop: 0 }}>🔒 fora do protótipo</span>
-                </div>
+                <div className="phase-num-tag">Fase 4</div>
                 <div className="phase-card-name">Validação Final</div>
               </div>
               <div className="phase-card-body">
                 <ul className="phase-acts">
-                  <li>Novos avaliadores em dados de teste separados</li>
-                  <li>Verificação final independente do pipeline</li>
+                  <li>Itens novos e avaliadores novos, com codebook e prompt congelados</li>
+                  <li>Comparação com a rodada de referência da Fase 3</li>
                 </ul>
                 <div className="phase-outcome">✓ Pipeline validado</div>
               </div>
