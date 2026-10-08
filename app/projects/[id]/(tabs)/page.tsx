@@ -24,6 +24,7 @@ import {
 import { loadCodebook } from '../pipeline/codebook'
 import { loadPrompt } from '../pipeline/prompt'
 import { countItems } from '../pipeline/items'
+import { FROZEN_BADGE_HELP, FROZEN_BADGE_LABEL } from '../pipeline/freeze'
 import {
   listRounds,
   isOpen,
@@ -57,6 +58,8 @@ import { QualitySeriesList } from './rounds/quality-series-list'
 import { SubmitButton } from '@/app/components/submit-button'
 import { ButtonLink } from '@/app/components/ui/button'
 import { Callout } from '@/app/components/ui/panel'
+import { Badge } from '@/app/components/ui/badge'
+import { InfoTooltip } from '@/app/components/ui/tooltip'
 import { OpenLink } from '@/app/components/ui/open-link'
 import { StatCard } from '@/app/components/ui/stat'
 import { Disclosure } from '@/app/components/ui/disclosure'
@@ -314,6 +317,8 @@ export default async function ProjectPage({
   const currentChecklist = phase4 ? null : (checklists.at(-1) ?? null)
   const completedChecklists = phase4 ? checklists : checklists.slice(0, -1)
 
+  const canSteerPhase = isAdmin && project.status === 'active'
+
   const members = groupMembers(memberRows)
   const activeEvaluators = members.filter(
     (m) => m.roles.includes('evaluator') && m.status === 'active',
@@ -368,8 +373,16 @@ export default async function ProjectPage({
           <PhaseBar
             className="mt-4"
             current={project.phase}
+            badge={
+              canSteerPhase && project.phase === PHASE_4 ? (
+                <span className="inline-flex items-center gap-2">
+                  <Badge>{FROZEN_BADGE_LABEL}</Badge>
+                  <InfoTooltip text={FROZEN_BADGE_HELP} />
+                </span>
+              ) : null
+            }
             action={
-              isAdmin && project.status === 'active' ? (
+              canSteerPhase ? (
                 project.phase < PHASE_4 ? (
                   <ButtonLink href="#avancar">
                     Avançar fase

@@ -8,7 +8,7 @@ Independente dos outros planos.
 | Parte | Entrega | Commit sugerido | Estado |
 |---|---|---|---|
 | 1 | Cartões numa grade só + fases concluídas recolhidas (ajuste 07) | `feat(visao-geral): fases concluídas recolhidas` | ✅ |
-| 2 | Selo "codebook e prompt congelados" na barra de fases (ajuste 09) | `feat(visao-geral): selo de congelamento na fase 4` | ⬜ |
+| 2 | Selo "codebook e prompt congelados" na barra de fases (ajuste 09) | `feat(visao-geral): selo de congelamento na fase 4` | ✅ |
 
 ## Contexto comum
 

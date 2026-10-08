@@ -39,6 +39,10 @@ import { QUALITY_REFERENCE } from '@/app/projects/[id]/pipeline/last-round-summa
 import { AdvancePhase } from '@/app/projects/[id]/pipeline/advance-phase'
 import { Phase4Return } from '@/app/projects/[id]/pipeline/phase-4-return'
 import { Disclosure } from '@/app/components/ui/disclosure'
+import { Badge } from '@/app/components/ui/badge'
+import { InfoTooltip } from '@/app/components/ui/tooltip'
+import { PhaseBar } from '@/app/projects/[id]/phase-bar'
+import { FROZEN_BADGE_HELP, FROZEN_BADGE_LABEL } from '@/app/projects/[id]/pipeline/freeze'
 import { StatCard } from '@/app/components/ui/stat'
 import {
   PHASE_1,
@@ -75,7 +79,7 @@ import {
 } from '@/app/projects/[id]/(tabs)/rounds/agreement-labels'
 import { loadCodebookVersion } from '@/app/projects/[id]/pipeline/codebook'
 import { resolveCells } from '@/app/projects/[id]/pipeline/criteria'
-import { ownerDb, rounds } from '@/lib/db'
+import { ownerDb, projects, rounds } from '@/lib/db'
 import {
   createUser,
   createProject as seedProject,
@@ -583,6 +587,37 @@ describe('app/projects/[id]/page — escopo de visibilidade', () => {
     const asEvaluator = await panelsOf(phase4, evaluator)
     expect(asEvaluator.summary).toBeUndefined()
     expect(asEvaluator.voltar).toBeNull()
+  })
+
+  it('na Fase 4, a barra de fases mostra ao Administrador o selo de codebook e prompt congelados', async () => {
+    const admin = await newUser('Admin')
+    const evaluator = await newUser('Avaliador')
+    const phase3 = await newProject(admin, PHASE_3)
+    const phase4 = await newProject(admin, PHASE_4)
+    const archived = await newProject(admin, PHASE_4)
+    await ownerDb.update(projects).set({ status: 'archived' }).where(eq(projects.id, archived))
+    await addActiveEvaluator(ownerDb, phase4, evaluator)
+
+    async function badgeOf(id: string, userId = admin) {
+      auth.userId = userId
+      const bar = findElement(await render(id), PhaseBar)
+      expect(bar).toBeTruthy()
+      return (bar!.props as { badge?: unknown }).badge ?? null
+    }
+
+    const badge = await badgeOf(phase4)
+    expect(findElement(badge, Badge)).toBeTruthy()
+    expect((findElement(badge, Badge)!.props as { tone?: string }).tone ?? 'neutral').toBe(
+      'neutral',
+    )
+    expect(deepText(findElement(badge, Badge)).trim()).toBe(FROZEN_BADGE_LABEL)
+    expect((findElement(badge, InfoTooltip)!.props as { text: string }).text).toBe(
+      FROZEN_BADGE_HELP,
+    )
+
+    expect(await badgeOf(phase3)).toBeNull()
+    expect(await badgeOf(phase4, evaluator)).toBeNull()
+    expect(await badgeOf(archived)).toBeNull()
   })
 
   it('os quatro cartões de números ficam numa grade só', async () => {

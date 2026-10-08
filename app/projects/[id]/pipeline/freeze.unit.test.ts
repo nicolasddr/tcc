@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
+  FROZEN_BADGE_HELP,
+  FROZEN_BADGE_LABEL,
   frozenMessage,
   isFrozen,
   type FrozenSubject,
@@ -62,5 +64,17 @@ describe('app/projects/[id]/pipeline/freeze — o congelamento da Fase 4', () =>
 
   it.each(SUBJECTS)('a mensagem do %s não tem palavra de juízo', (subject) => {
     expect(frozenMessage(subject)).not.toMatch(JUDGEMENT_WORDS)
+  })
+
+  it('o selo da visão geral diz que codebook e prompt estão congelados', () => {
+    expect(FROZEN_BADGE_LABEL).toBe('codebook e prompt congelados')
+  })
+
+  it('a ajuda do selo diz o que fica congelado, o que continua editável e como mudar', () => {
+    expect(FROZEN_BADGE_HELP).toContain('rodada de referência')
+    expect(FROZEN_BADGE_HELP).toContain(`Fase ${PHASE_4}`)
+    expect(FROZEN_BADGE_HELP).toContain('metadados do prompt e os itens continuam editáveis')
+    expect(FROZEN_BADGE_HELP).toContain(`volte à Fase ${PHASE_3}`)
+    expect(FROZEN_BADGE_HELP).not.toMatch(JUDGEMENT_WORDS)
   })
 })
