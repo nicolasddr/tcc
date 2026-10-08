@@ -6,30 +6,16 @@ import {
   CODEBOOK_AND_PROMPT_NOTICE,
   CODEBOOK_AND_PROMPT_WITH_INPUT_NOTICE,
   ENTERS_PHASE_3_NOTE,
-  changesHeading,
-  codebookChangeText,
   codebookChipText,
   entersPhase4Note,
-  phaseChangeText,
   phaseChipText,
-  promptChangeText,
   promptChipText,
 } from './round-changes-labels'
 
-type ChangeLine = { key: string; change: Change; text: string }
-
-type Versions = { codebookVersionNumber: number; promptVersionNumber: number }
-
-function changeLines(changes: RoundChanges): ChangeLine[] {
-  return [
-    {
-      key: 'codebook',
-      change: changes.codebook,
-      text: codebookChangeText(changes.codebook),
-    },
-    { key: 'prompt', change: changes.prompt, text: promptChangeText(changes.prompt) },
-    { key: 'phase', change: changes.phase, text: phaseChangeText(changes.phase) },
-  ]
+type ChipRound = {
+  phase: number
+  codebookVersionNumber: number
+  promptVersionNumber: number
 }
 
 function noticeOf(changes: RoundChanges): string | null {
@@ -37,10 +23,6 @@ function noticeOf(changes: RoundChanges): string | null {
     return CODEBOOK_AND_PROMPT_WITH_INPUT_NOTICE
   }
   return changes.codebookAndPrompt ? CODEBOOK_AND_PROMPT_NOTICE : null
-}
-
-function lineClass(line: ChangeLine): string | undefined {
-  return line.change.changed ? 'text-ink' : undefined
 }
 
 function phaseNotes(changes: RoundChanges): string[] {
@@ -82,65 +64,47 @@ function ChangeChip({
   )
 }
 
+function helpOf(texts: string[]): string | undefined {
+  return texts.length > 0 ? texts.join('\n\n') : undefined
+}
+
 export function RoundChangeChips({
   round,
   changes,
+  phaseHelp,
+  leading,
+  trailing,
 }: {
-  round: Versions
+  round: ChipRound
   changes: RoundChanges | null
+  phaseHelp?: string
+  leading?: React.ReactNode
+  trailing?: React.ReactNode
 }) {
   const codebook = changes?.codebook ?? same(round.codebookVersionNumber)
   const prompt = changes?.prompt ?? same(round.promptVersionNumber)
+  const phase = changes?.phase ?? same(round.phase)
   const notes = changes ? phaseNotes(changes) : []
+  const phaseChip = (
+    <ChangeChip
+      change={phase}
+      text={phaseChipText(phase)}
+      help={helpOf(phaseHelp === undefined ? notes : [phaseHelp, ...notes])}
+    />
+  )
 
   return (
     <div className="flex flex-col gap-2">
       <div className="flex flex-wrap items-center gap-1.5">
+        {leading}
+        {phaseHelp !== undefined ? phaseChip : null}
         <ChangeChip change={codebook} text={codebookChipText(codebook)} />
         <ChangeChip change={prompt} text={promptChipText(prompt)} />
-        {changes?.phase.changed ? (
-          <ChangeChip
-            change={changes.phase}
-            text={phaseChipText(changes.phase)}
-            help={notes.length > 0 ? notes.join('\n\n') : undefined}
-          />
-        ) : null}
+        {phaseHelp === undefined && phase.changed ? phaseChip : null}
+        {trailing}
       </div>
 
       {changes ? <NoticeAlert changes={changes} /> : null}
-    </div>
-  )
-}
-
-export function RoundChangesNote({ changes }: { changes: RoundChanges }) {
-  const lines = changeLines(changes)
-
-  return (
-    <div className="flex flex-col gap-2">
-      <div className="flex flex-col gap-1">
-        <p className="m-0 text-[13px] font-semibold text-ink">
-          {changesHeading(changes.previousRoundNumber)}
-        </p>
-        <ul className="m-0 flex list-none flex-col gap-0.5 p-0 text-[13px] text-muted">
-          {lines.map((line) => (
-            <li key={line.key} className={lineClass(line)}>
-              {line.text}
-            </li>
-          ))}
-        </ul>
-      </div>
-
-      {changes.entersPhase3 ? (
-        <p className="m-0 text-[13px] text-ink">{ENTERS_PHASE_3_NOTE}</p>
-      ) : null}
-
-      {changes.entersPhase4 ? (
-        <p className="m-0 text-[13px] text-ink">
-          {entersPhase4Note(changes.previousRoundNumber)}
-        </p>
-      ) : null}
-
-      <NoticeAlert changes={changes} />
     </div>
   )
 }

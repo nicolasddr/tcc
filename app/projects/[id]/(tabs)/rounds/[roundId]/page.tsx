@@ -11,10 +11,11 @@ import {
   type ResponseForAdmin,
 } from '../../../pipeline/responses'
 import { responseLabel } from '../../evaluate/queue'
-import { isOpen, listRounds } from '../rounds'
+import { isOpen, listRounds, type RoundSummary } from '../rounds'
 import { previousRoundOf, roundChanges, type RoundChanges } from '../round-changes'
-import { RoundChangesNote } from '../round-changes-note'
+import { RoundChangeChips } from '../round-changes-note'
 import { roundInputSummary } from '../preconditions'
+import { closedOn } from '../reference-comparison-labels'
 import { AdminResponseCard } from '../sent-input'
 import { loadResponseNotes, type ResponseNote, type ReviewRound } from '../review'
 import {
@@ -32,6 +33,7 @@ import {
   type ConsensusContext,
 } from '../review-groups-list'
 import { QueueNav } from '@/app/components/ui/queue-nav'
+import { Chip } from '@/app/components/ui/chip'
 import { EmptyState } from '@/app/components/ui/empty-state'
 import { Section } from '@/app/components/ui/section'
 import { BackLink } from '@/app/components/ui/shell'
@@ -51,21 +53,29 @@ function markOutliers(
   })
 }
 
-async function changesOf(
+type RoundHeader = { round: RoundSummary; changes: RoundChanges | null }
+
+async function headerOf(
   projectId: string,
   roundId: string,
   tx: DbExecutor,
-): Promise<RoundChanges | null> {
+): Promise<RoundHeader | null> {
   const rounds = await listRounds(projectId, tx)
   const round = rounds.find((candidate) => candidate.id === roundId)
   if (!round) return null
-  return roundChanges(round, previousRoundOf(rounds, round))
+  return { round, changes: roundChanges(round, previousRoundOf(rounds, round)) }
+}
+
+function evaluatorHint(round: ReviewRound): string {
+  return round.closedAt
+    ? `Uma resposta por vez, sobre a versão de codebook que esta rodada fixou (Codebook v${round.codebookVersionNumber}).`
+    : 'Uma resposta por vez, sobre a versão de codebook que esta rodada fixou.'
 }
 
 type ReviewView = {
   round: ReviewRound
   isAdmin: boolean
-  changes: RoundChanges | null
+  header: RoundHeader | null
   current: LabeledResponse | null
   adminResponse: ResponseForAdmin | null
   prev: string | null
@@ -94,14 +104,14 @@ export default async function RoundReviewPage({
   const view = await transaction<ReviewView>(async (tx) => {
     const access = await requireReviewAccess(id, userId, tx)
     const round = await requireReviewableRound(access, roundId, tx)
-    const changes = access.isAdmin
-      ? await changesOf(access.project.id, round.id, tx)
+    const header = access.isAdmin
+      ? await headerOf(access.project.id, round.id, tx)
       : null
 
     const empty = {
       round,
       isAdmin: access.isAdmin,
-      changes,
+      header,
       current: null,
       adminResponse: null,
       prev: null,
@@ -144,7 +154,7 @@ export default async function RoundReviewPage({
     return {
       round,
       isAdmin: access.isAdmin,
-      changes,
+      header,
       current,
       adminResponse: access.isAdmin
         ? await loadResponseForAdmin(round.id, current.id, tx)
@@ -164,7 +174,7 @@ export default async function RoundReviewPage({
     }
   })
 
-  const { round, isAdmin, changes, current, adminResponse, prev, next } = view
+  const { round, isAdmin, header, current, adminResponse, prev, next } = view
   const { definitions, criteria, notes } = view
   const { consensus, authorMemberId, canWriteMinutes, canWritePrivate } = view
 
@@ -190,23 +200,23 @@ export default async function RoundReviewPage({
         <BackLink href={`/projects/${id}/rounds`}>Voltar às rodadas</BackLink>
       </div>
 
-      {isAdmin ? (
-        <p className="m-0 mt-4 text-[13px] text-muted">{roundInputSummary(round.phase)}</p>
-      ) : null}
-
-      {isAdmin && changes ? (
+      {isAdmin && header ? (
         <div className="mt-4">
-          <RoundChangesNote changes={changes} />
+          <RoundChangeChips
+            round={header.round}
+            changes={header.changes}
+            phaseHelp={roundInputSummary(round.phase)}
+            leading={
+              <Chip className="font-semibold text-ink">Rodada {round.roundNumber}</Chip>
+            }
+            trailing={round.closedAt ? <Chip>{closedOn(round.closedAt)}</Chip> : null}
+          />
         </div>
       ) : null}
 
       <Section
         title={`Revisão de discordâncias da rodada ${round.roundNumber}`}
-        hint={
-          round.closedAt
-            ? `Uma resposta por vez, sobre a versão de codebook que esta rodada fixou (Codebook v${round.codebookVersionNumber}).`
-            : 'Uma resposta por vez, sobre a versão de codebook que esta rodada fixou.'
-        }
+        hint={isAdmin ? undefined : evaluatorHint(round)}
         help={
           round.closedAt
             ? `A revisão mostra todas as células dessa versão, com as divergentes destacadas. A rodada fechou em ${formatDate(round.closedAt)}, e a discussão fica presa a ela: o que se refina aqui vale para a próxima.`

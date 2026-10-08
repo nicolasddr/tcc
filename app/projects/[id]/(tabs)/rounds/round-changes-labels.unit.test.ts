@@ -4,13 +4,9 @@ import {
   CODEBOOK_AND_PROMPT_NOTICE,
   CODEBOOK_AND_PROMPT_WITH_INPUT_NOTICE,
   ENTERS_PHASE_3_NOTE,
-  changesHeading,
-  codebookChangeText,
   codebookChipText,
   entersPhase4Note,
-  phaseChangeText,
   phaseChipText,
-  promptChangeText,
   promptChipText,
 } from '@/app/projects/[id]/(tabs)/rounds/round-changes-labels'
 import { roundInputSummary } from '@/app/projects/[id]/(tabs)/rounds/preconditions'
@@ -40,14 +36,7 @@ function allTexts(): string[] {
   for (const value of Object.values(labels)) {
     if (typeof value === 'string') texts.push(value)
   }
-  texts.push(changesHeading(3))
-  for (const text of [
-    codebookChangeText,
-    promptChangeText,
-    phaseChangeText,
-    codebookChipText,
-    promptChipText,
-  ]) {
+  for (const text of [codebookChipText, promptChipText]) {
     texts.push(text(changed), text(unchanged))
   }
   texts.push(
@@ -59,19 +48,6 @@ function allTexts(): string[] {
 }
 
 describe('app/projects/[id]/rounds/round-changes-labels — o que mudou na tela', () => {
-  it('o cabeçalho diz a rodada de comparação', () => {
-    expect(changesHeading(3)).toBe('Em relação à rodada 3')
-  })
-
-  it('cada linha diz as duas versões quando mudou e uma quando não mudou', () => {
-    expect(codebookChangeText(changed)).toBe('Codebook: v3 → v4')
-    expect(codebookChangeText(unchanged)).toBe('Codebook: v4, o mesmo')
-    expect(promptChangeText({ changed: true, from: 1, to: 2 })).toBe('Prompt: v1 → v2')
-    expect(promptChangeText({ changed: false, from: 2, to: 2 })).toBe('Prompt: v2, o mesmo')
-    expect(phaseChangeText({ changed: true, from: 2, to: 3 })).toBe('Fase: 2 → 3')
-    expect(phaseChangeText({ changed: false, from: 3, to: 3 })).toBe('Fase: 3, a mesma')
-  })
-
   it('cada chip diz as duas versões quando mudou e só a da rodada quando não mudou', () => {
     expect(codebookChipText(changed)).toBe('Codebook v3 → v4')
     expect(codebookChipText(unchanged)).toBe('Codebook v4')

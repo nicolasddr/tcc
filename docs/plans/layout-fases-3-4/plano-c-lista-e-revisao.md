@@ -9,7 +9,7 @@ no mesmo plano. Depende do **Plano A, Parte 1** (`QualityBar`) para a barra na l
 | Parte | Entrega | Commit sugerido | Estado |
 |---|---|---|---|
 | 1 | Lista "Rodadas do projeto" agrupada por fase, mudanças em chips, revisão como botão (ajuste 05) | `feat(rodadas): lista de rodadas agrupada por fase` | ✅ |
-| 2 | Cabeçalho da revisão em uma linha de chips (ajuste 06) | `feat(rodadas): cabeçalho da revisão em chips` | ⬜ |
+| 2 | Cabeçalho da revisão em uma linha de chips (ajuste 06) | `feat(rodadas): cabeçalho da revisão em chips` | ✅ |
 
 ## Contexto comum
 

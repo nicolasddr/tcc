@@ -2,28 +2,6 @@ import { PHASE_3, PHASE_4 } from '../../pipeline/preconditions'
 import { QUALITY_LABEL } from './quality-labels'
 import type { Change } from './round-changes'
 
-export function changesHeading(previousRoundNumber: number): string {
-  return `Em relação à rodada ${previousRoundNumber}`
-}
-
-export function codebookChangeText(change: Change): string {
-  return change.changed
-    ? `Codebook: v${change.from} → v${change.to}`
-    : `Codebook: v${change.to}, o mesmo`
-}
-
-export function promptChangeText(change: Change): string {
-  return change.changed
-    ? `Prompt: v${change.from} → v${change.to}`
-    : `Prompt: v${change.to}, o mesmo`
-}
-
-export function phaseChangeText(change: Change): string {
-  return change.changed
-    ? `Fase: ${change.from} → ${change.to}`
-    : `Fase: ${change.to}, a mesma`
-}
-
 export function codebookChipText(change: Change): string {
   return change.changed ? `Codebook v${change.from} → v${change.to}` : `Codebook v${change.to}`
 }
