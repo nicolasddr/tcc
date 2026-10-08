@@ -59,6 +59,7 @@ import { ButtonLink } from '@/app/components/ui/button'
 import { Callout } from '@/app/components/ui/panel'
 import { OpenLink } from '@/app/components/ui/open-link'
 import { StatCard } from '@/app/components/ui/stat'
+import { Disclosure } from '@/app/components/ui/disclosure'
 import { Section } from '@/app/components/ui/section'
 import { ArrowRightIcon } from '@/app/components/ui/icons'
 
@@ -274,6 +275,45 @@ export default async function ProjectPage({
   const phase4 =
     agreement && artifacts && project.phase === PHASE_4 ? phase4ReturnData(agreement) : null
 
+  const checklists = artifacts
+    ? [
+        <PipelineChecklist
+          key="phase-1"
+          className="mt-3"
+          projectId={project.id}
+          phase={project.phase}
+          inputs={{
+            ...EMPTY_PIPELINE,
+            definitions: artifacts.codebook.definitions.length,
+            promptText: artifacts.prompt.version?.text ?? null,
+            items: artifacts.items,
+          }}
+        />,
+        phase2 && project.phase >= PHASE_2 ? (
+          <Phase2Checklist
+            key="phase-2"
+            className="mt-3"
+            projectId={project.id}
+            phase={project.phase}
+            inputs={phase2.inputs}
+            lastRound={phase2.lastRound}
+          />
+        ) : null,
+        phase3 && project.phase >= PHASE_3 ? (
+          <Phase3Checklist
+            key="phase-3"
+            className="mt-3"
+            projectId={project.id}
+            phase={project.phase}
+            inputs={phase3.inputs}
+            lastRound={phase3.lastRound}
+          />
+        ) : null,
+      ].filter((checklist) => checklist !== null)
+    : []
+  const currentChecklist = phase4 ? null : (checklists.at(-1) ?? null)
+  const completedChecklists = phase4 ? checklists : checklists.slice(0, -1)
+
   const members = groupMembers(memberRows)
   const activeEvaluators = members.filter(
     (m) => m.roles.includes('evaluator') && m.status === 'active',
@@ -344,7 +384,7 @@ export default async function ProjectPage({
             }
           />
 
-          <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <StatCard
               label="Avaliadores"
               value={activeEvaluators}
@@ -352,62 +392,62 @@ export default async function ProjectPage({
                 inOnboarding > 0 ? `${inOnboarding} em onboarding` : 'ativos no projeto'
               }
             />
-          </div>
 
-          {artifacts ? (
-            <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              <StatCard
-                label="Codebook"
-                value={artifacts.codebook.definitions.length}
-                suffix={
-                  artifacts.codebook.definitions.length === 1
-                    ? 'definição'
-                    : 'definições'
-                }
-                hint={
-                  <>
-                    {artifacts.codebook.version
-                      ? `Versão ${artifacts.codebook.version.versionNumber} vigente · `
-                      : 'Nenhuma versão ainda · '}
-                    <OpenLink href={`/projects/${project.id}/codebook`}>
-                      Abrir codebook
-                    </OpenLink>
-                  </>
-                }
-              />
-
-              <StatCard
-                label="Prompt"
-                value={
-                  artifacts.prompt.version
-                    ? `v${artifacts.prompt.version.versionNumber}`
-                    : '—'
-                }
-                suffix={artifacts.prompt.version ? 'vigente' : undefined}
-                hint={
-                  <>
-                    {artifacts.prompt.version?.name
-                      ? `${artifacts.prompt.version.name} · `
-                      : artifacts.prompt.version
-                        ? 'Sem nome · '
+            {artifacts ? (
+              <>
+                <StatCard
+                  label="Codebook"
+                  value={artifacts.codebook.definitions.length}
+                  suffix={
+                    artifacts.codebook.definitions.length === 1
+                      ? 'definição'
+                      : 'definições'
+                  }
+                  hint={
+                    <>
+                      {artifacts.codebook.version
+                        ? `Versão ${artifacts.codebook.version.versionNumber} vigente · `
                         : 'Nenhuma versão ainda · '}
-                    <OpenLink href={`/projects/${project.id}/prompt`}>
-                      Abrir prompt
-                    </OpenLink>
-                  </>
-                }
-              />
+                      <OpenLink href={`/projects/${project.id}/codebook`}>
+                        Abrir codebook
+                      </OpenLink>
+                    </>
+                  }
+                />
 
-              <StatCard
-                label="Itens de entrada"
-                value={artifacts.items}
-                suffix="no pool"
-                hint={
-                  <OpenLink href={`/projects/${project.id}/items`}>Abrir itens</OpenLink>
-                }
-              />
-            </div>
-          ) : null}
+                <StatCard
+                  label="Prompt"
+                  value={
+                    artifacts.prompt.version
+                      ? `v${artifacts.prompt.version.versionNumber}`
+                      : '—'
+                  }
+                  suffix={artifacts.prompt.version ? 'vigente' : undefined}
+                  hint={
+                    <>
+                      {artifacts.prompt.version?.name
+                        ? `${artifacts.prompt.version.name} · `
+                        : artifacts.prompt.version
+                          ? 'Sem nome · '
+                          : 'Nenhuma versão ainda · '}
+                      <OpenLink href={`/projects/${project.id}/prompt`}>
+                        Abrir prompt
+                      </OpenLink>
+                    </>
+                  }
+                />
+
+                <StatCard
+                  label="Itens de entrada"
+                  value={artifacts.items}
+                  suffix="no pool"
+                  hint={
+                    <OpenLink href={`/projects/${project.id}/items`}>Abrir itens</OpenLink>
+                  }
+                />
+              </>
+            ) : null}
+          </div>
 
           {series ? (
             <Section
@@ -448,42 +488,6 @@ export default async function ProjectPage({
             </Section>
           ) : null}
 
-          {artifacts ? (
-            <div id="avancar" className="scroll-mt-6">
-              <PipelineChecklist
-                className="mt-3"
-                projectId={project.id}
-                phase={project.phase}
-                inputs={{
-                  ...EMPTY_PIPELINE,
-                  definitions: artifacts.codebook.definitions.length,
-                  promptText: artifacts.prompt.version?.text ?? null,
-                  items: artifacts.items,
-                }}
-              />
-
-              {phase2 && project.phase >= PHASE_2 ? (
-                <Phase2Checklist
-                  className="mt-3"
-                  projectId={project.id}
-                  phase={project.phase}
-                  inputs={phase2.inputs}
-                  lastRound={phase2.lastRound}
-                />
-              ) : null}
-
-              {phase3 && project.phase >= PHASE_3 ? (
-                <Phase3Checklist
-                  className="mt-3"
-                  projectId={project.id}
-                  phase={project.phase}
-                  inputs={phase3.inputs}
-                  lastRound={phase3.lastRound}
-                />
-              ) : null}
-            </div>
-          ) : null}
-
           {phase4 ? (
             <div id="voltar" className="scroll-mt-6">
               <Phase4Return
@@ -493,6 +497,19 @@ export default async function ProjectPage({
                 summary={phase4.summary}
               />
             </div>
+          ) : currentChecklist ? (
+            <div id="avancar" className="scroll-mt-6">
+              {currentChecklist}
+            </div>
+          ) : null}
+
+          {completedChecklists.length > 0 ? (
+            <Disclosure
+              className="mt-4"
+              summary={`Fases concluídas (${completedChecklists.length})`}
+            >
+              {completedChecklists}
+            </Disclosure>
           ) : null}
         </>
       ) : null}

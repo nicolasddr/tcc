@@ -9,7 +9,7 @@
 // PRÉ-REQUISITO: Supabase LOCAL de pé (`supabase start`), igual ao `npm test`.
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { eq } from 'drizzle-orm'
-import { createElement, isValidElement, type ReactElement } from 'react'
+import { Fragment, createElement, isValidElement, type ReactElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 
 const auth = vi.hoisted(() => ({ userId: null as string | null }))
@@ -37,6 +37,9 @@ import { Phase2Checklist } from '@/app/projects/[id]/pipeline/phase-2-checklist'
 import { Phase3Checklist } from '@/app/projects/[id]/pipeline/phase-3-checklist'
 import { QUALITY_REFERENCE } from '@/app/projects/[id]/pipeline/last-round-summary'
 import { AdvancePhase } from '@/app/projects/[id]/pipeline/advance-phase'
+import { Phase4Return } from '@/app/projects/[id]/pipeline/phase-4-return'
+import { Disclosure } from '@/app/components/ui/disclosure'
+import { StatCard } from '@/app/components/ui/stat'
 import {
   PHASE_1,
   PHASE_2,
@@ -124,6 +127,61 @@ function hasProp(node: unknown, key: string, value: unknown): boolean {
   const props = node.props as Record<string, unknown>
   if (props[key] === value) return true
   return Object.values(props).some((child) => hasProp(child, key, value))
+}
+
+function elementWithProp(node: unknown, key: string, value: unknown): ReactElement | null {
+  if (Array.isArray(node)) {
+    for (const child of node) {
+      const found = elementWithProp(child, key, value)
+      if (found) return found
+    }
+    return null
+  }
+  if (!isValidElement(node)) return null
+  const props = node.props as Record<string, unknown>
+  if (props[key] === value) return node
+  for (const child of Object.values(props)) {
+    const found = elementWithProp(child, key, value)
+    if (found) return found
+  }
+  return null
+}
+
+function typesOf(children: unknown): unknown[] {
+  return [children]
+    .flat(Infinity)
+    .filter(isValidElement)
+    .flatMap((child) =>
+      child.type === Fragment
+        ? typesOf((child.props as { children: unknown }).children)
+        : [child.type],
+    )
+}
+
+function gridOf(tree: unknown): ReactElement {
+  const card = findElement(tree, StatCard)
+  expect(card).toBeTruthy()
+  const parent = parentOf(tree, card!)
+  expect(parent).toBeTruthy()
+  return parent!
+}
+
+function parentOf(node: unknown, target: ReactElement): ReactElement | null {
+  if (Array.isArray(node)) {
+    for (const child of node) {
+      const found = parentOf(child, target)
+      if (found) return found
+    }
+    return null
+  }
+  if (!isValidElement(node)) return null
+  const children = (node.props as { children?: unknown }).children
+  if ([children].flat(Infinity).includes(target)) return node
+  for (const value of Object.values(node.props as Record<string, unknown>)) {
+    const found = parentOf(value, target)
+    if (found) return found
+  }
+  return null
 }
 
 type ChecklistProps = Parameters<typeof PipelineChecklist>[0]
@@ -470,6 +528,82 @@ describe('app/projects/[id]/page — escopo de visibilidade', () => {
     expect(hasProp(await overview(phase1, evaluator), 'href', '#avancar')).toBe(false)
     expect(hasProp(await overview(phase2, evaluator), 'href', '#avancar')).toBe(false)
     expect(hasProp(await overview(phase3, evaluator), 'href', '#avancar')).toBe(false)
+  })
+
+  it('só o painel da fase atual fica aberto; os das fases anteriores vão para "Fases concluídas (N)", fechado', async () => {
+    const admin = await newUser('Admin')
+    const evaluator = await newUser('Avaliador')
+    const phase1 = await newProject(admin)
+    const phase2 = await newProject(admin, PHASE_2)
+    const phase3 = await newProject(admin, PHASE_3)
+    const phase4 = await newProject(admin, PHASE_4)
+    await addActiveEvaluator(ownerDb, phase4, evaluator)
+
+    async function panelsOf(id: string, userId = admin) {
+      auth.userId = userId
+      const tree = await render(id)
+      const disclosure = findElement(tree, Disclosure)
+      const props = disclosure?.props as
+        | { summary: unknown; defaultOpen?: boolean; children: unknown }
+        | undefined
+      return {
+        avancar: elementWithProp(tree, 'id', 'avancar'),
+        voltar: elementWithProp(tree, 'id', 'voltar'),
+        summary: props?.summary,
+        defaultOpen: props?.defaultOpen,
+        completed: props ? typesOf(props.children) : [],
+      }
+    }
+
+    const first = await panelsOf(phase1)
+    expect(findElement(first.avancar, PipelineChecklist)).toBeTruthy()
+    expect(first.summary).toBeUndefined()
+
+    const second = await panelsOf(phase2)
+    expect(findElement(second.avancar, Phase2Checklist)).toBeTruthy()
+    expect(findElement(second.avancar, PipelineChecklist)).toBeNull()
+    expect(second.summary).toBe('Fases concluídas (1)')
+    expect(second.defaultOpen).toBeFalsy()
+    expect(second.completed).toEqual([PipelineChecklist])
+
+    const third = await panelsOf(phase3)
+    expect(findElement(third.avancar, Phase3Checklist)).toBeTruthy()
+    expect(findElement(third.avancar, Phase2Checklist)).toBeNull()
+    expect(third.summary).toBe('Fases concluídas (2)')
+    expect(third.completed).toEqual([PipelineChecklist, Phase2Checklist])
+
+    const fourth = await panelsOf(phase4)
+    expect(fourth.avancar).toBeNull()
+    expect(findElement(fourth.voltar, Phase4Return)).toBeTruthy()
+    expect(findElement(fourth.voltar, Phase3Checklist)).toBeNull()
+    expect(fourth.summary).toBe('Fases concluídas (3)')
+    expect(fourth.defaultOpen).toBeFalsy()
+    expect(fourth.completed).toEqual([PipelineChecklist, Phase2Checklist, Phase3Checklist])
+
+    const asEvaluator = await panelsOf(phase4, evaluator)
+    expect(asEvaluator.summary).toBeUndefined()
+    expect(asEvaluator.voltar).toBeNull()
+  })
+
+  it('os quatro cartões de números ficam numa grade só', async () => {
+    const admin = await newUser('Admin')
+    const evaluator = await newUser('Avaliador')
+    const project = await newProject(admin)
+    await addActiveEvaluator(ownerDb, project, evaluator)
+
+    auth.userId = admin
+    const grid = gridOf(await render(project))
+    expect(typesOf((grid.props as { children: unknown }).children)).toEqual([
+      StatCard,
+      StatCard,
+      StatCard,
+      StatCard,
+    ])
+    expect((grid.props as { className: string }).className).toContain('lg:grid-cols-4')
+
+    auth.userId = evaluator
+    const alone = gridOf(await render(project))
+    expect(typesOf((alone.props as { children: unknown }).children)).toEqual([StatCard])
   })
 
   it('na Fase 2, com uma rodada fechada, o avanço para a Fase 3 aparece liberado e mostra o ICR da última rodada', async () => {
