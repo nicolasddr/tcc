@@ -28,6 +28,7 @@ import {
   AgreementValue,
 } from '@/app/projects/[id]/(tabs)/rounds/agreement-panel'
 import { buildQueue } from '@/app/projects/[id]/(tabs)/evaluate/queue'
+import { PROGRESS_HELP } from '@/app/projects/[id]/(tabs)/evaluate/progress'
 import { loadCodebookVersion } from '@/app/projects/[id]/pipeline/codebook'
 import { resolveCells } from '@/app/projects/[id]/pipeline/criteria'
 import { listRoundResponses } from '@/app/projects/[id]/pipeline/responses'
@@ -41,6 +42,7 @@ import { QualityPanel, QualityValue } from '@/app/projects/[id]/(tabs)/rounds/qu
 import { roundInputSummary } from '@/app/projects/[id]/(tabs)/rounds/preconditions'
 import { Section } from '@/app/components/ui/section'
 import { ProgressBar } from '@/app/components/ui/stat'
+import { InfoTooltip } from '@/app/components/ui/tooltip'
 import { ownerDb, rounds } from '@/lib/db'
 import {
   createUser,
@@ -292,12 +294,13 @@ describe('app/projects/[id]/evaluate — a tela do avaliador', () => {
     const evaluator = await newEvaluator(scene.project)
 
     auth.userId = evaluator
-    const props = formOf(await open(scene.project))
+    const tree = await open(scene.project)
+    const props = formOf(tree)
 
     expect(props.response.id).toBe(scene.responses[0])
     expect(props.response.text).toBe('Resposta 1')
     expect(props.submitted).toBeNull()
-    expect(props.roundNumber).toBe(1)
+    expect(headingOf(tree)).toContain('Avaliar na rodada 1')
 
     expect(
       props.cells.map((cell) => `${cell.definition.title}/${cell.criterion.name}`),
@@ -332,6 +335,30 @@ describe('app/projects/[id]/evaluate — a tela do avaliador', () => {
     auth.userId = evaluator
     const html = markupOf(formOf(await open(scene.project)))
     expect(html).toContain('busca informa')
+  })
+
+  it('o envio definitivo é dito uma vez, ao lado do botão, e o aviso do total vai para o ⓘ', async () => {
+    const admin = await newUser('Admin')
+    const scene = await scenario(admin, { responses: 2 })
+    const evaluator = await newEvaluator(scene.project)
+
+    auth.userId = evaluator
+    const tree = await open(scene.project)
+    const section = findElement(tree, Section)!.props as { hint?: unknown; help?: string }
+
+    expect(section.hint).toBeUndefined()
+    expect(section.help).toContain('definitivo')
+    expect(textOf(tree)).toContain('0 de 2 respostas avaliadas por você nesta rodada')
+    expect(textOf(tree)).not.toContain('pode crescer')
+    expect(findElement(tree, InfoTooltip)?.props).toEqual({ text: PROGRESS_HELP })
+
+    const html = markupOf(formOf(tree))
+    const [before, after] = html.split('Enviar avaliação')
+
+    expect(html).toContain('Dê uma nota em cada critério. Justificativa é opcional.')
+    expect(html.match(/definitivo/g)).toHaveLength(1)
+    expect(before).not.toContain('definitivo')
+    expect(after).toContain('O envio é definitivo.')
   })
 
   it('sem nota em toda célula, o envio fica travado e a tela diz qual definição falta', async () => {

@@ -4,7 +4,7 @@ Ajustes **07 e 08** da referência visual `docs/plans/ajustes-layout/referencia-
 
 | Parte | Entrega | Commit sugerido | Estado |
 |---|---|---|---|
-| 1 | "O envio é definitivo" uma vez, junto do botão (ajuste 07) | `refactor(avaliar): aviso de envio definitivo junto do botão` | ⬜ |
+| 1 | "O envio é definitivo" uma vez, junto do botão (ajuste 07) | `refactor(avaliar): aviso de envio definitivo junto do botão` | ✅ |
 | 2 | Descrições de definição e critério visíveis (ajuste 08) | `feat(avaliar): descrições visíveis no formulário` | ⬜ |
 
 ## Contexto comum

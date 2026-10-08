@@ -23,7 +23,7 @@ import {
 } from './evaluation'
 import { loadEvaluationContext, type EvaluationContext } from './context'
 import { buildQueue, neighbours, pickResponseId } from './queue'
-import { progressMessage, type Progress } from './progress'
+import { PROGRESS_HELP, progressMessage, type Progress } from './progress'
 import { waitingMessage, waitingState, type WaitingState } from './waiting'
 import { ContextPanel } from './context-panel'
 import { EvaluationForm } from './evaluation-form'
@@ -33,6 +33,7 @@ import { OpenLink } from '@/app/components/ui/open-link'
 import { EmptyState } from '@/app/components/ui/empty-state'
 import { Section } from '@/app/components/ui/section'
 import { ProgressBar } from '@/app/components/ui/stat'
+import { InfoTooltip } from '@/app/components/ui/tooltip'
 
 type EvaluateView = {
   waiting: WaitingState | null
@@ -155,7 +156,6 @@ export default async function ProjectEvaluatePage({
           </span>
         </>
       }
-      hint="Cada resposta é avaliada uma vez, e o envio é definitivo."
       help="A avaliação cobre cada critério de cada definição do codebook que esta rodada fixou, e o envio é definitivo: a avaliação enviada não volta para edição."
     >
       {held ? (
@@ -174,9 +174,12 @@ export default async function ProjectEvaluatePage({
       ) : (
         <div className="flex flex-col gap-5">
           <div className="flex flex-col gap-2">
-            <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
               <span className="text-[13px] font-semibold text-ink">{label}</span>
-              <span className="text-[13px] text-muted">{progressMessage(progress)}</span>
+              <span className="flex items-center gap-1.5 text-[13px] text-muted">
+                {progressMessage(progress)}
+                <InfoTooltip text={PROGRESS_HELP} />
+              </span>
             </div>
 
             <ProgressBar value={progress.evaluated} max={progress.total} />
@@ -202,7 +205,6 @@ export default async function ProjectEvaluatePage({
           <EvaluationForm
             key={response.id}
             projectId={id}
-            roundNumber={roundNumber!}
             response={response}
             label={label}
             cells={cells}

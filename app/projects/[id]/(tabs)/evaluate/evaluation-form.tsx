@@ -123,14 +123,12 @@ function ResponseCard({
 
 export function EvaluationForm({
   projectId,
-  roundNumber,
   response,
   label,
   cells,
   submitted,
 }: {
   projectId: string
-  roundNumber: number
   response: ResponseDetail
   label: string
   cells: Cell[]
@@ -232,9 +230,7 @@ export function EvaluationForm({
       <ResponseCard response={response} label={label} />
 
       <p className="m-0 text-[13px] text-muted">
-        Dê uma nota em cada critério de cada definição, com justificativa opcional. O
-        envio é definitivo: depois de enviar, esta avaliação da rodada {roundNumber} fica
-        em leitura.
+        Dê uma nota em cada critério. Justificativa é opcional.
       </p>
 
       <ul className="m-0 flex list-none flex-col gap-2 p-0">
@@ -323,15 +319,15 @@ export function EvaluationForm({
 
       {error && !pending ? <Alert tone="error">{error}</Alert> : null}
 
+      {complete ? null : (
+        <p className="m-0 text-[13px] text-muted">{incompleteMessage(missing)}</p>
+      )}
+
       <FormActions align="start">
         <Button type="submit" loading={pending} loadingText="Enviando…" disabled={!complete}>
           Enviar avaliação
         </Button>
-        <span className="text-[13px] text-muted">
-          {complete
-            ? 'Tudo preenchido. O envio é definitivo e não tem como editar depois.'
-            : incompleteMessage(missing)}
-        </span>
+        <span className="text-[13px] text-muted">O envio é definitivo.</span>
       </FormActions>
     </Form>
   )

@@ -1,5 +1,8 @@
 import { describe, it, expect } from 'vitest'
-import { progressMessage } from '@/app/projects/[id]/(tabs)/evaluate/progress'
+import {
+  PROGRESS_HELP,
+  progressMessage,
+} from '@/app/projects/[id]/(tabs)/evaluate/progress'
 
 describe('app/projects/[id]/evaluate/progress — o quanto falta para mim', () => {
   it('com uma resposta só na rodada, o total fica no singular', () => {
@@ -24,10 +27,11 @@ describe('app/projects/[id]/evaluate/progress — o quanto falta para mim', () =
     )
   })
 
-  it('a contagem é minha, e avisa que o total pode crescer', () => {
+  it('a contagem é minha, e o aviso de que o total pode crescer vai para a ajuda', () => {
     const message = progressMessage({ evaluated: 2, total: 5 })
 
     expect(message).toContain('por você')
-    expect(message).toContain('pode crescer')
+    expect(message).not.toContain('pode crescer')
+    expect(PROGRESS_HELP).toBe('O total pode crescer se o administrador gerar mais respostas.')
   })
 })
