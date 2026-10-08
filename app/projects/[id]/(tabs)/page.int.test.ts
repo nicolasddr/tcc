@@ -55,6 +55,7 @@ import {
   QUALITY_SERIES_HINT,
   QUALITY_SERIES_NOTE,
   QUALITY_SERIES_NOTE_SINGLE,
+  QUALITY_SERIES_NUMBERS,
 } from '@/app/projects/[id]/(tabs)/rounds/quality-labels'
 import { phaseRuns } from '@/app/projects/[id]/(tabs)/rounds/agreement-series'
 import { QualityMatrixTable } from '@/app/projects/[id]/(tabs)/rounds/quality-matrix-table'
@@ -237,11 +238,26 @@ function qualitySeriesOf(tree: unknown): QualitySeriesProps {
   return element!.props as QualitySeriesProps
 }
 
-function qualitySeriesTextOf(tree: unknown): string {
+function qualitySeriesMarkupOf(tree: unknown): string {
   return renderToStaticMarkup(createElement(QualitySeriesList, qualitySeriesOf(tree)))
+}
+
+function textOfMarkup(markup: string): string {
+  return markup
     .replace(/<[^>]*>/g, ' ')
     .replace(/\s+/g, ' ')
     .trim()
+}
+
+function qualitySeriesTextOf(tree: unknown): string {
+  return textOfMarkup(qualitySeriesMarkupOf(tree))
+}
+
+function qualitySeriesPartsOf(tree: unknown): { bars: string; numbers: string } {
+  const markup = qualitySeriesMarkupOf(tree)
+  const split = markup.indexOf('<details')
+  expect(split).toBeGreaterThan(0)
+  return { bars: markup.slice(0, split), numbers: markup.slice(split) }
 }
 
 function sectionWith(node: unknown, type: unknown): ReactElement | null {
@@ -1154,6 +1170,21 @@ describe('app/projects/[id]/page — escopo de visibilidade', () => {
     expect(text).toContain(QUALITY_SERIES_NOTE)
     expect(text).not.toContain(QUALITY_SERIES_NOTE_SINGLE)
 
+    const { bars, numbers } = qualitySeriesPartsOf(tree)
+    expect(bars).toContain('title="Alto 62,5% (5) · Médio 25% (2) · Baixo 12,5% (1) · 8 notas"')
+    expect(bars).toContain('title="Alto 0% (0) · Médio 25% (1) · Baixo 75% (3) · 4 notas"')
+    expect(bars.match(/class="h-full bg-quality-[a-z]+"/g)).toHaveLength(6)
+    expect(textOfMarkup(bars)).not.toContain('%')
+    expect(textOfMarkup(bars)).toContain('Alto · Médio · Baixo')
+    expect(textOfMarkup(bars)).toContain('Codebook v3 · Prompt v1')
+
+    expect(numbers.startsWith('<details class="group">')).toBe(true)
+    const numbersText = textOfMarkup(numbers)
+    expect(numbersText.startsWith(QUALITY_SERIES_NUMBERS)).toBe(true)
+    expect(numbersText).toContain('Alto 62,5% (5) · Médio 25% (2) · Baixo 12,5% (1) 8 notas')
+    expect(numbersText).toContain('Alto 0% (0) · Médio 25% (1) · Baixo 75% (3) 4 notas')
+    expect(numbersText.indexOf('Rodada 3')).toBeLessThan(numbersText.indexOf('Rodada 4'))
+
     const section = sectionWith(tree, QualitySeriesList)
     expect((section!.props as { title: unknown }).title).toBe('Qualidade por rodada')
     expect(section).not.toBe(sectionWith(tree, QualityPanel))
@@ -1214,7 +1245,26 @@ describe('app/projects/[id]/page — escopo de visibilidade', () => {
     expect(marked.pair.all).toMatchObject({ rated: true, total: 8 })
     expect(unmarked.pair.withoutOutliers).toBeNull()
 
-    const text = qualitySeriesTextOf(tree)
+    const { bars, numbers } = qualitySeriesPartsOf(tree)
+    const markedBars = bars.slice(bars.indexOf('Rodada 3'), bars.indexOf('Rodada 4'))
+    const unmarkedBars = bars.slice(bars.indexOf('Rodada 4'))
+    const allBar = markedBars.indexOf(
+      `title="${AGREEMENT_ALL_LABEL}: Alto 62,5% (5) · Médio 25% (2) · Baixo 12,5% (1) · 8 notas"`,
+    )
+    const withoutBar = markedBars.indexOf(
+      `title="${AGREEMENT_WITHOUT_OUTLIERS_LABEL}: Alto 75% (3) · Médio 25% (1) · Baixo 0% (0) · 4 notas"`,
+    )
+
+    expect(allBar).toBeGreaterThan(0)
+    expect(withoutBar).toBeGreaterThan(allBar)
+    expect(markedBars.slice(allBar, withoutBar)).toContain('h-2')
+    expect(markedBars.slice(allBar, withoutBar)).not.toContain('h-1.5')
+    expect(markedBars.slice(withoutBar)).toContain('h-1.5')
+    expect(textOfMarkup(markedBars.slice(withoutBar))).toContain(AGREEMENT_WITHOUT_OUTLIERS_LABEL)
+    expect(unmarkedBars).not.toContain(AGREEMENT_ALL_LABEL)
+    expect(unmarkedBars).not.toContain(AGREEMENT_WITHOUT_OUTLIERS_LABEL)
+
+    const text = textOfMarkup(numbers)
     const markedText = text.slice(text.indexOf('Rodada 3'), text.indexOf('Rodada 4'))
     const unmarkedText = text.slice(text.indexOf('Rodada 4'))
 
@@ -1546,11 +1596,13 @@ describe('app/projects/[id]/page — escopo de visibilidade', () => {
     expect(phase4).toContain('Rodada 4')
     expect(phase4).not.toContain('Rodada 3')
 
-    const text = markupText(markup)
-    expect(text).toContain('Prompt v1 · Fase 3')
-    expect(text).toContain('Prompt v1 · Fase 4')
-    expect(text).not.toContain('Rodada 1')
-    expect(text.match(/Rodada \d/g)).toEqual(['Rodada 2', 'Rodada 3', 'Rodada 4'])
+    const { bars, numbers } = qualitySeriesPartsOf(tree)
+    const numbersText = markupText(numbers)
+    expect(numbersText).toContain('Prompt v1 · Fase 3')
+    expect(numbersText).toContain('Prompt v1 · Fase 4')
+    expect(markupText(markup)).not.toContain('Rodada 1')
+    expect(markupText(bars).match(/Rodada \d/g)).toEqual(['Rodada 2', 'Rodada 3', 'Rodada 4'])
+    expect(numbersText.match(/Rodada \d/g)).toEqual(['Rodada 2', 'Rodada 3', 'Rodada 4'])
   })
 
   it('os textos da série de Qualidade falam das Fases 3 e 4, e não só da Fase 3', async () => {

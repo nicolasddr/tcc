@@ -14,19 +14,22 @@ const HEIGHT = { md: 'h-2', sm: 'h-1.5' }
 export function QualityBar({
   levels,
   size = 'md',
+  title,
 }: {
   levels: QualityLevel[]
   size?: keyof typeof HEIGHT
+  title?: string
 }) {
   return (
     <div
       aria-hidden
+      title={title}
       className={cx('flex w-full overflow-hidden rounded-full bg-line', HEIGHT[size])}
     >
       {levels.map((level) => (
         <span
           key={level.value}
-          title={levelText(level)}
+          title={title ? undefined : levelText(level)}
           className={cx('h-full', TONE[level.value])}
           style={{ width: `${level.share * 100}%` }}
         />

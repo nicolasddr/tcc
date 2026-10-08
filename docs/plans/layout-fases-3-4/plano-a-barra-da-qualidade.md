@@ -9,7 +9,7 @@ Faça este plano primeiro: os Planos B e C reaproveitam a barra que a Parte 1 cr
 |---|---|---|---|
 | 1 | Componente da barra empilhada + `QualityPanel` usando ele (ajuste 03) | `feat(rodadas): qualidade em barra empilhada` | ✅ |
 | 2 | Matriz de Qualidade compacta (ajuste 04) | `feat(rodadas): matriz de qualidade compacta` | ✅ |
-| 3 | "Qualidade por rodada" como barras (ajuste 08) | `feat(visao-geral): série de qualidade em barras` | ⬜ |
+| 3 | "Qualidade por rodada" como barras (ajuste 08) | `feat(visao-geral): série de qualidade em barras` | ✅ |
 
 ## Contexto comum
 
@@ -102,3 +102,9 @@ R6  cb v4 · pr v3   [███████▓▓▓▓▓░░░]
 - Nada soma nem tira média entre rodadas (`QUALITY_SERIES_NOTE` continua valendo; pode virar ⓘ).
 - No celular (375 px), a coluna do rótulo não pode empurrar a barra para fora. Medir no `iframe` de
   375, como diz a memória do painel.
+
+**Os Planos B e C herdam**: `QualityBar` aceita `title`; com ele, a barra inteira leva o texto e as
+fatias deixam de ter o próprio `title`. A série usa coluna de rótulo fixa (`10rem`) para as barras de
+fases diferentes ficarem alinhadas (com `auto`, cada grupo tinha a sua largura). Os números de cada
+rodada ficam num `Disclosure` fechado (`QUALITY_SERIES_NUMBERS`), com versões, fase, data e o
+`QualityValue`. Medido a 375 px: barra com 136 px, rótulo numa linha só, nada passa da largura.
