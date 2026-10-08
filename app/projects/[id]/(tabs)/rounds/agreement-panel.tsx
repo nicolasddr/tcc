@@ -11,8 +11,10 @@ import {
   AGREEMENT_LABEL,
   AGREEMENT_WITHOUT_OUTLIERS_LABEL,
   BAND_REFERENCE,
+  BAND_REFERENCE_LABEL,
   NOT_CALCULABLE_LABEL,
   OUTLIER_PAIR_HINT,
+  OUTLIER_PAIR_RESULT,
   OUTLIER_PAIR_SUMMARY,
   agreementBand,
   bandLabel,
@@ -196,8 +198,20 @@ export function AgreementPanel({
     <>
       {sampleSize(all)} ·{' '}
       {plural(responses.all, 'resposta avaliada', 'respostas avaliadas')}
-      <br />
-      {all.calculable ? BAND_REFERENCE : notCalculableMessage(all.reason)}
+      {all.calculable ? (
+        <>
+          {' '}
+          ·{' '}
+          <span className="whitespace-nowrap">
+            {BAND_REFERENCE_LABEL} <InfoTooltip text={BAND_REFERENCE} />
+          </span>
+        </>
+      ) : (
+        <>
+          <br />
+          {notCalculableMessage(all.reason)}
+        </>
+      )}
     </>
   )
 
@@ -235,8 +249,8 @@ export function AgreementPanel({
           </div>
 
           <p className="m-0 flex flex-wrap items-center gap-2 text-xs text-muted">
-            <span>{OUTLIER_PAIR_SUMMARY}</span>
-            <InfoTooltip text={OUTLIER_PAIR_HINT} />
+            <span>{OUTLIER_PAIR_RESULT}</span>
+            <InfoTooltip text={`${OUTLIER_PAIR_SUMMARY}\n\n${OUTLIER_PAIR_HINT}`} />
           </p>
 
           <ExcludedList outliers={outliers} />

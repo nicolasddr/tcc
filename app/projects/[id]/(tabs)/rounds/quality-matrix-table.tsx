@@ -22,6 +22,8 @@ import {
   CELL_NOT_APPLICABLE,
   CELL_NOT_APPLICABLE_TITLE,
   CELL_UNRATED_LABEL,
+  matrixVersionLabel,
+  matrixVersionNote,
 } from './agreement-labels'
 
 function Levels({
@@ -161,11 +163,10 @@ export function QualityMatrixTable({
       <QualityScaleLegend suffix="em %" />
 
       <p className="m-0 flex flex-wrap items-center gap-2 text-xs text-muted">
-        <span>
-          A matriz é da versão de codebook que a rodada fixou, Codebook v
-          {codebookVersionNumber}, e não da versão vigente do projeto.
-        </span>
-        <InfoTooltip text={QUALITY_MATRIX_LEGEND} />
+        <span>{matrixVersionLabel(codebookVersionNumber)}</span>
+        <InfoTooltip
+          text={`${matrixVersionNote(codebookVersionNumber)}\n\n${QUALITY_MATRIX_LEGEND}`}
+        />
       </p>
     </div>
   )

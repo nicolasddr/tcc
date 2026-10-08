@@ -48,11 +48,17 @@ import {
   AGREEMENT_ALL_LABEL,
   AGREEMENT_SOURCE,
   AGREEMENT_WITHOUT_OUTLIERS_LABEL,
+  BAND_REFERENCE,
+  BAND_REFERENCE_LABEL,
   CELL_NOT_APPLICABLE,
   CELL_NOT_APPLICABLE_TITLE,
   CELL_UNRATED_LABEL,
+  MATRIX_LEGEND,
   MATRIX_SCOPE_NOTE,
+  OUTLIER_PAIR_HINT,
+  OUTLIER_PAIR_RESULT,
   OUTLIER_PAIR_SUMMARY,
+  matrixVersionNote,
 } from '@/app/projects/[id]/(tabs)/rounds/agreement-labels'
 import { Section } from '@/app/components/ui/section'
 import { ButtonLink } from '@/app/components/ui/button'
@@ -308,6 +314,20 @@ function markupTextOf(element: ReactElement): string {
     .replace(/<[^>]*>/g, ' ')
     .replace(/\s+/g, ' ')
     .trim()
+}
+
+function visibleTextOf(element: ReactElement): string {
+  return renderToStaticMarkup(element)
+    .replace(/<span aria-hidden="true" class="pointer-events-none[^"]*">[^<]*<\/span>/g, ' ')
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function tooltipTextsOf(element: ReactElement): string[] {
+  return findAll(element, InfoTooltip).map(
+    (tooltip) => (tooltip.props as { text: string }).text,
+  )
 }
 
 function panelTextOf(tree: unknown): string {
@@ -1155,6 +1175,13 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     expect(text).toContain('boa')
     expect(text).toContain(AGREEMENT_SOURCE)
     expect(text).toContain('não trava')
+
+    const visible = visibleTextOf(createElement(AgreementPanel, props))
+    expect(visible).toContain(
+      `3 unidades · 2 avaliadores · 3 respostas avaliadas · ${BAND_REFERENCE_LABEL}`,
+    )
+    expect(visible).not.toContain(AGREEMENT_SOURCE)
+    expect(tooltipTextsOf(AgreementPanel(props))).toContain(BAND_REFERENCE)
   })
 
   it('com um avaliador só, o painel diz não calculável, o motivo e o N que tem', async () => {
@@ -1283,6 +1310,13 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     expect(text).toContain('1,000')
     expect(text).toContain('Carla')
     expect(text).toContain('Pontuou em sentido oposto ao grupo')
+
+    const visible = visibleTextOf(createElement(AgreementPanel, props))
+    expect(visible).toContain(OUTLIER_PAIR_RESULT)
+    expect(visible).not.toContain(OUTLIER_PAIR_SUMMARY)
+    expect(tooltipTextsOf(AgreementPanel(props))).toContain(
+      `${OUTLIER_PAIR_SUMMARY}\n\n${OUTLIER_PAIR_HINT}`,
+    )
   })
 
   it('a matriz por célula diz que é calculada com todos, inclusive os marcados', async () => {
@@ -1494,7 +1528,11 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     expect(withoutAt).toBeGreaterThan(allAt)
     expect(text).toContain('Alto 75% (3)')
     expect(text).toContain('1 avaliador fora')
-    expect(text).toContain(OUTLIER_PAIR_SUMMARY)
+
+    const visible = visibleTextOf(createElement(QualityPanel, qualityPanelOf(tree)))
+    expect(visible).toContain(OUTLIER_PAIR_RESULT)
+    expect(visible).not.toContain(OUTLIER_PAIR_SUMMARY)
+    expect(tooltipTextsOf(QualityPanel(qualityPanelOf(tree)))).toEqual([OUTLIER_PAIR_SUMMARY])
 
     const summary = findElement(RoundList(listOf(tree)), QualitySummary)!
     const value = markupTextOf(summary)
@@ -1532,10 +1570,11 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     auth.userId = admin
     const tree = await render(scene.project)
 
+    const tooltipClasses = new Set(classNamesOf(createElement(InfoTooltip, { text: '' })))
     const classes = [
       ...classNamesOf(createElement(QualityPanel, qualityPanelOf(tree))),
       ...classNamesOf(findElement(RoundList(listOf(tree)), QualitySummary)!),
-    ]
+    ].filter((className) => !tooltipClasses.has(className))
     expect(classes.length).toBeGreaterThan(0)
     for (const className of classes) {
       for (const tone of ['success', 'warning', 'danger', 'brand']) {
@@ -1607,7 +1646,11 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
       createElement(QualityMatrixTable, qualityMatrixOf(tree)),
     )
     expect(markup.split(`title="${CELL_NOT_APPLICABLE_TITLE}"`)).toHaveLength(3)
-    expect(markup).toContain(`aria-label="${QUALITY_MATRIX_LEGEND}"`)
+    expect(markup).toContain(`aria-label="${matrixVersionNote(1)}\n\n${QUALITY_MATRIX_LEGEND}"`)
+
+    const visible = visibleTextOf(createElement(QualityMatrixTable, qualityMatrixOf(tree)))
+    expect(visible).toContain('Codebook v1 da rodada')
+    expect(visible).not.toContain('vigente')
   })
 
   it('a matriz de Qualidade fica no bloco da Qualidade, e a de Concordância no dela, sem prop nova', async () => {
@@ -1829,6 +1872,13 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     expect(text).toContain('Clareza')
     expect(text).not.toContain('Profundidade')
     expect(text).toContain('Codebook v1')
+
+    const visible = visibleTextOf(createElement(AgreementMatrixTable, matrixOf(tree)))
+    expect(visible).toContain('Codebook v1 da rodada')
+    expect(visible).not.toContain('vigente')
+    expect(tooltipTextsOf(AgreementMatrixTable(matrixOf(tree)))).toEqual([
+      `${matrixVersionNote(1)}\n\n${MATRIX_SCOPE_NOTE}\n\n${MATRIX_LEGEND}`,
+    ])
   })
 
   it('a matriz e o painel continuam na tela depois que a rodada fecha', async () => {

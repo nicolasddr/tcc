@@ -12,9 +12,11 @@ import {
 import {
   AGREEMENT_ALL_LABEL,
   AGREEMENT_WITHOUT_OUTLIERS_LABEL,
+  OUTLIER_PAIR_RESULT,
   OUTLIER_PAIR_SUMMARY,
 } from './agreement-labels'
 import { StatCard } from '@/app/components/ui/stat'
+import { InfoTooltip } from '@/app/components/ui/tooltip'
 
 function qualityText(quality: Quality, unrated: string): string {
   return quality.rated ? qualityTotal(quality.total) : unrated
@@ -66,7 +68,10 @@ export function QualityPanel({ pair }: { pair: QualityPair }) {
         />
       </div>
 
-      <p className="m-0 text-xs text-muted">{OUTLIER_PAIR_SUMMARY}</p>
+      <p className="m-0 flex flex-wrap items-center gap-2 text-xs text-muted">
+        <span>{OUTLIER_PAIR_RESULT}</span>
+        <InfoTooltip text={OUTLIER_PAIR_SUMMARY} />
+      </p>
     </div>
   )
 }

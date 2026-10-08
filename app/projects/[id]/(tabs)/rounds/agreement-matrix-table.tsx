@@ -17,6 +17,8 @@ import {
   bandTone,
   cellNotCalculableLabel,
   formatAlpha,
+  matrixVersionLabel,
+  matrixVersionNote,
   sampleSize,
 } from './agreement-labels'
 
@@ -125,11 +127,10 @@ export function AgreementMatrixTable({
       </div>
 
       <p className="m-0 flex flex-wrap items-center gap-2 text-xs text-muted">
-        <span>
-          A matriz é da versão de codebook que a rodada fixou, Codebook v
-          {codebookVersionNumber}, e não da versão vigente do projeto.
-        </span>
-        <InfoTooltip text={`${MATRIX_SCOPE_NOTE}\n\n${MATRIX_LEGEND}`} />
+        <span>{matrixVersionLabel(codebookVersionNumber)}</span>
+        <InfoTooltip
+          text={`${matrixVersionNote(codebookVersionNumber)}\n\n${MATRIX_SCOPE_NOTE}\n\n${MATRIX_LEGEND}`}
+        />
       </p>
     </div>
   )

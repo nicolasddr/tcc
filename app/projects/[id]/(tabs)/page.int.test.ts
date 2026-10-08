@@ -675,6 +675,10 @@ describe('app/projects/[id]/page — escopo de visibilidade', () => {
     expect(text).toContain(bandLabel(agreementBand(last.pair.all.alpha)))
     expect(text).toContain(BAND_REFERENCE)
     expect(text).toContain('A decisão de avançar é do Administrador.')
+    expect(text).toContain(
+      'Tudo pronto. O avanço pede confirmação antes de mudar qualquer coisa.',
+    )
+    expect(text).not.toContain('Nenhuma rodada aberta e ao menos uma fechada')
   })
 
   it('na Fase 2, a rodada aberta trava o avanço e o painel a nomeia', async () => {
@@ -849,6 +853,10 @@ describe('app/projects/[id]/page — escopo de visibilidade', () => {
     expect(text).toContain(bandLabel(agreementBand(last.pair.all.alpha)))
     expect(text).toContain(BAND_REFERENCE)
     expect(text).toContain('Alto 62,5% (5) · Médio 25% (2) · Baixo 12,5% (1)')
+    expect(text).toContain(
+      'Tudo pronto. O avanço pede confirmação antes de mudar qualquer coisa.',
+    )
+    expect(text).not.toContain('são os da rodada de referência')
     expect(text).toContain('8 notas')
     expect(text).toContain(QUALITY_REFERENCE)
     expect(text).toContain('A decisão de avançar é do Administrador.')
@@ -932,7 +940,9 @@ describe('app/projects/[id]/page — escopo de visibilidade', () => {
     expect(text).toContain('tudo pronto')
     expect(text).not.toContain('Resolver')
     expect(text).not.toContain('Depende da rodada de referência')
-    expect(text).toContain('codebook e prompt são os da rodada de referência')
+    expect(text).toContain(
+      'Tudo pronto. O avanço pede confirmação antes de mudar qualquer coisa.',
+    )
   })
 
   it.each([

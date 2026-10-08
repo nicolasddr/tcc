@@ -40,6 +40,8 @@ export const OUTLIER_PAIR_SUMMARY =
   'Os dois valores saem do mesmo dado desta rodada, e o resultado da rodada continua ' +
   `sendo o ${AGREEMENT_ALL_LABEL}.`
 
+export const OUTLIER_PAIR_RESULT = `O resultado da rodada é o valor ${AGREEMENT_ALL_LABEL}.`
+
 export const OUTLIER_PAIR_HINT =
   `Os dois valores saem do mesmo dado desta rodada. O primeiro, ${AGREEMENT_ALL_LABEL}, ` +
   'é o resultado da rodada e continua sendo ele. O segundo, ' +
@@ -53,12 +55,25 @@ export const MATRIX_SCOPE_NOTE =
   'quem está marcado como outlier nesta rodada. O par com e sem os marcados aparece só ' +
   'no coeficiente da rodada, acima.'
 
+export const BAND_REFERENCE_LABEL = 'Faixa de referência'
+
 export const BAND_REFERENCE =
-  `Faixa de referência de ${AGREEMENT_SOURCE}: abaixo de ` +
+  `${BAND_REFERENCE_LABEL} de ${AGREEMENT_SOURCE}: abaixo de ` +
   `${formatCut(AGREEMENT_BANDS.acceptable)} é questionável, de ` +
   `${formatCut(AGREEMENT_BANDS.acceptable)} a ${formatCut(AGREEMENT_BANDS.good)} é ` +
   `aceitável, e ${formatCut(AGREEMENT_BANDS.good)} ou mais é boa. É referência de ` +
   'leitura, e não trava nada no projeto.'
+
+export function matrixVersionLabel(codebookVersionNumber: number): string {
+  return `Codebook v${codebookVersionNumber} da rodada`
+}
+
+export function matrixVersionNote(codebookVersionNumber: number): string {
+  return (
+    `A matriz é da versão de codebook que a rodada fixou, Codebook v${codebookVersionNumber}, ` +
+    'e não da versão vigente do projeto.'
+  )
+}
 
 function formatCut(cut: number): string {
   return String(cut).replace('.', ',')

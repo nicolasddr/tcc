@@ -1,12 +1,16 @@
 import { describe, it, expect } from 'vitest'
 import {
+  AGREEMENT_ALL_LABEL,
   AGREEMENT_BANDS,
   AGREEMENT_SOURCE,
   BAND_REFERENCE,
+  BAND_REFERENCE_LABEL,
   CELL_NOT_APPLICABLE,
   CELL_NOT_APPLICABLE_TITLE,
   CELL_UNRATED_LABEL,
   MATRIX_LEGEND,
+  OUTLIER_PAIR_RESULT,
+  OUTLIER_PAIR_SUMMARY,
   SMALL_SAMPLE_RATERS,
   SMALL_SAMPLE_RESPONSES,
   agreementBand,
@@ -14,6 +18,8 @@ import {
   bandTone,
   cellNotCalculableLabel,
   formatAlpha,
+  matrixVersionLabel,
+  matrixVersionNote,
   notCalculableMessage,
   sampleSize,
   smallSampleWarning,
@@ -66,6 +72,16 @@ describe('app/projects/[id]/rounds/agreement-labels — o coeficiente na tela', 
     expect(BAND_REFERENCE).toContain('0,667')
     expect(BAND_REFERENCE).toContain('0,8')
     expect(BAND_REFERENCE).toContain('não trava')
+  })
+
+  it('o rótulo curto da faixa é o começo da frase inteira', () => {
+    expect(BAND_REFERENCE_LABEL).toBe('Faixa de referência')
+    expect(BAND_REFERENCE.startsWith(BAND_REFERENCE_LABEL)).toBe(true)
+  })
+
+  it('a linha curta do par diz qual valor é o resultado, e a frase longa continua dizendo o mesmo', () => {
+    expect(OUTLIER_PAIR_RESULT).toBe(`O resultado da rodada é o valor ${AGREEMENT_ALL_LABEL}.`)
+    expect(OUTLIER_PAIR_SUMMARY).toContain(AGREEMENT_ALL_LABEL)
   })
 
   it('o N sai em unidades e avaliadores, no singular quando é um só', () => {
@@ -148,5 +164,13 @@ describe('app/projects/[id]/rounds/agreement-labels — o coeficiente na tela', 
     expect(MATRIX_LEGEND).toContain(CELL_NOT_APPLICABLE)
     expect(MATRIX_LEGEND).toContain(CELL_NOT_APPLICABLE_TITLE)
     expect(MATRIX_LEGEND).toContain('zero')
+  })
+
+  it('a versão da matriz tem rótulo curto e frase inteira, as duas com o número da rodada', () => {
+    expect(matrixVersionLabel(4)).toBe('Codebook v4 da rodada')
+    expect(matrixVersionNote(4)).toBe(
+      'A matriz é da versão de codebook que a rodada fixou, Codebook v4, e não da ' +
+        'versão vigente do projeto.',
+    )
   })
 })

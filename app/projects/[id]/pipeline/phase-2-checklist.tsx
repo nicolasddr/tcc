@@ -40,8 +40,7 @@ export function Phase2Checklist({
   const hint =
     blockers.length > 0
       ? `${blockers.length === 1 ? 'Falta 1 pendência' : `Faltam ${blockers.length} pendências`} para liberar o avanço.`
-      : 'Nenhuma rodada aberta e ao menos uma fechada. O avanço pede confirmação ' +
-        'antes de mudar qualquer coisa.'
+      : 'Tudo pronto. O avanço pede confirmação antes de mudar qualquer coisa.'
 
   return (
     <Panel
