@@ -22,7 +22,7 @@ export default async function NewProjectPage() {
     <PageShell
       header={
         <TopBar>
-          <BackLink href="/dashboard" />
+          <BackLink href="/dashboard">Meus projetos</BackLink>
         </TopBar>
       }
     >

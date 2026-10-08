@@ -27,7 +27,7 @@ export default async function ProfilePage() {
     <PageShell
       header={
         <TopBar>
-          <BackLink href="/dashboard" />
+          <BackLink href="/dashboard">Meus projetos</BackLink>
         </TopBar>
       }
     >

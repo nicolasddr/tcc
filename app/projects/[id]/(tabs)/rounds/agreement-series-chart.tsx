@@ -1,7 +1,6 @@
 import { Badge } from '@/app/components/ui/badge'
 import { Card } from '@/app/components/ui/card'
 import { EmptyState } from '@/app/components/ui/empty-state'
-import { OpenLink } from '@/app/components/ui/open-link'
 import { InfoTooltip } from '@/app/components/ui/tooltip'
 import { formatDate } from '@/app/notifications/labels'
 import { AgreementValue } from './agreement-panel'
@@ -162,21 +161,12 @@ function SeriesColumns({
   )
 }
 
-export function AgreementSeriesChart({
-  points,
-  projectId,
-}: {
-  points: SeriesPoint[]
-  projectId: string
-}) {
-  const roundsHref = `/projects/${projectId}/rounds`
-
+export function AgreementSeriesChart({ points }: { points: SeriesPoint[] }) {
   if (points.length === 0) {
     return (
       <EmptyState>
         Nenhuma rodada ainda. A série começa na primeira rodada, e cada rodada rende um
-        ponto sobre a versão de codebook que ela fixou.{' '}
-        <OpenLink href={roundsHref}>Abrir rodadas</OpenLink>
+        ponto sobre a versão de codebook que ela fixou.
       </EmptyState>
     )
   }
@@ -242,10 +232,6 @@ export function AgreementSeriesChart({
               : BAND_REFERENCE
           }
         />
-      </p>
-
-      <p className="m-0 text-xs">
-        <OpenLink href={roundsHref}>Abrir rodadas</OpenLink>
       </p>
     </div>
   )

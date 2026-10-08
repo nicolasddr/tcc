@@ -79,7 +79,7 @@ export default async function ProjectTabsLayout({
       width="wide"
       header={
         <TopBar>
-          <BackLink href="/dashboard" />
+          <BackLink href="/dashboard">Meus projetos</BackLink>
         </TopBar>
       }
     >

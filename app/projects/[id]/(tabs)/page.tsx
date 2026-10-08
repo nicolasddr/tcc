@@ -468,7 +468,7 @@ export default async function ProjectPage({
               hint="Um ponto por rodada, em ordem cronológica."
               help="Cada ponto traz a versão de codebook que a rodada fixou e a fase em que ela foi aberta. As Fases 2, 3 e 4 ficam na mesma série. Da última rodada da Fase 2 para a primeira da Fase 3 com a mesma versão de codebook, a diferença mostra o efeito de a LLM passar a receber o codebook. Na Fase 3, o codebook refinado entre rodadas deve aparecer como concordância maior na rodada seguinte. Na Fase 4, codebook e prompt não mudam: o que muda são os itens e os avaliadores, e cada rodada se lê ao lado da sua rodada de referência."
             >
-              <AgreementSeriesChart points={series} projectId={project.id} />
+              <AgreementSeriesChart points={series} />
             </Section>
           ) : null}
 
@@ -482,23 +482,24 @@ export default async function ProjectPage({
               hint={QUALITY_HINT}
               help={QUALITY_HELP}
             >
-              <div className="flex flex-col gap-3">
-                <QualityPanel pair={focusQuality} />
-                <p className="m-0 text-xs">
-                  <OpenLink href={`/projects/${project.id}/rounds`}>Abrir rodadas</OpenLink>
-                </p>
-              </div>
+              <QualityPanel pair={focusQuality} />
             </Section>
           ) : null}
 
-          {qualityPoints.length > 0 ? (
+          {qualityPoints.length > 1 ? (
             <Section
               title="Qualidade por rodada"
               hint={QUALITY_SERIES_HINT}
               help={QUALITY_SERIES_HELP}
             >
-              <QualitySeriesList points={qualityPoints} projectId={project.id} />
+              <QualitySeriesList points={qualityPoints} />
             </Section>
+          ) : null}
+
+          {series ? (
+            <p className="m-0 mt-4 text-xs">
+              <OpenLink href={`/projects/${project.id}/rounds`}>Abrir rodadas →</OpenLink>
+            </p>
           ) : null}
 
           {phase4 ? (

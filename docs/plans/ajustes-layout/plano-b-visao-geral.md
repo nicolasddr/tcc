@@ -4,7 +4,7 @@ Ajustes **03, 04 e 05** da referência visual `docs/plans/ajustes-layout/referen
 
 | Parte | Entrega | Commit sugerido | Estado |
 |---|---|---|---|
-| 1 | "← Meus projetos" e um só "Abrir rodadas" (ajustes 03 e 05) | `refactor(visao-geral): links de navegação sem repetição` | ⬜ |
+| 1 | "← Meus projetos" e um só "Abrir rodadas" (ajustes 03 e 05) | `refactor(visao-geral): links de navegação sem repetição` | ✅ |
 | 2 | Pendências junto do "Avançar fase" (ajuste 04) | `feat(visao-geral): pendências da fase no topo` | ⬜ |
 
 ## Contexto comum

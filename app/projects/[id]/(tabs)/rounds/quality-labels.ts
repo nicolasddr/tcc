@@ -58,10 +58,6 @@ export const QUALITY_SERIES_NOTE =
   'Um ponto por rodada, e nenhum valor que junte rodadas: cada distribuição descreve as ' +
   'versões de codebook e de prompt indicadas ao lado dela.'
 
-export const QUALITY_SERIES_NOTE_SINGLE =
-  'Um ponto por rodada, e nenhum valor que junte rodadas: a próxima rodada da ' +
-  `Fase ${PHASE_3} ou da Fase ${PHASE_4} rende o segundo ponto.`
-
 export const QUALITY_SERIES_NUMBERS = 'Ver os números de cada rodada'
 
 const SHARE_FORMAT = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 1 })

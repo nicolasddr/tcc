@@ -1,13 +1,11 @@
 import { Badge } from '@/app/components/ui/badge'
 import { Disclosure } from '@/app/components/ui/disclosure'
-import { OpenLink } from '@/app/components/ui/open-link'
 import { formatDate } from '@/app/notifications/labels'
 import type { Quality } from './quality'
 import { QualityBar, QualityScaleLegend } from './quality-bar'
 import { QualityValue } from './quality-panel'
 import {
   QUALITY_SERIES_NOTE,
-  QUALITY_SERIES_NOTE_SINGLE,
   QUALITY_SERIES_NUMBERS,
   QUALITY_UNRATED,
   QUALITY_UNRATED_WITHOUT_OUTLIERS,
@@ -77,13 +75,7 @@ function PointStatus({ point }: { point: QualitySeriesPoint }) {
   )
 }
 
-export function QualitySeriesList({
-  points,
-  projectId,
-}: {
-  points: QualitySeriesPoint[]
-  projectId: string
-}) {
+export function QualitySeriesList({ points }: { points: QualitySeriesPoint[] }) {
   return (
     <div className="flex flex-col gap-3">
       {phaseRuns(points).map((run) => (
@@ -134,13 +126,7 @@ export function QualitySeriesList({
         </ul>
       </Disclosure>
 
-      <p className="m-0 text-xs text-muted">
-        {points.length === 1 ? QUALITY_SERIES_NOTE_SINGLE : QUALITY_SERIES_NOTE}
-      </p>
-
-      <p className="m-0 text-xs">
-        <OpenLink href={`/projects/${projectId}/rounds`}>Abrir rodadas</OpenLink>
-      </p>
+      <p className="m-0 text-xs text-muted">{QUALITY_SERIES_NOTE}</p>
     </div>
   )
 }

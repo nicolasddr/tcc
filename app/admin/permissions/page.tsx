@@ -24,7 +24,7 @@ export default async function AdminPermissionsPage() {
     <PageShell
       header={
         <TopBar>
-          <BackLink href="/dashboard" />
+          <BackLink href="/dashboard">Meus projetos</BackLink>
         </TopBar>
       }
     >

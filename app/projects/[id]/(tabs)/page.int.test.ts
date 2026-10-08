@@ -61,12 +61,12 @@ import {
   QUALITY_SERIES_HELP,
   QUALITY_SERIES_HINT,
   QUALITY_SERIES_NOTE,
-  QUALITY_SERIES_NOTE_SINGLE,
   QUALITY_SERIES_NUMBERS,
 } from '@/app/projects/[id]/(tabs)/rounds/quality-labels'
 import { phaseRuns } from '@/app/projects/[id]/(tabs)/rounds/agreement-series'
 import { QualityMatrixTable } from '@/app/projects/[id]/(tabs)/rounds/quality-matrix-table'
 import { Section } from '@/app/components/ui/section'
+import { OpenLink } from '@/app/components/ui/open-link'
 import {
   AGREEMENT_ALL_LABEL,
   AGREEMENT_BANDS,
@@ -149,6 +149,18 @@ function elementWithProp(node: unknown, key: string, value: unknown): ReactEleme
     if (found) return found
   }
   return null
+}
+
+function roundsLinksOf(node: unknown, project: string): ReactElement[] {
+  if (Array.isArray(node)) return node.flatMap((child) => roundsLinksOf(child, project))
+  if (!isValidElement(node)) return []
+  const props = node.props as Record<string, unknown>
+  const own =
+    node.type === OpenLink && props.href === `/projects/${project}/rounds` ? [node] : []
+  return [
+    ...own,
+    ...Object.values(props).flatMap((child) => roundsLinksOf(child, project)),
+  ]
 }
 
 function typesOf(children: unknown): unknown[] {
@@ -1213,7 +1225,50 @@ describe('app/projects/[id]/page — escopo de visibilidade', () => {
     )
     expect(findElement(section, AgreementSeriesChart)).toBeNull()
     expect(sectionWith(tree, AgreementSeriesChart)).not.toBe(section)
-    expect(hasProp(section, 'href', `/projects/${project}/rounds`)).toBe(true)
+    expect(hasProp(section, 'href', `/projects/${project}/rounds`)).toBe(false)
+    expect(roundsLinksOf(tree, project)).toHaveLength(1)
+  })
+
+  it('com uma rodada fechada da Fase 2 e uma aberta da Fase 3, a visão geral tem um só "Abrir rodadas →", depois da Concordância e da Qualidade, e não repete a Qualidade por rodada', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin, PHASE_3)
+    const ana = await addActiveEvaluator(ownerDb, project, await newUser('Ana'))
+    const bruno = await addActiveEvaluator(ownerDb, project, await newUser('Bruno'))
+    const promptVersion = await addPromptVersion(ownerDb, project, admin)
+    const byEvaluator = { [ana]: QUALITY_NOTES.ana, [bruno]: QUALITY_NOTES.bruno }
+
+    await roundWith(project, admin, promptVersion, {
+      roundNumber: 1,
+      versionNumber: 1,
+      phase: PHASE_2,
+      byEvaluator,
+    })
+    await roundWith(project, admin, promptVersion, {
+      roundNumber: 2,
+      versionNumber: 2,
+      phase: PHASE_3,
+      status: 'open',
+      byEvaluator,
+    })
+
+    auth.userId = admin
+    const tree = await render(project)
+
+    expect(findElement(tree, QualityPanel)).toBeTruthy()
+    expect(findElement(tree, QualitySeriesList)).toBeNull()
+    expect(deepText(tree)).not.toContain('Qualidade por rodada')
+
+    const links = roundsLinksOf(tree, project)
+    expect(links).toHaveLength(1)
+    expect((links[0].props as { children: unknown }).children).toBe('Abrir rodadas →')
+    expect(seriesMarkupOf(tree)).not.toContain('Abrir rodadas')
+    expect(hasProp(sectionWith(tree, QualityPanel), 'href', `/projects/${project}/rounds`)).toBe(
+      false,
+    )
+
+    const page = deepText(tree)
+    expect(page.indexOf('Concordância por rodada')).toBeLessThan(page.indexOf('Abrir rodadas →'))
+    expect(page.indexOf('Qualidade na rodada 2')).toBeLessThan(page.indexOf('Abrir rodadas →'))
   })
 
   it('a visão geral não mostra Qualidade quando a rodada em foco é da Fase 2, mesmo com o projeto na Fase 3', async () => {
@@ -1259,8 +1314,7 @@ describe('app/projects/[id]/page — escopo de visibilidade', () => {
       auth.userId = admin
       const adminTree = await render(project)
       expect(qualityOf(adminTree).pair.all).toMatchObject({ total: 8 })
-      expect(qualitySeriesOf(adminTree).points).toHaveLength(1)
-      expect(qualitySeriesTextOf(adminTree)).toContain(QUALITY_SERIES_NOTE_SINGLE)
+      expect(findElement(adminTree, QualitySeriesList)).toBeNull()
       expect(findElement(await renderRounds(project), QualityMatrixTable)).toBeTruthy()
 
       auth.userId = evaluator
@@ -1347,7 +1401,6 @@ describe('app/projects/[id]/page — escopo de visibilidade', () => {
     expect(text).not.toContain(AGREEMENT_ALL_LABEL)
     expect(text).not.toContain('média')
     expect(text).toContain(QUALITY_SERIES_NOTE)
-    expect(text).not.toContain(QUALITY_SERIES_NOTE_SINGLE)
 
     const { bars, numbers } = qualitySeriesPartsOf(tree)
     expect(bars).toContain('title="Alto 62,5% (5) · Médio 25% (2) · Baixo 12,5% (1) · 8 notas"')
@@ -1368,9 +1421,10 @@ describe('app/projects/[id]/page — escopo de visibilidade', () => {
     expect((section!.props as { title: unknown }).title).toBe('Qualidade por rodada')
     expect(section).not.toBe(sectionWith(tree, QualityPanel))
     expect(section).not.toBe(sectionWith(tree, AgreementSeriesChart))
-    expect(
-      renderToStaticMarkup(createElement(QualitySeriesList, qualitySeriesOf(tree))),
-    ).toContain(`href="/projects/${project}/rounds"`)
+    expect(qualitySeriesMarkupOf(tree)).not.toContain(`href="/projects/${project}/rounds"`)
+    expect(roundsLinksOf(tree, project)).toHaveLength(1)
+    const page = deepText(tree)
+    expect(page.indexOf('Qualidade por rodada')).toBeLessThan(page.indexOf('Abrir rodadas →'))
   })
 
   it('as rodadas da Fase 2 não entram na série de Qualidade, e continuam na de Concordância', async () => {
@@ -1554,7 +1608,8 @@ describe('app/projects/[id]/page — escopo de visibilidade', () => {
 
     expect(seriesOf(tree).points).toEqual([])
     expect(seriesTextOf(tree)).toContain('começa na primeira rodada')
-    expect(seriesMarkupOf(tree)).toContain(`href="/projects/${project}/rounds"`)
+    expect(seriesMarkupOf(tree)).not.toContain(`href="/projects/${project}/rounds"`)
+    expect(roundsLinksOf(tree, project)).toHaveLength(1)
   })
 
   async function phaseSeriesScene(admin: string): Promise<string> {
@@ -1789,7 +1844,6 @@ describe('app/projects/[id]/page — escopo de visibilidade', () => {
     expect(QUALITY_SERIES_HELP).toContain(`da Fase ${PHASE_3} ou da Fase ${PHASE_4}`)
     expect(QUALITY_SERIES_HELP).toContain(`Fase ${PHASE_2} não entram`)
     expect(QUALITY_SERIES_HELP).toContain('ao lado da sua rodada de referência')
-    expect(QUALITY_SERIES_NOTE_SINGLE).toContain(`da Fase ${PHASE_3} ou da Fase ${PHASE_4}`)
 
     const admin = await newUser('Admin')
     const project = await phase4SeriesScene(admin)

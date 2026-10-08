@@ -6,7 +6,6 @@ import {
   QUALITY_SERIES_HELP,
   QUALITY_SERIES_HINT,
   QUALITY_SERIES_NOTE,
-  QUALITY_SERIES_NOTE_SINGLE,
   formatShare,
   levelShares,
   levelText,
@@ -70,7 +69,6 @@ describe('app/projects/[id]/rounds/quality-labels — a Qualidade na tela', () =
         QUALITY_SERIES_HINT,
         QUALITY_SERIES_HELP,
         QUALITY_SERIES_NOTE,
-        QUALITY_SERIES_NOTE_SINGLE,
       ]),
     )
   })
@@ -117,7 +115,6 @@ describe('app/projects/[id]/rounds/quality-labels — a Qualidade na tela', () =
       QUALITY_SERIES_HINT,
       QUALITY_SERIES_HELP,
       QUALITY_SERIES_NOTE,
-      QUALITY_SERIES_NOTE_SINGLE,
     ]) {
       expect(text).not.toMatch(/ICR|Krippendorff|concordância|faixa|confiáve|compar/i)
     }
