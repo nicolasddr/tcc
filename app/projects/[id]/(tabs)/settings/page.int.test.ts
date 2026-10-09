@@ -1,4 +1,4 @@
-// app/projects/[id]/settings/page.int.test.ts — teste de integração do ESCOPO da página
+// app/projects/[id]/(tabs)/settings/page.int.test.ts — teste de integração do ESCOPO da página
 // de configurações do projeto. Ela concentra edição, status e onboarding, então o portão
 // é mais estreito que o da página do projeto: só o Administrador ATIVO entra; para todo o
 // resto (avaliador do projeto inclusive) a página não existe.
@@ -24,7 +24,7 @@ vi.mock('next/navigation', () => ({
   },
 }))
 
-import ProjectSettingsPage from '@/app/projects/[id]/settings/page'
+import ProjectSettingsPage from '@/app/projects/[id]/(tabs)/settings/page'
 import { ownerDb } from '@/lib/db'
 import {
   createUser,

@@ -16,7 +16,7 @@ export function TabList({
     <div className={cx('overflow-x-auto', className)}>
       <div
         role="tablist"
-        className="inline-flex gap-1 rounded-[10px] border border-line bg-surface-subtle p-1"
+        className="flex w-max min-w-full gap-1 rounded-[10px] border border-line bg-surface-subtle p-1"
       >
         {children}
       </div>

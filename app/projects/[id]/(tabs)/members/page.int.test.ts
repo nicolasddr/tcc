@@ -1,4 +1,4 @@
-// app/projects/[id]/members/page.int.test.ts — teste de integração do ESCOPO da página
+// app/projects/[id]/(tabs)/members/page.int.test.ts — teste de integração do ESCOPO da página
 // de membros. A lista de membros (HU-025) é de quem já participa ATIVAMENTE: o
 // administrador e o avaliador ativo entram; quem ainda está em onboarding, o convidado
 // pendente e quem não participa esbarram no notFound.
@@ -25,7 +25,7 @@ vi.mock('next/navigation', () => ({
   },
 }))
 
-import ProjectMembersPage from '@/app/projects/[id]/members/page'
+import ProjectMembersPage from '@/app/projects/[id]/(tabs)/members/page'
 import { EvaluatorRolePanel } from '@/app/projects/[id]/evaluator-role'
 import { MemberList } from '@/app/projects/[id]/member-list'
 import { ownerDb } from '@/lib/db'

@@ -1993,7 +1993,7 @@ describe('app/projects/[id]/page — escopo de visibilidade', () => {
     }
   })
 
-  it('as abas por artefato são do Administrador; Membros é um chip fora das abas', async () => {
+  it('as abas por artefato e Ajustes são do Administrador; Membros é de quem participa ativamente', async () => {
     const admin = await newUser('Admin')
     const evaluator = await newUser('Avaliador')
     const project = await newProject(admin)
@@ -2008,16 +2008,26 @@ describe('app/projects/[id]/page — escopo de visibilidade', () => {
       expect(hasProp(evaluatorTabs, 'href', href)).toBe(false)
     }
 
+    const settings = `/projects/${project}/settings`
+    expect(hasProp(adminTabs, 'href', settings)).toBe(true)
+    expect(hasProp(evaluatorTabs, 'href', settings)).toBe(false)
+
     const members = `/projects/${project}/members`
     for (const tabs of [adminTabs, evaluatorTabs]) {
-      expect(hasProp(tabs, 'href', members)).toBe(false)
+      expect(hasProp(tabs, 'href', members)).toBe(true)
       expect(hasProp(tabs, 'href', `/projects/${project}/pipeline`)).toBe(false)
     }
+  })
 
-    for (const userId of [admin, evaluator]) {
-      auth.userId = userId
-      expect(hasProp(await renderLayout(project), 'href', members)).toBe(true)
-    }
+  it('quem ainda está em onboarding não tem a aba Membros nem a aba Ajustes', async () => {
+    const admin = await newUser('Admin')
+    const invited = await newUser('Convidado')
+    const project = await newProject(admin)
+    await addPendingMember(ownerDb, project, invited)
+
+    const tabs = await tabsOf(project, invited)
+    expect(hasProp(tabs, 'href', `/projects/${project}/members`)).toBe(false)
+    expect(hasProp(tabs, 'href', `/projects/${project}/settings`)).toBe(false)
   })
 
   it('a aba Rodadas é link para o Administrador e para o Avaliador, e só para eles', async () => {

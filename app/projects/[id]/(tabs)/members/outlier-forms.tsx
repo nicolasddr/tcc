@@ -5,7 +5,7 @@ import {
   markOutlier,
   unmarkOutlier,
   type OutlierState,
-} from '../(tabs)/rounds/outlier-actions'
+} from '../rounds/outlier-actions'
 import { OUTLIER_REASON_MAX } from '@/lib/limits'
 import { SubmitButton } from '@/app/components/submit-button'
 import { Alert } from '@/app/components/ui/alert'

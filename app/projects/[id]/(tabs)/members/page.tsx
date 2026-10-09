@@ -3,25 +3,18 @@ import { and, eq } from 'drizzle-orm'
 import { requireUserId } from '@/lib/supabase/server'
 import { transaction, projects, projectMembers, type DbExecutor } from '@/lib/db'
 import { countSubmittedEvaluations, listProjectMembers } from '@/lib/authz'
-import { groupMembers, participationByUser } from '../../members'
-import { evaluatorLinkOf } from '../../evaluator-link'
-import { listEvaluatorEffort } from '../(tabs)/rounds/agreement'
-import { loadOutlierHistory, loadRoundOutliers } from '../(tabs)/rounds/outliers'
-import { loadEvaluatorParticipation } from '../(tabs)/rounds/participation'
-import { listRoundsWithEvaluations } from '../(tabs)/rounds/rounds'
-import { MemberList } from '../member-list'
-import { EvaluatorRolePanel } from '../evaluator-role'
-import { InviteEvaluatorForm } from '../invite-evaluator-form'
+import { groupMembers, participationByUser } from '../../../members'
+import { evaluatorLinkOf } from '../../../evaluator-link'
+import { listEvaluatorEffort } from '../rounds/agreement'
+import { loadOutlierHistory, loadRoundOutliers } from '../rounds/outliers'
+import { loadEvaluatorParticipation } from '../rounds/participation'
+import { listRoundsWithEvaluations } from '../rounds/rounds'
+import { MemberList } from '../../member-list'
+import { EvaluatorRolePanel } from '../../evaluator-role'
+import { InviteEvaluatorForm } from '../../invite-evaluator-form'
 import { OutlierPanel, type OutlierPanelData } from './outlier-panel'
 import { EmptyState } from '@/app/components/ui/empty-state'
 import { Section } from '@/app/components/ui/section'
-import {
-  PageShell,
-  TopBar,
-  BackLink,
-  PageTitle,
-  PageSubtitle,
-} from '@/app/components/ui/shell'
 
 const EMPTY_OUTLIERS: OutlierPanelData = {
   rounds: [],
@@ -105,18 +98,8 @@ export default async function ProjectMembersPage({
   const members = groupMembers(memberRows)
 
   return (
-    <PageShell
-      header={
-        <TopBar>
-          <BackLink href={`/projects/${id}`}>Voltar ao projeto</BackLink>
-        </TopBar>
-      }
-    >
-      <PageTitle>Membros</PageTitle>
-      <PageSubtitle>{project.name}</PageSubtitle>
-
+    <div className="max-w-3xl">
       <Section
-        divider={false}
         title="Equipe do projeto"
         hint={
           isAdmin
@@ -173,6 +156,6 @@ export default async function ProjectMembersPage({
           />
         </Section>
       ) : null}
-    </PageShell>
+    </div>
   )
 }

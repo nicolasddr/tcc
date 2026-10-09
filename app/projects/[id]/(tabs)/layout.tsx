@@ -6,9 +6,7 @@ import { taskTypeLabel } from '../../task-types'
 import { projectStatusLabel, roleLabel } from '../../labels'
 import { ProjectTabs } from '../project-tabs'
 import { Badge, StatusBadge } from '@/app/components/ui/badge'
-import { Chip, ChipLink } from '@/app/components/ui/chip'
 import { PageShell, TopBar, BackLink, PageTitle } from '@/app/components/ui/shell'
-import { UsersIcon, SlidersIcon, TagIcon, UserIcon } from '@/app/components/ui/icons'
 import { InfoTooltip } from '@/app/components/ui/tooltip'
 
 export default async function ProjectTabsLayout({
@@ -72,7 +70,9 @@ export default async function ProjectTabsLayout({
   )
   const isActiveMember = memberships.some((m) => m.status === 'active')
   const isMember = memberships.length > 0
-  const taskType = taskTypeLabel(project.taskType)
+  const summary = [taskTypeLabel(project.taskType), roles.join(' e ')]
+    .filter(Boolean)
+    .join(' · ')
 
   return (
     <PageShell
@@ -97,31 +97,14 @@ export default async function ProjectTabsLayout({
           ) : null}
         </div>
 
-        <div className="mt-3 flex flex-wrap gap-1.5">
-          {taskType ? <Chip icon={<TagIcon />}>{taskType}</Chip> : null}
-          {roles.length > 0 ? (
-            <Chip icon={<UserIcon />}>{roles.join(' · ')}</Chip>
-          ) : null}
-          {isActiveMember ? (
-            <ChipLink href={`/projects/${project.id}/members`} icon={<UsersIcon />}>
-              Membros
-            </ChipLink>
-          ) : null}
-          {isAdmin ? (
-            <ChipLink
-              href={`/projects/${project.id}/settings`}
-              icon={<SlidersIcon />}
-            >
-              Ajustes
-            </ChipLink>
-          ) : null}
-        </div>
+        {summary ? <p className="mt-1.5 text-sm text-muted">{summary}</p> : null}
 
         {isMember ? (
           <ProjectTabs
             projectId={project.id}
             isAdmin={isAdmin}
             isEvaluator={isEvaluator}
+            isActiveMember={isActiveMember}
           />
         ) : null}
       </header>

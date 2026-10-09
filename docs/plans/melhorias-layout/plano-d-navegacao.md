@@ -4,7 +4,7 @@ Sugestão **Navegação** da referência visual: `docs/plans/melhorias-layout/re
 
 | Parte | Entrega | Commit sugerido | Estado |
 |---|---|---|---|
-| 1 | Membros e Ajustes viram abas e os chips informativos viram uma linha de texto | `feat(projeto): membros e ajustes como abas` | ⬜ |
+| 1 | Membros e Ajustes viram abas e os chips informativos viram uma linha de texto | `feat(projeto): membros e ajustes como abas` | ✅ |
 | 2 | Perguntas e Respostas de onboarding como subpáginas, nova ordem em Membros e Ajustes sem o bloco da equipe | `refactor(projeto): subpáginas de ajustes e membros` | ⬜ |
 
 O cabeçalho e as abas valem para todas as telas do projeto, por isso este plano vem antes do Plano E

@@ -22,8 +22,17 @@ describe('app/projects/[id]/project-tabs — a aba ativa sai da rota', () => {
     expect(activeTab(path('/prompt/v1'), project)).toBe('prompt')
   })
 
+  it('Membros e Ajustes marcam a sua aba', () => {
+    expect(activeTab(path('/members'), project)).toBe('members')
+    expect(activeTab(path('/settings'), project)).toBe('settings')
+  })
+
+  it('as subpáginas de onboarding ficam na aba de onde se chega a elas', () => {
+    expect(activeTab(path('/profile-answers/u1'), project)).toBe('members')
+    expect(activeTab(path('/questions'), project)).toBe('settings')
+  })
+
   it('rota fora das abas não marca aba de artefato nenhuma', () => {
-    expect(activeTab(path('/members'), project)).toBe('overview')
-    expect(activeTab(path('/settings'), project)).toBe('overview')
+    expect(activeTab(path('/onboarding'), project)).toBe('overview')
   })
 })

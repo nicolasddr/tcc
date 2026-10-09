@@ -3,16 +3,9 @@ import { and, eq } from 'drizzle-orm'
 import { requireUserId } from '@/lib/supabase/server'
 import { transaction, projects, projectMembers } from '@/lib/db'
 import { formatDate } from '@/app/notifications/labels'
-import { ManageProject } from '../manage-project'
+import { ManageProject } from '../../manage-project'
 import { ButtonLink } from '@/app/components/ui/button'
 import { Section } from '@/app/components/ui/section'
-import {
-  PageShell,
-  TopBar,
-  BackLink,
-  PageTitle,
-  PageSubtitle,
-} from '@/app/components/ui/shell'
 
 export default async function ProjectSettingsPage({
   params,
@@ -52,21 +45,12 @@ export default async function ProjectSettingsPage({
   if (!project || !isAdmin) notFound()
 
   return (
-    <PageShell
-      header={
-        <TopBar>
-          <BackLink href={`/projects/${id}`}>Voltar ao projeto</BackLink>
-        </TopBar>
-      }
-    >
-      <PageTitle>Ajustes do projeto</PageTitle>
-      <PageSubtitle className="mb-0">{project.name}</PageSubtitle>
-      <p className="mt-1 mb-6 text-sm text-muted">
+    <div className="max-w-3xl">
+      <p className="mt-6 text-sm text-muted">
         Data de criação do projeto: {formatDate(project.createdAt)}
       </p>
 
       <Section
-        divider={false}
         title="Onboarding dos avaliadores"
         hint="As perguntas que os avaliadores respondem ao entrar no projeto."
         help="Cada pergunta pode ser aberta ou de múltipla escolha, e todas são obrigatórias para o avaliador concluir o onboarding."
@@ -94,6 +78,6 @@ export default async function ProjectSettingsPage({
         name={project.name}
         description={project.description}
       />
-    </PageShell>
+    </div>
   )
 }

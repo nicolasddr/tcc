@@ -9,6 +9,8 @@ import {
   FileTextIcon,
   ListIcon,
   CheckCircleIcon,
+  UsersIcon,
+  SlidersIcon,
 } from '@/app/components/ui/icons'
 
 const soon = 'Ainda não implementado'
@@ -20,6 +22,8 @@ export type ProjectTab =
   | 'items'
   | 'rounds'
   | 'evaluate'
+  | 'members'
+  | 'settings'
 
 export function activeTab(pathname: string, projectId: string): ProjectTab {
   const rest = pathname.slice(`/projects/${projectId}`.length).split('/')[1]
@@ -34,6 +38,12 @@ export function activeTab(pathname: string, projectId: string): ProjectTab {
       return 'rounds'
     case 'evaluate':
       return 'evaluate'
+    case 'members':
+    case 'profile-answers':
+      return 'members'
+    case 'settings':
+    case 'questions':
+      return 'settings'
     default:
       return 'overview'
   }
@@ -43,10 +53,12 @@ export function ProjectTabs({
   projectId,
   isAdmin,
   isEvaluator,
+  isActiveMember,
 }: {
   projectId: string
   isAdmin: boolean
   isEvaluator: boolean
+  isActiveMember: boolean
 }) {
   const active = activeTab(usePathname() ?? '', projectId)
 
@@ -108,6 +120,30 @@ export function ProjectTabs({
         >
           Avaliar
         </Tab>
+      ) : null}
+
+      {isActiveMember || isAdmin ? (
+        <span className="ml-auto flex gap-1">
+          <span aria-hidden="true" className="mx-1 my-1.5 w-px bg-line" />
+          {isActiveMember ? (
+            <Tab
+              icon={<UsersIcon />}
+              href={`/projects/${projectId}/members`}
+              active={active === 'members'}
+            >
+              Membros
+            </Tab>
+          ) : null}
+          {isAdmin ? (
+            <Tab
+              icon={<SlidersIcon />}
+              href={`/projects/${projectId}/settings`}
+              active={active === 'settings'}
+            >
+              Ajustes
+            </Tab>
+          ) : null}
+        </span>
       ) : null}
     </TabList>
   )
