@@ -27,6 +27,7 @@ import { NewRound } from './new-round'
 import { CloseRound } from './close-round'
 import { GenerateResponses } from './generate-responses'
 import { RoundList } from './round-list'
+import { GENERATE_PANEL_ID, OpenRoundCard } from './open-round-card'
 import { EvaluatorRounds } from './evaluator-rounds'
 import { listReviewableRounds } from './review'
 import { requireReviewAccess } from './review-access'
@@ -51,16 +52,20 @@ import { PHASE_4 } from '../../pipeline/preconditions'
 import { llmModel } from '@/lib/ai'
 import { projectResponsesLeft, projectResponsesMax } from '@/lib/ai/quota'
 import { Section } from '@/app/components/ui/section'
+import { ButtonLink } from '@/app/components/ui/button'
 import { formatDate } from '@/app/notifications/labels'
 
 const EMPTY_SET: ReadonlySet<string> = new Set<string>()
 
 export default async function ProjectRoundsPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>
+  searchParams: Promise<{ gerar?: string }>
 }) {
   const { id } = await params
+  const query = await searchParams
   const userId = await requireUserId()
 
   const {
@@ -177,6 +182,14 @@ export default async function ProjectRoundsPage({
     ),
   }
 
+  const openSummary = openRound
+    ? rounds.find((round) => round.id === openRound.id)
+    : undefined
+  const answeredItems = new Set(generated.map((response) => response.itemId))
+  const unanswered = items.filter((item) => !answeredItems.has(item.id)).length
+  const roundsHref = `/projects/${project.id}/rounds`
+  const generating = query.gerar !== undefined
+
   const codebookVersionNumber = codebook?.version?.versionNumber ?? null
   const promptVersionNumber = prompt?.version?.versionNumber ?? null
 
@@ -194,39 +207,24 @@ export default async function ProjectRoundsPage({
 
   return (
     <>
-      {openRound ? (
-        <>
-          <Section
-            title={`Gerar respostas na rodada ${openRound.roundNumber}`}
-            hint="De 1 a 5 itens por geração, e cada item produz exatamente uma resposta."
-            help="Cada resposta grava origem, modelo, versão do modelo e as versões de codebook e de prompt que esta rodada fixou."
-          >
-            <GenerateResponses
-              projectId={project.id}
-              round={openRound}
-              items={items}
-              generated={generated}
-              model={llmModel()}
-              responsesLeft={projectResponsesLeft(project.id)}
-              responsesMax={projectResponsesMax()}
-            />
-          </Section>
-
-          <Section
-            title={`Rodada ${openRound.roundNumber} aberta`}
-            hint="Só existe uma rodada aberta por projeto."
-            help="Fechar é ação sua, é irreversível e não depende de todos terem terminado."
-          >
+      {openRound && openSummary ? (
+        <OpenRoundCard
+          round={openSummary}
+          generateHref={`${roundsHref}?gerar=1#${GENERATE_PANEL_ID}`}
+          effort={effort}
+          excluded={new Set(focusOutliers.map((mark) => mark.projectMemberId))}
+          {...(focusParticipation ? { participation: focusParticipation } : {})}
+          generated={generated}
+          unanswered={unanswered}
+          close={
             <CloseRound
               projectId={project.id}
               round={openRound}
               evaluatorsNotFinished={evaluatorsNotFinished(effort, generated.length)}
               activeEvaluators={effort.filter(isActiveEvaluator).length}
-              codebookVersionNumber={codebookVersionNumber}
-              promptVersionNumber={promptVersionNumber}
             />
-          </Section>
-        </>
+          }
+        />
       ) : (
         <Section
           title="Nova rodada"
@@ -241,6 +239,31 @@ export default async function ProjectRoundsPage({
           />
         </Section>
       )}
+
+      {openRound && generating ? (
+        <Section
+          id={GENERATE_PANEL_ID}
+          className="scroll-mt-6"
+          title={`Gerar respostas na rodada ${openRound.roundNumber}`}
+          hint="De 1 a 5 itens por geração, e cada item produz exatamente uma resposta."
+          help="Cada resposta grava origem, modelo, versão do modelo e as versões de codebook e de prompt que esta rodada fixou."
+          action={
+            <ButtonLink href={roundsHref} variant="secondary" size="sm">
+              Cancelar
+            </ButtonLink>
+          }
+        >
+          <GenerateResponses
+            projectId={project.id}
+            round={openRound}
+            items={items}
+            generated={generated}
+            model={llmModel()}
+            responsesLeft={projectResponsesLeft(project.id)}
+            responsesMax={projectResponsesMax()}
+          />
+        </Section>
+      ) : null}
 
       {focusRound && hasReadingGuidance(focusRound.phase) ? (
         <ReadingGuidanceNote
@@ -291,9 +314,11 @@ export default async function ProjectRoundsPage({
             <AgreementPanel
               pair={focusPair}
               responses={responses}
-              effort={effort}
+              effort={openRound ? [] : effort}
               outliers={focusOutliers}
-              {...(focusParticipation ? { participation: focusParticipation } : {})}
+              {...(focusParticipation && !openRound
+                ? { participation: focusParticipation }
+                : {})}
             />
 
             <AgreementMatrixTable

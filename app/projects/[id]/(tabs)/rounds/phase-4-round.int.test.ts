@@ -112,7 +112,10 @@ function findElement(node: unknown, type: unknown): ReactElement | null {
 }
 
 async function generateOf(projectId: string): Promise<GenerateProps> {
-  const tree = await ProjectRoundsPage({ params: Promise.resolve({ id: projectId }) })
+  const tree = await ProjectRoundsPage({
+    params: Promise.resolve({ id: projectId }),
+    searchParams: Promise.resolve({ gerar: '1' }),
+  })
   const element = findElement(tree, GenerateResponses)
   expect(element).toBeTruthy()
   return element!.props as GenerateProps

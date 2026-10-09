@@ -20,11 +20,12 @@ import type { RoundResponse } from '../../pipeline/responses'
 import { itemPreview } from '../../pipeline/item-preview'
 import { itemUsageMark } from '../../round-usage'
 import { RoundMarkBadge } from '../../round-mark-badge'
-import { formatDate } from '@/app/notifications/labels'
+import { plural } from '@/lib/plural'
 import { Alert } from '@/app/components/ui/alert'
 import { Badge } from '@/app/components/ui/badge'
 import { Button } from '@/app/components/ui/button'
 import { Card } from '@/app/components/ui/card'
+import { Disclosure } from '@/app/components/ui/disclosure'
 import { EmptyState } from '@/app/components/ui/empty-state'
 import { Form, FormActions } from '@/app/components/ui/form'
 import { InfoTooltip } from '@/app/components/ui/tooltip'
@@ -62,6 +63,7 @@ export function GenerateResponses({
   const usedInRound = generated.map((response) => response.itemId)
   const usedHere = new Set(usedInRound)
   const available = items.filter((item) => !usedHere.has(item.id))
+  const answered = items.filter((item) => usedHere.has(item.id))
 
   const max = generationMax(responsesLeft)
   const outOfQuota = responsesLeft === 0
@@ -106,6 +108,45 @@ export function GenerateResponses({
     formRef.current?.scrollIntoView({ block: 'start' })
   }
 
+  function renderItem(item: InputItem) {
+    const used = usedHere.has(item.id)
+    const checked = selected.includes(item.id)
+    const usage = itemUsageMark(item.rounds)
+
+    return (
+      <li key={item.id}>
+        <Card padding="sm" tone={used ? 'subtle' : 'default'}>
+          <label className={`flex gap-2.5 ${used ? 'cursor-default' : 'cursor-pointer'}`}>
+            <input
+              type="checkbox"
+              name="item_ids"
+              value={item.id}
+              checked={checked}
+              disabled={used || pending || outOfQuota || (atMax && !checked)}
+              onChange={(event) => toggle(item.id, event.target.checked)}
+              className="mt-[3px] h-4 w-4 shrink-0 accent-brand"
+            />
+            <span className="flex min-w-0 flex-col gap-1">
+              <span className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                <span className={`text-sm font-semibold ${used ? 'text-muted' : 'text-ink'}`}>
+                  {item.name}
+                </span>
+                {used ? (
+                  <Badge tone="info">já respondido nesta rodada</Badge>
+                ) : usage ? (
+                  <RoundMarkBadge mark={usage} />
+                ) : null}
+              </span>
+              <span className="text-[13px] break-words text-muted">
+                {itemPreview(item.content)}
+              </span>
+            </span>
+          </label>
+        </Card>
+      </li>
+    )
+  }
+
   if (items.length === 0) {
     return (
       <EmptyState>
@@ -131,50 +172,25 @@ export function GenerateResponses({
           </p>
         </div>
 
-        <ul className="m-0 flex list-none flex-col gap-2 p-0">
-          {items.map((item) => {
-            const used = usedHere.has(item.id)
-            const checked = selected.includes(item.id)
-            const usage = itemUsageMark(item.rounds)
+        {available.length > 0 ? (
+          <ul className="m-0 flex list-none flex-col gap-2 p-0">
+            {available.map(renderItem)}
+          </ul>
+        ) : null}
 
-            return (
-              <li key={item.id}>
-                <Card padding="sm" tone={used ? 'subtle' : 'default'}>
-                  <label
-                    className={`flex gap-2.5 ${used ? 'cursor-default' : 'cursor-pointer'}`}
-                  >
-                    <input
-                      type="checkbox"
-                      name="item_ids"
-                      value={item.id}
-                      checked={checked}
-                      disabled={used || pending || outOfQuota || (atMax && !checked)}
-                      onChange={(event) => toggle(item.id, event.target.checked)}
-                      className="mt-[3px] h-4 w-4 shrink-0 accent-brand"
-                    />
-                    <span className="flex min-w-0 flex-col gap-1">
-                      <span className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-                        <span
-                          className={`text-sm font-semibold ${used ? 'text-muted' : 'text-ink'}`}
-                        >
-                          {item.name}
-                        </span>
-                        {used ? (
-                          <Badge tone="info">já respondido nesta rodada</Badge>
-                        ) : usage ? (
-                          <RoundMarkBadge mark={usage} />
-                        ) : null}
-                      </span>
-                      <span className="text-[13px] break-words text-muted">
-                        {itemPreview(item.content)}
-                      </span>
-                    </span>
-                  </label>
-                </Card>
-              </li>
-            )
-          })}
-        </ul>
+        {answered.length > 0 ? (
+          <Disclosure
+            summary={plural(
+              answered.length,
+              'item já respondido nesta rodada',
+              'itens já respondidos nesta rodada',
+            )}
+          >
+            <ul className="m-0 mt-2 flex list-none flex-col gap-2 p-0">
+              {answered.map(renderItem)}
+            </ul>
+          </Disclosure>
+        ) : null}
 
         {available.length === 0 ? (
           <p className="m-0 text-[13px] text-muted">
@@ -253,28 +269,6 @@ export function GenerateResponses({
         </Card>
       ) : null}
 
-      <div className="flex flex-col gap-2">
-        <p className="m-0 text-[13px] font-semibold text-ink">
-          Respostas da rodada {round.roundNumber}
-        </p>
-        {generated.length === 0 ? (
-          <p className="m-0 text-[13px] text-muted">
-            Nenhuma resposta gerada nesta rodada ainda.
-          </p>
-        ) : (
-          <ul className="m-0 flex list-none flex-col gap-1.5 p-0">
-            {generated.map((response) => (
-              <li
-                key={response.id}
-                className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px]"
-              >
-                <span className="font-semibold text-ink">{response.itemName}</span>
-                <span className="text-muted">{formatDate(response.createdAt)}</span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
     </div>
   )
 }

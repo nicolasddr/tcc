@@ -1,11 +1,10 @@
 import { plural } from '@/lib/plural'
 import type { Agreement } from '@/lib/agreement'
 import type { EvaluatorEffort } from './agreement'
+import { EffortList } from './effort-list'
 import type { AgreementPair } from './agreement-pair'
 import type { OutlierMark } from './outliers'
-import { PARTICIPATION_HELP } from './participation-labels'
 import type { RoundMark } from '../../round-usage'
-import { RoundMarkBadge } from '../../round-mark-badge'
 import {
   AGREEMENT_ALL_LABEL,
   AGREEMENT_LABEL,
@@ -40,11 +39,6 @@ export type ResponseCounts = { all: number; withoutOutliers: number }
 const reasonClass =
   'm-0 mt-1.5 rounded-card border border-line bg-surface px-3 py-2 text-[13px] text-ink'
 
-const DEACTIVATED_HELP =
-  'O avaliador desativado continua nesta lista porque as notas que ele enviou nesta ' +
-  'rodada continuam gravadas e continuam no cálculo. Desativar é sobre acesso, e só ' +
-  'tira a pessoa do acompanhamento de quem ainda falta terminar.'
-
 function BandBadge({ alpha }: { alpha: number }) {
   const band = agreementBand(alpha)
   return <Badge tone={bandTone(band)}>{bandLabel(band)}</Badge>
@@ -70,57 +64,6 @@ function AgreementStat({
       badge={agreement.calculable ? <BandBadge alpha={agreement.alpha} /> : null}
       hint={hint}
     />
-  )
-}
-
-function EffortList({
-  effort,
-  excluded,
-  participation,
-}: {
-  effort: EvaluatorEffort[]
-  excluded: ReadonlySet<string>
-  participation?: Readonly<Record<string, RoundMark>>
-}) {
-  if (effort.length === 0) return null
-
-  const deactivated = effort.some((evaluator) => evaluator.status !== 'active')
-  const marked = effort.some((evaluator) => participation?.[evaluator.projectMemberId])
-  const help = [deactivated ? DEACTIVATED_HELP : null, marked ? PARTICIPATION_HELP : null]
-    .filter((text) => text !== null)
-    .join('\n\n')
-
-  return (
-    <Card tone="subtle" padding="sm">
-      <span className="flex flex-wrap items-center gap-2 text-[13px] font-semibold text-label">
-        Avaliações enviadas por avaliador
-        {help ? <InfoTooltip text={help} /> : null}
-      </span>
-      <ul className="m-0 mt-2 flex list-none flex-col gap-1 p-0">
-        {effort.map((evaluator) => (
-          <li
-            key={evaluator.projectMemberId}
-            className="flex flex-wrap items-baseline justify-between gap-x-3 text-[13px] text-muted"
-          >
-            <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
-              <span className="text-ink">{evaluator.name}</span>
-              {excluded.has(evaluator.projectMemberId) ? (
-                <Badge tone="warning">outlier</Badge>
-              ) : null}
-              {evaluator.status === 'active' ? null : (
-                <Badge tone="neutral">desativado</Badge>
-              )}
-              {participation?.[evaluator.projectMemberId] ? (
-                <RoundMarkBadge mark={participation[evaluator.projectMemberId]} />
-              ) : null}
-            </span>
-            <span>
-              {plural(evaluator.submitted, 'avaliação enviada', 'avaliações enviadas')}
-            </span>
-          </li>
-        ))}
-      </ul>
-    </Card>
   )
 }
 
@@ -266,7 +209,16 @@ export function AgreementPanel({
         </Alert>
       ))}
 
-      <EffortList effort={effort} excluded={excluded} participation={participation} />
+      {effort.length > 0 ? (
+        <Card tone="subtle" padding="sm">
+          <EffortList
+            title="Avaliações enviadas por avaliador"
+            effort={effort}
+            excluded={excluded}
+            participation={participation}
+          />
+        </Card>
+      ) : null}
     </div>
   )
 }

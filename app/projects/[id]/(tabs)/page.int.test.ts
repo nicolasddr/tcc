@@ -216,7 +216,10 @@ function render(id: string) {
 }
 
 function renderRounds(id: string) {
-  return ProjectRoundsPage({ params: Promise.resolve({ id }) })
+  return ProjectRoundsPage({
+    params: Promise.resolve({ id }),
+    searchParams: Promise.resolve({}),
+  })
 }
 
 function renderLayout(id: string) {

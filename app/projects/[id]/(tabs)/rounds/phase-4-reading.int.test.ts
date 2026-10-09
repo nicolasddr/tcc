@@ -25,6 +25,7 @@ vi.mock('next/navigation', () => ({
 import ProjectRoundsPage from '@/app/projects/[id]/(tabs)/rounds/page'
 import { RoundList } from '@/app/projects/[id]/(tabs)/rounds/round-list'
 import { AgreementPanel } from '@/app/projects/[id]/(tabs)/rounds/agreement-panel'
+import { OpenRoundCard } from '@/app/projects/[id]/(tabs)/rounds/open-round-card'
 import { QualityPanel } from '@/app/projects/[id]/(tabs)/rounds/quality-panel'
 import { formatShare } from '@/app/projects/[id]/(tabs)/rounds/quality-labels'
 import type { Quality } from '@/app/projects/[id]/(tabs)/rounds/quality'
@@ -178,13 +179,22 @@ type ChangesProps = Parameters<typeof RoundChangeChips>[0]
 type CodebookShape = Parameters<typeof addCodebookVersion>[3]
 
 function render(id: string) {
-  return ProjectRoundsPage({ params: Promise.resolve({ id }) })
+  return ProjectRoundsPage({
+    params: Promise.resolve({ id }),
+    searchParams: Promise.resolve({}),
+  })
 }
 
 function listOf(tree: unknown): ListProps {
   const element = findElement(tree, RoundList)
   expect(element).toBeTruthy()
   return element!.props as ListProps
+}
+
+function cardOf(tree: unknown): Parameters<typeof OpenRoundCard>[0] {
+  const element = findElement(tree, OpenRoundCard)
+  expect(element).toBeTruthy()
+  return element!.props as Parameters<typeof OpenRoundCard>[0]
 }
 
 function panelOf(tree: unknown): PanelProps {
@@ -882,7 +892,12 @@ describe('app/projects/[id]/rounds — a rodada da Fase 4 ao lado da rodada de r
     const tree = await render(scene.project)
 
     const mark = { short: PARTICIPATED_BEFORE, full: 'avaliou na rodada 1 (Fase 3)' }
-    expect(panelOf(tree).participation).toEqual({ [scene.ana]: mark, [scene.bruno]: mark })
+    expect(cardOf(tree).participation).toEqual({ [scene.ana]: mark, [scene.bruno]: mark })
+    expect(panelOf(tree).participation).toBeUndefined()
+
+    const text = markupTextOf(createElement(OpenRoundCard, cardOf(tree)))
+    expect(text).toContain('Ana já avaliou antes')
+    expect(text).toContain('Bruno já avaliou antes')
   })
 
   it('depois de um retorno e de um novo avanço, a marca lista todas as rodadas anteriores', async () => {
@@ -897,7 +912,7 @@ describe('app/projects/[id]/rounds — a rodada da Fase 4 ao lado da rodada de r
     auth.userId = admin
     const tree = await render(scene.project)
 
-    expect(panelOf(tree).participation?.[scene.ana]?.full).toBe(
+    expect(cardOf(tree).participation?.[scene.ana]?.full).toBe(
       'avaliou nas rodadas 1 (Fase 3), 2 (Fase 4) e 3 (Fase 3)',
     )
   })

@@ -30,6 +30,10 @@ import { NewRound } from '@/app/projects/[id]/(tabs)/rounds/new-round'
 import { CloseRound } from '@/app/projects/[id]/(tabs)/rounds/close-round'
 import { GenerateResponses } from '@/app/projects/[id]/(tabs)/rounds/generate-responses'
 import {
+  OpenRoundCard,
+  openRoundHelp,
+} from '@/app/projects/[id]/(tabs)/rounds/open-round-card'
+import {
   AgreementPanel,
   AgreementValue,
 } from '@/app/projects/[id]/(tabs)/rounds/agreement-panel'
@@ -62,7 +66,7 @@ import {
   matrixVersionNote,
 } from '@/app/projects/[id]/(tabs)/rounds/agreement-labels'
 import { Section } from '@/app/components/ui/section'
-import { ButtonLink } from '@/app/components/ui/button'
+import { ButtonLink, buttonClass } from '@/app/components/ui/button'
 import { InfoTooltip } from '@/app/components/ui/tooltip'
 import { loadCodebookVersion } from '@/app/projects/[id]/pipeline/codebook'
 import { resolveCells } from '@/app/projects/[id]/pipeline/criteria'
@@ -76,6 +80,7 @@ import {
 import {
   closeConfirmationLines,
   codebookLockedMessage,
+  openRoundSummary,
   pendingEvaluatorsTitle,
   phase4RoundLockedMessage,
   roundBlockerMessage,
@@ -212,6 +217,7 @@ type ListProps = Parameters<typeof RoundList>[0]
 type NewRoundProps = Parameters<typeof NewRound>[0]
 type CloseRoundProps = Parameters<typeof CloseRound>[0]
 type GenerateProps = Parameters<typeof GenerateResponses>[0]
+type CardProps = Parameters<typeof OpenRoundCard>[0]
 type PanelProps = Parameters<typeof AgreementPanel>[0]
 type MatrixProps = Parameters<typeof AgreementMatrixTable>[0]
 type EvaluatorProps = Parameters<typeof EvaluatorRounds>[0]
@@ -228,8 +234,11 @@ const GUIDANCE_TEXTS = [
   notCalculableGuidance('no_variation'),
 ]
 
-function render(id: string) {
-  return ProjectRoundsPage({ params: Promise.resolve({ id }) })
+function render(id: string, query: { gerar?: string } = {}) {
+  return ProjectRoundsPage({
+    params: Promise.resolve({ id }),
+    searchParams: Promise.resolve(query),
+  })
 }
 
 function listOf(tree: unknown): ListProps {
@@ -254,6 +263,16 @@ function generateOf(tree: unknown): GenerateProps {
   const element = findElement(tree, GenerateResponses)
   expect(element).toBeTruthy()
   return element!.props as GenerateProps
+}
+
+function cardOf(tree: unknown): CardProps {
+  const element = findElement(tree, OpenRoundCard)
+  expect(element).toBeTruthy()
+  return element!.props as CardProps
+}
+
+function cardTextOf(tree: unknown): string {
+  return markupTextOf(createElement(OpenRoundCard, cardOf(tree)))
 }
 
 function panelOf(tree: unknown): PanelProps {
@@ -747,9 +766,10 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
 
     const close = closeRoundOf(tree)
     expect(close.round.phase).toBe(PHASE_3)
-    const panel = markupTextOf(createElement(CloseRound, close))
-    expect(panel).toContain(roundInputSummary(PHASE_3))
-    expect(panel).not.toContain(roundInputSummary(PHASE_2))
+    const card = cardOf(tree)
+    expect(card.round.phase).toBe(PHASE_3)
+    expect(openRoundHelp(card.round)).toContain(roundInputSummary(PHASE_3))
+    expect(cardTextOf(tree)).not.toContain(roundInputSummary(PHASE_2))
   })
 
   it('na lista, cada rodada a partir da segunda diz o que mudou em relação à anterior', async () => {
@@ -844,8 +864,8 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     const same = await chainedProject(admin, { changed: false, lastStatus: 'open' })
 
     auth.userId = admin
-    const changedTree = await render(changed)
-    const sameTree = await render(same)
+    const changedTree = await render(changed, { gerar: '1' })
+    const sameTree = await render(same, { gerar: '1' })
 
     expect(
       cardChangesOf(cardsOf(listOf(changedTree))[1]).changes?.codebookAndPrompt,
@@ -975,18 +995,22 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     })
 
     auth.userId = admin
-    const close = closeRoundOf(await render(project))
+    const tree = await render(project)
+    const close = closeRoundOf(tree)
     expect(close.round.phase).toBe(PHASE_4)
 
+    const help = openRoundHelp(cardOf(tree).round)
+    expect(help).toContain(roundInputSummary(PHASE_4))
+    expect(help).not.toContain(roundInputSummary(PHASE_3))
+    expect(help).toContain(phase4RoundLockedMessage(2))
+    expect(help).not.toContain(codebookLockedMessage(2))
+
     const panel = markupTextOf(createElement(CloseRound, close))
-    expect(panel).toContain(roundInputSummary(PHASE_4))
-    expect(panel).not.toContain(roundInputSummary(PHASE_3))
-    expect(panel).toContain(phase4RoundLockedMessage(2))
-    expect(panel).not.toContain(codebookLockedMessage(2))
     for (const line of closeConfirmationLines(2, PHASE_4)) {
       expect(panel).toContain(line)
     }
     expect(panel).not.toContain('volta a ser editável')
+    expect(cardTextOf(tree)).not.toContain('volta a ser editável')
   })
 
   it('com rodada aberta, a tela troca a criação pelo fechamento e diz quem não terminou', async () => {
@@ -1088,7 +1112,7 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     await addResponse(ownerDb, round, first, admin)
 
     auth.userId = admin
-    const props = generateOf(await render(project))
+    const props = generateOf(await render(project, { gerar: '1' }))
 
     expect(props.round.id).toBe(round)
     expect(props.round.roundNumber).toBe(1)
@@ -1098,6 +1122,135 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     expect(props.generated[0].itemId).toBe(first)
     expect(props.generated[0].itemName).toBe('Item 1')
     expect(formatDate(props.generated[0].createdAt)).toBeTruthy()
+  })
+
+  it('com rodada aberta, a aba começa pelo cartão da rodada, com as duas ações lado a lado', async () => {
+    const admin = await newUser('Admin')
+    const { project, codebookVersion, promptVersion } = await readyProject(admin)
+    const first = await addInputItem(ownerDb, project, admin, { name: 'Item 1' })
+    await addInputItem(ownerDb, project, admin, { name: 'Item 2' })
+    const round = await addRound(
+      ownerDb,
+      project,
+      admin,
+      codebookVersion,
+      promptVersion,
+      { roundNumber: 1 },
+    )
+    await addResponse(ownerDb, round, first, admin)
+
+    auth.userId = admin
+    const tree = await render(project)
+
+    expect(blockIndexOf(tree, OpenRoundCard)).toBe(0)
+    expect(findElement(tree, GenerateResponses)).toBeNull()
+
+    const card = cardOf(tree)
+    expect(card.round.id).toBe(round)
+    const element = createElement(OpenRoundCard, card)
+    const visible = visibleTextOf(element)
+    expect(visible).toContain(`Rodada 1 aberta Fase ${PHASE_2}`)
+    expect(visible).toContain(
+      `Codebook v1 · Prompt v1 · aberta em ${formatDate(card.round.createdAt)}`,
+    )
+    expect(visible).toContain('1 resposta nesta rodada · 1 item do pool ainda sem resposta')
+    expect(visible).toContain('Respostas da rodada 1 (1)')
+    expect(visible).toContain('Item 1')
+    expect(visible).not.toContain(roundInputSummary(PHASE_2))
+
+    const help = openRoundHelp(card.round)
+    expect(tooltipTextsOf(OpenRoundCard(card))).toContain(help)
+    expect(help).toContain(openRoundSummary(1, 1, 1))
+    expect(help).toContain(codebookLockedMessage(1))
+    expect(help).toContain(roundInputSummary(PHASE_2))
+    expect(help).toContain('Só existe uma rodada aberta por projeto.')
+    expect(help).toContain(
+      'Fechar é ação sua, é irreversível e não depende de todos terem terminado.',
+    )
+
+    const links = findAll(OpenRoundCard(card), ButtonLink)
+    expect(links.map((link) => (link.props as { href: string }).href)).toEqual([
+      `/projects/${project}/rounds?gerar=1#gerar`,
+    ])
+    expect(textOf(links[0])).toBe('Gerar respostas')
+
+    expect(findElement(card.close, CloseRound)).toBeTruthy()
+    const closeMarkup = renderToStaticMarkup(createElement(CloseRound, closeRoundOf(tree)))
+    expect(closeMarkup).toContain(
+      `class="${buttonClass('secondary')}">Fechar rodada 1</button>`,
+    )
+    expect(closeMarkup.split(`class="${buttonClass('dangerSolid')}"`)).toHaveLength(2)
+    expect(closeMarkup).toContain('Confirmar fechamento')
+  })
+
+  it('com ?gerar, o painel de geração aparece logo abaixo do cartão, com âncora e Cancelar', async () => {
+    const admin = await newUser('Admin')
+    const { project, codebookVersion, promptVersion } = await readyProject(admin)
+    await addInputItem(ownerDb, project, admin, { name: 'Item 1' })
+    await addRound(ownerDb, project, admin, codebookVersion, promptVersion, {
+      roundNumber: 1,
+    })
+
+    auth.userId = admin
+    const tree = await render(project, { gerar: '1' })
+
+    expect(blockIndexOf(tree, OpenRoundCard)).toBe(0)
+    expect(blockIndexOf(tree, GenerateResponses)).toBe(1)
+
+    const section = findSection(tree, GenerateResponses)
+    expect(section).toBeTruthy()
+    const props = section!.props as {
+      id: string
+      className: string
+      title: ReactNode
+      hint: ReactNode
+      help: string
+      action: ReactNode
+    }
+    expect(props.id).toBe('gerar')
+    expect(props.className).toContain('scroll-mt-6')
+    expect(textOf(props.title)).toBe('Gerar respostas na rodada 1')
+    expect(props.hint).toBe(
+      'De 1 a 5 itens por geração, e cada item produz exatamente uma resposta.',
+    )
+    expect(props.help).toContain('Cada resposta grava origem')
+
+    const cancel = findElement(props.action, ButtonLink)
+    expect(cancel).toBeTruthy()
+    expect((cancel!.props as { href: string }).href).toBe(`/projects/${project}/rounds`)
+    expect(textOf(cancel)).toBe('Cancelar')
+  })
+
+  it('no painel, os itens sem resposta vêm primeiro e os já respondidos ficam recolhidos', async () => {
+    const admin = await newUser('Admin')
+    const { project, codebookVersion, promptVersion } = await readyProject(admin)
+    const first = await addInputItem(ownerDb, project, admin, { name: 'Item 1' })
+    await addInputItem(ownerDb, project, admin, { name: 'Item 2' })
+    const round = await addRound(
+      ownerDb,
+      project,
+      admin,
+      codebookVersion,
+      promptVersion,
+      { roundNumber: 1 },
+    )
+    await addResponse(ownerDb, round, first, admin)
+
+    auth.userId = admin
+    const panel = createElement(
+      GenerateResponses,
+      generateOf(await render(project, { gerar: '1' })),
+    )
+    const text = markupTextOf(panel)
+
+    const fresh = text.indexOf('Item 2')
+    const summary = text.indexOf('1 item já respondido nesta rodada')
+    const answered = text.indexOf('Item 1')
+    expect(fresh).toBeGreaterThanOrEqual(0)
+    expect(summary).toBeGreaterThan(fresh)
+    expect(answered).toBeGreaterThan(summary)
+    expect(renderToStaticMarkup(panel)).toMatch(/<details class="group">/)
+    expect(text).not.toContain('Respostas da rodada')
   })
 
   it('o seletor diz em quais rodadas cada item já produziu resposta, sem tirar ninguém da lista', async () => {
@@ -1125,7 +1278,7 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     await addResponse(ownerDb, open, reused, admin)
 
     auth.userId = admin
-    const props = generateOf(await render(project))
+    const props = generateOf(await render(project, { gerar: '1' }))
 
     expect(props.items.map((item) => item.id)).toEqual([reused, fresh])
     expect(props.items.map((item) => item.rounds)).toEqual([
@@ -1257,16 +1410,45 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     auth.userId = admin
     const tree = await render(scene.project)
 
-    expect(panelOf(tree).effort.map((row) => [row.name, row.submitted])).toEqual([
+    expect(cardOf(tree).effort.map((row) => [row.name, row.submitted])).toEqual([
       ['Ana', 3],
       ['Bruno', 1],
       ['Carla', 0],
     ])
 
+    const text = cardTextOf(tree)
+    expect(text).toContain('Avaliações enviadas')
+    expect(text).toContain('Ana 3 de 3')
+    expect(text).toContain('Bruno 1 de 3')
+    expect(text).toContain('Carla 0 de 3')
+
+    const markup = renderToStaticMarkup(createElement(OpenRoundCard, cardOf(tree)))
+    expect(markup.match(/role="progressbar"/g)).toHaveLength(3)
+    expect(markup).toContain('aria-valuenow="1" aria-valuemin="0" aria-valuemax="3"')
+
+    expect(panelOf(tree).effort).toEqual([])
+    expect(panelTextOf(tree)).not.toContain('Avaliações enviadas')
+    expect(panelTextOf(tree)).not.toContain('Ana')
+  })
+
+  it('com a rodada fechada, o esforço por avaliador continua na Concordância', async () => {
+    const admin = await newUser('Admin')
+    const scene = await roundWith(admin, 2, { status: 'closed' })
+    const ana = await newEvaluator(scene.project, 'Ana')
+    await addEvaluation(ownerDb, scene.round, scene.responses[0], ana, {
+      cells: filled(scene.cells, 'high'),
+    })
+
+    auth.userId = admin
+    const tree = await render(scene.project)
+
+    expect(findElement(tree, OpenRoundCard)).toBeNull()
+    expect(panelOf(tree).effort.map((row) => [row.name, row.submitted])).toEqual([
+      ['Ana', 1],
+    ])
     const text = panelTextOf(tree)
-    expect(text).toContain('Ana 3 avaliações enviadas')
-    expect(text).toContain('Bruno 1 avaliação enviada')
-    expect(text).toContain('Carla 0 avaliações enviadas')
+    expect(text).toContain('Avaliações enviadas por avaliador')
+    expect(text).toContain('Ana 1 avaliação enviada')
   })
 
   it('com alguém marcado, o painel mostra os dois valores e quem saiu, com a justificativa', async () => {
@@ -1364,11 +1546,11 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     auth.userId = admin
     const tree = await render(scene.project)
 
-    expect(panelOf(tree).effort.map((row) => [row.name, row.status])).toEqual([
+    expect(cardOf(tree).effort.map((row) => [row.name, row.status])).toEqual([
       ['Ana', 'active'],
       ['Bruno', 'inactive'],
     ])
-    expect(panelTextOf(tree)).toContain('desativado')
+    expect(cardTextOf(tree)).toContain('desativado')
   })
 
   it('a lista de rodadas traz o coeficiente ao lado das versões que ele mede', async () => {
