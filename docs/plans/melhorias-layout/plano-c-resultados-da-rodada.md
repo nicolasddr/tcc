@@ -6,7 +6,7 @@ Sugestões da referência visual (`docs/plans/melhorias-layout/referencia-visual
 
 | Parte | Entrega | Commit sugerido | Estado |
 |---|---|---|---|
-| 1 | Matrizes de Concordância e Qualidade com uma coluna por nome de critério | `refactor(rodadas): uma coluna por critério de mesmo nome nas matrizes` | ⬜ |
+| 1 | Matrizes de Concordância e Qualidade com uma coluna por nome de critério | `refactor(rodadas): uma coluna por critério de mesmo nome nas matrizes` | ✅ |
 | 2 | Legendas longas em "Como ler esta tabela" e nenhuma frase repetida nos blocos | `refactor(rodadas): legendas em "Como ler esta tabela"` | ⬜ |
 | 3 ⚠ | Revisão de discordâncias em linhas e navegação também no fim | `refactor(revisao): notas em linhas e navegação no fim` | ⬜ |
 

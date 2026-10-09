@@ -16,9 +16,10 @@ type Criterion = { id: string; definitionId: string | null; name: string }
 
 const informacional: Definition = { id: 'd1', title: 'Informacional' }
 const transacional: Definition = { id: 'd2', title: 'Transacional' }
+const navegacional: Definition = { id: 'd3', title: 'Navegacional' }
 
-function criterion(id: string, definitionId: string | null): Criterion {
-  return { id, definitionId, name: id }
+function criterion(id: string, definitionId: string | null, name = id): Criterion {
+  return { id, definitionId, name }
 }
 
 function score(
@@ -55,7 +56,7 @@ function cellOf(
   row: MatrixRow<Definition, Criterion>,
   criterionId: string,
 ): MatrixCell {
-  const found = row.cells.find((entry) => entry.column.criterion.id === criterionId)
+  const found = row.cells.find((entry) => entry.column.name === criterionId)
   if (!found) throw new Error(`coluna ${criterionId} não está na matriz`)
   return found.cell
 }
@@ -159,13 +160,74 @@ describe('app/projects/[id]/rounds/agreement-matrix — coeficiente por célula'
 
     const columns = matrixColumns([informacional, transacional], criteria)
 
-    expect(columns.map((column) => column.criterion.id)).toEqual([
-      'g1',
-      'g2',
-      'c1',
-      'c2',
-    ])
+    expect(columns.map((column) => column.name)).toEqual(['g1', 'g2', 'c1', 'c2'])
     expect(columns.map((column) => column.isGeneral)).toEqual([true, true, false, false])
+  })
+
+  it('critérios específicos de mesmo nome em definições diferentes dividem uma coluna', () => {
+    const definitions = [informacional, navegacional, transacional]
+    const criteria = [
+      criterion('g1', null, 'Justificativa clara'),
+      criterion('c1', 'd1', 'Aderência à definição'),
+      criterion('c3', 'd3', 'Aderência à definição'),
+      criterion('c2', 'd2', 'Aderência à definição'),
+    ]
+
+    const columns = matrixColumns(definitions, criteria)
+    const rows = agreementMatrix(definitions, criteria, [
+      ...ratings('d1', 'c1', { A: [1, 2, 3, 1], B: [1, 2, 3, 1] }),
+      ...ratings('d2', 'c2', { A: [1, 2, 3, 1], B: [1, 2, 3, 2] }),
+    ])
+
+    expect(columns.map((column) => column.name)).toEqual([
+      'Justificativa clara',
+      'Aderência à definição',
+    ])
+    expect(rows.map((row) => cellOf(row, 'Aderência à definição').state)).toEqual([
+      'calculated',
+      'unrated',
+      'calculated',
+    ])
+    expect(alphaOf(cellOf(rows[0], 'Aderência à definição'))).toBe(1)
+    expect(alphaOf(cellOf(rows[2], 'Aderência à definição'))).toBeCloseTo(0.79, 10)
+  })
+
+  it('o nome junta as colunas depois de aparar os espaços, diferenciando maiúsculas', () => {
+    const criteria = [
+      criterion('c1', 'd1', 'Aderência à definição'),
+      criterion('c2', 'd2', '  Aderência à definição '),
+      criterion('c3', 'd2', 'aderência à definição'),
+    ]
+
+    const columns = matrixColumns([informacional, transacional], criteria)
+
+    expect(columns.map((column) => column.name)).toEqual([
+      'Aderência à definição',
+      'aderência à definição',
+    ])
+    expect(columns.map((column) => [...column.criteria.keys()])).toEqual([
+      ['d1', 'd2'],
+      ['d2'],
+    ])
+  })
+
+  it('critério específico com o nome de um critério geral fica em coluna separada', () => {
+    const criteria = [criterion('g1', null, 'Clareza'), criterion('c1', 'd1', 'Clareza')]
+
+    const columns = matrixColumns([informacional, transacional], criteria)
+
+    expect(columns.map((column) => [column.name, column.isGeneral])).toEqual([
+      ['Clareza', true],
+      ['Clareza', false],
+    ])
+  })
+
+  it('dois critérios de mesmo nome na mesma definição continuam em colunas separadas', () => {
+    const criteria = [criterion('c1', 'd1', 'Fonte'), criterion('c2', 'd1', 'Fonte')]
+
+    const columns = matrixColumns([informacional], criteria)
+
+    expect(columns.map((column) => column.criteria.get('d1')?.id)).toEqual(['c1', 'c2'])
   })
 
   it('as linhas seguem a ordem das definições recebidas, com uma célula por coluna', () => {

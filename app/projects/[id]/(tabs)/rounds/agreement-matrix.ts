@@ -1,22 +1,25 @@
 import { ordinalAlpha, type Agreement } from '@/lib/agreement'
 import {
-  criteriaOfDefinition,
   generalCriteria,
-  isGeneral,
   ownCriteria,
   type CriterionScope,
   type DefinitionKey,
 } from '../../pipeline/criteria'
 import type { RoundObservation } from './agreement'
 
-export type CriterionKey = DefinitionKey & CriterionScope
+export type CriterionKey = DefinitionKey & CriterionScope & { name: string }
 
 export type MatrixCell =
   | { state: 'not_applicable' }
   | { state: 'unrated' }
   | { state: 'calculated'; agreement: Agreement }
 
-export type MatrixColumn<C> = { criterion: C; isGeneral: boolean }
+export type MatrixColumn<C> = {
+  key: string
+  name: string
+  isGeneral: boolean
+  criteria: ReadonlyMap<string, C>
+}
 
 export type MatrixRow<D, C> = {
   definition: D
@@ -44,12 +47,32 @@ export function matrixColumns<C extends CriterionKey>(
   definitions: readonly DefinitionKey[],
   criteria: readonly C[],
 ): MatrixColumn<C>[] {
-  const ordered = [
-    ...generalCriteria(criteria),
-    ...definitions.flatMap((definition) => ownCriteria(definition.id, criteria)),
-  ]
+  const general = generalCriteria(criteria).map((criterion) => ({
+    key: criterion.id,
+    name: criterion.name,
+    isGeneral: true,
+    criteria: new Map(definitions.map((definition) => [definition.id, criterion])),
+  }))
 
-  return ordered.map((criterion) => ({ criterion, isGeneral: isGeneral(criterion) }))
+  const specific: { key: string; name: string; criteria: Map<string, C> }[] = []
+  for (const definition of definitions) {
+    for (const criterion of ownCriteria(definition.id, criteria)) {
+      const name = criterion.name.trim()
+      const column = specific.find(
+        (candidate) => candidate.name === name && !candidate.criteria.has(definition.id),
+      )
+      if (column) column.criteria.set(definition.id, criterion)
+      else {
+        specific.push({
+          key: criterion.id,
+          name,
+          criteria: new Map([[definition.id, criterion]]),
+        })
+      }
+    }
+  }
+
+  return [...general, ...specific.map((column) => ({ ...column, isGeneral: false }))]
 }
 
 export type MeasuredCell<V> =
@@ -71,25 +94,18 @@ export function measuredMatrix<D extends DefinitionKey, C extends CriterionKey, 
   const columns = matrixColumns(definitions, criteria)
   const byCell = groupByCell(observations)
 
-  return definitions.map((definition) => {
-    const applicable = new Set(
-      criteriaOfDefinition(definition.id, criteria).map((criterion) => criterion.id),
-    )
+  return definitions.map((definition) => ({
+    definition,
+    cells: columns.map((column) => {
+      const criterion = column.criteria.get(definition.id)
+      if (!criterion) return { column, cell: { state: 'not_applicable' } as const }
 
-    return {
-      definition,
-      cells: columns.map((column) => {
-        if (!applicable.has(column.criterion.id)) {
-          return { column, cell: { state: 'not_applicable' } as const }
-        }
+      const group = byCell.get(cellKey(definition.id, criterion.id))
+      if (!group) return { column, cell: { state: 'unrated' } as const }
 
-        const group = byCell.get(cellKey(definition.id, column.criterion.id))
-        if (!group) return { column, cell: { state: 'unrated' } as const }
-
-        return { column, cell: { state: 'measured', value: measure(group) } as const }
-      }),
-    }
-  })
+      return { column, cell: { state: 'measured', value: measure(group) } as const }
+    }),
+  }))
 }
 
 function agreementCell(cell: MeasuredCell<Agreement>): MatrixCell {

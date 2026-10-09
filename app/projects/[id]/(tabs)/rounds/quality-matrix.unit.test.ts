@@ -22,8 +22,8 @@ const transacional: Definition = { id: 'd2', title: 'Transacional' }
 
 const NONE: ReadonlySet<string> = new Set<string>()
 
-function criterion(id: string, definitionId: string | null): Criterion {
-  return { id, definitionId, name: id }
+function criterion(id: string, definitionId: string | null, name = id): Criterion {
+  return { id, definitionId, name }
 }
 
 function score(
@@ -57,7 +57,7 @@ function ratings(
 }
 
 function cellOf(row: Row, criterionId: string): MeasuredCell<QualityPair> {
-  const found = row.cells.find((entry) => entry.column.criterion.id === criterionId)
+  const found = row.cells.find((entry) => entry.column.name === criterionId)
   if (!found) throw new Error(`coluna ${criterionId} não está na matriz`)
   return found.cell
 }
@@ -88,7 +88,7 @@ describe('qualityMatrix — a distribuição das notas por célula', () => {
     expect(quality.map((row) => row.cells.map((entry) => entry.column))).toEqual(
       agreement.map((row) => row.cells.map((entry) => entry.column)),
     )
-    expect(quality[0].cells.map((entry) => entry.column.criterion.id)).toEqual([
+    expect(quality[0].cells.map((entry) => entry.column.name)).toEqual([
       'g1',
       'g2',
       'c1',
@@ -123,6 +123,26 @@ describe('qualityMatrix — a distribuição das notas por célula', () => {
     )
 
     expect(cellOf(transacionalRow, 'c1')).toEqual({ state: 'not_applicable' })
+  })
+
+  it('critérios específicos de mesmo nome dividem a coluna, cada linha com as suas notas', () => {
+    const criteria = [
+      criterion('c1', 'd1', 'Aderência à definição'),
+      criterion('c2', 'd2', 'Aderência à definição'),
+    ]
+
+    const rows = qualityMatrix(
+      [informacional, transacional],
+      criteria,
+      [
+        ...ratings('d1', 'c1', { ana: ['high', 'high'] }),
+        ...ratings('d2', 'c2', { ana: ['low'] }),
+      ],
+      NONE,
+    )
+
+    expect(rows.map((row) => row.cells.length)).toEqual([1, 1])
+    expect(rows.map((row) => pairOf(row, 'Aderência à definição').all.total)).toEqual([2, 1])
   })
 
   it('célula aplicável que ninguém avaliou fica sem nota, e não vira distribuição vazia', () => {

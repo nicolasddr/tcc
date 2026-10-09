@@ -91,12 +91,12 @@ export function AgreementMatrixTable({
               </th>
               {columns.map((column) => (
                 <th
-                  key={column.criterion.id}
+                  key={column.key}
                   scope="col"
                   className="border-b border-line px-3 py-2 text-left align-bottom font-semibold whitespace-nowrap text-label"
                 >
                   <span className="flex items-center gap-1.5">
-                    {column.criterion.name}
+                    {column.name}
                     {column.isGeneral ? <Badge tone="neutral">geral</Badge> : null}
                   </span>
                 </th>
@@ -114,7 +114,7 @@ export function AgreementMatrixTable({
                 </th>
                 {row.cells.map((entry) => (
                   <td
-                    key={entry.column.criterion.id}
+                    key={entry.column.key}
                     className="border-b border-line px-3 py-2 whitespace-nowrap"
                   >
                     <Cell cell={entry.cell} />
