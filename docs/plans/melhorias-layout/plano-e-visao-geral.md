@@ -6,7 +6,7 @@ Sugestão **Visão geral e dashboard** da referência visual:
 | Parte | Entrega | Commit sugerido | Estado |
 |---|---|---|---|
 | 1 | Checklist dentro do cartão da fase, pendências como ações curtas e sem o "N pendências ↓" | `feat(visao-geral): checklist dentro do cartão da fase` | ✅ |
-| 2 | Cartões de número, séries e chamada do avaliador só quando dizem algo | `refactor(visao-geral): números e séries só quando dizem algo` | ⬜ |
+| 2 | Cartões de número, séries e chamada do avaliador só quando dizem algo | `refactor(visao-geral): números e séries só quando dizem algo` | ✅ |
 | 3 | Dashboard mostra a fase de cada projeto | `feat(painel): fase de cada projeto` | ⬜ |
 
 Faça este plano depois do Plano D, que muda o cabeçalho e as abas do projeto.
@@ -103,7 +103,7 @@ confusa e poluída.
 - Alternativa: tirar a linha de cartões de vez, já que as abas levam a cada lugar e o que falta
   está no checklist.
 
-Confirmar antes de implementar.
+Confirmar antes de implementar. **Decidido (2026-10-09): o recomendado**, cartões escondidos só na Fase 1.
 
 **Proposta** (fora o E1)
 - **"Concordância por rodada"** só aparece com pelo menos uma rodada na série.

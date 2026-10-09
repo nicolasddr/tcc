@@ -200,12 +200,14 @@ export default async function ProjectPage({
       (m) => m.role === 'administrator' && m.status === 'active',
     )
     const viewerIsActive = memberships.some((m) => m.status === 'active')
-    const memberRows = await listProjectMembers(
-      userId,
-      id,
-      { isAdmin: viewerIsAdmin, isActive: viewerIsActive },
-      tx,
-    )
+    const memberRows = viewerIsAdmin
+      ? await listProjectMembers(
+          userId,
+          id,
+          { isAdmin: viewerIsAdmin, isActive: viewerIsActive },
+          tx,
+        )
+      : []
 
     const artifacts = viewerIsAdmin
       ? {
@@ -254,7 +256,7 @@ export default async function ProjectPage({
 
   const series = agreement
     ? agreementSeries(agreement.rounds, agreement.observations, agreement.outliers)
-    : null
+    : []
 
   const focus = agreement ? focusRoundOf(agreement.rounds) : null
   const focusQuality =
@@ -393,6 +395,8 @@ export default async function ProjectPage({
                 <ButtonLink href="#voltar" variant="secondary">
                   Voltar à Fase {PHASE_3}
                 </ButtonLink>
+              ) : canLeave ? (
+                <ButtonLink href={`/projects/${project.id}/evaluate`}>Ir para Avaliar</ButtonLink>
               ) : null
             }
           >
@@ -414,72 +418,70 @@ export default async function ProjectPage({
             </div>
           ) : null}
 
-          <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <StatCard
-              label="Avaliadores"
-              value={activeEvaluators}
-              hint={
-                inOnboarding > 0 ? `${inOnboarding} em onboarding` : 'ativos no projeto'
-              }
-            />
+          {artifacts && project.phase > PHASE_1 ? (
+            <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <StatCard
+                label="Avaliadores"
+                value={activeEvaluators}
+                hint={
+                  inOnboarding > 0 ? `${inOnboarding} em onboarding` : 'ativos no projeto'
+                }
+              />
 
-            {artifacts ? (
-              <>
-                <StatCard
-                  label="Codebook"
-                  value={artifacts.codebook.definitions.length}
-                  suffix={
-                    artifacts.codebook.definitions.length === 1
-                      ? 'definição'
-                      : 'definições'
-                  }
-                  hint={
-                    <>
-                      {artifacts.codebook.version
-                        ? `Versão ${artifacts.codebook.version.versionNumber} vigente · `
+              <StatCard
+                label="Codebook"
+                value={artifacts.codebook.definitions.length}
+                suffix={
+                  artifacts.codebook.definitions.length === 1
+                    ? 'definição'
+                    : 'definições'
+                }
+                hint={
+                  <>
+                    {artifacts.codebook.version
+                      ? `Versão ${artifacts.codebook.version.versionNumber} vigente · `
+                      : 'Nenhuma versão ainda · '}
+                    <OpenLink href={`/projects/${project.id}/codebook`}>
+                      Abrir codebook
+                    </OpenLink>
+                  </>
+                }
+              />
+
+              <StatCard
+                label="Prompt"
+                value={
+                  artifacts.prompt.version
+                    ? `v${artifacts.prompt.version.versionNumber}`
+                    : '—'
+                }
+                suffix={artifacts.prompt.version ? 'vigente' : undefined}
+                hint={
+                  <>
+                    {artifacts.prompt.version?.name
+                      ? `${artifacts.prompt.version.name} · `
+                      : artifacts.prompt.version
+                        ? 'Sem nome · '
                         : 'Nenhuma versão ainda · '}
-                      <OpenLink href={`/projects/${project.id}/codebook`}>
-                        Abrir codebook
-                      </OpenLink>
-                    </>
-                  }
-                />
+                    <OpenLink href={`/projects/${project.id}/prompt`}>
+                      Abrir prompt
+                    </OpenLink>
+                  </>
+                }
+              />
 
-                <StatCard
-                  label="Prompt"
-                  value={
-                    artifacts.prompt.version
-                      ? `v${artifacts.prompt.version.versionNumber}`
-                      : '—'
-                  }
-                  suffix={artifacts.prompt.version ? 'vigente' : undefined}
-                  hint={
-                    <>
-                      {artifacts.prompt.version?.name
-                        ? `${artifacts.prompt.version.name} · `
-                        : artifacts.prompt.version
-                          ? 'Sem nome · '
-                          : 'Nenhuma versão ainda · '}
-                      <OpenLink href={`/projects/${project.id}/prompt`}>
-                        Abrir prompt
-                      </OpenLink>
-                    </>
-                  }
-                />
+              <StatCard
+                label="Itens de entrada"
+                value={artifacts.items}
+                suffix="no pool"
+                hint={
+                  <OpenLink href={`/projects/${project.id}/items`}>Abrir itens</OpenLink>
+                }
+              />
+            </div>
+          ) : null}
 
-                <StatCard
-                  label="Itens de entrada"
-                  value={artifacts.items}
-                  suffix="no pool"
-                  hint={
-                    <OpenLink href={`/projects/${project.id}/items`}>Abrir itens</OpenLink>
-                  }
-                />
-              </>
-            ) : null}
-          </div>
-
-          {series ? (
+          {series.length > 0 ? (
             <Section
               title="Concordância por rodada"
               hint="Um ponto por rodada, em ordem cronológica."
@@ -513,7 +515,7 @@ export default async function ProjectPage({
             </Section>
           ) : null}
 
-          {series ? (
+          {series.length > 0 ? (
             <p className="m-0 mt-4 text-xs">
               <OpenLink href={`/projects/${project.id}/rounds`}>Abrir rodadas →</OpenLink>
             </p>

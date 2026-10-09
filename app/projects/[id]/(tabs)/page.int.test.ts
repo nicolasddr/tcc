@@ -68,6 +68,7 @@ import { phaseRuns } from '@/app/projects/[id]/(tabs)/rounds/agreement-series'
 import { QualityMatrixTable } from '@/app/projects/[id]/(tabs)/rounds/quality-matrix-table'
 import { Section } from '@/app/components/ui/section'
 import { OpenLink } from '@/app/components/ui/open-link'
+import { ButtonLink } from '@/app/components/ui/button'
 import {
   AGREEMENT_ALL_LABEL,
   AGREEMENT_BANDS,
@@ -706,7 +707,8 @@ describe('app/projects/[id]/page — escopo de visibilidade', () => {
         phase === PHASE_4 ? anchors[index] : [anchors[index]],
       )
       const after = phase === PHASE_4 ? at + 1 : at
-      expect(siblings.indexOf(gridOf(tree))).toBeGreaterThan(after)
+      if (phase === PHASE_1) expect(findElement(tree, StatCard)).toBeNull()
+      else expect(siblings.indexOf(gridOf(tree))).toBeGreaterThan(after)
       expect(siblings.indexOf(sectionWith(tree, AgreementSeriesChart)!)).toBeGreaterThan(after)
     }
   })
@@ -797,25 +799,74 @@ describe('app/projects/[id]/page — escopo de visibilidade', () => {
     expect(await badgeOf(archived)).toBeNull()
   })
 
-  it('os quatro cartões de números ficam numa grade só', async () => {
+  it('nas Fases 2 a 4, os quatro cartões de números ficam numa grade só, e o avaliador não vê nenhum', async () => {
     const admin = await newUser('Admin')
     const evaluator = await newUser('Avaliador')
+
+    for (const phase of [PHASE_2, PHASE_3, PHASE_4]) {
+      const project = await newProject(admin, phase)
+      await addActiveEvaluator(ownerDb, project, evaluator)
+
+      auth.userId = admin
+      const grid = gridOf(await render(project))
+      expect(typesOf((grid.props as { children: unknown }).children)).toEqual([
+        StatCard,
+        StatCard,
+        StatCard,
+        StatCard,
+      ])
+      expect((grid.props as { className: string }).className).toContain('lg:grid-cols-4')
+
+      auth.userId = evaluator
+      const tree = await render(project)
+      expect(findElement(tree, StatCard)).toBeNull()
+      expect(deepText(tree)).not.toContain('Avaliadores')
+    }
+  })
+
+  it('na Fase 1, a visão geral do Administrador não tem cartões de números nem série vazia', async () => {
+    const admin = await newUser('Admin')
     const project = await newProject(admin)
-    await addActiveEvaluator(ownerDb, project, evaluator)
 
     auth.userId = admin
-    const grid = gridOf(await render(project))
-    expect(typesOf((grid.props as { children: unknown }).children)).toEqual([
-      StatCard,
-      StatCard,
-      StatCard,
-      StatCard,
-    ])
-    expect((grid.props as { className: string }).className).toContain('lg:grid-cols-4')
+    const tree = await render(project)
 
-    auth.userId = evaluator
-    const alone = gridOf(await render(project))
-    expect(typesOf((alone.props as { children: unknown }).children)).toEqual([StatCard])
+    expect(checklistOf(tree)).toBeTruthy()
+    expect(findElement(tree, StatCard)).toBeNull()
+    expect(findElement(tree, AgreementSeriesChart)).toBeNull()
+    expect(roundsLinksOf(tree, project)).toHaveLength(0)
+    const page = deepText(tree)
+    expect(page).not.toContain('Concordância por rodada')
+    expect(page).not.toContain('Qualidade')
+  })
+
+  it('o avaliador ativo tem o atalho "Ir para Avaliar" no cartão da fase; em onboarding, só a chamada para concluí-lo', async () => {
+    const admin = await newUser('Admin')
+    const active = await newUser('Ativo')
+    const pending = await newUser('Pendente')
+    const project = await newProject(admin, PHASE_2)
+    await addActiveEvaluator(ownerDb, project, active)
+    await addPendingMember(ownerDb, project, pending)
+    const evaluate = `/projects/${project}/evaluate`
+
+    auth.userId = active
+    const activeTree = await render(project)
+    const action = (findElement(activeTree, PhaseBar)!.props as { action?: unknown }).action
+    const shortcut = findElement(action, ButtonLink)
+    expect(shortcut).toBeTruthy()
+    expect((shortcut!.props as { href: string }).href).toBe(evaluate)
+    expect((shortcut!.props as { children: unknown }).children).toBe('Ir para Avaliar')
+    expect(deepText(activeTree)).not.toContain('Conclua seu onboarding')
+    expect(findElement(activeTree, StatCard)).toBeNull()
+
+    auth.userId = pending
+    const pendingTree = await render(project)
+    expect(deepText(pendingTree)).toContain('Conclua seu onboarding')
+    expect(hasProp(pendingTree, 'href', evaluate)).toBe(false)
+    expect(findElement(pendingTree, StatCard)).toBeNull()
+
+    auth.userId = admin
+    expect(hasProp(await render(project), 'href', evaluate)).toBe(false)
   })
 
   it('na Fase 2, com uma rodada fechada, o avanço para a Fase 3 aparece liberado e mostra o ICR da última rodada', async () => {
@@ -1793,17 +1844,24 @@ describe('app/projects/[id]/page — escopo de visibilidade', () => {
     expect(text.indexOf('Rodada 2')).toBeLessThan(text.indexOf('Rodada 3'))
   })
 
-  it('a série vazia diz que ela começa na primeira rodada, e leva às rodadas', async () => {
+  it('sem nenhuma rodada, a visão geral não mostra as séries nem a Qualidade, e nem "Abrir rodadas →"', async () => {
     const admin = await newUser('Admin')
-    const project = await newProject(admin, PHASE_2)
 
     auth.userId = admin
-    const tree = await render(project)
+    for (const phase of [PHASE_2, PHASE_3, PHASE_4]) {
+      const project = await newProject(admin, phase)
+      const tree = await render(project)
 
-    expect(seriesOf(tree).points).toEqual([])
-    expect(seriesTextOf(tree)).toContain('começa na primeira rodada')
-    expect(seriesMarkupOf(tree)).not.toContain(`href="/projects/${project}/rounds"`)
-    expect(roundsLinksOf(tree, project)).toHaveLength(1)
+      expect(findElement(tree, StatCard)).toBeTruthy()
+      expect(findElement(tree, AgreementSeriesChart)).toBeNull()
+      expect(findElement(tree, QualityPanel)).toBeNull()
+      expect(findElement(tree, QualitySeriesList)).toBeNull()
+      expect(roundsLinksOf(tree, project)).toHaveLength(0)
+      const page = deepText(tree)
+      expect(page).not.toContain('Concordância por rodada')
+      expect(page).not.toContain('Qualidade na rodada')
+      expect(page).not.toContain('Qualidade por rodada')
+    }
   })
 
   async function phaseSeriesScene(admin: string): Promise<string> {
@@ -2072,7 +2130,7 @@ describe('app/projects/[id]/page — escopo de visibilidade', () => {
 
   it('a visão geral resume codebook, prompt e itens com link para cada tela', async () => {
     const admin = await newUser('Admin')
-    const project = await newProject(admin)
+    const project = await newProject(admin, PHASE_2)
     await addCodebookVersion(ownerDb, project, admin, {
       definitions: [
         { title: 'Informacional', type: 'category' },
