@@ -128,12 +128,16 @@ function navOf(tree: unknown): { prev: string | null; next: string | null } {
   return nav!.props as { prev: string | null; next: string | null }
 }
 
-function headingOf(tree: unknown): string {
+type SectionProps = Parameters<typeof Section>[0]
+
+function sectionOf(tree: unknown): SectionProps {
   const section = findElement(tree, Section)
   expect(section).toBeTruthy()
-  return collectText((section!.props as { title: unknown }).title)
-    .replace(/\s+/g, ' ')
-    .trim()
+  return section!.props as SectionProps
+}
+
+function headingOf(tree: unknown): string {
+  return collectText(sectionOf(tree).title).replace(/\s+/g, ' ').trim()
 }
 
 function panelOf(tree: unknown): PanelProps {
@@ -480,10 +484,10 @@ describe('app/projects/[id]/evaluate — a tela do avaliador', () => {
     const third = scene.responses[2]
 
     auth.userId = mine
-    expect(formOf(await open(scene.project, third)).label).toBe('Resposta 3')
+    expect(textOf(await open(scene.project, third))).toContain('Resposta 3')
 
     auth.userId = theirs
-    expect(formOf(await open(scene.project, third)).label).toBe('Resposta 3')
+    expect(textOf(await open(scene.project, third))).toContain('Resposta 3')
   })
 
   it('voltar pelo controle a uma resposta já enviada mostra o modo leitura', async () => {
@@ -618,9 +622,13 @@ describe('app/projects/[id]/evaluate — a tela do avaliador', () => {
     auth.userId = evaluator
     const tree = await open(scene.project)
 
-    expect(findElement(tree, ContextPanel)).toBeTruthy()
-    expect(findElement(findElement(tree, EvaluationForm), ContextPanel)).toBeNull()
-    expect(markupOf(formOf(tree))).not.toContain('O que foi pedido')
+    expect(findElement(formOf(tree).context, ContextPanel)).toBeTruthy()
+
+    const html = markupOf(formOf(tree))
+    const form = html.slice(html.indexOf('<form'), html.indexOf('</form>'))
+    expect(html).toContain('O que foi pedido')
+    expect(form).toContain('Enviar avalia')
+    expect(form).not.toContain('O que foi pedido')
     expect(panelMarkupOf(tree)).toContain('<details')
     expect(panelMarkupOf(tree)).not.toContain('open=""')
   })
@@ -648,7 +656,42 @@ describe('app/projects/[id]/evaluate — a tela do avaliador', () => {
     const evaluator = await newEvaluator(scene.project, 'Marta Ribeiro')
 
     auth.userId = evaluator
-    expect(headingOf(await open(scene.project))).toContain('Avaliando como Marta Ribeiro')
+    const tree = await open(scene.project)
+    expect(headingOf(tree)).not.toContain('Avaliando como')
+    expect(sectionOf(tree).help).toContain('Avaliando como Marta Ribeiro')
+  })
+
+  it('anterior e próxima ficam na linha do título', async () => {
+    const admin = await newUser('Admin')
+    const scene = await scenario(admin, { responses: 2 })
+    const evaluator = await newEvaluator(scene.project)
+
+    auth.userId = evaluator
+    const tree = await open(scene.project)
+
+    expect(findElement(sectionOf(tree).action, QueueNav)).toBeTruthy()
+    expect(findElement(sectionOf(tree).children, QueueNav)).toBeNull()
+  })
+
+  it('o rótulo "Resposta N" aparece uma vez, na linha do progresso, também no modo leitura', async () => {
+    const admin = await newUser('Admin')
+    const scene = await scenario(admin, { responseText: 'Texto da LLM.' })
+    const evaluator = await newEvaluator(scene.project)
+
+    auth.userId = evaluator
+    const pending = await open(scene.project)
+    expect(textOf(pending)).toContain('Resposta 1')
+    expect(markupOf(formOf(pending))).toContain('Texto da LLM.')
+    expect(markupOf(formOf(pending))).not.toContain('Resposta 1')
+
+    const member = await memberIdOf(ownerDb, scene.project, evaluator)
+    await addEvaluation(ownerDb, scene.round, scene.responses[0], member)
+
+    const reading = await open(scene.project, scene.responses[0])
+    expect(formOf(reading).submitted).not.toBeNull()
+    expect(textOf(reading)).toContain('Resposta 1')
+    expect(markupOf(formOf(reading))).toContain('Texto da LLM.')
+    expect(markupOf(formOf(reading))).not.toContain('Resposta 1')
   })
 
   it('a rota escolhe a resposta pedida, e sem pedido abre a primeira ainda não avaliada', async () => {

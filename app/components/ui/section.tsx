@@ -9,6 +9,7 @@ export function Section({
   title,
   hint,
   help,
+  action,
   id,
   divider = true,
   className,
@@ -17,11 +18,19 @@ export function Section({
   title: React.ReactNode
   hint?: React.ReactNode
   help?: string
+  action?: React.ReactNode
   id?: string
   divider?: boolean
   className?: string
   children: React.ReactNode
 }) {
+  const heading = (
+    <h2 className="flex flex-wrap items-center gap-2 text-[16px] font-bold text-ink">
+      {title}
+      {help ? <InfoTooltip text={help} /> : null}
+    </h2>
+  )
+
   return (
     <section
       id={id}
@@ -30,10 +39,14 @@ export function Section({
         className,
       )}
     >
-      <h2 className="flex flex-wrap items-center gap-2 text-[16px] font-bold text-ink">
-        {title}
-        {help ? <InfoTooltip text={help} /> : null}
-      </h2>
+      {action ? (
+        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+          {heading}
+          {action}
+        </div>
+      ) : (
+        heading
+      )}
       {hint ? <p className="mt-1.5 text-[13px] text-muted">{hint}</p> : null}
       <div className="mt-4">{children}</div>
     </section>

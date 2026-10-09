@@ -112,17 +112,10 @@ function DefinitionSummary({
   )
 }
 
-function ResponseCard({
-  response,
-  label,
-}: {
-  response: ResponseDetail
-  label: string
-}) {
+function ResponseCard({ response }: { response: ResponseDetail }) {
   return (
     <Card tone="subtle" padding="sm">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-        <span className="text-[13px] font-semibold text-ink">{label}</span>
         <span className="text-[13px] text-muted">{response.itemName}</span>
         <span className="text-[13px] text-muted">{formatDate(response.createdAt)}</span>
       </div>
@@ -133,18 +126,38 @@ function ResponseCard({
   )
 }
 
+function Columns({
+  response,
+  context,
+  children,
+}: {
+  response: ResponseDetail
+  context: React.ReactNode
+  children: React.ReactNode
+}) {
+  return (
+    <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+      <div className="flex min-w-0 flex-col gap-3 lg:sticky lg:top-4 lg:max-h-[calc(100dvh-2rem)] lg:self-start lg:overflow-y-auto">
+        <ResponseCard response={response} />
+        {context ? <div className="order-first lg:order-none">{context}</div> : null}
+      </div>
+      <div className="min-w-0">{children}</div>
+    </div>
+  )
+}
+
 export function EvaluationForm({
   projectId,
   response,
-  label,
   cells,
   submitted,
+  context,
 }: {
   projectId: string
   response: ResponseDetail
-  label: string
   cells: Cell[]
   submitted: SubmittedEvaluation | null
+  context?: React.ReactNode
 }) {
   const [state, action, pending] = useActionState(submitEvaluation, initialState)
   const [values, setValues] = useState(() => storedValues(submitted))
@@ -172,51 +185,51 @@ export function EvaluationForm({
 
   if (reading) {
     return (
-      <div className="flex flex-col gap-4">
-        <ResponseCard response={response} label={label} />
+      <Columns response={response} context={context}>
+        <div className="flex flex-col gap-4">
+          {sent ? <Alert tone="success">Avaliação enviada.</Alert> : null}
 
-        {sent ? <Alert tone="success">Avaliação enviada.</Alert> : null}
+          <p className="m-0 text-[13px] text-muted">
+            {submitted ? `Enviada em ${formatDate(submitted.submittedAt)}. ` : null}
+            O envio é definitivo: as notas e as justificativas desta resposta não mudam
+            mais.
+          </p>
 
-        <p className="m-0 text-[13px] text-muted">
-          {submitted ? `Enviada em ${formatDate(submitted.submittedAt)}. ` : null}
-          O envio é definitivo: as notas e as justificativas desta resposta não mudam
-          mais.
-        </p>
+          <ul className="m-0 flex list-none flex-col gap-2 p-0">
+            {groups.map((group) => (
+              <li key={group.definition.id}>
+                <Card padding="sm">
+                  <span className="text-sm font-semibold text-ink">
+                    {group.definition.title}
+                  </span>
+                  <Description text={group.definition.description} className="mt-0.5" />
 
-        <ul className="m-0 flex list-none flex-col gap-2 p-0">
-          {groups.map((group) => (
-            <li key={group.definition.id}>
-              <Card padding="sm">
-                <span className="text-sm font-semibold text-ink">
-                  {group.definition.title}
-                </span>
-                <Description text={group.definition.description} className="mt-0.5" />
+                  <ul className="m-0 mt-3 flex list-none flex-col gap-3 border-t border-line p-0 pt-3">
+                    {group.cells.map((cell) => {
+                      const key = keyOf(cell)
+                      const value = values[key]
+                      const justification = justifications[key] ?? ''
 
-                <ul className="m-0 mt-3 flex list-none flex-col gap-3 border-t border-line p-0 pt-3">
-                  {group.cells.map((cell) => {
-                    const key = keyOf(cell)
-                    const value = values[key]
-                    const justification = justifications[key] ?? ''
-
-                    return (
-                      <li key={key} className="flex flex-col gap-1.5">
-                        <CriterionName criterion={cell.criterion}>
-                          {isScaleValue(value) ? (
-                            <Badge tone={scaleTone(value)}>{scaleLabel(value)}</Badge>
-                          ) : null}
-                        </CriterionName>
-                        <p className={`m-0 text-[13px] ${preWrapClass} text-muted`}>
-                          {justification === '' ? 'Sem justificativa.' : justification}
-                        </p>
-                      </li>
-                    )
-                  })}
-                </ul>
-              </Card>
-            </li>
-          ))}
-        </ul>
-      </div>
+                      return (
+                        <li key={key} className="flex flex-col gap-1.5">
+                          <CriterionName criterion={cell.criterion}>
+                            {isScaleValue(value) ? (
+                              <Badge tone={scaleTone(value)}>{scaleLabel(value)}</Badge>
+                            ) : null}
+                          </CriterionName>
+                          <p className={`m-0 text-[13px] ${preWrapClass} text-muted`}>
+                            {justification === '' ? 'Sem justificativa.' : justification}
+                          </p>
+                        </li>
+                      )
+                    })}
+                  </ul>
+                </Card>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </Columns>
     )
   }
 
@@ -227,111 +240,111 @@ export function EvaluationForm({
   const error = state !== null && 'error' in state ? state.error : null
 
   return (
-    <Form action={action} gap="sm">
-      <input type="hidden" name="project_id" value={projectId} />
-      <input type="hidden" name="response_id" value={response.id} />
+    <Columns response={response} context={context}>
+      <Form action={action} gap="sm">
+        <input type="hidden" name="project_id" value={projectId} />
+        <input type="hidden" name="response_id" value={response.id} />
 
-      <ResponseCard response={response} label={label} />
+        <p className="m-0 text-[13px] text-muted">
+          Dê uma nota em cada critério. Justificativa é opcional.
+        </p>
 
-      <p className="m-0 text-[13px] text-muted">
-        Dê uma nota em cada critério. Justificativa é opcional.
-      </p>
+        <ul className="m-0 flex list-none flex-col gap-2 p-0">
+          {groups.map((group) => (
+            <li key={group.definition.id}>
+              <Card padding="sm">
+                <Disclosure
+                  defaultOpen
+                  summaryClassName=""
+                  summary={
+                    <DefinitionSummary
+                      definition={group.definition}
+                      scored={scoredIn(group)}
+                      total={group.cells.length}
+                    />
+                  }
+                >
+                  <Description text={group.definition.description} className="mt-1" />
 
-      <ul className="m-0 flex list-none flex-col gap-2 p-0">
-        {groups.map((group) => (
-          <li key={group.definition.id}>
-            <Card padding="sm">
-              <Disclosure
-                defaultOpen
-                summaryClassName=""
-                summary={
-                  <DefinitionSummary
-                    definition={group.definition}
-                    scored={scoredIn(group)}
-                    total={group.cells.length}
-                  />
-                }
-              >
-                <Description text={group.definition.description} className="mt-1" />
+                  <ul className="m-0 mt-3 flex list-none flex-col gap-4 border-t border-line p-0 pt-3">
+                    {group.cells.map((cell) => {
+                      const key = keyOf(cell)
+                      const value = values[key] ?? ''
 
-                <ul className="m-0 mt-3 flex list-none flex-col gap-4 border-t border-line p-0 pt-3">
-                  {group.cells.map((cell) => {
-                    const key = keyOf(cell)
-                    const value = values[key] ?? ''
+                      return (
+                        <li key={key} className="flex flex-col gap-2">
+                          <CriterionName criterion={cell.criterion} />
 
-                    return (
-                      <li key={key} className="flex flex-col gap-2">
-                        <CriterionName criterion={cell.criterion} />
+                          <input type="hidden" name={`score_${key}`} value={value} />
 
-                        <input type="hidden" name={`score_${key}`} value={value} />
+                          <div
+                            role="group"
+                            aria-label={`Nota de ${cell.criterion.name}`}
+                            className="flex flex-wrap gap-2"
+                          >
+                            {SCALE.map((option) => {
+                              const active = value === option
+                              return (
+                                <button
+                                  key={option}
+                                  type="button"
+                                  aria-pressed={active}
+                                  disabled={pending}
+                                  onClick={() =>
+                                    setValues((current) => ({
+                                      ...current,
+                                      [key]: active ? '' : option,
+                                    }))
+                                  }
+                                  className={buttonClass('secondary', {
+                                    size: 'sm',
+                                    className: active ? selected[option] : undefined,
+                                  })}
+                                >
+                                  {scaleLabel(option)}
+                                </button>
+                              )
+                            })}
+                          </div>
 
-                        <div
-                          role="group"
-                          aria-label={`Nota de ${cell.criterion.name}`}
-                          className="flex flex-wrap gap-2"
-                        >
-                          {SCALE.map((option) => {
-                            const active = value === option
-                            return (
-                              <button
-                                key={option}
-                                type="button"
-                                aria-pressed={active}
-                                disabled={pending}
-                                onClick={() =>
-                                  setValues((current) => ({
-                                    ...current,
-                                    [key]: active ? '' : option,
-                                  }))
-                                }
-                                className={buttonClass('secondary', {
-                                  size: 'sm',
-                                  className: active ? selected[option] : undefined,
-                                })}
-                              >
-                                {scaleLabel(option)}
-                              </button>
-                            )
-                          })}
-                        </div>
+                          <Textarea
+                            name={`justification_${key}`}
+                            rows={2}
+                            maxLength={JUSTIFICATION_MAX}
+                            disabled={pending}
+                            aria-label={`Justificativa de ${cell.criterion.name}`}
+                            placeholder="Justificativa (opcional)"
+                            value={justifications[key] ?? ''}
+                            onChange={(event) =>
+                              setJustifications((current) => ({
+                                ...current,
+                                [key]: event.target.value,
+                              }))
+                            }
+                          />
+                        </li>
+                      )
+                    })}
+                  </ul>
+                </Disclosure>
+              </Card>
+            </li>
+          ))}
+        </ul>
 
-                        <Textarea
-                          name={`justification_${key}`}
-                          rows={2}
-                          maxLength={JUSTIFICATION_MAX}
-                          disabled={pending}
-                          aria-label={`Justificativa de ${cell.criterion.name}`}
-                          placeholder="Justificativa (opcional)"
-                          value={justifications[key] ?? ''}
-                          onChange={(event) =>
-                            setJustifications((current) => ({
-                              ...current,
-                              [key]: event.target.value,
-                            }))
-                          }
-                        />
-                      </li>
-                    )
-                  })}
-                </ul>
-              </Disclosure>
-            </Card>
-          </li>
-        ))}
-      </ul>
+        {error && !pending ? <Alert tone="error">{error}</Alert> : null}
 
-      {error && !pending ? <Alert tone="error">{error}</Alert> : null}
+        {complete ? null : (
+          <p className="m-0 text-[13px] text-muted">{incompleteMessage(missing)}</p>
+        )}
 
-      {complete ? null : (
-        <p className="m-0 text-[13px] text-muted">{incompleteMessage(missing)}</p>
-      )}
-
-      <FormActions align="start">
-        <Button type="submit" loading={pending} loadingText="Enviando…" disabled={!complete}>
-          Enviar avaliação
-        </Button>
-        <span className="text-[13px] text-muted">O envio é definitivo.</span>
-      </FormActions>
-    </Form>
+        <FormActions align="start">
+          <Button type="submit" loading={pending} loadingText="Enviando…" disabled={!complete}>
+            Enviar avaliação
+          </Button>
+          <span className="text-[13px] text-muted">O envio é definitivo.</span>
+        </FormActions>
+      </Form>
+    </Columns>
   )
 }

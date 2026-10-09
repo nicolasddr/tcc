@@ -145,18 +145,20 @@ export default async function ProjectEvaluatePage({
 
   const held = waiting && waiting.key !== 'finished' ? waiting : null
   const route = `/projects/${id}/evaluate?response=`
+  const evaluating = !held && response !== null && cells.length > 0
 
   return (
     <Section
-      title={
-        <>
-          {roundNumber ? `Avaliar na rodada ${roundNumber}` : 'Avaliar respostas'}
-          <span className="text-[13px] font-normal text-muted">
-            Avaliando como {memberName}
-          </span>
-        </>
+      title={roundNumber ? `Avaliar na rodada ${roundNumber}` : 'Avaliar respostas'}
+      help={`Avaliando como ${memberName}. A avaliação cobre cada critério de cada definição do codebook que esta rodada fixou, e o envio é definitivo: a avaliação enviada não volta para edição.`}
+      action={
+        evaluating ? (
+          <QueueNav
+            prev={prev ? `${route}${prev}` : null}
+            next={next ? `${route}${next}` : null}
+          />
+        ) : null
       }
-      help="A avaliação cobre cada critério de cada definição do codebook que esta rodada fixou, e o envio é definitivo: a avaliação enviada não volta para edição."
     >
       {held ? (
         <div className="flex flex-col gap-3">
@@ -187,11 +189,6 @@ export default async function ProjectEvaluatePage({
             {waiting?.key === 'finished' ? (
               <p className="m-0 text-[13px] text-muted">{waitingMessage(waiting)}</p>
             ) : null}
-
-            <QueueNav
-              prev={prev ? `${route}${prev}` : null}
-              next={next ? `${route}${next}` : null}
-            />
           </div>
 
           {justSent ? (
@@ -200,15 +197,13 @@ export default async function ProjectEvaluatePage({
             </Alert>
           ) : null}
 
-          {context ? <ContextPanel context={context} /> : null}
-
           <EvaluationForm
             key={response.id}
             projectId={id}
             response={response}
-            label={label}
             cells={cells}
             submitted={submitted}
+            context={context ? <ContextPanel context={context} /> : null}
           />
         </div>
       )}
