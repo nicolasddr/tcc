@@ -527,6 +527,39 @@ describe('app/projects/[id]/rounds/[roundId] — a revisão de discordâncias', 
     expect(text).toContain('Bruno Avaliador')
   })
 
+  it('a nota de cada um aparece num selo neutro com o marcador da escala, sem semáforo', async () => {
+    const admin = await newUser('Admin')
+    const scene = await roundWith(admin, 1)
+    const ana = await newEvaluator(scene.project, 'Ana Avaliadora')
+    const bruno = await newEvaluator(scene.project, 'Bruno Avaliador')
+
+    await addEvaluation(ownerDb, scene.round, scene.responses[0], ana, {
+      cells: [note(scene, 'Informacional', 'Precisão', 'high')],
+    })
+    await addEvaluation(ownerDb, scene.round, scene.responses[0], bruno, {
+      cells: [note(scene, 'Informacional', 'Precisão', 'low')],
+    })
+
+    auth.userId = admin
+    const markup = renderToStaticMarkup(
+      createElement(ReviewGroupsList, listOf(await render(scene.project, scene.round))),
+    )
+
+    const badges = [
+      ['Ana Avaliadora', 'Alto'],
+      ['Bruno Avaliador', 'Baixo'],
+    ].map(([name, label]) => {
+      const found = new RegExp(
+        `${name}</span><span class="([^"]*)"><span aria-hidden="true"[^>]*>(?:<span [^>]*></span>){3}</span>${label}</span>`,
+      ).exec(markup)
+      expect(found).toBeTruthy()
+      return found![1]
+    })
+
+    expect(badges[0]).toBe(badges[1])
+    expect(badges[0]).not.toMatch(/(?:bg|text)-(?:success|warning|danger)/)
+  })
+
   it('a justificativa aparece quando existe, e a ausência é dita por extenso', async () => {
     const admin = await newUser('Admin')
     const scene = await roundWith(admin, 1)

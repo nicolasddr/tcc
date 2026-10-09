@@ -8,10 +8,10 @@ Sugestões da referência visual (`docs/plans/melhorias-layout/referencia-visual
 |---|---|---|---|
 | 1 | Duas colunas com a resposta fixa, "Resposta N" uma vez só e navegação na linha do título | `feat(avaliar): resposta fixa ao lado do formulário` | ✅ |
 | 2 | "+ Justificar", botões de nota maiores e barra de envio fixa | `feat(avaliar): justificativa sob demanda e barra de envio` | ✅ |
-| 3 | Alto, Médio e Baixo sem cores de semáforo, no formulário e na revisão | `refactor(escala): alto, médio e baixo sem cores de semáforo` | ⬜ |
+| 3 | Alto, Médio e Baixo sem cores de semáforo, no formulário e na revisão | `refactor(escala): alto, médio e baixo sem cores de semáforo` | ✅ |
 
 As três partes mexem no mesmo formulário, por isso vêm juntas e nesta ordem. A pílula de nota criada
-na Parte 3 é usada depois no Plano B (Parte 5, revisão em linhas).
+na Parte 3 é usada depois no Plano C (Parte 3, revisão em linhas).
 
 ## Contexto comum
 
@@ -156,7 +156,8 @@ DEPOIS (o trecho é do card da referência):
 - Se mesmo assim a barra de "Baixo" não se destacar, todas as barras cheias usam
   `--color-quality-high`, e só a quantidade de barras marca a ordem.
 
-Confirmar antes de implementar.
+Confirmado: contorno nas vazias. Na conferência a barra cheia do "Baixo" quase sumia, então todas as
+barras cheias usam `--color-quality-high`.
 
 **Pronto quando**
 - Nenhum verde, amarelo ou vermelho na escala, no formulário, no modo leitura e na revisão.

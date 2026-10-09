@@ -7,7 +7,7 @@ import { definitionTypeLabel } from '@/app/projects/definition-types'
 import { formatDate } from '@/app/notifications/labels'
 import { CONSENSUS_NOTE_MAX } from '@/lib/limits'
 import type { CodebookCriterion, CodebookDefinition } from '../../pipeline/codebook'
-import { scaleLabel, scaleTone } from '../evaluate/scale'
+import { ScaleBadge } from '../evaluate/scale-marker'
 import type { ConsensusNote } from './consensus'
 import { consensusCellKey, type CellConsensus } from './consensus-cells'
 import { ConsensusForm } from './consensus-form'
@@ -78,7 +78,7 @@ function Note({ note }: { note: ReviewNote }) {
     <li className="flex flex-col gap-1">
       <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
         <span className="text-[13px] font-semibold text-ink">{note.evaluatorName}</span>
-        <Badge tone={scaleTone(note.value)}>{scaleLabel(note.value)}</Badge>
+        <ScaleBadge value={note.value} />
         {note.isOutlier ? (
           <span title={outlierNoteHint(note.outlierReason)}>
             <Badge tone="warning">{OUTLIER_NOTE_LABEL}</Badge>

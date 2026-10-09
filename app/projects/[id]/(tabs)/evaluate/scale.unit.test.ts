@@ -3,7 +3,6 @@ import {
   SCALE,
   isScaleValue,
   scaleLabel,
-  scaleTone,
   scaleRank,
 } from '@/app/projects/[id]/(tabs)/evaluate/scale'
 
@@ -26,12 +25,6 @@ describe('app/projects/[id]/evaluate/scale — a escala fixa de três pontos', (
     expect(scaleLabel('high')).toBe('Alto')
     expect(scaleLabel('medium')).toBe('Médio')
     expect(scaleLabel('low')).toBe('Baixo')
-  })
-
-  it('dá um tom distinto a cada valor', () => {
-    const tones = SCALE.map(scaleTone)
-    expect(tones).toEqual(['success', 'warning', 'danger'])
-    expect(new Set(tones).size).toBe(SCALE.length)
   })
 
   it('vira posto ordinal crescente, de baixo para alto', () => {

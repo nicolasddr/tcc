@@ -361,6 +361,23 @@ describe('app/projects/[id]/evaluate — a tela do avaliador', () => {
     }
   })
 
+  it('os botões de nota mostram o marcador da escala, sem cor de semáforo', async () => {
+    const admin = await newUser('Admin')
+    const scene = await scenario(admin)
+    const evaluator = await newEvaluator(scene.project)
+
+    auth.userId = evaluator
+    const html = markupOf(formOf(await open(scene.project)))
+    const buttons = html.match(/<button[^>]*aria-pressed[^>]*>[\s\S]*?<\/button>/g) ?? []
+
+    expect(buttons).toHaveLength(3)
+    for (const button of buttons) {
+      expect(button).toContain('aria-hidden="true"')
+      expect(button).toContain('bg-quality-high')
+      expect(button).not.toMatch(/(?:bg|text)-(?:success|warning|danger)/)
+    }
+  })
+
   it('a barra de envio fica presa ao rodapé, com o contador, o botão e o aviso nessa ordem', async () => {
     const admin = await newUser('Admin')
     const scene = await scenario(admin, {
@@ -493,6 +510,8 @@ describe('app/projects/[id]/evaluate — a tela do avaliador', () => {
 
     const html = markupOf(props)
     expect(html).toContain('Médio')
+    expect(html).toMatch(/<span aria-hidden="true"[^>]*>(?:<span [^>]*><\/span>){3}<\/span>Médio</)
+    expect(html).not.toMatch(/(?:bg|text)-(?:success|warning|danger)/)
     expect(html).toContain('porque sim')
     expect(html).toContain('definitivo')
     expect(html).not.toContain('<textarea')

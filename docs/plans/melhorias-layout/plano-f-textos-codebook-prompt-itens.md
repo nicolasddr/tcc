@@ -1,11 +1,11 @@
-# Plano D: Uma explicação por bloco no Codebook, no Prompt e no Itens
+# Plano F: Uma explicação por bloco no Codebook, no Prompt e no Itens
 
 Sugestão **Uma explicação por bloco** da referência visual:
 `docs/plans/melhorias-layout/referencia-visual.html#s-texto`.
 
 O restante dessa sugestão já está em outros planos:
-- as legendas das tabelas da aba Rodadas estão no Plano B, Parte 4;
-- os itens do checklist de fase estão no Plano C, Parte 3.
+- as legendas das tabelas da aba Rodadas estão no Plano C, Parte 2;
+- os itens do checklist de fase estão no Plano E, Parte 1.
 
 | Parte | Entrega | Commit sugerido | Estado |
 |---|---|---|---|

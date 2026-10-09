@@ -3,7 +3,8 @@
 import { useActionState, useState } from 'react'
 import { submitEvaluation, type EvaluationState } from './actions'
 import { cellKey, isComplete, type Answer } from './completeness'
-import { SCALE, isScaleValue, scaleLabel, scaleTone, type ScaleValue } from './scale'
+import { SCALE, isScaleValue, scaleLabel } from './scale'
+import { ScaleBadge, ScaleMarker } from './scale-marker'
 import type { SubmittedEvaluation } from './evaluation'
 import type { CodebookCriterion, CodebookDefinition } from '../../pipeline/codebook'
 import type { CodebookCell } from '../../pipeline/criteria'
@@ -27,11 +28,7 @@ type Group = { definition: CodebookDefinition; cells: Cell[] }
 
 const initialState: EvaluationState = null
 
-const selected: Record<ScaleValue, string> = {
-  high: 'border-current! bg-success-bg! text-success-fg!',
-  medium: 'border-current! bg-warning-bg! text-warning-fg!',
-  low: 'border-current! bg-danger-bg! text-danger-fg!',
-}
+const selected = 'border-brand! bg-brand-tint! text-brand-hover!'
 
 function keyOf(cell: Cell): string {
   return cellKey({ definitionId: cell.definition.id, criterionId: cell.criterion.id })
@@ -254,7 +251,7 @@ export function EvaluationForm({
                         <li key={key} className="flex flex-col gap-1.5">
                           <CriterionName criterion={cell.criterion}>
                             {isScaleValue(value) ? (
-                              <Badge tone={scaleTone(value)}>{scaleLabel(value)}</Badge>
+                              <ScaleBadge value={value} />
                             ) : null}
                           </CriterionName>
                           <p className={`m-0 text-[13px] ${preWrapClass} text-muted`}>
@@ -335,9 +332,10 @@ export function EvaluationForm({
                                     }))
                                   }
                                   className={buttonClass('secondary', {
-                                    className: active ? selected[option] : undefined,
+                                    className: cx('max-sm:px-3!', active && selected),
                                   })}
                                 >
+                                  <ScaleMarker value={option} />
                                   {scaleLabel(option)}
                                 </button>
                               )
