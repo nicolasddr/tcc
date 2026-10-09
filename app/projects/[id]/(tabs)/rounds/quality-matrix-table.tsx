@@ -1,6 +1,5 @@
 import { Badge } from '@/app/components/ui/badge'
 import { EmptyState } from '@/app/components/ui/empty-state'
-import { InfoTooltip } from '@/app/components/ui/tooltip'
 import type {
   CodebookCriterion,
   CodebookDefinition,
@@ -25,6 +24,7 @@ import {
   matrixVersionLabel,
   matrixVersionNote,
 } from './agreement-labels'
+import { HowToRead } from './how-to-read'
 
 function Levels({
   label,
@@ -162,12 +162,9 @@ export function QualityMatrixTable({
 
       <QualityScaleLegend suffix="em %" />
 
-      <p className="m-0 flex flex-wrap items-center gap-2 text-xs text-muted">
-        <span>{matrixVersionLabel(codebookVersionNumber)}</span>
-        <InfoTooltip
-          text={`${matrixVersionNote(codebookVersionNumber)}\n\n${QUALITY_MATRIX_LEGEND}`}
-        />
-      </p>
+      <p className="m-0 text-xs text-muted">{matrixVersionLabel(codebookVersionNumber)}</p>
+
+      <HowToRead paragraphs={[matrixVersionNote(codebookVersionNumber), QUALITY_MATRIX_LEGEND]} />
     </div>
   )
 }

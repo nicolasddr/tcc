@@ -222,8 +222,8 @@ export default async function ProjectRoundsPage({
       id={ROUNDS_SECTION_ID}
       className="scroll-mt-6"
       title="Rodadas do projeto"
-      hint="Em ordem cronológica, com o estado de cada uma."
-      help="Cada rodada aparece com as versões de codebook e de prompt que ela fixou e a concordância alcançada sobre elas."
+      hint="Em ordem cronológica."
+      help="Cada rodada aparece com o seu estado, as versões de codebook e de prompt que ela fixou e a concordância alcançada sobre elas."
     >
       <RoundList
         projectId={project.id}
@@ -334,15 +334,11 @@ export default async function ProjectRoundsPage({
               ? `Concordância na rodada ${focusRound.roundNumber}, fechada`
               : `Concordância na rodada ${focusRound.roundNumber}`
           }
-          hint={
-            focusRound.closedAt
-              ? `Krippendorff's Alpha ordinal da rodada ${focusRound.roundNumber}, fechada em ${formatDate(focusRound.closedAt)}.`
-              : "Krippendorff's Alpha ordinal desta rodada."
-          }
+          hint="Krippendorff's Alpha ordinal, sobre a versão de codebook que a rodada fixou."
           help={
             focusRound.closedAt
-              ? 'O coeficiente é sobre a versão de codebook que esta rodada fixou. É a última rodada do projeto, e a leitura continua aqui depois do fechamento: é com ela que se decide onde refinar o codebook antes da próxima rodada.'
-              : 'O coeficiente é sobre a versão de codebook que esta rodada fixou. O valor aparece desde a primeira avaliação e não trava nada: fechar a rodada e avançar de fase continuam sendo decisão sua.'
+              ? `A rodada ${focusRound.roundNumber} fechou em ${formatDate(focusRound.closedAt)}. É a última rodada do projeto, e a leitura continua aqui depois do fechamento: é com ela que se decide onde refinar o codebook antes da próxima rodada.`
+              : 'O valor aparece desde a primeira avaliação e não trava nada: fechar a rodada e avançar de fase continuam sendo decisão sua.'
           }
         >
           <div className="flex flex-col gap-4">

@@ -1,6 +1,5 @@
 import { Badge } from '@/app/components/ui/badge'
 import { EmptyState } from '@/app/components/ui/empty-state'
-import { InfoTooltip } from '@/app/components/ui/tooltip'
 import type {
   CodebookCriterion,
   CodebookDefinition,
@@ -21,6 +20,7 @@ import {
   matrixVersionNote,
   sampleSize,
 } from './agreement-labels'
+import { HowToRead } from './how-to-read'
 
 function Cell({ cell }: { cell: MatrixCell }) {
   if (cell.state === 'not_applicable') {
@@ -126,12 +126,11 @@ export function AgreementMatrixTable({
         </table>
       </div>
 
-      <p className="m-0 flex flex-wrap items-center gap-2 text-xs text-muted">
-        <span>{matrixVersionLabel(codebookVersionNumber)}</span>
-        <InfoTooltip
-          text={`${matrixVersionNote(codebookVersionNumber)}\n\n${MATRIX_SCOPE_NOTE}\n\n${MATRIX_LEGEND}`}
-        />
-      </p>
+      <p className="m-0 text-xs text-muted">{matrixVersionLabel(codebookVersionNumber)}</p>
+
+      <HowToRead
+        paragraphs={[matrixVersionNote(codebookVersionNumber), MATRIX_SCOPE_NOTE, MATRIX_LEGEND]}
+      />
     </div>
   )
 }

@@ -40,11 +40,14 @@ import {
 } from '@/app/projects/[id]/(tabs)/rounds/agreement-panel'
 import { AgreementMatrixTable } from '@/app/projects/[id]/(tabs)/rounds/agreement-matrix-table'
 import { QualityMatrixTable } from '@/app/projects/[id]/(tabs)/rounds/quality-matrix-table'
+import { HOW_TO_READ_TABLE, HowToRead } from '@/app/projects/[id]/(tabs)/rounds/how-to-read'
 import {
   QualityPanel,
   QualitySummary,
 } from '@/app/projects/[id]/(tabs)/rounds/quality-panel'
 import {
+  QUALITY_HELP,
+  QUALITY_HINT,
   QUALITY_MATRIX_LEGEND,
   QUALITY_UNRATED,
   QUALITY_UNRATED_WITHOUT_OUTLIERS,
@@ -351,10 +354,29 @@ function visibleTextOf(element: ReactElement): string {
     .trim()
 }
 
+function glanceTextOf(element: ReactElement): string {
+  return renderToStaticMarkup(element)
+    .replace(/<span aria-hidden="true" class="pointer-events-none[^"]*">[^<]*<\/span>/g, ' ')
+    .replace(/(<details(?![^>]*\sopen)[^>]*>[\s\S]*?<\/summary>)[\s\S]*?<\/details>/g, '$1')
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
 function tooltipTextsOf(element: ReactElement): string[] {
   return findAll(element, InfoTooltip).map(
     (tooltip) => (tooltip.props as { text: string }).text,
   )
+}
+
+function howToReadOf(element: ReactElement): string[][] {
+  return findAll(element, HowToRead).map((block) => [
+    ...(block.props as { paragraphs: readonly string[] }).paragraphs,
+  ])
+}
+
+function opensClosed(element: ReactElement): boolean {
+  return !/<details[^>]*\sopen/.test(renderToStaticMarkup(element))
 }
 
 function panelTextOf(tree: unknown): string {
@@ -1839,9 +1861,14 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
       createElement(QualityMatrixTable, qualityMatrixOf(tree)),
     )
     expect(markup.split(`title="${CELL_NOT_APPLICABLE_TITLE}"`)).toHaveLength(3)
-    expect(markup).toContain(`aria-label="${matrixVersionNote(1)}\n\n${QUALITY_MATRIX_LEGEND}"`)
 
-    const visible = visibleTextOf(createElement(QualityMatrixTable, qualityMatrixOf(tree)))
+    const table = QualityMatrixTable(qualityMatrixOf(tree))
+    expect(tooltipTextsOf(table)).toEqual([])
+    expect(howToReadOf(table)).toEqual([[matrixVersionNote(1), QUALITY_MATRIX_LEGEND]])
+    expect(markup).toContain(HOW_TO_READ_TABLE)
+    expect(opensClosed(createElement(QualityMatrixTable, qualityMatrixOf(tree)))).toBe(true)
+
+    const visible = glanceTextOf(createElement(QualityMatrixTable, qualityMatrixOf(tree)))
     expect(visible).toContain('Codebook v1 da rodada')
     expect(visible).not.toContain('vigente')
   })
@@ -2066,12 +2093,73 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     expect(text).not.toContain('Profundidade')
     expect(text).toContain('Codebook v1')
 
-    const visible = visibleTextOf(createElement(AgreementMatrixTable, matrixOf(tree)))
+    const visible = glanceTextOf(createElement(AgreementMatrixTable, matrixOf(tree)))
     expect(visible).toContain('Codebook v1 da rodada')
     expect(visible).not.toContain('vigente')
-    expect(tooltipTextsOf(AgreementMatrixTable(matrixOf(tree)))).toEqual([
-      `${matrixVersionNote(1)}\n\n${MATRIX_SCOPE_NOTE}\n\n${MATRIX_LEGEND}`,
-    ])
+    const table = AgreementMatrixTable(matrixOf(tree))
+    expect(tooltipTextsOf(table)).toEqual([])
+    expect(howToReadOf(table)).toEqual([[matrixVersionNote(1), MATRIX_SCOPE_NOTE, MATRIX_LEGEND]])
+    expect(markupTextOf(createElement(AgreementMatrixTable, matrixOf(tree)))).toContain(
+      HOW_TO_READ_TABLE,
+    )
+    expect(opensClosed(createElement(AgreementMatrixTable, matrixOf(tree)))).toBe(true)
+  })
+
+  it('cada bloco da leitura tem uma frase visível e um ⓘ que não repetem a mesma ideia', async () => {
+    const admin = await newUser('Admin')
+    const scene = await roundWith(admin, 2, { status: 'closed', phase: PHASE_3 })
+    const ana = await newEvaluator(scene.project, 'Ana')
+    const bruno = await newEvaluator(scene.project, 'Bruno')
+    for (const response of scene.responses) {
+      for (const evaluator of [ana, bruno]) {
+        await addEvaluation(ownerDb, scene.round, response, evaluator, {
+          cells: filled(scene.cells, 'high'),
+        })
+      }
+    }
+
+    auth.userId = admin
+    const tree = await render(scene.project)
+    const closedAt = listOf(tree).rounds[0].closedAt!
+
+    type SectionProps = { hint: string; help: string }
+
+    const agreement = findSection(tree, AgreementMatrixTable)!.props as SectionProps
+    expect(agreement.hint).toBe(
+      "Krippendorff's Alpha ordinal, sobre a versão de codebook que a rodada fixou.",
+    )
+    expect(agreement.help).toContain(`A rodada 1 fechou em ${formatDate(closedAt)}.`)
+    expect(agreement.help).toContain('é com ela que se decide onde refinar o codebook')
+    expect(agreement.help).not.toContain('versão de codebook que esta rodada fixou')
+
+    const rounds = findSection(tree, RoundList)!.props as SectionProps
+    expect(rounds.hint).toBe('Em ordem cronológica.')
+    expect(rounds.help).toContain('o seu estado')
+    expect(rounds.help).toContain('as versões de codebook e de prompt que ela fixou')
+
+    const quality = findSection(tree, QualityMatrixTable)!.props as SectionProps
+    expect(quality.hint).toBe(QUALITY_HINT)
+    expect(quality.help).toBe(QUALITY_HELP)
+    expect(QUALITY_HELP).not.toContain('distribuição das notas desta rodada')
+  })
+
+  it('com a rodada aberta, o ⓘ da Concordância diz que o valor não trava nada, e a frase continua a mesma', async () => {
+    const admin = await newUser('Admin')
+    const scene = await roundWith(admin, 1)
+
+    auth.userId = admin
+    const tree = await render(scene.project)
+
+    const agreement = findSection(tree, AgreementMatrixTable)!.props as {
+      hint: string
+      help: string
+    }
+    expect(agreement.hint).toBe(
+      "Krippendorff's Alpha ordinal, sobre a versão de codebook que a rodada fixou.",
+    )
+    expect(agreement.help).toBe(
+      'O valor aparece desde a primeira avaliação e não trava nada: fechar a rodada e avançar de fase continuam sendo decisão sua.',
+    )
   })
 
   it('a matriz e o painel continuam na tela depois que a rodada fecha', async () => {

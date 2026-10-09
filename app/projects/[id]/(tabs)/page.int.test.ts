@@ -55,6 +55,7 @@ import {
   phase4ConfirmationLines,
 } from '@/app/projects/[id]/pipeline/preconditions'
 import { AgreementSeriesChart } from '@/app/projects/[id]/(tabs)/rounds/agreement-series-chart'
+import { HowToRead } from '@/app/projects/[id]/(tabs)/rounds/how-to-read'
 import { QualityPanel } from '@/app/projects/[id]/(tabs)/rounds/quality-panel'
 import { QualitySeriesList } from '@/app/projects/[id]/(tabs)/rounds/quality-series-list'
 import {
@@ -1646,6 +1647,34 @@ describe('app/projects/[id]/page — escopo de visibilidade', () => {
     expect(text).toContain('Rodada 1')
     expect(text).toContain('não calculável')
     expect(text).not.toContain('0,000')
+  })
+
+  it('a legenda da série de Concordância fica em "Como ler este gráfico", fechado, e a nota de exclusão só entra com marcado', async () => {
+    const admin = await newUser('Admin')
+    const { project, bruno, third } = await qualitySeriesScene(admin)
+
+    auth.userId = admin
+    const before = seriesOf(await render(project))
+    const plain = findElement(AgreementSeriesChart(before), HowToRead)
+    expect(findElement(AgreementSeriesChart(before), InfoTooltip)).toBeNull()
+    expect(plain).toBeTruthy()
+    expect((plain!.props as { summary: string }).summary).toBe('Como ler este gráfico')
+    expect((plain!.props as { paragraphs: string[] }).paragraphs).toEqual([BAND_REFERENCE])
+
+    await addOutlier(ownerDb, third, bruno, admin)
+    const after = seriesOf(await render(project))
+    const marked = findElement(AgreementSeriesChart(after), HowToRead)
+    const paragraphs = (marked!.props as { paragraphs: string[] }).paragraphs
+    expect(paragraphs).toHaveLength(2)
+    expect(paragraphs[0]).toBe(BAND_REFERENCE)
+    expect(paragraphs[1]).toContain('A série desenha sempre o valor com todos')
+
+    const markup = renderToStaticMarkup(createElement(AgreementSeriesChart, after))
+    expect(markup).toContain('Como ler este gráfico')
+    expect(markup).not.toMatch(/<details[^>]*\sopen/)
+    expect(textOfMarkup(markup)).toContain(
+      'Um ponto por rodada, e nenhum valor que junte rodadas',
+    )
   })
 
   it('os pontos da série aparecem em ordem cronológica', async () => {

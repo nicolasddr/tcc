@@ -11,6 +11,7 @@ import { ScaleBadge } from '../evaluate/scale-marker'
 import type { ConsensusNote } from './consensus'
 import { consensusCellKey, type CellConsensus } from './consensus-cells'
 import { ConsensusForm } from './consensus-form'
+import { HowToRead } from './how-to-read'
 import {
   DIVERGENCE_LEGEND,
   NO_JUSTIFICATION_HINT,
@@ -315,7 +316,7 @@ export function ReviewGroupsList({
         ))}
       </ul>
 
-      <p className="m-0 text-xs text-muted">{DIVERGENCE_LEGEND}</p>
+      <HowToRead summary="Como ler as divergências" paragraphs={[DIVERGENCE_LEGEND]} />
     </div>
   )
 }

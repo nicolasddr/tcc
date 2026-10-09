@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import * as labels from '@/app/projects/[id]/(tabs)/rounds/quality-labels'
 import {
   QUALITY_HELP,
+  QUALITY_HINT,
   QUALITY_MATRIX_LEGEND,
   QUALITY_SERIES_HELP,
   QUALITY_SERIES_HINT,
@@ -124,8 +125,10 @@ describe('app/projects/[id]/rounds/quality-labels — a Qualidade na tela', () =
   })
 
   it('a explicação diz o que o número é, sem orientar a leitura pelo ICR nem por faixa', () => {
-    expect(QUALITY_HELP).toContain('Alto, Médio e Baixo')
+    expect(QUALITY_HINT).toContain('Alto, Médio e Baixo')
     expect(QUALITY_HELP).toContain('não o de respostas')
+    expect(QUALITY_HELP).toContain('a contagem vem ao lado')
+    expect(QUALITY_HELP.toLowerCase()).not.toContain(QUALITY_HINT.slice(0, -1).toLowerCase())
     expect(QUALITY_HELP).not.toMatch(/ICR|Krippendorff|concordância|faixa|confiáve/i)
   })
 })

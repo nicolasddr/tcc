@@ -1,7 +1,6 @@
 import { Badge } from '@/app/components/ui/badge'
 import { Card } from '@/app/components/ui/card'
 import { EmptyState } from '@/app/components/ui/empty-state'
-import { InfoTooltip } from '@/app/components/ui/tooltip'
 import { formatDate } from '@/app/notifications/labels'
 import { AgreementValue } from './agreement-panel'
 import {
@@ -13,6 +12,7 @@ import {
   type BandTone,
 } from './agreement-labels'
 import { phaseRuns, type PhaseRun, type SeriesPoint } from './agreement-series'
+import { HowToRead } from './how-to-read'
 
 const CHART_HEIGHT = 96
 
@@ -219,20 +219,20 @@ export function AgreementSeriesChart({ points }: { points: SeriesPoint[] }) {
         </div>
       ))}
 
-      <p className="m-0 flex flex-wrap items-center gap-2 text-xs text-muted">
-        <span>
-          {points.length === 1
-            ? 'Um ponto por rodada, e nenhum valor que junte rodadas: a comparação começa na segunda rodada.'
-            : 'Um ponto por rodada, e nenhum valor que junte rodadas: cada coeficiente mede a versão de codebook e a fase indicadas ao lado dele.'}
-        </span>
-        <InfoTooltip
-          text={
-            points.some((point) => point.hasOutlier)
-              ? `${BAND_REFERENCE}\n\n${OUTLIER_SERIES_NOTE}`
-              : BAND_REFERENCE
-          }
-        />
+      <p className="m-0 text-xs text-muted">
+        {points.length === 1
+          ? 'Um ponto por rodada, e nenhum valor que junte rodadas: a comparação começa na segunda rodada.'
+          : 'Um ponto por rodada, e nenhum valor que junte rodadas: cada coeficiente mede a versão de codebook e a fase indicadas ao lado dele.'}
       </p>
+
+      <HowToRead
+        summary="Como ler este gráfico"
+        paragraphs={
+          points.some((point) => point.hasOutlier)
+            ? [BAND_REFERENCE, OUTLIER_SERIES_NOTE]
+            : [BAND_REFERENCE]
+        }
+      />
     </div>
   )
 }

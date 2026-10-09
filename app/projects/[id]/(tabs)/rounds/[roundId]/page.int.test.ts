@@ -48,6 +48,7 @@ import {
 } from '@/app/projects/[id]/(tabs)/rounds/sent-input'
 import { QueueNav } from '@/app/components/ui/queue-nav'
 import { Disclosure } from '@/app/components/ui/disclosure'
+import { HowToRead } from '@/app/projects/[id]/(tabs)/rounds/how-to-read'
 import { loadCodebookVersion } from '@/app/projects/[id]/pipeline/codebook'
 import { resolveCells } from '@/app/projects/[id]/pipeline/criteria'
 import { PHASE_2, PHASE_3, PHASE_4 } from '@/app/projects/[id]/pipeline/preconditions'
@@ -505,6 +506,16 @@ describe('app/projects/[id]/rounds/[roundId] — a revisão de discordâncias', 
     expect(text).toContain(divergenceLabel('adjacent'))
     expect(text).toContain(divergenceLabel('extreme'))
     expect(text).toContain(DIVERGENCE_LEGEND)
+
+    const legend = findElement(ReviewGroupsList(listOf(tree)), HowToRead)
+    expect(legend).toBeTruthy()
+    expect(legend!.props).toEqual({
+      summary: 'Como ler as divergências',
+      paragraphs: [DIVERGENCE_LEGEND],
+    })
+    const markup = renderToStaticMarkup(createElement(ReviewGroupsList, listOf(tree)))
+    const before = markup.slice(0, markup.indexOf('Como ler as divergências'))
+    expect(before.slice(before.lastIndexOf('<details'))).toMatch(/^<details class="[^"]*">/)
   })
 
   it('cada nota vem com o nome real de quem a deu', async () => {

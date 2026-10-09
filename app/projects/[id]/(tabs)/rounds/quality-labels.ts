@@ -21,13 +21,10 @@ export const QUALITY_HINT =
   `${scaleLabel('medium')} e ${scaleLabel('low')}.`
 
 export const QUALITY_HELP =
-  `A ${QUALITY_LABEL} é a distribuição das notas desta rodada entre ` +
-  `${scaleLabel('high')}, ${scaleLabel('medium')} e ${scaleLabel('low')}, em ` +
-  'porcentagem e com a contagem ao lado. Cada nota é uma célula (definição × critério) ' +
-  'avaliada por um avaliador numa resposta, e o total é o número de notas, não o de ' +
-  'respostas. Arredondadas, as porcentagens podem não somar 100%, e por isso a contagem ' +
-  'vem junto. A ferramenta não fixa um alvo para essa distribuição nem diz se o valor ' +
-  'basta: quem conhece a tarefa é quem lê o número.'
+  'Cada nota é uma célula (definição × critério) avaliada por um avaliador numa resposta, ' +
+  'e o total é o número de notas, não o de respostas. Arredondadas, as porcentagens podem ' +
+  'não somar 100%, e por isso a contagem vem ao lado. A ferramenta não fixa um alvo para ' +
+  'essa distribuição nem diz se o valor basta: quem conhece a tarefa é quem lê o número.'
 
 export const QUALITY_MATRIX_LEGEND =
   'Na matriz, cada célula traz a distribuição das notas daquela definição × critério ' +
