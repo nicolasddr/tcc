@@ -9,7 +9,7 @@ O restante dessa sugestão já está em outros planos:
 
 | Parte | Entrega | Commit sugerido | Estado |
 |---|---|---|---|
-| 1 | Codebook, Prompt e Itens: estado vazio com o próximo passo, histórico só a partir da v1 e nenhuma frase repetida | `refactor(textos): uma explicação por bloco no codebook, prompt e itens` | ⬜ |
+| 1 | Codebook, Prompt e Itens: estado vazio com o próximo passo, histórico só a partir da v1 e nenhuma frase repetida | `refactor(textos): uma explicação por bloco no codebook, prompt e itens` | ✅ |
 
 ## A regra
 

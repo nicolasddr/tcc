@@ -1,6 +1,5 @@
 import { ButtonLink } from '@/app/components/ui/button'
 import { Card } from '@/app/components/ui/card'
-import { EmptyState } from '@/app/components/ui/empty-state'
 import { VersionBadges, VersionCounts, VersionMeta } from './version-history'
 import type { CodebookVersionSummary } from './codebook'
 
@@ -11,15 +10,6 @@ export function CodebookHistory({
   projectId: string
   versions: CodebookVersionSummary[]
 }) {
-  if (versions.length === 0) {
-    return (
-      <EmptyState>
-        Nenhuma versão do codebook ainda. O primeiro salvamento das definições cria a
-        versão 1.
-      </EmptyState>
-    )
-  }
-
   return (
     <ul className="m-0 flex list-none flex-col gap-3 p-0">
       {versions.map((version) => (

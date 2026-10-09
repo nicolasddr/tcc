@@ -246,14 +246,28 @@ describe('app/projects/[id]/prompt — a tela do prompt', () => {
     expect(textOf(VersionBadges({ version }))).toContain('congelada')
   })
 
-  it('o projeto sem nenhuma versão mostra o histórico vazio', async () => {
+  it('sem nenhuma versão, a tela não tem histórico nem link para ele; ambos aparecem a partir da versão 1', async () => {
     const admin = await newUser('Admin')
-    const project = await newProject(admin)
+    const empty = await newProject(admin)
+    const versioned = await newProject(admin)
+    await addPromptVersion(ownerDb, versioned, admin)
 
     auth.userId = admin
-    const props = historyOf(await renderPrompt(project))
-    expect(props.versions).toEqual([])
-    expect(textOf(PromptHistory(props))).toContain('Nenhuma versão do prompt ainda')
+    const emptyTree = await renderPrompt(empty)
+    expect(findElement(emptyTree, PromptHistory)).toBeNull()
+    const emptyEditor = findElement(emptyTree, PromptEditor)!
+      .props as Parameters<typeof PromptEditor>[0]
+    expect(emptyEditor.historyAnchor).toBeUndefined()
+    const emptyHtml = renderToStaticMarkup(createElement(PromptEditor, emptyEditor))
+    expect(emptyHtml).not.toContain('href="#')
+
+    const versionedTree = await renderPrompt(versioned)
+    expect(historyOf(versionedTree).versions.map((v) => v.versionNumber)).toEqual([1])
+    const editor = findElement(versionedTree, PromptEditor)!
+      .props as Parameters<typeof PromptEditor>[0]
+    expect(editor.historyAnchor).toBeTruthy()
+    const html = renderToStaticMarkup(createElement(PromptEditor, editor))
+    expect(html).toContain(`href="#${editor.historyAnchor}"`)
   })
 
   it('abrir uma versão antiga mostra o texto daquela versão, com a formatação preservada', async () => {

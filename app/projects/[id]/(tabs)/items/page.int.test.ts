@@ -20,7 +20,10 @@ vi.mock('next/navigation', () => ({
 import ProjectItemsPage from '@/app/projects/[id]/(tabs)/items/page'
 import { ItemsEditor } from '@/app/projects/[id]/pipeline/items-editor'
 import { itemUsageMark } from '@/app/projects/[id]/round-usage'
-import { ITEM_FILE_HINT } from '@/app/projects/[id]/pipeline/item-content'
+import {
+  ITEM_FILE_FORMATS,
+  ITEM_FILE_HINT,
+} from '@/app/projects/[id]/pipeline/item-content'
 import { Section } from '@/app/components/ui/section'
 import { PHASE_4 } from '@/app/projects/[id]/pipeline/preconditions'
 import { ownerDb } from '@/lib/db'
@@ -180,6 +183,13 @@ describe('app/projects/[id]/items — a tela dos itens de entrada', () => {
     expect(html).toContain('Arraste um arquivo de texto aqui')
     expect(html).toContain('Escolher arquivo')
     expect(html).not.toContain('Importar arquivo')
+    expect(html).toContain(ITEM_FILE_FORMATS)
+
+    const section = findElement(await render(project), Section)
+    const help = (section!.props as { help: string }).help
+    expect(help).not.toContain(ITEM_FILE_FORMATS)
+    expect(help).toContain('as fases seguintes amostram desse pool')
+    expect(help).toContain('o arquivo em si não é guardado')
   })
 
   it('com itens no pool, o upload vira o botão "Importar arquivo" e nenhum input de arquivo fica à vista', async () => {

@@ -34,6 +34,7 @@ import {
 import { VersionStatus } from '@/app/projects/[id]/pipeline/version-status'
 import { Button } from '@/app/components/ui/button'
 import { InfoTooltip } from '@/app/components/ui/tooltip'
+import { Section } from '@/app/components/ui/section'
 import { formatDate } from '@/app/notifications/labels'
 import {
   PHASE_1,
@@ -83,6 +84,24 @@ function collectText(node: unknown): string {
 
 function textOf(node: unknown): string {
   return collectText(node).replace(/\s+/g, ' ').trim()
+}
+
+function sectionTitles(node: unknown): string[] {
+  if (Array.isArray(node)) return node.flatMap(sectionTitles)
+  if (!isValidElement(node)) return []
+  const props = node.props as Record<string, unknown>
+  const own = node.type === Section ? [String(props.title)] : []
+  return [...own, ...Object.values(props).flatMap(sectionTitles)]
+}
+
+function sectionHelp(node: unknown, title: string): string {
+  if (Array.isArray(node)) return node.map((child) => sectionHelp(child, title)).join('')
+  if (!isValidElement(node)) return ''
+  const props = node.props as Record<string, unknown>
+  if (node.type === Section && props.title === title) return String(props.help)
+  return Object.values(props)
+    .map((value) => sectionHelp(value, title))
+    .join('')
 }
 
 type HistoryProps = Parameters<typeof CodebookHistory>[0]
@@ -223,14 +242,76 @@ describe('app/projects/[id]/codebook — a tela do codebook', () => {
     expect(textOf(VersionBadges({ version }))).toContain('congelada')
   })
 
-  it('o projeto sem nenhuma versão mostra o histórico vazio', async () => {
+  it('sem nenhuma versão, a tela não tem histórico; ele aparece a partir da versão 1', async () => {
     const admin = await newUser('Admin')
-    const project = await newProject(admin)
+    const empty = await newProject(admin)
+    const versioned = await newProject(admin)
+    await addCodebookVersion(ownerDb, versioned, admin)
 
     auth.userId = admin
-    const props = historyOf(await renderCodebook(project))
-    expect(props.versions).toEqual([])
-    expect(textOf(CodebookHistory(props))).toContain('Nenhuma versão do codebook ainda')
+    const emptyTree = await renderCodebook(empty)
+    expect(findElement(emptyTree, CodebookHistory)).toBeNull()
+    expect(sectionTitles(emptyTree)).toEqual(['Definições'])
+
+    const versionedTree = await renderCodebook(versioned)
+    expect(sectionTitles(versionedTree)).toEqual(['Definições', 'Histórico de versões'])
+    expect(historyOf(versionedTree).versions.map((v) => v.versionNumber)).toEqual([1])
+  })
+
+  it('o codebook vazio na Fase 1 diz o próximo passo e oferece adicionar definições', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin, PHASE_1)
+
+    auth.userId = admin
+    const editor = findElement(await renderCodebook(project), CodebookEditor)
+    const props = editor!.props as Parameters<typeof CodebookEditor>[0]
+    const html = renderToStaticMarkup(createElement(CodebookEditor, props))
+
+    expect(html).toContain('Nenhuma definição ainda.')
+    expect(html).toContain(
+      'Na Fase 1 bastam título e tipo; a descrição e os critérios entram na Fase 2.',
+    )
+    expect(html).toContain('Adicionar definições')
+    expect(html).not.toContain('Editar definições')
+    expect(html).not.toContain('Esta versão não tem definições.')
+    expect(html.match(/cria a versão 1/g)).toHaveLength(1)
+  })
+
+  it('a versão que existe e está vazia continua dizendo que não tem definições', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin)
+    const versionId = await addCodebookVersion(ownerDb, project, admin, { definitions: [] })
+
+    auth.userId = admin
+    const editor = findElement(await renderCodebook(project), CodebookEditor)
+    const props = editor!.props as Parameters<typeof CodebookEditor>[0]
+    const html = renderToStaticMarkup(createElement(CodebookEditor, props))
+    expect(html).toContain('Esta versão não tem definições.')
+    expect(html).not.toContain('Nenhuma definição ainda.')
+    expect(html).toContain('Editar definições')
+
+    expect(textOf(await renderVersion(project, versionId))).toContain(
+      'Esta versão não tem definições.',
+    )
+  })
+
+  it('o ⓘ das definições não repete a frase visível', async () => {
+    const admin = await newUser('Admin')
+    const phase1 = await newProject(admin, PHASE_1)
+    const phase2 = await newProject(admin, PHASE_2)
+    await addCodebookVersion(ownerDb, phase2, admin)
+
+    auth.userId = admin
+    for (const project of [phase1, phase2]) {
+      const help = sectionHelp(await renderCodebook(project), 'Definições')
+      expect(help).not.toContain('Os conceitos que estruturam a tarefa da LLM')
+    }
+    expect(sectionHelp(await renderCodebook(phase1), 'Definições')).toContain(
+      'A descrição e os critérios de cada definição são escritos na Fase 2.',
+    )
+    expect(sectionHelp(await renderCodebook(phase2), 'Definições')).toContain(
+      'Só os títulos vão para a LLM.',
+    )
   })
 
   it('abrir uma versão antiga mostra as definições na ordem daquela versão', async () => {

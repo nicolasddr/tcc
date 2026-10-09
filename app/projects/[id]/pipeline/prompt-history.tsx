@@ -1,6 +1,5 @@
 import { ButtonLink } from '@/app/components/ui/button'
 import { Card } from '@/app/components/ui/card'
-import { EmptyState } from '@/app/components/ui/empty-state'
 import { VersionBadges, VersionMeta } from './version-history'
 import { PromptMetadataList } from './prompt-metadata'
 import { hasPromptMetadata, type PromptVersionSummary } from './prompt'
@@ -12,14 +11,6 @@ export function PromptHistory({
   projectId: string
   versions: PromptVersionSummary[]
 }) {
-  if (versions.length === 0) {
-    return (
-      <EmptyState>
-        Nenhuma versão do prompt ainda. O primeiro salvamento do texto cria a versão 1.
-      </EmptyState>
-    )
-  }
-
   return (
     <ul className="m-0 flex list-none flex-col gap-3 p-0">
       {versions.map((version) => (

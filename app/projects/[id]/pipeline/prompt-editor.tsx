@@ -84,7 +84,7 @@ export function PromptEditor({
   phase: number
   definitions: number
   items: number
-  historyAnchor: string
+  historyAnchor?: string
   notice: string | null
 }) {
   const [state, submit, pending] = useActionState(savePrompt, initialState)
@@ -134,12 +134,14 @@ export function PromptEditor({
       }
       action={
         <div className="flex flex-wrap items-center gap-2">
-          <a
-            href={`#${historyAnchor}`}
-            className={buttonClass('secondary', { size: 'sm' })}
-          >
-            Histórico
-          </a>
+          {historyAnchor ? (
+            <a
+              href={`#${historyAnchor}`}
+              className={buttonClass('secondary', { size: 'sm' })}
+            >
+              Histórico
+            </a>
+          ) : null}
           {editing || notice !== null ? null : (
             <Button size="sm" onClick={edit}>
               {version ? 'Editar texto' : 'Escrever o prompt'}

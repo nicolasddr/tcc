@@ -60,7 +60,7 @@ export default async function ProjectPromptPage({
           phase={project.phase}
           definitions={codebook.definitions.length}
           items={items.length}
-          historyAnchor={HISTORY_ANCHOR}
+          historyAnchor={versions.length > 0 ? HISTORY_ANCHOR : undefined}
           notice={isFrozen(project.phase) ? frozenMessage('prompt') : null}
         />
 
@@ -96,15 +96,17 @@ export default async function ProjectPromptPage({
         </Panel>
       </div>
 
-      <div id={HISTORY_ANCHOR} className="scroll-mt-4">
-        <Section
-          title="Histórico de versões"
-          hint="Da mais recente para a mais antiga."
-          help="Abrir uma versão mostra o texto como estava nela, em leitura: versão congelada não é editável nem apagável."
-        >
-          <PromptHistory projectId={project.id} versions={versions} />
-        </Section>
-      </div>
+      {versions.length > 0 ? (
+        <div id={HISTORY_ANCHOR} className="scroll-mt-4">
+          <Section
+            title="Histórico de versões"
+            hint="Da mais recente para a mais antiga."
+            help="Abrir uma versão mostra o texto como estava nela, em leitura: versão congelada não é editável nem apagável."
+          >
+            <PromptHistory projectId={project.id} versions={versions} />
+          </Section>
+        </div>
+      ) : null}
     </>
   )
 }

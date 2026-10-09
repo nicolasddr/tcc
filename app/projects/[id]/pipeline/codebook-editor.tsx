@@ -188,14 +188,42 @@ function generalScopeLabel(definitionCount: number): string {
   return `${scope} Editar ou remover um critério geral vale para todas elas.`
 }
 
+function NoDefinitionsYet({
+  inPhase2,
+  onAdd,
+}: {
+  inPhase2: boolean
+  onAdd?: () => void
+}) {
+  return (
+    <EmptyState>
+      <span className="block">Nenhuma definição ainda.</span>
+      {inPhase2 ? null : (
+        <span className="mt-1 block">
+          Na Fase 1 bastam título e tipo; a descrição e os critérios entram na Fase 2.
+        </span>
+      )}
+      {onAdd ? (
+        <span className="mt-4 block">
+          <Button onClick={onAdd}>Adicionar definições</Button>
+        </span>
+      ) : null}
+    </EmptyState>
+  )
+}
+
 function CodebookBody({
+  hasVersion,
   definitions,
   criteria,
   inPhase2,
+  onAdd,
 }: {
+  hasVersion: boolean
   definitions: CodebookDefinition[]
   criteria: CodebookCriterion[]
   inPhase2: boolean
+  onAdd?: () => void
 }) {
   return (
     <>
@@ -203,7 +231,9 @@ function CodebookBody({
         <CodebookSummary definitions={definitions} criteria={criteria} />
       ) : null}
       <TypeLegend />
-      {definitions.length === 0 ? (
+      {definitions.length === 0 && !hasVersion ? (
+        <NoDefinitionsYet inPhase2={inPhase2} onAdd={onAdd} />
+      ) : definitions.length === 0 ? (
         <EmptyState>Esta versão não tem definições.</EmptyState>
       ) : (
         <DefinitionList definitions={definitions} criteria={criteria} />
@@ -716,7 +746,12 @@ export function CodebookReadOnly({
     <div className="flex flex-col gap-4">
       <VersionStatus version={version} isOpen={isOpen} />
       {notice !== null ? <Alert tone="notice">{notice}</Alert> : null}
-      <CodebookBody definitions={definitions} criteria={criteria} inPhase2={inPhase2} />
+      <CodebookBody
+        hasVersion={version !== null}
+        definitions={definitions}
+        criteria={criteria}
+        inPhase2={inPhase2}
+      />
     </div>
   )
 }
@@ -768,18 +803,25 @@ export function CodebookEditor({
   }
 
   if (!editing) {
+    const startEditing = () => setEditingNonce(savedNonce)
+    const empty = version === null && definitions.length === 0
+
     return (
       <div className="flex flex-col gap-4">
         <VersionStatus version={version} isOpen={isOpen} />
         <CodebookBody
+          hasVersion={version !== null}
           definitions={definitions}
           criteria={criteria}
           inPhase2={inPhase2}
+          onAdd={startEditing}
         />
         {saved ? <Alert tone="success">Definições salvas.</Alert> : null}
-        <FormActions align="start">
-          <Button onClick={() => setEditingNonce(savedNonce)}>Editar definições</Button>
-        </FormActions>
+        {empty ? null : (
+          <FormActions align="start">
+            <Button onClick={startEditing}>Editar definições</Button>
+          </FormActions>
+        )}
       </div>
     )
   }
