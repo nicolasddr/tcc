@@ -18,6 +18,7 @@ export type PipelineRoute = 'codebook' | 'prompt' | 'items'
 export type PipelineRequirement = {
   key: PipelineInputKey
   title: string
+  action: string
   pending: string
   route: PipelineRoute
 }
@@ -32,18 +33,21 @@ export const PIPELINE_REQUIREMENTS: readonly PipelineRequirement[] = [
   {
     key: 'definition',
     title: 'Definição',
+    action: 'Cadastrar uma definição',
     pending: 'Cadastre ao menos uma definição para estruturar a tarefa da LLM.',
     route: 'codebook',
   },
   {
     key: 'prompt',
     title: 'Texto do prompt',
+    action: 'Escrever o texto do prompt',
     pending: 'Escreva o texto do prompt que será enviado à LLM.',
     route: 'prompt',
   },
   {
     key: 'item',
     title: 'Item de entrada',
+    action: 'Cadastrar um item de entrada',
     pending: 'Cadastre ao menos um item de entrada no pool do projeto.',
     route: 'items',
   },

@@ -382,13 +382,14 @@ describe('app/projects/[id]/page — painel para voltar da Fase 4 para a Fase 3'
     }
   })
 
-  it('na Fase 4 a barra leva a #voltar com um link secundário; nas Fases 1 a 3 continua levando a #avancar', async () => {
+  it('na Fase 4 a barra leva a #voltar com um link secundário; nas Fases 1 a 3 o checklist #avancar fica na própria barra', async () => {
     const admin = await newUser('Admin')
     auth.userId = admin
 
     for (const phase of [PHASE_1, PHASE_2, PHASE_3]) {
       const tree = await render(await newProject(admin, phase))
-      expect(hasProp(tree, 'href', '#avancar')).toBe(true)
+      expect(hasProp(tree, 'id', 'avancar')).toBe(true)
+      expect(hasProp(tree, 'href', '#avancar')).toBe(false)
       expect(hasProp(tree, 'href', '#voltar')).toBe(false)
     }
 

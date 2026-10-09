@@ -15,12 +15,10 @@ import { Phase4Return } from '../pipeline/phase-4-return'
 import type { LastClosedRound } from '../pipeline/last-round-summary'
 import {
   EMPTY_PIPELINE,
+  PHASE_1,
   PHASE_2,
   PHASE_3,
   PHASE_4,
-  pendingRequirements,
-  phase2Blockers,
-  phase3Blockers,
   type PipelineInputs,
   type Phase2Inputs,
   type ReturnInputs,
@@ -63,12 +61,12 @@ import { SubmitButton } from '@/app/components/submit-button'
 import { ButtonLink } from '@/app/components/ui/button'
 import { Callout } from '@/app/components/ui/panel'
 import { Badge } from '@/app/components/ui/badge'
+import { cardClassName } from '@/app/components/ui/card'
 import { InfoTooltip } from '@/app/components/ui/tooltip'
 import { OpenLink } from '@/app/components/ui/open-link'
 import { StatCard } from '@/app/components/ui/stat'
 import { Disclosure } from '@/app/components/ui/disclosure'
 import { Section } from '@/app/components/ui/section'
-import { ArrowRightIcon } from '@/app/components/ui/icons'
 
 type AgreementData = {
   rounds: readonly RoundSummary[]
@@ -291,11 +289,12 @@ export default async function ProjectPage({
       }
     : null
 
+  const completedClassName = cardClassName({ padding: 'lg', className: 'mt-3' })
   const checklists = phase1Inputs
     ? [
         <PipelineChecklist
           key="phase-1"
-          className="mt-3"
+          className={project.phase > PHASE_1 ? completedClassName : undefined}
           projectId={project.id}
           phase={project.phase}
           inputs={phase1Inputs}
@@ -303,7 +302,7 @@ export default async function ProjectPage({
         phase2 && project.phase >= PHASE_2 ? (
           <Phase2Checklist
             key="phase-2"
-            className="mt-3"
+            className={project.phase > PHASE_2 ? completedClassName : undefined}
             projectId={project.id}
             phase={project.phase}
             inputs={phase2.inputs}
@@ -313,7 +312,7 @@ export default async function ProjectPage({
         phase3 && project.phase >= PHASE_3 ? (
           <Phase3Checklist
             key="phase-3"
-            className="mt-3"
+            className={project.phase > PHASE_3 ? completedClassName : undefined}
             projectId={project.id}
             phase={project.phase}
             inputs={phase3.inputs}
@@ -326,15 +325,6 @@ export default async function ProjectPage({
   const completedChecklists = phase4 ? checklists : checklists.slice(0, -1)
 
   const canSteerPhase = isAdmin && project.status === 'active'
-
-  const pendingCount =
-    project.phase === PHASE_3 && phase3
-      ? phase3Blockers(phase3.inputs).length
-      : project.phase === PHASE_2 && phase2
-        ? phase2Blockers(phase2.inputs).length
-        : phase1Inputs
-          ? pendingRequirements(phase1Inputs).length
-          : 0
 
   const members = groupMembers(memberRows)
   const activeEvaluators = members.filter(
@@ -399,26 +389,19 @@ export default async function ProjectPage({
               ) : null
             }
             action={
-              canSteerPhase ? (
-                project.phase < PHASE_4 ? (
-                  pendingCount > 0 ? (
-                    <ButtonLink href="#avancar" variant="secondary">
-                      {`${pendingCount} ${pendingCount === 1 ? 'pendência' : 'pendências'} ↓`}
-                    </ButtonLink>
-                  ) : (
-                    <ButtonLink href="#avancar">
-                      Avançar fase
-                      <ArrowRightIcon />
-                    </ButtonLink>
-                  )
-                ) : (
-                  <ButtonLink href="#voltar" variant="secondary">
-                    Voltar à Fase {PHASE_3}
-                  </ButtonLink>
-                )
+              canSteerPhase && project.phase === PHASE_4 ? (
+                <ButtonLink href="#voltar" variant="secondary">
+                  Voltar à Fase {PHASE_3}
+                </ButtonLink>
               ) : null
             }
-          />
+          >
+            {currentChecklist ? (
+              <div id="avancar" className="scroll-mt-6">
+                {currentChecklist}
+              </div>
+            ) : null}
+          </PhaseBar>
 
           {phase4 ? (
             <div id="voltar" className="scroll-mt-6">
@@ -428,10 +411,6 @@ export default async function ProjectPage({
                 inputs={phase4.inputs}
                 summary={phase4.summary}
               />
-            </div>
-          ) : currentChecklist ? (
-            <div id="avancar" className="scroll-mt-6">
-              {currentChecklist}
             </div>
           ) : null}
 

@@ -49,7 +49,7 @@ export function AdvancePhase({
   }
 
   return (
-    <div className="mt-4 flex flex-col gap-3 border-t border-line pt-4">
+    <div className="mt-4 flex flex-col gap-3">
       {error ? <Alert tone="error">{error}</Alert> : null}
 
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2">

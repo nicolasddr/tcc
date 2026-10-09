@@ -1,8 +1,4 @@
-import Link from '@/app/components/app-link'
-import { Card } from '@/app/components/ui/card'
 import { Badge } from '@/app/components/ui/badge'
-import { Panel } from '@/app/components/ui/panel'
-import { CheckCircleIcon, CircleIcon } from '@/app/components/ui/icons'
 import {
   PHASE_2,
   PHASE_3,
@@ -13,6 +9,7 @@ import {
   type Phase2Inputs,
 } from './preconditions'
 import { AdvancePhase } from './advance-phase'
+import { ChecklistItem, PhaseChecklist } from './checklist'
 import { LastRoundSummary, type LastClosedRound } from './last-round-summary'
 
 type Phase2Requirement = { key: Phase2Blocker['key']; title: string }
@@ -21,6 +18,15 @@ const PHASE_2_REQUIREMENTS: readonly Phase2Requirement[] = [
   { key: 'open_round', title: 'Nenhuma rodada aberta' },
   { key: 'no_closed_round', title: 'Ao menos uma rodada fechada' },
 ] as const
+
+function phase2BlockerAction(blocker: Phase2Blocker): string {
+  switch (blocker.key) {
+    case 'open_round':
+      return `Fechar a rodada ${blocker.roundNumber}`
+    case 'no_closed_round':
+      return 'Fechar ao menos uma rodada'
+  }
+}
 
 export function Phase2Checklist({
   projectId,
@@ -43,65 +49,37 @@ export function Phase2Checklist({
       : 'Tudo pronto. O avanço pede confirmação antes de mudar qualquer coisa.'
 
   return (
-    <Panel
+    <PhaseChecklist
       className={className}
       title={`Para avançar para a Fase ${PHASE_3}`}
-      icon={<CheckCircleIcon />}
-      action={
+      badge={
         phase !== PHASE_2 ? (
           <Badge tone="success">Fase {PHASE_2} concluída</Badge>
         ) : blockers.length === 0 ? (
           <Badge tone="success">tudo pronto</Badge>
         ) : (
           <Badge tone="warning">
-            {blockers.length} de {PHASE_2_REQUIREMENTS.length} pendentes
+            {blockers.length === 1 ? 'falta 1' : `faltam ${blockers.length}`}
           </Badge>
         )
       }
+      items={PHASE_2_REQUIREMENTS.map((req) => {
+        const blocker = byKey.get(req.key)
+
+        return blocker ? (
+          <ChecklistItem
+            key={req.key}
+            status="pending"
+            label={phase2BlockerAction(blocker)}
+            help={phase2BlockerMessage(blocker)}
+            href={`/projects/${projectId}/rounds`}
+            destination="rounds"
+          />
+        ) : (
+          <ChecklistItem key={req.key} status="done" label={req.title} />
+        )
+      })}
     >
-      <ul className="m-0 flex list-none flex-col gap-2 p-0">
-        {PHASE_2_REQUIREMENTS.map((req) => {
-          const blocker = byKey.get(req.key)
-
-          return (
-            <li key={req.key}>
-              <Card
-                padding="sm"
-                tone={blocker ? 'default' : 'subtle'}
-                className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2"
-              >
-                <div className="flex min-w-[240px] flex-1 items-start gap-2.5">
-                  {blocker ? (
-                    <CircleIcon className="mt-0.5 text-faint" />
-                  ) : (
-                    <CheckCircleIcon className="mt-0.5 text-success-fg" />
-                  )}
-                  <div className="min-w-0">
-                    <p className="m-0 text-[13px] font-semibold text-ink">{req.title}</p>
-                    {blocker ? (
-                      <p className="m-0 mt-0.5 text-[13px] text-muted">
-                        {phase2BlockerMessage(blocker)}
-                      </p>
-                    ) : null}
-                  </div>
-                </div>
-
-                {blocker ? (
-                  <Link
-                    href={`/projects/${projectId}/rounds`}
-                    className="text-[13px] font-semibold text-brand transition-colors hover:text-brand-hover"
-                  >
-                    Resolver
-                  </Link>
-                ) : (
-                  <Badge tone="success">pronto</Badge>
-                )}
-              </Card>
-            </li>
-          )
-        })}
-      </ul>
-
       {phase === PHASE_2 ? (
         <AdvancePhase
           projectId={projectId}
@@ -112,11 +90,11 @@ export function Phase2Checklist({
           summary={lastRound ? <LastRoundSummary round={lastRound} /> : null}
         />
       ) : (
-        <p className="mt-4 border-t border-line pt-4 text-[13px] text-muted">
+        <p className="m-0 mt-3 text-[13px] text-muted">
           A Fase {PHASE_2} já foi concluída: o projeto está na Fase {phase}. As rodadas,
           as avaliações e a concordância continuam aqui para consulta.
         </p>
       )}
-    </Panel>
+    </PhaseChecklist>
   )
 }
