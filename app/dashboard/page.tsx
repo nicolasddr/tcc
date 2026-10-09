@@ -29,11 +29,13 @@ import {
   type NotificationPayload,
 } from '@/app/notifications/labels'
 import { projectStatusLabel, roleLabel } from '@/app/projects/labels'
+import { PROJECT_PHASES, TOTAL_PHASES } from '@/app/projects/[id]/phase-bar'
 
 type ListedProject = {
   id: string
   name: string
   status: string
+  phase: number
   roles: string[]
   onboardingPending: boolean
 }
@@ -70,6 +72,7 @@ export default async function Dashboard({
           id: projectsTable.id,
           name: projectsTable.name,
           status: projectsTable.status,
+          phase: projectsTable.phase,
         },
       })
       .from(projectMembers)
@@ -108,7 +111,14 @@ export default async function Dashboard({
     }
     let entry = byProject.get(p.id)
     if (!entry) {
-      entry = { id: p.id, name: p.name, status: p.status, roles: [], onboardingPending: false }
+      entry = {
+        id: p.id,
+        name: p.name,
+        status: p.status,
+        phase: p.phase,
+        roles: [],
+        onboardingPending: false,
+      }
       byProject.set(p.id, entry)
     }
     if (!entry.roles.includes(row.role)) entry.roles.push(row.role)
@@ -212,7 +222,10 @@ export default async function Dashboard({
                   <span className="flex min-w-0 flex-col gap-1">
                     <span className="text-[15px] font-semibold text-ink">{p.name}</span>
                     <span className="text-xs text-muted">
-                      {p.roles.map(roleLabel).join(' · ')}
+                      {[
+                        ...p.roles.toSorted().map(roleLabel),
+                        `Fase ${p.phase} de ${TOTAL_PHASES}, ${PROJECT_PHASES[p.phase - 1].name}`,
+                      ].join(' · ')}
                     </span>
                   </span>
                   <span className="flex shrink-0 items-center gap-2">

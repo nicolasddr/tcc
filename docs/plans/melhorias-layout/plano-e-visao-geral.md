@@ -7,7 +7,7 @@ Sugestão **Visão geral e dashboard** da referência visual:
 |---|---|---|---|
 | 1 | Checklist dentro do cartão da fase, pendências como ações curtas e sem o "N pendências ↓" | `feat(visao-geral): checklist dentro do cartão da fase` | ✅ |
 | 2 | Cartões de número, séries e chamada do avaliador só quando dizem algo | `refactor(visao-geral): números e séries só quando dizem algo` | ✅ |
-| 3 | Dashboard mostra a fase de cada projeto | `feat(painel): fase de cada projeto` | ⬜ |
+| 3 | Dashboard mostra a fase de cada projeto | `feat(painel): fase de cada projeto` | ✅ |
 
 Faça este plano depois do Plano D, que muda o cabeçalho e as abas do projeto.
 
