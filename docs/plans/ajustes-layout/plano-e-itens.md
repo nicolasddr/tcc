@@ -4,7 +4,7 @@ Ajuste **10** da referência visual `docs/plans/ajustes-layout/referencia-visual
 
 | Parte | Entrega | Commit sugerido | Estado |
 |---|---|---|---|
-| 1 | "Importar arquivo" ao lado de "+ Novo item", sem o input nativo em inglês (ajuste 10) | `feat(itens): importar arquivo como botão` | ⬜ |
+| 1 | "Importar arquivo" ao lado de "+ Novo item", sem o input nativo em inglês (ajuste 10) | `feat(itens): importar arquivo como botão` | ✅ |
 
 ## Contexto
 

@@ -20,6 +20,8 @@ vi.mock('next/navigation', () => ({
 import ProjectItemsPage from '@/app/projects/[id]/(tabs)/items/page'
 import { ItemsEditor } from '@/app/projects/[id]/pipeline/items-editor'
 import { itemUsageMark } from '@/app/projects/[id]/round-usage'
+import { ITEM_FILE_HINT } from '@/app/projects/[id]/pipeline/item-content'
+import { Section } from '@/app/components/ui/section'
 import { PHASE_4 } from '@/app/projects/[id]/pipeline/preconditions'
 import { ownerDb } from '@/lib/db'
 import {
@@ -170,7 +172,34 @@ describe('app/projects/[id]/items — a tela dos itens de entrada', () => {
     const project = await newProject(admin)
 
     auth.userId = admin
-    expect(itemsOf(await render(project)).items).toEqual([])
+    const props = itemsOf(await render(project))
+    expect(props.items).toEqual([])
+
+    const html = renderToStaticMarkup(createElement(ItemsEditor, props))
+    expect(html).toContain('Upload de itens')
+    expect(html).toContain('Arraste um arquivo de texto aqui')
+    expect(html).toContain('Escolher arquivo')
+    expect(html).not.toContain('Importar arquivo')
+  })
+
+  it('com itens no pool, o upload vira o botão "Importar arquivo" e nenhum input de arquivo fica à vista', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin)
+    await addInputItem(ownerDb, project, admin, { name: 'Consulta 001' })
+
+    auth.userId = admin
+    const tree = await render(project)
+    const html = renderToStaticMarkup(createElement(ItemsEditor, itemsOf(tree)))
+    expect(html).toContain('Importar arquivo')
+    expect(html).not.toContain('Upload de itens')
+    expect(html).not.toContain('Arraste um arquivo de texto aqui')
+
+    const fileInputs = html.match(/<input[^>]*type="file"[^>]*>/g) ?? []
+    expect(fileInputs.length).toBeGreaterThan(0)
+    for (const input of fileInputs) expect(input).toContain('class="sr-only"')
+
+    const section = findElement(tree, Section)
+    expect((section!.props as { help: string }).help).toContain(ITEM_FILE_HINT)
   })
 
   it('na Fase 4, o pool continua aberto: cadastrar e editar o item não usado seguem na tela', async () => {
@@ -187,7 +216,7 @@ describe('app/projects/[id]/items — a tela dos itens de entrada', () => {
     expect(props.items.map((item) => item.isEditable)).toEqual([false, true])
 
     const html = renderToStaticMarkup(createElement(ItemsEditor, props))
-    expect(html).toContain('Upload de itens')
+    expect(html).toContain('Importar arquivo')
     expect(html).toContain('Novo item')
     expect(html).not.toContain('Fase 4')
   })

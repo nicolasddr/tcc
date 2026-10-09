@@ -1,12 +1,12 @@
 'use client'
 
-import { useActionState, useState } from 'react'
+import { useActionState, useState, type DragEvent } from 'react'
 import { createItem, updateItem, deleteItem, type ItemState } from './actions'
 import type { InputItem } from './items'
 import { itemPreviewLines } from './item-preview'
 import { itemUsageMark } from '../round-usage'
 import { RoundMarkBadge } from '../round-mark-badge'
-import { Button } from '@/app/components/ui/button'
+import { Button, buttonClass } from '@/app/components/ui/button'
 import { RowActions, RowMenuItem } from '@/app/components/ui/row-actions'
 import { EditableRow } from '@/app/components/ui/editable-row'
 import { Field, Input, Textarea } from '@/app/components/ui/field'
@@ -20,30 +20,18 @@ import { LockIcon, PlusIcon, SearchIcon } from '@/app/components/ui/icons'
 import { cx } from '@/app/components/ui/cx'
 import { plural } from '@/lib/plural'
 import { ITEM_CONTENT_MAX, ITEM_NAME_MAX } from '@/lib/limits'
-import {
-  readItemFile,
-  ITEM_FILE_LIMIT_LABEL,
-  TEXT_FILE_ACCEPT,
-  TEXT_FILE_EXAMPLES,
-} from './item-content'
+import { readItemFile, ITEM_FILE_FORMATS, TEXT_FILE_ACCEPT } from './item-content'
 
 const initialState: ItemState = null
 
 const contentClass =
   'max-h-[50vh] min-h-[180px] overflow-auto font-mono text-[13px] leading-[1.6]'
 
-const fileInputClass =
-  'w-full cursor-pointer rounded-control border border-line-strong bg-surface px-[11px] py-[9px] ' +
-  'text-sm text-muted outline-none focus:border-brand focus:ring-[3px] focus:ring-brand-ring ' +
-  'disabled:cursor-default disabled:bg-surface-subtle ' +
-  'file:mr-3 file:cursor-pointer file:rounded-control file:border file:border-line-strong ' +
-  'file:bg-canvas file:px-3 file:py-[5px] file:text-xs file:font-semibold file:text-label'
+const pickerClass =
+  'relative has-[:focus-visible]:ring-[3px] has-[:focus-visible]:ring-brand-ring ' +
+  'has-[:disabled]:pointer-events-none has-[:disabled]:opacity-60'
 
-const FORMATS = `Formatos de texto (${TEXT_FILE_EXAMPLES}) e arquivos de código, até ${ITEM_FILE_LIMIT_LABEL}.`
-
-const fileHint = `${FORMATS} O conteúdo entra no formulário e continua editável antes de cadastrar; o arquivo em si não é guardado.`
-
-const editFileHint = `${FORMATS} O conteúdo entra no campo abaixo e continua editável; o arquivo em si não é guardado.`
+const editFileHint = `${ITEM_FILE_FORMATS} O conteúdo entra no campo abaixo e continua editável; o arquivo em si não é guardado.`
 
 const ONE_FILE =
   'Nesta fase, um arquivo por vez: arraste um arquivo só, ou repita o envio para cada item.'
@@ -83,6 +71,51 @@ function useItemFile(onLoad: (name: string, text: string) => void) {
   return { error, reading, load }
 }
 
+function useFileDrop(onFiles: (files: File[]) => void) {
+  const [over, setOver] = useState(false)
+
+  return {
+    over,
+    dropProps: {
+      onDragOver(event: DragEvent<HTMLElement>) {
+        if (!event.dataTransfer.types.includes('Files')) return
+        event.preventDefault()
+        setOver(true)
+      },
+      onDragLeave(event: DragEvent<HTMLElement>) {
+        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setOver(false)
+      },
+      onDrop(event: DragEvent<HTMLElement>) {
+        event.preventDefault()
+        setOver(false)
+        onFiles(Array.from(event.dataTransfer.files))
+      },
+    },
+  }
+}
+
+function HiddenFileInput({
+  disabled,
+  onFiles,
+}: {
+  disabled: boolean
+  onFiles: (files: File[]) => void
+}) {
+  return (
+    <input
+      type="file"
+      accept={TEXT_FILE_ACCEPT}
+      disabled={disabled}
+      onChange={(event) => {
+        const files = Array.from(event.target.files ?? [])
+        event.target.value = ''
+        onFiles(files)
+      }}
+      className="sr-only"
+    />
+  )
+}
+
 function ItemFileField({ onText }: { onText: (text: string) => void }) {
   const { error, reading, load } = useItemFile((_name, text) => onText(text))
 
@@ -92,65 +125,47 @@ function ItemFileField({ onText }: { onText: (text: string) => void }) {
       hint={reading ? 'Lendo o arquivo…' : editFileHint}
       error={error}
     >
-      <input
-        type="file"
-        accept={TEXT_FILE_ACCEPT}
-        disabled={reading}
-        onChange={(event) => {
-          const files = Array.from(event.target.files ?? [])
-          event.target.value = ''
-          void load(files)
-        }}
-        className={fileInputClass}
-      />
+      <span
+        className={buttonClass('secondary', {
+          size: 'sm',
+          className: cx(pickerClass, 'self-start'),
+        })}
+      >
+        <HiddenFileInput disabled={reading} onFiles={(files) => void load(files)} />
+        Escolher arquivo
+      </span>
     </Field>
   )
 }
 
-function ItemDropZone({ onLoad }: { onLoad: (name: string, text: string) => void }) {
-  const { error, reading, load } = useItemFile(onLoad)
-  const [over, setOver] = useState(false)
+function ItemDropZone({
+  reading,
+  onFiles,
+}: {
+  reading: boolean
+  onFiles: (files: File[]) => void
+}) {
+  const { over, dropProps } = useFileDrop(onFiles)
 
   return (
-    <div className="flex flex-col gap-3">
-      <div
-        onDragOver={(event) => {
-          event.preventDefault()
-          setOver(true)
-        }}
-        onDragLeave={() => setOver(false)}
-        onDrop={(event) => {
-          event.preventDefault()
-          setOver(false)
-          void load(Array.from(event.dataTransfer.files))
-        }}
-        className={cx(
-          'flex flex-col items-center gap-3 rounded-card border border-dashed p-6 text-center',
-          'transition-colors',
-          over ? 'border-brand bg-accent-bg' : 'border-line-strong bg-surface-subtle',
-        )}
-      >
-        <p className="m-0 text-sm font-semibold text-ink">
-          {reading ? 'Lendo o arquivo…' : 'Arraste um arquivo de texto aqui'}
-        </p>
+    <div
+      {...dropProps}
+      className={cx(
+        'flex flex-col items-center gap-3 rounded-card border border-dashed p-6 text-center',
+        'transition-colors',
+        over ? 'border-brand bg-accent-bg' : 'border-line-strong bg-surface-subtle',
+      )}
+    >
+      <p className="m-0 text-sm font-semibold text-ink">
+        {reading ? 'Lendo o arquivo…' : 'Arraste um arquivo de texto aqui'}
+      </p>
 
-        <input
-          type="file"
-          accept={TEXT_FILE_ACCEPT}
-          disabled={reading}
-          aria-label="Escolher um arquivo de texto"
-          onChange={(event) => {
-            const files = Array.from(event.target.files ?? [])
-            event.target.value = ''
-            void load(files)
-          }}
-          className={cx(fileInputClass, 'max-w-[440px]')}
-        />
+      <label className={buttonClass('secondary', { className: pickerClass })}>
+        <HiddenFileInput disabled={reading} onFiles={onFiles} />
+        Escolher arquivo
+      </label>
 
-        <p className="m-0 text-xs text-muted">{FORMATS}</p>
-      </div>
-
-      {error ? <Alert tone="error">{error}</Alert> : null}
+      <p className="m-0 text-xs text-muted">{ITEM_FILE_FORMATS}</p>
     </div>
   )
 }
@@ -362,6 +377,10 @@ export function ItemsEditor({
     setDraft({ key: Date.now(), name, content })
   }
 
+  const { error, reading, load } = useItemFile(openDraft)
+  const loadFiles = (files: File[]) => void load(files)
+  const { over, dropProps } = useFileDrop(loadFiles)
+
   const search = query.trim().toLowerCase()
   const visible = search
     ? items.filter(
@@ -372,19 +391,19 @@ export function ItemsEditor({
     : items
 
   const characters = items.reduce((total, item) => total + item.content.length, 0)
+  const empty = items.length === 0
+  const fileError = error ? <Alert tone="error">{error}</Alert> : null
 
   return (
     <div className="flex flex-col gap-5">
-      <Panel
-        title={
-          <>
-            Upload de itens
-            <InfoTooltip text={fileHint} />
-          </>
-        }
-      >
-        <ItemDropZone onLoad={openDraft} />
-      </Panel>
+      {empty ? (
+        <Panel title="Upload de itens">
+          <div className="flex flex-col gap-3">
+            <ItemDropZone reading={reading} onFiles={loadFiles} />
+            {fileError}
+          </div>
+        </Panel>
+      ) : null}
 
       <div className="flex flex-col gap-3">
         <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
@@ -406,6 +425,13 @@ export function ItemsEditor({
               />
             </span>
 
+            {empty ? null : (
+              <label className={buttonClass('secondary', { className: pickerClass })}>
+                <HiddenFileInput disabled={reading} onFiles={loadFiles} />
+                {reading ? 'Lendo o arquivo…' : 'Importar arquivo'}
+              </label>
+            )}
+
             {draft ? null : (
               <Button onClick={() => openDraft('', '')}>
                 <PlusIcon />
@@ -414,6 +440,8 @@ export function ItemsEditor({
             )}
           </div>
         </div>
+
+        {empty ? null : fileError}
 
         {draft ? (
           <NewItemPanel
@@ -424,28 +452,38 @@ export function ItemsEditor({
           />
         ) : null}
 
-        {items.length === 0 ? (
+        {empty ? (
           <EmptyState>
             Nenhum item de entrada ainda. Traga o primeiro pelo bloco acima — a Fase 2
             amostra deste pool.
           </EmptyState>
-        ) : visible.length === 0 ? (
-          <EmptyState>Nenhum item do pool corresponde a “{query.trim()}”.</EmptyState>
         ) : (
-          <ul className="m-0 flex list-none flex-col gap-3 p-0">
-            {visible.map((item) => (
-              <li key={item.id}>
-                <ItemRow
-                  projectId={projectId}
-                  item={item}
-                  expanded={expandedId === item.id}
-                  onToggle={() =>
-                    setExpandedId((current) => (current === item.id ? null : item.id))
-                  }
-                />
-              </li>
-            ))}
-          </ul>
+          <div
+            {...dropProps}
+            className={cx(
+              'rounded-card transition-colors',
+              over && 'bg-accent-bg outline-2 outline-offset-4 outline-brand outline-dashed',
+            )}
+          >
+            {visible.length === 0 ? (
+              <EmptyState>Nenhum item do pool corresponde a “{query.trim()}”.</EmptyState>
+            ) : (
+              <ul className="m-0 flex list-none flex-col gap-3 p-0">
+                {visible.map((item) => (
+                  <li key={item.id}>
+                    <ItemRow
+                      projectId={projectId}
+                      item={item}
+                      expanded={expandedId === item.id}
+                      onToggle={() =>
+                        setExpandedId((current) => (current === item.id ? null : item.id))
+                      }
+                    />
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
         )}
       </div>
     </div>
