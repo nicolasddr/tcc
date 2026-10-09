@@ -264,6 +264,11 @@ export default async function RoundReviewPage({
             {adminResponse ? <AdminResponseCard response={adminResponse} /> : null}
 
             <ReviewGroupsList groups={groups} consensus={consensusContext} />
+
+            <QueueNav
+              prev={prev ? `${route}${prev}` : null}
+              next={next ? `${route}${next}` : null}
+            />
           </div>
         )}
       </Section>

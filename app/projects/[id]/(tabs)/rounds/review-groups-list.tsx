@@ -15,7 +15,7 @@ import { HowToRead } from './how-to-read'
 import {
   DIVERGENCE_LEGEND,
   NO_JUSTIFICATION_HINT,
-  NO_JUSTIFICATION_LABEL,
+  NO_JUSTIFICATION_MARK,
   divergenceLabel,
   divergenceMeaning,
   divergenceTone,
@@ -74,38 +74,58 @@ export function divergenceSummary(divergent: number, cells: number): string {
   return `${divergent} de ${cells} ${noun} ${verb}`
 }
 
+const noteCellClass = 'border-t border-line py-1 pr-3 align-top last:pr-0'
+
 function Note({ note }: { note: ReviewNote }) {
   return (
-    <li className="flex flex-col gap-1">
-      <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
-        <span className="text-[13px] font-semibold text-ink">{note.evaluatorName}</span>
-        <ScaleBadge value={note.value} />
-        {note.isOutlier ? (
-          <span title={outlierNoteHint(note.outlierReason)}>
-            <Badge tone="warning">{OUTLIER_NOTE_LABEL}</Badge>
+    <tr>
+      <th
+        scope="row"
+        className={cx(noteCellClass, 'min-w-24 text-left font-normal sm:min-w-40 sm:whitespace-nowrap')}
+      >
+        <span className="flex flex-wrap items-center gap-x-2 gap-y-1 sm:flex-nowrap">
+          <span className="font-semibold [overflow-wrap:anywhere] text-ink">
+            {note.evaluatorName}
           </span>
-        ) : null}
-      </span>
-
-      {note.justification ? (
-        <Disclosure summary={<span title={note.justification}>Justificativa</span>}>
-          <p
-            className={cx(
-              'm-0 mt-1.5 rounded-card border border-line bg-surface-subtle px-3 py-2',
-              'text-[13px] text-ink',
-              scrollBoxClass,
-              preWrapClass,
-            )}
-          >
-            {note.justification}
-          </p>
-        </Disclosure>
-      ) : (
-        <span className="text-[12.5px] text-muted" title={NO_JUSTIFICATION_HINT}>
-          {NO_JUSTIFICATION_LABEL}
+          {note.isOutlier ? (
+            <span title={outlierNoteHint(note.outlierReason)}>
+              <Badge tone="warning">{OUTLIER_NOTE_LABEL}</Badge>
+            </span>
+          ) : null}
         </span>
+      </th>
+      <td className={cx(noteCellClass, 'whitespace-nowrap')}>
+        <ScaleBadge value={note.value} />
+      </td>
+      {note.justification ? (
+        <td className={cx(noteCellClass, 'w-full text-ink', preWrapClass)}>
+          {note.justification}
+        </td>
+      ) : (
+        <td className={cx(noteCellClass, 'w-full text-muted')} title={NO_JUSTIFICATION_HINT}>
+          {NO_JUSTIFICATION_MARK}
+        </td>
       )}
-    </li>
+    </tr>
+  )
+}
+
+function Notes({ notes }: { notes: readonly ReviewNote[] }) {
+  return (
+    <table className="mt-2 w-full border-collapse text-[13px]">
+      <thead className="sr-only">
+        <tr>
+          <th scope="col">Avaliador</th>
+          <th scope="col">Nota</th>
+          <th scope="col">Justificativa</th>
+        </tr>
+      </thead>
+      <tbody>
+        {notes.map((note) => (
+          <Note key={note.projectMemberId} note={note} />
+        ))}
+      </tbody>
+    </table>
   )
 }
 
@@ -235,11 +255,7 @@ function Cell({
             {divergenceMeaning(cell.divergence)}
           </p>
         ) : (
-          <ul className="m-0 mt-2 flex list-none flex-col gap-2.5 p-0">
-            {cell.notes.map((note) => (
-              <Note key={note.projectMemberId} note={note} />
-            ))}
-          </ul>
+          <Notes notes={cell.notes} />
         )}
 
         {consensus ? (

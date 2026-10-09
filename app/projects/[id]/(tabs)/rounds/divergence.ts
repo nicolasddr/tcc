@@ -4,10 +4,10 @@ export type CellDivergence = 'unrated' | 'single' | 'unanimous' | 'adjacent' | '
 
 export type DivergenceTone = 'neutral' | 'success' | 'warning' | 'danger'
 
-export const NO_JUSTIFICATION_LABEL = 'sem justificativa'
+export const NO_JUSTIFICATION_MARK = '—'
 
 export const NO_JUSTIFICATION_HINT =
-  `A justificativa é opcional no envio da avaliação: “${NO_JUSTIFICATION_LABEL}” quer ` +
+  `A justificativa é opcional no envio da avaliação: “${NO_JUSTIFICATION_MARK}” quer ` +
   'dizer que o avaliador escolheu não escrever nada naquela nota, e não que o texto ' +
   'deixou de carregar.'
 

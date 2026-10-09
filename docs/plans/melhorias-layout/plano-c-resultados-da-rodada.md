@@ -8,7 +8,7 @@ Sugestões da referência visual (`docs/plans/melhorias-layout/referencia-visual
 |---|---|---|---|
 | 1 | Matrizes de Concordância e Qualidade com uma coluna por nome de critério | `refactor(rodadas): uma coluna por critério de mesmo nome nas matrizes` | ✅ |
 | 2 | Legendas longas em "Como ler esta tabela" e nenhuma frase repetida nos blocos | `refactor(rodadas): legendas em "Como ler esta tabela"` | ✅ |
-| 3 ⚠ | Revisão de discordâncias em linhas e navegação também no fim | `refactor(revisao): notas em linhas e navegação no fim` | ⬜ |
+| 3 ⚠ | Revisão de discordâncias em linhas e navegação também no fim | `refactor(revisao): notas em linhas e navegação no fim` | ✅ |
 
 A ordem vai das tabelas da aba Rodadas (1 e 2) para a revisão que se abre a partir delas (3).
 

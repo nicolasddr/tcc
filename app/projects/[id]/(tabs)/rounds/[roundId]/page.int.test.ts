@@ -24,6 +24,7 @@ import {
   MINUTES_LABEL,
   OUTLIER_NOTE_LABEL,
   PRIVATE_LABEL,
+  outlierNoteHint,
 } from '@/app/projects/[id]/(tabs)/rounds/review-groups-list'
 import type { ConsensusNote } from '@/app/projects/[id]/(tabs)/rounds/consensus'
 import type {
@@ -33,7 +34,8 @@ import type {
 import { consensusCellKey } from '@/app/projects/[id]/(tabs)/rounds/consensus-cells'
 import {
   DIVERGENCE_LEGEND,
-  NO_JUSTIFICATION_LABEL,
+  NO_JUSTIFICATION_HINT,
+  NO_JUSTIFICATION_MARK,
   divergenceLabel,
 } from '@/app/projects/[id]/(tabs)/rounds/divergence'
 import { AgreementPanel } from '@/app/projects/[id]/(tabs)/rounds/agreement-panel'
@@ -233,6 +235,28 @@ function navOf(tree: unknown): { prev: string | null; next: string | null } {
   const nav = findElement(tree, QueueNav)
   expect(nav).toBeTruthy()
   return nav!.props as { prev: string | null; next: string | null }
+}
+
+function findAll(node: unknown, types: readonly unknown[]): ReactElement[] {
+  if (Array.isArray(node)) return node.flatMap((child) => findAll(child, types))
+  if (!isValidElement(node)) return []
+  const own = types.includes(node.type) ? [node] : []
+  return [
+    ...own,
+    ...Object.values(node.props as Record<string, unknown>).flatMap((value) =>
+      findAll(value, types),
+    ),
+  ]
+}
+
+function listMarkupOf(tree: unknown): string {
+  return renderToStaticMarkup(createElement(ReviewGroupsList, listOf(tree)))
+}
+
+function rowsOf(markup: string, evaluatorName: string): string[] {
+  return (markup.match(/<tr[^>]*>[\s\S]*?<\/tr>/g) ?? []).filter((row) =>
+    row.includes(evaluatorName),
+  )
 }
 
 describe('app/projects/[id]/rounds/[roundId] — a revisão de discordâncias', () => {
@@ -552,17 +576,17 @@ describe('app/projects/[id]/rounds/[roundId] — a revisão de discordâncias', 
     })
 
     auth.userId = admin
-    const markup = renderToStaticMarkup(
-      createElement(ReviewGroupsList, listOf(await render(scene.project, scene.round))),
-    )
+    const markup = listMarkupOf(await render(scene.project, scene.round))
 
     const badges = [
       ['Ana Avaliadora', 'Alto'],
       ['Bruno Avaliador', 'Baixo'],
     ].map(([name, label]) => {
+      const [row] = rowsOf(markup, name)
+      expect(row).toBeTruthy()
       const found = new RegExp(
-        `${name}</span><span class="([^"]*)"><span aria-hidden="true"[^>]*>(?:<span [^>]*></span>){3}</span>${label}</span>`,
-      ).exec(markup)
+        `<td[^>]*><span class="([^"]*)"><span aria-hidden="true"[^>]*>(?:<span [^>]*></span>){3}</span>${label}</span></td>`,
+      ).exec(row)
       expect(found).toBeTruthy()
       return found![1]
     })
@@ -571,7 +595,7 @@ describe('app/projects/[id]/rounds/[roundId] — a revisão de discordâncias', 
     expect(badges[0]).not.toMatch(/(?:bg|text)-(?:success|warning|danger)/)
   })
 
-  it('a justificativa aparece quando existe, e a ausência é dita por extenso', async () => {
+  it('a justificativa fica na linha da nota, sem nada para abrir, e “—” quando não existe', async () => {
     const admin = await newUser('Admin')
     const scene = await roundWith(admin, 1)
     const ana = await newEvaluator(scene.project, 'Ana Avaliadora')
@@ -590,10 +614,51 @@ describe('app/projects/[id]/rounds/[roundId] — a revisão de discordâncias', 
     })
 
     auth.userId = admin
-    const text = listTextOf(await render(scene.project, scene.round))
+    const markup = listMarkupOf(await render(scene.project, scene.round))
+    const rows = rowsOf(markup, 'Ana Avaliadora')
 
-    expect(text).toContain('A resposta cita a fonte e não inventa número.')
-    expect(text).toContain(NO_JUSTIFICATION_LABEL)
+    expect(rows).toHaveLength(2)
+    expect(rows[0]).toMatch(
+      /<td class="[^"]*break-words[^"]*">A resposta cita a fonte e não inventa número\.<\/td><\/tr>$/,
+    )
+    expect(rows[1]).toMatch(
+      new RegExp(`<td class="[^"]*" title="${NO_JUSTIFICATION_HINT}">${NO_JUSTIFICATION_MARK}</td></tr>$`),
+    )
+    expect(markup).not.toContain('sem justificativa')
+    for (const row of rows) expect(row).not.toContain('<details')
+  })
+
+  it('cada célula avaliada é uma tabela curta: uma linha por avaliador, com avaliador, nota e justificativa', async () => {
+    const admin = await newUser('Admin')
+    const scene = await roundWith(admin, 1)
+    const ana = await newEvaluator(scene.project, 'Ana Avaliadora')
+    const bruno = await newEvaluator(scene.project, 'Bruno Avaliador')
+    const reason = 'Notou o oposto do grupo em todas as respostas.'
+
+    await addEvaluation(ownerDb, scene.round, scene.responses[0], ana, {
+      cells: [note(scene, 'Informacional', 'Precisão', 'high')],
+    })
+    await addEvaluation(ownerDb, scene.round, scene.responses[0], bruno, {
+      cells: [note(scene, 'Informacional', 'Precisão', 'low', 'A resposta inventa o número.')],
+    })
+    await addOutlier(ownerDb, scene.round, bruno, admin, { reason })
+
+    auth.userId = admin
+    const markup = listMarkupOf(await render(scene.project, scene.round))
+    const tables = markup.match(/<table[\s\S]*?<\/table>/g) ?? []
+
+    expect(tables).toHaveLength(1)
+    const table = tables[0]!
+    expect(
+      [...table.matchAll(/<th scope="col"[^>]*>([^<]*)<\/th>/g)].map((match) => match[1]),
+    ).toEqual(['Avaliador', 'Nota', 'Justificativa'])
+    expect(table.match(/<tbody[\s\S]*<\/tbody>/)![0].match(/<tr/g)).toHaveLength(2)
+
+    const [brunoRow] = rowsOf(table, 'Bruno Avaliador')
+    expect(brunoRow).toMatch(/^<tr[^>]*><th scope="row"/)
+    expect(brunoRow).toContain(`title="${outlierNoteHint(reason)}"`)
+    expect(brunoRow).toContain(`>${OUTLIER_NOTE_LABEL}<`)
+    expect(brunoRow.match(/<td/g)).toHaveLength(2)
   })
 
   it('a nota de quem foi desativado continua na revisão, com o nome dele', async () => {
@@ -736,6 +801,26 @@ describe('app/projects/[id]/rounds/[roundId] — a revisão de discordâncias', 
     const third = await render(scene.project, scene.round, scene.responses[2])
     expect(textOf(third)).toContain('Resposta 3')
     expect(navOf(third)).toEqual({ prev: at(scene.responses[1]), next: null })
+  })
+
+  it('a navegação aparece também no fim da revisão, com os mesmos destinos do topo', async () => {
+    const admin = await newUser('Admin')
+    const scene = await roundWith(admin, 3)
+
+    auth.userId = admin
+    const tree = await render(scene.project, scene.round, scene.responses[1])
+    const at = (response: string) => route(scene.project, scene.round, response)
+
+    const order = findAll(tree, [QueueNav, ReviewGroupsList])
+    expect(order.map((element) => element.type)).toEqual([
+      QueueNav,
+      ReviewGroupsList,
+      QueueNav,
+    ])
+
+    const expected = { prev: at(scene.responses[0]), next: at(scene.responses[2]) }
+    expect(order[0].props).toEqual(expected)
+    expect(order[2].props).toEqual(expected)
   })
 
   it('sem parâmetro, ou com id que não é daquela rodada, cai na primeira resposta', async () => {

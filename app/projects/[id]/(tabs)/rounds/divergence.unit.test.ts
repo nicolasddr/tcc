@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   DIVERGENCE_LEGEND,
   NO_JUSTIFICATION_HINT,
-  NO_JUSTIFICATION_LABEL,
+  NO_JUSTIFICATION_MARK,
   classifyDivergence,
   divergenceLabel,
   divergenceMeaning,
@@ -101,10 +101,11 @@ describe('app/projects/[id]/rounds/divergence — a divergência de uma célula'
     expect(DIVERGENCE_LEGEND).toContain(divergenceLabel('single'))
   })
 
-  it('a ausência de justificativa é dita por extenso, e não é falha de carregamento', () => {
-    expect(NO_JUSTIFICATION_LABEL).toBe('sem justificativa')
-    expect(NO_JUSTIFICATION_HINT).toContain(NO_JUSTIFICATION_LABEL)
+  it('a ausência de justificativa é um “—”, e o hover diz que não é falha de carregamento', () => {
+    expect(NO_JUSTIFICATION_MARK).toBe('—')
+    expect(NO_JUSTIFICATION_HINT).toContain(`“${NO_JUSTIFICATION_MARK}”`)
     expect(NO_JUSTIFICATION_HINT).toContain('opcional')
+    expect(NO_JUSTIFICATION_HINT).toContain('deixou de carregar')
   })
 
   it('a classificação cobre a escala inteira, sem ponto sem estado', () => {
