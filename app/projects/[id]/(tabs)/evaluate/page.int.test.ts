@@ -324,7 +324,65 @@ describe('app/projects/[id]/evaluate — a tela do avaliador', () => {
     expect(html).toContain('Alto')
     expect(html).toContain('Médio')
     expect(html).toContain('Baixo')
-    expect(html).toContain('<textarea')
+    expect(html).toContain('+ Justificar')
+  })
+
+  it('a justificativa começa fechada, atrás de um "+ Justificar" por critério', async () => {
+    const admin = await newUser('Admin')
+    const scene = await scenario(admin, {
+      definitions: [{ title: 'Informacional', criteria: [{ name: 'Cita a fonte' }] }],
+      generalCriteria: [{ name: 'Clareza' }],
+    })
+    const evaluator = await newEvaluator(scene.project)
+
+    auth.userId = evaluator
+    const html = markupOf(formOf(await open(scene.project)))
+
+    expect(html).not.toContain('<textarea')
+    expect(html).not.toContain('name="justification_')
+    expect(html.match(/>\+ Justificar</g)).toHaveLength(2)
+    expect(html).toMatch(/aria-label="Justificar Cita a fonte" aria-expanded="false"/)
+    expect(html).toMatch(/aria-label="Justificar Clareza" aria-expanded="false"/)
+  })
+
+  it('os botões de nota têm a altura de 40 px', async () => {
+    const admin = await newUser('Admin')
+    const scene = await scenario(admin)
+    const evaluator = await newEvaluator(scene.project)
+
+    auth.userId = evaluator
+    const html = markupOf(formOf(await open(scene.project)))
+    const buttons = html.match(/<button[^>]*aria-pressed[^>]*>/g) ?? []
+
+    expect(buttons).toHaveLength(3)
+    for (const button of buttons) {
+      expect(button).toContain('py-[9px]')
+      expect(button).toContain('text-sm')
+    }
+  })
+
+  it('a barra de envio fica presa ao rodapé, com o contador, o botão e o aviso nessa ordem', async () => {
+    const admin = await newUser('Admin')
+    const scene = await scenario(admin, {
+      definitions: [
+        { title: 'Informacional', criteria: [{ name: 'Clareza' }] },
+        { title: 'Transacional', criteria: [{ name: 'Aciona' }, { name: 'Cita' }] },
+      ],
+    })
+    const evaluator = await newEvaluator(scene.project)
+
+    auth.userId = evaluator
+    const html = markupOf(formOf(await open(scene.project)))
+    const bar = /<div class="((?:[^"]* )?sticky [^"]*)"[^>]*>([\s\S]*)$/.exec(html)
+
+    expect(bar).toBeTruthy()
+    expect(bar![1]).toContain('bottom-0')
+    const counter = bar![2].indexOf('0 de 3 notas')
+    const submit = bar![2].indexOf('Enviar avaliação')
+    const warning = bar![2].indexOf('O envio é definitivo.')
+    expect(counter).toBeGreaterThanOrEqual(0)
+    expect(submit).toBeGreaterThan(counter)
+    expect(warning).toBeGreaterThan(submit)
   })
 
   it('a descrição da definição e a do critério ficam visíveis abaixo do nome, sem ⓘ e sem o selo geral', async () => {
@@ -392,7 +450,7 @@ describe('app/projects/[id]/evaluate — a tela do avaliador', () => {
     expect(after).toContain('O envio é definitivo.')
   })
 
-  it('sem nota em toda célula, o envio fica travado e a tela diz qual definição falta', async () => {
+  it('sem nota em toda célula, o envio fica travado e a barra conta as notas que faltam', async () => {
     const admin = await newUser('Admin')
     const scene = await scenario(admin, {
       definitions: [
@@ -406,9 +464,8 @@ describe('app/projects/[id]/evaluate — a tela do avaliador', () => {
     const html = markupOf(formOf(await open(scene.project)))
 
     expect(html).toContain('disabled=""')
-    expect(html).toContain('“Informacional”')
-    expect(html).toContain('“Transacional”')
-    expect(html).toContain('ainda t')
+    expect(html).toContain('0 de 2 notas')
+    expect(html).not.toContain('ainda t')
   })
 
   it('a resposta já avaliada aparece em leitura, sem campo e sem editar nem apagar', async () => {

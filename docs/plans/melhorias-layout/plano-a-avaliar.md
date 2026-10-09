@@ -7,7 +7,7 @@ Sugestões da referência visual (`docs/plans/melhorias-layout/referencia-visual
 | Parte | Entrega | Commit sugerido | Estado |
 |---|---|---|---|
 | 1 | Duas colunas com a resposta fixa, "Resposta N" uma vez só e navegação na linha do título | `feat(avaliar): resposta fixa ao lado do formulário` | ✅ |
-| 2 | "+ Justificar", botões de nota maiores e barra de envio fixa | `feat(avaliar): justificativa sob demanda e barra de envio` | ⬜ |
+| 2 | "+ Justificar", botões de nota maiores e barra de envio fixa | `feat(avaliar): justificativa sob demanda e barra de envio` | ✅ |
 | 3 | Alto, Médio e Baixo sem cores de semáforo, no formulário e na revisão | `refactor(escala): alto, médio e baixo sem cores de semáforo` | ⬜ |
 
 As três partes mexem no mesmo formulário, por isso vêm juntas e nesta ordem. A pílula de nota criada
@@ -105,7 +105,7 @@ avaliador rola até a última definição, a resposta já saiu da tela.
   falta nota.
 - Alternativa: manter a frase na barra, ao lado do contador, a partir de `sm`.
 
-Confirmar antes de implementar.
+Confirmado: o contador substitui a frase.
 
 **Pronto quando**
 - As justificativas começam fechadas, e "+ Justificar" abre o campo com foco.

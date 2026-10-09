@@ -2,19 +2,14 @@
 
 import { useActionState, useState } from 'react'
 import { submitEvaluation, type EvaluationState } from './actions'
-import {
-  cellKey,
-  definitionsIncomplete,
-  incompleteMessage,
-  isComplete,
-  type Answer,
-} from './completeness'
+import { cellKey, isComplete, type Answer } from './completeness'
 import { SCALE, isScaleValue, scaleLabel, scaleTone, type ScaleValue } from './scale'
 import type { SubmittedEvaluation } from './evaluation'
 import type { CodebookCriterion, CodebookDefinition } from '../../pipeline/codebook'
 import type { CodebookCell } from '../../pipeline/criteria'
 import type { ResponseDetail } from '../../pipeline/responses'
 import { JUSTIFICATION_MAX } from '@/lib/limits'
+import { plural } from '@/lib/plural'
 import { formatDate } from '@/app/notifications/labels'
 import { Alert } from '@/app/components/ui/alert'
 import { Badge } from '@/app/components/ui/badge'
@@ -126,6 +121,51 @@ function ResponseCard({ response }: { response: ResponseDetail }) {
   )
 }
 
+function Justification({
+  criterion,
+  name,
+  value,
+  disabled,
+  onChange,
+}: {
+  criterion: CodebookCriterion
+  name: string
+  value: string
+  disabled: boolean
+  onChange: (value: string) => void
+}) {
+  const [expanded, setExpanded] = useState(false)
+
+  if (!expanded && value === '') {
+    return (
+      <Button
+        variant="link"
+        className="self-start"
+        aria-label={`Justificar ${criterion.name}`}
+        aria-expanded={false}
+        disabled={disabled}
+        onClick={() => setExpanded(true)}
+      >
+        + Justificar
+      </Button>
+    )
+  }
+
+  return (
+    <Textarea
+      name={name}
+      rows={2}
+      maxLength={JUSTIFICATION_MAX}
+      disabled={disabled}
+      autoFocus={expanded}
+      aria-label={`Justificativa de ${criterion.name}`}
+      placeholder="Justificativa (opcional)"
+      value={value}
+      onChange={(event) => onChange(event.target.value)}
+    />
+  )
+}
+
 function Columns({
   response,
   context,
@@ -233,9 +273,7 @@ export function EvaluationForm({
     )
   }
 
-  const missing = definitionsIncomplete(cells, answers).map(
-    (definition) => definition.title,
-  )
+  const scored = answers.filter((answer) => isScaleValue(answer.value)).length
   const complete = isComplete(cells, answers)
   const error = state !== null && 'error' in state ? state.error : null
 
@@ -297,7 +335,6 @@ export function EvaluationForm({
                                     }))
                                   }
                                   className={buttonClass('secondary', {
-                                    size: 'sm',
                                     className: active ? selected[option] : undefined,
                                   })}
                                 >
@@ -307,19 +344,13 @@ export function EvaluationForm({
                             })}
                           </div>
 
-                          <Textarea
+                          <Justification
+                            criterion={cell.criterion}
                             name={`justification_${key}`}
-                            rows={2}
-                            maxLength={JUSTIFICATION_MAX}
-                            disabled={pending}
-                            aria-label={`Justificativa de ${cell.criterion.name}`}
-                            placeholder="Justificativa (opcional)"
                             value={justifications[key] ?? ''}
-                            onChange={(event) =>
-                              setJustifications((current) => ({
-                                ...current,
-                                [key]: event.target.value,
-                              }))
+                            disabled={pending}
+                            onChange={(text) =>
+                              setJustifications((current) => ({ ...current, [key]: text }))
                             }
                           />
                         </li>
@@ -334,15 +365,19 @@ export function EvaluationForm({
 
         {error && !pending ? <Alert tone="error">{error}</Alert> : null}
 
-        {complete ? null : (
-          <p className="m-0 text-[13px] text-muted">{incompleteMessage(missing)}</p>
-        )}
-
-        <FormActions align="start">
+        <FormActions
+          align="start"
+          className="sticky bottom-0 z-10 gap-y-2 border-t border-line bg-surface py-3"
+        >
+          <span className="text-[13px] font-semibold text-ink tabular-nums">
+            {scored} de {plural(cells.length, 'nota', 'notas')}
+          </span>
           <Button type="submit" loading={pending} loadingText="Enviando…" disabled={!complete}>
             Enviar avaliação
           </Button>
-          <span className="text-[13px] text-muted">O envio é definitivo.</span>
+          <span className="basis-full text-[13px] text-muted sm:basis-auto">
+            O envio é definitivo.
+          </span>
         </FormActions>
       </Form>
     </Columns>
