@@ -1,4 +1,4 @@
-// app/projects/[id]/profile-answers/[userId]/page.int.test.ts — teste de integração do
+// app/projects/[id]/(tabs)/profile-answers/[userId]/page.int.test.ts — teste de integração do
 // ESCOPO da página de respostas do questionário de perfil (issue #22). "Quem não pode ver,
 // não vê": só o admin do projeto enxerga as respostas de um avaliador — os demais são
 // redirecionados.
@@ -8,6 +8,7 @@
 // `transaction`: fixtures via `ownerDb`, limpas por `cleanup()`.
 // PRÉ-REQUISITO: Supabase LOCAL de pé (`supabase start`).
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+import { isValidElement, type ReactElement } from 'react'
 
 const auth = vi.hoisted(() => ({ userId: null as string | null }))
 
@@ -24,7 +25,8 @@ vi.mock('next/navigation', () => ({
   },
 }))
 
-import MemberProfileAnswersPage from '@/app/projects/[id]/profile-answers/[userId]/page'
+import MemberProfileAnswersPage from '@/app/projects/[id]/(tabs)/profile-answers/[userId]/page'
+import { BackLink } from '@/app/components/ui/shell'
 import { ownerDb } from '@/lib/db'
 import {
   createUser,
@@ -37,6 +39,23 @@ import {
 
 function render(id: string, userId: string) {
   return MemberProfileAnswersPage({ params: Promise.resolve({ id, userId }) })
+}
+
+function findElement(node: unknown, type: unknown): ReactElement | null {
+  if (Array.isArray(node)) {
+    for (const child of node) {
+      const found = findElement(child, type)
+      if (found) return found
+    }
+    return null
+  }
+  if (!isValidElement(node)) return null
+  if (node.type === type) return node
+  for (const value of Object.values(node.props as Record<string, unknown>)) {
+    const found = findElement(value, type)
+    if (found) return found
+  }
+  return null
 }
 
 describe('app/projects/[id]/profile-answers/[userId] — só o admin vê as respostas', () => {
@@ -80,5 +99,16 @@ describe('app/projects/[id]/profile-answers/[userId] — só o admin vê as resp
     // O admin do projeto vê a página das respostas do avaliador.
     auth.userId = admin
     await expect(render(project, evaluator)).resolves.toBeTruthy()
+  })
+
+  it('volta para Membros', async () => {
+    const admin = await newUser('Admin')
+    const evaluator = await newUser('Avaliador')
+    const project = await newProject(admin)
+    await addActiveEvaluator(ownerDb, project, evaluator)
+
+    auth.userId = admin
+    const back = findElement(await render(project, evaluator), BackLink)
+    expect(back?.props).toEqual({ href: `/projects/${project}/members`, children: 'Membros' })
   })
 })

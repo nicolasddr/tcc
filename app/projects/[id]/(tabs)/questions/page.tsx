@@ -3,13 +3,7 @@ import { and, eq } from 'drizzle-orm'
 import { requireUserId } from '@/lib/supabase/server'
 import { transaction, projects, projectMembers, onboardingQuestions } from '@/lib/db'
 import { coerceOptions, type OnboardingQuestion } from '@/app/onboarding/questions'
-import {
-  PageShell,
-  TopBar,
-  BackLink,
-  PageTitle,
-  PageSubtitle,
-} from '@/app/components/ui/shell'
+import { BackLink, PageSubtitle } from '@/app/components/ui/shell'
 import { QuestionManager } from './question-manager'
 
 // HU-026/027 (US 29/30): o Administrador define/edita/remove as perguntas de onboarding
@@ -66,19 +60,17 @@ export default async function QuestionsPage({
   if (!isAdmin) redirect(`/projects/${id}`)
 
   return (
-    <PageShell
-      header={
-        <TopBar>
-          <BackLink href={`/projects/${id}`}>Voltar ao projeto</BackLink>
-        </TopBar>
-      }
-    >
-      <PageTitle>Perguntas de onboarding</PageTitle>
+    <div className="max-w-3xl">
+      <div className="mt-6">
+        <BackLink href={`/projects/${id}/settings`}>Ajustes</BackLink>
+      </div>
+
+      <h2 className="mt-4 mb-0 text-[18px] font-bold text-ink">Perguntas de onboarding</h2>
       <PageSubtitle>
         Defina o que os avaliadores respondem ao entrar em “{project.name}”. Todas as
         perguntas são obrigatórias para concluir o onboarding.
       </PageSubtitle>
       <QuestionManager projectId={id} questions={questions} />
-    </PageShell>
+    </div>
   )
 }

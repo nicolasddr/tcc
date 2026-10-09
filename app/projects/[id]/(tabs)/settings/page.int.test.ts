@@ -8,6 +8,7 @@
 //
 // PRÉ-REQUISITO: Supabase LOCAL de pé (`supabase start`), igual ao `npm test`.
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+import { isValidElement, type ReactElement } from 'react'
 
 const auth = vi.hoisted(() => ({ userId: null as string | null }))
 
@@ -25,6 +26,7 @@ vi.mock('next/navigation', () => ({
 }))
 
 import ProjectSettingsPage from '@/app/projects/[id]/(tabs)/settings/page'
+import { Section } from '@/app/components/ui/section'
 import { ownerDb } from '@/lib/db'
 import {
   createUser,
@@ -35,6 +37,18 @@ import {
 
 function render(id: string) {
   return ProjectSettingsPage({ params: Promise.resolve({ id }) })
+}
+
+function findAll(node: unknown, type: unknown): ReactElement[] {
+  if (Array.isArray(node)) return node.flatMap((child) => findAll(child, type))
+  if (!isValidElement(node)) return []
+  const own = node.type === type ? [node] : []
+  return [
+    ...own,
+    ...Object.values(node.props as Record<string, unknown>).flatMap((value) =>
+      findAll(value, type),
+    ),
+  ]
 }
 
 describe('app/projects/[id]/settings — só o Administrador configura', () => {
@@ -63,6 +77,19 @@ describe('app/projects/[id]/settings — só o Administrador configura', () => {
 
     auth.userId = admin
     await expect(render(project)).resolves.toBeTruthy()
+  })
+
+  it('não repete a equipe do projeto, que tem a aba Membros', async () => {
+    const admin = await newUser('Admin')
+    const project = await seedProject(ownerDb, admin)
+    projs.push(project)
+
+    auth.userId = admin
+    const titles = findAll(await render(project), Section).map(
+      (section) => (section.props as { title: unknown }).title,
+    )
+    expect(titles).toContain('Onboarding dos avaliadores')
+    expect(titles).not.toContain('Equipe do projeto')
   })
 
   it('o avaliador do projeto NÃO enxerga (notFound)', async () => {

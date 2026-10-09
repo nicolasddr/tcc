@@ -1,4 +1,4 @@
-// app/projects/[id]/questions/actions.int.test.ts — testes de integração das Server
+// app/projects/[id]/(tabs)/questions/actions.int.test.ts — testes de integração das Server
 // Actions de perguntas de onboarding (issue #22): só o admin define/edita/remove
 // perguntas; um avaliador não pode. Provam a checagem de admin EXPLÍCITA na app-layer.
 //
@@ -20,7 +20,7 @@ vi.mock('next/navigation', () => ({
   },
 }))
 
-import { addQuestion, updateQuestion, removeQuestion } from '@/app/projects/[id]/questions/actions'
+import { addQuestion, updateQuestion, removeQuestion } from '@/app/projects/[id]/(tabs)/questions/actions'
 import { ownerDb, onboardingQuestions } from '@/lib/db'
 import {
   createUser,

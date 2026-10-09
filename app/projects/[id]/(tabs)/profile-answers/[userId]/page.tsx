@@ -12,13 +12,7 @@ import {
 import { Card } from '@/app/components/ui/card'
 import { EmptyState } from '@/app/components/ui/empty-state'
 import { cx } from '@/app/components/ui/cx'
-import {
-  PageShell,
-  TopBar,
-  BackLink,
-  PageTitle,
-  PageSubtitle,
-} from '@/app/components/ui/shell'
+import { BackLink, PageSubtitle } from '@/app/components/ui/shell'
 
 
 export default async function MemberProfileAnswersPage({
@@ -91,14 +85,12 @@ export default async function MemberProfileAnswersPage({
   if (!rows || !target) notFound()
 
   return (
-    <PageShell
-      header={
-        <TopBar>
-          <BackLink href={`/projects/${id}`}>Voltar ao projeto</BackLink>
-        </TopBar>
-      }
-    >
-      <PageTitle>Respostas de onboarding</PageTitle>
+    <div className="max-w-3xl">
+      <div className="mt-6">
+        <BackLink href={`/projects/${id}/members`}>Membros</BackLink>
+      </div>
+
+      <h2 className="mt-4 mb-0 text-[18px] font-bold text-ink">Respostas de onboarding</h2>
       <PageSubtitle>
         {target.name} · {target.email}
       </PageSubtitle>
@@ -126,6 +118,6 @@ export default async function MemberProfileAnswersPage({
           ))}
         </ul>
       )}
-    </PageShell>
+    </div>
   )
 }

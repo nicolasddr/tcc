@@ -28,6 +28,7 @@ vi.mock('next/navigation', () => ({
 import ProjectMembersPage from '@/app/projects/[id]/(tabs)/members/page'
 import { EvaluatorRolePanel } from '@/app/projects/[id]/evaluator-role'
 import { MemberList } from '@/app/projects/[id]/member-list'
+import { Section } from '@/app/components/ui/section'
 import { ownerDb } from '@/lib/db'
 import {
   createUser,
@@ -66,6 +67,24 @@ function findElement(node: unknown, type: unknown): ReactElement | null {
     if (found) return found
   }
   return null
+}
+
+function findAll(node: unknown, type: unknown): ReactElement[] {
+  if (Array.isArray(node)) return node.flatMap((child) => findAll(child, type))
+  if (!isValidElement(node)) return []
+  const own = node.type === type ? [node] : []
+  return [
+    ...own,
+    ...Object.values(node.props as Record<string, unknown>).flatMap((value) =>
+      findAll(value, type),
+    ),
+  ]
+}
+
+async function sectionTitlesOf(id: string): Promise<unknown[]> {
+  return findAll(await render(id), Section).map(
+    (section) => (section.props as { title: unknown }).title,
+  )
 }
 
 type PanelProps = Parameters<typeof EvaluatorRolePanel>[0]
@@ -140,6 +159,24 @@ describe('app/projects/[id]/members — só quem participa ativamente entra', ()
     await expect(render(project)).rejects.toThrow('NEXT_NOTFOUND')
     auth.userId = outsider
     await expect(render(project)).rejects.toThrow('NEXT_NOTFOUND')
+  })
+
+  it('o Administrador vê o convite primeiro, depois a equipe, os outliers e o papel de avaliador', async () => {
+    const admin = await newUser('Admin')
+    const evaluator = await newUser('Avaliador')
+    const project = await newProject(admin)
+    await addActiveEvaluator(ownerDb, project, evaluator)
+
+    auth.userId = admin
+    expect(await sectionTitlesOf(project)).toEqual([
+      'Convidar avaliador',
+      'Equipe do projeto',
+      'Outliers por rodada',
+      'Avaliar neste projeto',
+    ])
+
+    auth.userId = evaluator
+    expect(await sectionTitlesOf(project)).toEqual(['Equipe do projeto'])
   })
 
   it('o painel de assumir o papel de avaliador é só do Administrador, e mostra o vínculo atual', async () => {

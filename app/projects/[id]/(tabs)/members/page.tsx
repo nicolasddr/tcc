@@ -99,6 +99,15 @@ export default async function ProjectMembersPage({
 
   return (
     <div className="max-w-3xl">
+      {isAdmin ? (
+        <Section
+          title="Convidar avaliador"
+          hint="O convidado recebe uma notificação e entra no projeto depois do onboarding."
+        >
+          <InviteEvaluatorForm projectId={project.id} />
+        </Section>
+      ) : null}
+
       <Section
         title="Equipe do projeto"
         hint={
@@ -132,15 +141,6 @@ export default async function ProjectMembersPage({
           help="A marca não altera o acesso da pessoa ao projeto, não apaga nenhuma avaliação, e a ferramenta não avisa o avaliador."
         >
           <OutlierPanel projectId={project.id} {...outliers} />
-        </Section>
-      ) : null}
-
-      {isAdmin ? (
-        <Section
-          title="Convidar avaliador"
-          hint="O convidado recebe uma notificação e entra no projeto depois do onboarding."
-        >
-          <InviteEvaluatorForm projectId={project.id} />
         </Section>
       ) : null}
 

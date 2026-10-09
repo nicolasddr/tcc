@@ -60,16 +60,6 @@ export default async function ProjectSettingsPage({
         </ButtonLink>
       </Section>
 
-      <Section
-        title="Equipe do projeto"
-        hint="Quem participa do projeto se gerencia na tela de Membros."
-        help="É lá que se convida avaliador, se acompanha quem participa e se dá a si mesmo o papel de Avaliador."
-      >
-        <ButtonLink href={`/projects/${id}/members`} variant="secondary">
-          Gerenciar membros
-        </ButtonLink>
-      </Section>
-
       {/* HU-014–017: editar nome/descrição e mover o projeto entre
           ativo / concluído / arquivado. */}
       <ManageProject

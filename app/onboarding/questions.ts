@@ -1,5 +1,5 @@
 // Perguntas de onboarding (HU-026/027/029) — tipos e helpers neutros, compartilhados
-// pelo gerenciamento do administrador (app/projects/[id]/questions) e pelo fluxo do
+// pelo gerenciamento do administrador (app/projects/[id]/(tabs)/questions) e pelo fluxo do
 // avaliador (esta pasta). Sem 'use server'/'use client': é só dado + funções puras.
 
 // Valor sentinela do rádio "Outro" na múltipla escolha (modelo Google Forms: o
