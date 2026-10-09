@@ -5,7 +5,7 @@ Sugestão **Rodadas** da referência visual: `docs/plans/melhorias-layout/refere
 | Parte | Entrega | Commit sugerido | Estado |
 |---|---|---|---|
 | 1 | Cartão da rodada aberta no topo, com progresso por avaliador, "Gerar respostas" e "Fechar rodada" lado a lado e seleção de itens sob demanda | `feat(rodadas): cartão da rodada aberta no topo` | ✅ |
-| 2 | Linha de atalhos e nova ordem quando não há rodada aberta | `feat(rodadas): atalhos para a leitura da rodada` | ⬜ |
+| 2 | Linha de atalhos e nova ordem quando não há rodada aberta | `feat(rodadas): atalhos para a leitura da rodada` | ✅ |
 
 O Plano C (resultados da rodada) vem logo depois e mexe nas tabelas desta mesma aba.
 

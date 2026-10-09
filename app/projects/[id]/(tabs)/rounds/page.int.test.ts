@@ -33,6 +33,7 @@ import {
   OpenRoundCard,
   openRoundHelp,
 } from '@/app/projects/[id]/(tabs)/rounds/open-round-card'
+import { ReadingShortcuts } from '@/app/projects/[id]/(tabs)/rounds/reading-shortcuts'
 import {
   AgreementPanel,
   AgreementValue,
@@ -225,6 +226,7 @@ type QualityProps = Parameters<typeof QualityPanel>[0]
 type QualityMatrixProps = Parameters<typeof QualityMatrixTable>[0]
 type ChangesProps = Parameters<typeof RoundChangeChips>[0]
 type GuidanceProps = Parameters<typeof ReadingGuidanceNote>[0]
+type ShortcutsProps = Parameters<typeof ReadingShortcuts>[0]
 
 const GUIDANCE_TEXTS = [
   BELOW_BAND_GUIDANCE,
@@ -320,6 +322,11 @@ function guidanceMarkupOf(tree: unknown): string {
   const props = guidanceOf(tree)
   expect(props).toBeTruthy()
   return renderToStaticMarkup(createElement(ReadingGuidanceNote, props!))
+}
+
+function shortcutsOf(tree: unknown): ShortcutsProps | null {
+  const element = findElement(tree, ReadingShortcuts)
+  return element ? (element.props as ShortcutsProps) : null
 }
 
 function blockIndexOf(tree: unknown, type: unknown): number {
@@ -1195,7 +1202,8 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     const tree = await render(project, { gerar: '1' })
 
     expect(blockIndexOf(tree, OpenRoundCard)).toBe(0)
-    expect(blockIndexOf(tree, GenerateResponses)).toBe(1)
+    expect(blockIndexOf(tree, ReadingShortcuts)).toBe(1)
+    expect(blockIndexOf(tree, GenerateResponses)).toBe(2)
 
     const section = findSection(tree, GenerateResponses)
     expect(section).toBeTruthy()
@@ -2372,7 +2380,7 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     }
   })
 
-  it('a orientação abre a leitura: vem logo depois da nova rodada e antes da Concordância', async () => {
+  it('sem rodada aberta, a nova rodada abre a aba, as rodadas do projeto vêm logo abaixo e a leitura depois', async () => {
     const admin = await newUser('Admin')
     const scene = await guidanceScene(admin, 'within')
 
@@ -2380,14 +2388,84 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     const tree = await render(scene.project)
 
     const newRound = blockIndexOf(tree, NewRound)
+    const shortcuts = blockIndexOf(tree, ReadingShortcuts)
+    const list = blockIndexOf(tree, RoundList)
     const guidance = blockIndexOf(tree, ReadingGuidanceNote)
     const agreement = blockIndexOf(tree, AgreementPanel)
     const quality = blockIndexOf(tree, QualityPanel)
-    expect(newRound).toBeGreaterThanOrEqual(0)
-    expect(guidance).toBe(newRound + 1)
+    expect(newRound).toBe(0)
+    expect(shortcuts).toBe(newRound + 1)
+    expect(list).toBe(shortcuts + 1)
+    expect(guidance).toBe(list + 1)
     expect(agreement).toBe(guidance + 1)
     expect(quality).toBe(agreement + 1)
     expect(findSection(tree, ReadingGuidanceNote)).toBeNull()
+  })
+
+  it('sem rodada aberta, os atalhos levam só à Concordância e à Qualidade', async () => {
+    const admin = await newUser('Admin')
+    const scene = await guidanceScene(admin, 'within')
+
+    auth.userId = admin
+    const tree = await render(scene.project)
+
+    expect(shortcutsOf(tree)?.links).toEqual([
+      { href: '#concordancia', label: 'Concordância' },
+      { href: '#qualidade', label: 'Qualidade' },
+    ])
+    const text = markupTextOf(createElement(ReadingShortcuts, shortcutsOf(tree)!))
+    expect(text).toBe('Ir para: Concordância · Qualidade')
+  })
+
+  it('com rodada aberta, os atalhos levam à Concordância, à Qualidade e às rodadas do projeto', async () => {
+    const admin = await newUser('Admin')
+    const scene = await roundWith(admin, 2, { phase: PHASE_3 })
+
+    auth.userId = admin
+    const tree = await render(scene.project)
+
+    expect(shortcutsOf(tree)?.links).toEqual([
+      { href: '#concordancia', label: 'Concordância' },
+      { href: '#qualidade', label: 'Qualidade' },
+      { href: '#rodadas-do-projeto', label: 'Rodadas do projeto (1)' },
+    ])
+  })
+
+  it('numa rodada da Fase 2, os atalhos não levam à Qualidade, que não existe', async () => {
+    const admin = await newUser('Admin')
+    const scene = await roundWith(admin, 1)
+
+    auth.userId = admin
+    const tree = await render(scene.project)
+
+    expect(findSection(tree, QualityPanel)).toBeNull()
+    expect(shortcutsOf(tree)?.links).toEqual([
+      { href: '#concordancia', label: 'Concordância' },
+      { href: '#rodadas-do-projeto', label: 'Rodadas do projeto (1)' },
+    ])
+  })
+
+  it('o projeto sem rodada não tem atalhos, porque não há leitura', async () => {
+    const admin = await newUser('Admin')
+    const { project } = await readyProject(admin)
+
+    auth.userId = admin
+    const tree = await render(project)
+
+    expect(findElement(tree, ReadingShortcuts)).toBeNull()
+  })
+
+  it('a Concordância e as rodadas do projeto são âncoras dos atalhos, sem o título escondido', async () => {
+    const admin = await newUser('Admin')
+    const scene = await roundWith(admin, 1)
+
+    auth.userId = admin
+    const tree = await render(scene.project)
+
+    const agreement = renderToStaticMarkup(findSection(tree, AgreementPanel)!)
+    expect(agreement).toMatch(/<section id="concordancia" class="[^"]*\bscroll-mt-6\b/)
+    const list = renderToStaticMarkup(findSection(tree, RoundList)!)
+    expect(list).toMatch(/<section id="rodadas-do-projeto" class="[^"]*\bscroll-mt-6\b/)
   })
 
   it('numa rodada aberta, a orientação vem depois de fechar a rodada e antes da Concordância', async () => {
@@ -2402,10 +2480,12 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     const tree = await render(scene.project)
 
     const close = blockIndexOf(tree, CloseRound)
+    const shortcuts = blockIndexOf(tree, ReadingShortcuts)
     const guidance = blockIndexOf(tree, ReadingGuidanceNote)
     const agreement = blockIndexOf(tree, AgreementPanel)
-    expect(close).toBeGreaterThanOrEqual(0)
-    expect(guidance).toBe(close + 1)
+    expect(close).toBe(0)
+    expect(shortcuts).toBe(close + 1)
+    expect(guidance).toBe(shortcuts + 1)
     expect(agreement).toBe(guidance + 1)
   })
 

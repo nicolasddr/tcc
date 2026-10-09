@@ -454,11 +454,11 @@ describe('app/projects/[id]/rounds — a rodada da Fase 4 ao lado da rodada de r
     const quality = blockIndexOf(tree, QualityPanel)
     const comparison = blockIndexOf(tree, ReferenceComparisonPanel)
     const list = blockIndexOf(tree, RoundList)
-    expect(guidance).toBeGreaterThanOrEqual(0)
+    expect(list).toBeGreaterThanOrEqual(0)
+    expect(guidance).toBe(list + 1)
     expect(comparison).toBe(guidance + 1)
     expect(agreement).toBe(comparison + 1)
     expect(quality).toBe(agreement + 1)
-    expect(list).toBe(quality + 1)
 
     const section = findSection(tree, ReferenceComparisonPanel)
     expect(section).toBeTruthy()

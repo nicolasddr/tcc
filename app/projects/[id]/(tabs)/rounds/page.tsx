@@ -41,6 +41,12 @@ import {
   readingGuidance,
 } from './reading-guidance'
 import { ReadingGuidanceNote } from './reading-guidance-note'
+import {
+  AGREEMENT_SECTION_ID,
+  ROUNDS_SECTION_ID,
+  ReadingShortcuts,
+  readingShortcuts,
+} from './reading-shortcuts'
 import { referenceComparison } from './reference-comparison'
 import {
   REFERENCE_COMPARISON_HELP,
@@ -205,6 +211,29 @@ export default async function ProjectRoundsPage({
     }),
   })
 
+  const shortcuts = readingShortcuts({
+    agreement: focusRound !== null,
+    quality: focusQuality !== undefined,
+    ...(openRound ? { rounds: rounds.length } : {}),
+  })
+
+  const roundList = (
+    <Section
+      id={ROUNDS_SECTION_ID}
+      className="scroll-mt-6"
+      title="Rodadas do projeto"
+      hint="Em ordem cronológica, com o estado de cada uma."
+      help="Cada rodada aparece com as versões de codebook e de prompt que ela fixou e a concordância alcançada sobre elas."
+    >
+      <RoundList
+        projectId={project.id}
+        rounds={rounds}
+        agreement={agreement}
+        quality={quality}
+      />
+    </Section>
+  )
+
   return (
     <>
       {openRound && openSummary ? (
@@ -239,6 +268,10 @@ export default async function ProjectRoundsPage({
           />
         </Section>
       )}
+
+      {shortcuts.length > 0 ? <ReadingShortcuts links={shortcuts} /> : null}
+
+      {openRound ? null : roundList}
 
       {openRound && generating ? (
         <Section
@@ -294,6 +327,8 @@ export default async function ProjectRoundsPage({
 
       {focusRound ? (
         <Section
+          id={AGREEMENT_SECTION_ID}
+          className="scroll-mt-6"
           title={
             focusRound.closedAt
               ? `Concordância na rodada ${focusRound.roundNumber}, fechada`
@@ -357,18 +392,7 @@ export default async function ProjectRoundsPage({
         </Section>
       ) : null}
 
-      <Section
-        title="Rodadas do projeto"
-        hint="Em ordem cronológica, com o estado de cada uma."
-        help="Cada rodada aparece com as versões de codebook e de prompt que ela fixou e a concordância alcançada sobre elas."
-      >
-        <RoundList
-          projectId={project.id}
-          rounds={rounds}
-          agreement={agreement}
-          quality={quality}
-        />
-      </Section>
+      {openRound ? roundList : null}
     </>
   )
 }
