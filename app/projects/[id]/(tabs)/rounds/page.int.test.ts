@@ -348,7 +348,7 @@ function markupTextOf(element: ReactElement): string {
 
 function visibleTextOf(element: ReactElement): string {
   return renderToStaticMarkup(element)
-    .replace(/<span aria-hidden="true" class="pointer-events-none[^"]*">[^<]*<\/span>/g, ' ')
+    .replace(/<span [^>]*role="tooltip"[^>]*>[^<]*<\/span>/g, ' ')
     .replace(/<[^>]*>/g, ' ')
     .replace(/\s+/g, ' ')
     .trim()
@@ -356,7 +356,7 @@ function visibleTextOf(element: ReactElement): string {
 
 function glanceTextOf(element: ReactElement): string {
   return renderToStaticMarkup(element)
-    .replace(/<span aria-hidden="true" class="pointer-events-none[^"]*">[^<]*<\/span>/g, ' ')
+    .replace(/<span [^>]*role="tooltip"[^>]*>[^<]*<\/span>/g, ' ')
     .replace(/(<details(?![^>]*\sopen)[^>]*>[\s\S]*?<\/summary>)[\s\S]*?<\/details>/g, '$1')
     .replace(/<[^>]*>/g, ' ')
     .replace(/\s+/g, ' ')

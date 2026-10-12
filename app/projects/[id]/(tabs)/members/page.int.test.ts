@@ -29,6 +29,10 @@ import ProjectMembersPage from '@/app/projects/[id]/(tabs)/members/page'
 import { EvaluatorRolePanel } from '@/app/projects/[id]/evaluator-role'
 import { MemberList } from '@/app/projects/[id]/member-list'
 import { Section } from '@/app/components/ui/section'
+import {
+  TEAM_HINT,
+  TEAM_MORE,
+} from '@/app/projects/[id]/(tabs)/members/team-help'
 import { ownerDb } from '@/lib/db'
 import {
   createUser,
@@ -177,6 +181,35 @@ describe('app/projects/[id]/members — só quem participa ativamente entra', ()
 
     auth.userId = evaluator
     expect(await sectionTitlesOf(project)).toEqual(['Equipe do projeto'])
+  })
+
+  it('a Equipe do projeto mostra uma frase, e o Administrador tem o "Saiba mais" em vez do ⓘ', async () => {
+    const admin = await newUser('Admin')
+    const evaluator = await newUser('Avaliador')
+    const project = await newProject(admin)
+    await addActiveEvaluator(ownerDb, project, evaluator)
+
+    async function teamOf() {
+      const team = findAll(await render(project), Section).find(
+        (section) => (section.props as { title: unknown }).title === 'Equipe do projeto',
+      )
+      expect(team).toBeTruthy()
+      return team!.props as Parameters<typeof Section>[0]
+    }
+
+    auth.userId = admin
+    const forAdmin = await teamOf()
+    expect(forAdmin.hint).toBe('Quem participa e em que papel.')
+    expect(forAdmin.help).toBeUndefined()
+    expect(forAdmin.more).toEqual(TEAM_MORE)
+    expect(TEAM_MORE.summary).toBe('Desativar ou marcar como outlier?')
+    expect(TEAM_MORE.points).toHaveLength(3)
+
+    auth.userId = evaluator
+    const forEvaluator = await teamOf()
+    expect(forEvaluator.hint).toBe(TEAM_HINT)
+    expect(forEvaluator.help).toBeUndefined()
+    expect(forEvaluator.more).toBeUndefined()
   })
 
   it('o painel de assumir o papel de avaliador é só do Administrador, e mostra o vínculo atual', async () => {

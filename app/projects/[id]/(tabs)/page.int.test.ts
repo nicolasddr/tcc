@@ -239,10 +239,10 @@ function advanceOf(tree: unknown): ReactElement | null {
   return findElement(PipelineChecklist(props), AdvancePhase)
 }
 
-function ariaLabelsOf(element: ReactElement): string[] {
-  return [...renderToStaticMarkup(element).matchAll(/aria-label="([^"]*)"/g)].map(
-    ([, label]) => label,
-  )
+function tooltipTextsOf(element: ReactElement): string[] {
+  return [
+    ...renderToStaticMarkup(element).matchAll(/<span [^>]*role="tooltip"[^>]*>([^<]*)<\/span>/g),
+  ].map(([, text]) => text)
 }
 
 function checklistMarkupOf(tree: unknown, type: unknown): string {
@@ -253,7 +253,7 @@ function checklistMarkupOf(tree: unknown, type: unknown): string {
 
 function glanceTextOf(markup: string): string {
   return markup
-    .replace(/<span aria-hidden="true" class="pointer-events-none[^"]*">[^<]*<\/span>/g, ' ')
+    .replace(/<span [^>]*role="tooltip"[^>]*>[^<]*<\/span>/g, ' ')
     .replace(/(<details(?![^>]*\sopen)[^>]*>[\s\S]*?<\/summary>)[\s\S]*?<\/details>/g, '$1')
     .replace(/<[^>]*>/g, ' ')
     .replace(/\s+/g, ' ')
@@ -584,7 +584,7 @@ describe('app/projects/[id]/page — escopo de visibilidade', () => {
     expect(markup).not.toContain(`href="/projects/${project}/items"`)
     expect(markup.match(/aria-current="step"/g)).toHaveLength(1)
     expect(markup).not.toContain('<button')
-    expect(ariaLabelsOf(createElement(PipelineChecklist, props))).toEqual([])
+    expect(tooltipTextsOf(createElement(PipelineChecklist, props))).toEqual([])
 
     expect(barBadgeTextOf(tree)).toBe('Faltam 2')
   })
@@ -696,7 +696,7 @@ describe('app/projects/[id]/page — escopo de visibilidade', () => {
       { href: `/projects/${project}/rounds`, text: 'Ir para Rodadas' },
     ])
     expect(markup).not.toContain('<button')
-    expect(ariaLabelsOf(createElement(Phase3Checklist, props))).toEqual([])
+    expect(tooltipTextsOf(createElement(Phase3Checklist, props))).toEqual([])
     expect(barBadgeTextOf(tree)).toBe('Faltam 2')
   })
 
@@ -1344,7 +1344,7 @@ describe('app/projects/[id]/page — escopo de visibilidade', () => {
       expect(text).toContain(
         phase3BlockerMessage({ key: 'versions_changed', referenceRound: 2, changes }),
       )
-      expect(ariaLabelsOf(createElement(Phase3Checklist, props))).toEqual([])
+      expect(tooltipTextsOf(createElement(Phase3Checklist, props))).toEqual([])
       expect(barBadgeTextOf(tree)).toBe('Falta 1')
       expect(text).toContain(`Abrir e fechar mais uma rodada da Fase ${PHASE_3}`)
       expect(primaryActionsOf(markup)).toEqual([

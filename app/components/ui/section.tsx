@@ -1,5 +1,6 @@
 import { cx } from './cx'
 import { InfoTooltip } from './tooltip'
+import { LearnMore } from './learn-more'
 
 // Bloco de seção: filete no topo + título + dica opcional, usado nas telas de projeto.
 // O conteúdo entra 16px abaixo do cabeçalho, então os filhos não precisam carregar
@@ -9,6 +10,7 @@ export function Section({
   title,
   hint,
   help,
+  more,
   action,
   id,
   divider = true,
@@ -18,6 +20,7 @@ export function Section({
   title: React.ReactNode
   hint?: React.ReactNode
   help?: string
+  more?: { summary?: string; points: readonly string[] }
   action?: React.ReactNode
   id?: string
   divider?: boolean
@@ -48,6 +51,7 @@ export function Section({
         heading
       )}
       {hint ? <p className="mt-1.5 text-[13px] text-muted">{hint}</p> : null}
+      {more ? <LearnMore summary={more.summary} points={more.points} className="mt-2" /> : null}
       <div className="mt-4">{children}</div>
     </section>
   )

@@ -875,9 +875,9 @@ describe('app/projects/[id]/rounds — a rodada da Fase 4 ao lado da rodada de r
     expect(text).not.toContain('Carla já avaliou')
     expect(text).not.toContain('rodada 2')
 
-    const tooltips = [...renderToStaticMarkup(element).matchAll(/aria-label="([^"]*)"/g)].map(
-      (match) => match[1],
-    )
+    const tooltips = [
+      ...renderToStaticMarkup(element).matchAll(/<span [^>]*role="tooltip"[^>]*>([^<]*)<\/span>/g),
+    ].map((match) => match[1])
     expect(tooltips.filter((label) => label === mark.full)).toHaveLength(2)
   })
 
@@ -945,8 +945,8 @@ describe('app/projects/[id]/rounds — a rodada da Fase 4 ao lado da rodada de r
     const tree = await render(scene.project)
 
     const markup = renderToStaticMarkup(createElement(AgreementPanel, panelOf(tree)))
-    const tooltips = [...markup.matchAll(/aria-label="([^"]*)"/g)].map((match) =>
-      match[1].replaceAll('&quot;', '"'),
+    const tooltips = [...markup.matchAll(/<span [^>]*role="tooltip"[^>]*>([^<]*)<\/span>/g)].map(
+      (match) => match[1].replaceAll('&quot;', '"'),
     )
     expect(tooltips.some((text) => text.includes(PARTICIPATION_HELP))).toBe(true)
   })
