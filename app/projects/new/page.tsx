@@ -2,13 +2,8 @@ import { requireUserId } from '@/lib/supabase/server'
 import { canCreateProjects, hasPendingPermissionRequest } from '@/lib/authz'
 import { Alert } from '@/app/components/ui/alert'
 import { Card } from '@/app/components/ui/card'
-import {
-  PageShell,
-  TopBar,
-  BackLink,
-  PageTitle,
-  PageSubtitle,
-} from '@/app/components/ui/shell'
+import { PageShell, PageTitle, PageSubtitle } from '@/app/components/ui/shell'
+import { AppTopBar } from '@/app/components/app-top-bar'
 import { NewProjectForm } from './new-project-form'
 import { RequestPermissionForm } from './request-permission-form'
 
@@ -21,9 +16,9 @@ export default async function NewProjectPage() {
   return (
     <PageShell
       header={
-        <TopBar>
-          <BackLink href="/dashboard">Meus projetos</BackLink>
-        </TopBar>
+        <AppTopBar
+          trail={[{ label: 'Meus projetos', href: '/dashboard' }, { label: 'Novo projeto' }]}
+        />
       }
     >
       <PageTitle>Novo projeto</PageTitle>

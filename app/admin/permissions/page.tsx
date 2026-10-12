@@ -5,13 +5,8 @@ import { formatDate } from '@/app/notifications/labels'
 import { SubmitButton } from '@/app/components/submit-button'
 import { Card } from '@/app/components/ui/card'
 import { EmptyState } from '@/app/components/ui/empty-state'
-import {
-  PageShell,
-  TopBar,
-  BackLink,
-  PageTitle,
-  PageSubtitle,
-} from '@/app/components/ui/shell'
+import { PageShell, PageTitle, PageSubtitle } from '@/app/components/ui/shell'
+import { AppTopBar } from '@/app/components/app-top-bar'
 import { approvePermissionRequest, rejectPermissionRequest } from '@/app/admin/actions'
 
 export default async function AdminPermissionsPage() {
@@ -23,9 +18,12 @@ export default async function AdminPermissionsPage() {
   return (
     <PageShell
       header={
-        <TopBar>
-          <BackLink href="/dashboard">Meus projetos</BackLink>
-        </TopBar>
+        <AppTopBar
+          trail={[
+            { label: 'Meus projetos', href: '/dashboard' },
+            { label: 'Solicitações de permissão' },
+          ]}
+        />
       }
     >
       <PageTitle>Solicitações de permissão</PageTitle>

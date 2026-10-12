@@ -1,33 +1,22 @@
 import Link from '@/app/components/app-link'
 import { redirect } from 'next/navigation'
-import { eq, desc } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
 import { getClaims } from '@/lib/supabase/server'
-import {
-  transaction,
-  profiles,
-  projectMembers,
-  projects as projectsTable,
-  notifications as notificationsTable,
-} from '@/lib/db'
+import { transaction, projectMembers, projects as projectsTable } from '@/lib/db'
 import { isSuperAdmin, listMyPendingInvitations, type PendingInvitation } from '@/lib/authz'
-import { signOut } from '@/app/auth/actions'
 import { declineInvitation } from '@/app/invitations/actions'
 import { acceptInvitation } from '@/app/onboarding/actions'
 import { CollapsedProcessOverview, ProcessOverview } from '@/app/components/process-overview'
 import { ProcessPhasesFooter } from '@/app/components/process-phases-footer'
-import { NotificationBell, type InboxItem } from '@/app/components/notification-bell'
+import { AppTopBar } from '@/app/components/app-top-bar'
+import { loadTopBar } from '@/app/components/app-top-bar-data'
 import { SubmitButton } from '@/app/components/submit-button'
 import { Badge, StatusBadge } from '@/app/components/ui/badge'
 import { ButtonLink } from '@/app/components/ui/button'
-import { Avatar } from '@/app/components/ui/avatar'
 import { Card, cardClassName } from '@/app/components/ui/card'
 import { EmptyState } from '@/app/components/ui/empty-state'
-import { PageShell, TopBar } from '@/app/components/ui/shell'
-import {
-  notificationText,
-  formatDate,
-  type NotificationPayload,
-} from '@/app/notifications/labels'
+import { PageShell } from '@/app/components/ui/shell'
+import { formatDate } from '@/app/notifications/labels'
 import { memberStatusLabel, projectStatusLabel, roleLabel } from '@/app/projects/labels'
 import { PROJECT_PHASES, TOTAL_PHASES } from '@/app/projects/[id]/phase-bar'
 
@@ -50,21 +39,10 @@ export default async function Dashboard({
   if (!claims) redirect('/login')
 
   const userId = claims.sub
-  const avatarUrl = claims.user_metadata?.avatar_url ?? claims.user_metadata?.picture
-  const email = claims.email ?? ''
-  const initial = email.charAt(0)
+  void loadTopBar(userId)
 
-
-  const { profileRows, membershipRows, notificationRows } = await transaction(async (tx) => {
-
-    const profileRows = await tx
-      .select({ name: profiles.name })
-      .from(profiles)
-      .where(eq(profiles.id, userId))
-      .limit(1)
-
-
-    const membershipRows = await tx
+  const membershipRows = await transaction((tx) =>
+    tx
       .select({
         role: projectMembers.role,
         status: projectMembers.status,
@@ -77,29 +55,12 @@ export default async function Dashboard({
       })
       .from(projectMembers)
       .innerJoin(projectsTable, eq(projectMembers.projectId, projectsTable.id))
-      .where(eq(projectMembers.userId, userId))
-
-    const notificationRows = await tx
-      .select({
-        id: notificationsTable.id,
-        type: notificationsTable.type,
-        payload: notificationsTable.payload,
-        readAt: notificationsTable.readAt,
-        createdAt: notificationsTable.createdAt,
-      })
-      .from(notificationsTable)
-      .where(eq(notificationsTable.userId, userId))
-      .orderBy(desc(notificationsTable.createdAt))
-      .limit(30)
-
-    return { profileRows, membershipRows, notificationRows }
-  })
+      .where(eq(projectMembers.userId, userId)),
+  )
 
   const pendingInvitationRows = await listMyPendingInvitations(userId)
 
   const superAdmin = await isSuperAdmin(userId)
-
-  const displayName = profileRows[0]?.name ?? email
 
   const byProject = new Map<string, ListedProject>()
   let hasArchived = false
@@ -128,14 +89,6 @@ export default async function Dashboard({
   }
   const projects = [...byProject.values()]
 
-
-  const inboxItems: InboxItem[] = notificationRows.map((n) => ({
-    id: n.id,
-    text: notificationText(n.type, (n.payload ?? {}) as NotificationPayload),
-    dateLabel: formatDate(n.createdAt),
-    read: n.readAt != null,
-  }))
-
   const pendingInvitations: PendingInvitation[] = pendingInvitationRows
 
   const invitedProjects = pendingInvitations.filter((inv) => !byProject.has(inv.projectId))
@@ -145,41 +98,7 @@ export default async function Dashboard({
     <PageShell
       width="wide"
       footer={<ProcessPhasesFooter />}
-      header={
-        <TopBar className="justify-end">
-          <Link
-            href="/profile"
-            title="Editar meu perfil"
-            className="flex items-center gap-2.5 rounded-control p-0.5 text-inherit transition-colors hover:bg-canvas"
-          >
-            <Avatar src={avatarUrl} fallback={initial} />
-            <span className="flex flex-col leading-[1.2]">
-              <span className="text-sm font-semibold text-ink-soft">{displayName}</span>
-              <span className="text-xs text-muted">{email}</span>
-            </span>
-          </Link>
-          <NotificationBell items={inboxItems} />
-          <form action={signOut} className="contents">
-            <SubmitButton variant="ghost" pendingText="Saindo…">
-              <svg
-                className="h-4 w-4"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden="true"
-              >
-                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-                <polyline points="16 17 21 12 16 7" />
-                <line x1="21" y1="12" x2="9" y2="12" />
-              </svg>
-              Sair
-            </SubmitButton>
-          </form>
-        </TopBar>
-      }
+      header={<AppTopBar trail={[{ label: 'Meus projetos' }]} />}
     >
       <section className="mb-12">
         <div className="mb-4 flex items-center justify-between gap-4">

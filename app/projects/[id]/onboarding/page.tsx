@@ -4,13 +4,8 @@ import { requireUserId } from '@/lib/supabase/server'
 import { transaction, projects, projectMembers, onboardingQuestions } from '@/lib/db'
 import { CONSENT_TEXT } from '@/app/onboarding/consent'
 import { coerceOptions, type OnboardingQuestion } from '@/app/onboarding/questions'
-import {
-  PageShell,
-  TopBar,
-  BackLink,
-  PageTitle,
-  PageSubtitle,
-} from '@/app/components/ui/shell'
+import { PageShell, PageTitle, PageSubtitle } from '@/app/components/ui/shell'
+import { AppTopBar } from '@/app/components/app-top-bar'
 import { ConsentForm } from './consent-form'
 
 // HU-028: passo de consentimento do onboarding do avaliador. Só faz sentido quando o
@@ -75,9 +70,13 @@ export default async function OnboardingPage({
   return (
     <PageShell
       header={
-        <TopBar>
-          <BackLink href={`/projects/${id}`} />
-        </TopBar>
+        <AppTopBar
+          trail={[
+            { label: 'Meus projetos', href: '/dashboard' },
+            { label: project.name, href: `/projects/${id}` },
+            { label: 'Onboarding' },
+          ]}
+        />
       }
     >
       <PageTitle>Onboarding — {project.name}</PageTitle>

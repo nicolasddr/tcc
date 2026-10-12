@@ -17,6 +17,7 @@ vi.mock('next/navigation', () => ({
 }))
 
 import Dashboard from '@/app/dashboard/page'
+import { AppTopBar } from '@/app/components/app-top-bar'
 import { ownerDb } from '@/lib/db'
 import {
   createUser,
@@ -106,5 +107,16 @@ describe('app/dashboard — fase de cada projeto', () => {
       'Administrador · Avaliador · Fase 3 de 4, Validação do prompt',
     )
     expect(cardTextOf(tree, evaluatorOnly)).toContain('Avaliador · Fase 4 de 4, Validação final')
+  })
+
+  it('usa a barra do topo comum, com a trilha em Meus projetos', async () => {
+    const admin = await newUser('Admin')
+
+    auth.userId = admin
+    const tree = (await render()) as ReactElement<{ header: ReactElement }>
+    const header = tree.props.header
+
+    expect(header.type).toBe(AppTopBar)
+    expect(header.props).toEqual({ trail: [{ label: 'Meus projetos' }] })
   })
 })

@@ -6,7 +6,9 @@ import { taskTypeLabel } from '../../task-types'
 import { memberStatusLabel, projectStatusLabel, roleLabel } from '../../labels'
 import { ProjectTabs } from '../project-tabs'
 import { Badge, StatusBadge } from '@/app/components/ui/badge'
-import { PageShell, TopBar, BackLink, PageTitle } from '@/app/components/ui/shell'
+import { PageShell, PageTitle } from '@/app/components/ui/shell'
+import { AppTopBar } from '@/app/components/app-top-bar'
+import { loadTopBar } from '@/app/components/app-top-bar-data'
 import { InfoTooltip } from '@/app/components/ui/tooltip'
 
 export default async function ProjectTabsLayout({
@@ -18,6 +20,7 @@ export default async function ProjectTabsLayout({
 }) {
   const { id } = await params
   const userId = await requireUserId()
+  void loadTopBar(userId)
 
   const { project, memberships, hasInvitation } = await transaction(async (tx) => {
     const [project] = await tx
@@ -78,9 +81,12 @@ export default async function ProjectTabsLayout({
     <PageShell
       width="wide"
       header={
-        <TopBar>
-          <BackLink href="/dashboard">Meus projetos</BackLink>
-        </TopBar>
+        <AppTopBar
+          trail={[
+            { label: 'Meus projetos', href: '/dashboard' },
+            { label: project.name, href: `/projects/${project.id}` },
+          ]}
+        />
       }
     >
       <header>

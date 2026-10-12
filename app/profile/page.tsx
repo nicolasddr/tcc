@@ -2,13 +2,8 @@ import { eq } from 'drizzle-orm'
 import { requireUserId } from '@/lib/supabase/server'
 import { transaction, profiles } from '@/lib/db'
 import { Card } from '@/app/components/ui/card'
-import {
-  PageShell,
-  TopBar,
-  BackLink,
-  PageTitle,
-  PageSubtitle,
-} from '@/app/components/ui/shell'
+import { PageShell, PageTitle, PageSubtitle } from '@/app/components/ui/shell'
+import { AppTopBar } from '@/app/components/app-top-bar'
 import { ProfileForm } from './profile-form'
 
 export default async function ProfilePage() {
@@ -26,9 +21,9 @@ export default async function ProfilePage() {
   return (
     <PageShell
       header={
-        <TopBar>
-          <BackLink href="/dashboard">Meus projetos</BackLink>
-        </TopBar>
+        <AppTopBar
+          trail={[{ label: 'Meus projetos', href: '/dashboard' }, { label: 'Meu perfil' }]}
+        />
       }
     >
       <PageTitle>Meu perfil</PageTitle>
