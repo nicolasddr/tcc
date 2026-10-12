@@ -20,11 +20,13 @@ export const QUALITY_HINT =
   `A distribuição das notas desta rodada entre ${scaleLabel('high')}, ` +
   `${scaleLabel('medium')} e ${scaleLabel('low')}.`
 
-export const QUALITY_HELP =
-  'Cada nota é uma célula (definição × critério) avaliada por um avaliador numa resposta, ' +
-  'e o total é o número de notas, não o de respostas. Arredondadas, as porcentagens podem ' +
-  'não somar 100%, e por isso a contagem vem ao lado. A ferramenta não fixa um alvo para ' +
-  'essa distribuição nem diz se o valor basta: quem conhece a tarefa é quem lê o número.'
+export const QUALITY_POINTS: readonly string[] = [
+  'Cada nota é uma célula (definição × critério) avaliada por um avaliador numa resposta. ' +
+    'O total é o número de notas, não o de respostas.',
+  'Arredondadas, as porcentagens podem não somar 100%, e por isso a contagem vem ao lado.',
+  'A ferramenta não fixa um alvo para essa distribuição nem diz se o valor basta: quem ' +
+    'conhece a tarefa é quem lê o número.',
+]
 
 export const QUALITY_MATRIX_LEGEND =
   'Na matriz, cada célula traz a distribuição das notas daquela definição × critério ' +
@@ -41,15 +43,16 @@ export const QUALITY_MATRIX_LEGEND =
 export const QUALITY_SERIES_HINT =
   `A distribuição das notas de cada rodada das Fases ${PHASE_3} e ${PHASE_4}, um ponto por rodada.`
 
-export const QUALITY_SERIES_HELP =
+export const QUALITY_SERIES_POINTS: readonly string[] = [
   `Cada ponto é a ${QUALITY_LABEL} de uma rodada inteira, da Fase ${PHASE_3} ou da ` +
-  `Fase ${PHASE_4}, em ordem cronológica, ao lado das versões de codebook e de prompt ` +
-  'que aquela rodada fixou: o número descreve essa combinação de versões, e só ela. Nenhum valor junta rodadas, e ' +
-  'nada é somado nem tirado a média entre elas. As rodadas da ' +
-  `Fase ${PHASE_2} não entram. Com avaliador marcado como outlier numa rodada, o ponto ` +
-  `dela traz também o valor ${AGREEMENT_WITHOUT_OUTLIERS_LABEL}, depois do ` +
-  `${AGREEMENT_ALL_LABEL}. Na Fase ${PHASE_4}, cada ponto se lê ao lado da sua rodada de ` +
-  'referência, na tela de rodadas.'
+    `Fase ${PHASE_4}, ao lado das versões de codebook e de prompt que ela fixou: o número ` +
+    'descreve essa combinação de versões, e só ela.',
+  'Nenhum valor junta rodadas: nada é somado nem tirado a média entre elas. As rodadas da ' +
+    `Fase ${PHASE_2} não entram.`,
+  'Com avaliador marcado como outlier, o ponto da rodada traz também o valor ' +
+    `${AGREEMENT_WITHOUT_OUTLIERS_LABEL}, depois do ${AGREEMENT_ALL_LABEL}. Na Fase ${PHASE_4}, ` +
+    'cada ponto se lê ao lado da sua rodada de referência, na tela de rodadas.',
+]
 
 export const QUALITY_SERIES_NOTE =
   'Um ponto por rodada, e nenhum valor que junte rodadas: cada distribuição descreve as ' +

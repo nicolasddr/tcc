@@ -53,11 +53,12 @@ import { agreementPair, type AgreementPair } from './rounds/agreement-pair'
 import { AgreementSeriesChart } from './rounds/agreement-series-chart'
 import { hasQuality, qualityPair, type QualityPair } from './rounds/quality'
 import {
-  QUALITY_HELP,
   QUALITY_HINT,
-  QUALITY_SERIES_HELP,
+  QUALITY_POINTS,
   QUALITY_SERIES_HINT,
+  QUALITY_SERIES_POINTS,
 } from './rounds/quality-labels'
+import { AGREEMENT_SERIES_POINTS } from './rounds/agreement-labels'
 import { QualityPanel } from './rounds/quality-panel'
 import { qualitySeries } from './rounds/quality-series'
 import { QualitySeriesList } from './rounds/quality-series-list'
@@ -500,7 +501,7 @@ export default async function ProjectPage({
             <Section
               title="Concordância por rodada"
               hint="Um ponto por rodada, em ordem cronológica."
-              help="Cada ponto traz a versão de codebook que a rodada fixou e a fase em que ela foi aberta. As Fases 2, 3 e 4 ficam na mesma série. Da última rodada da Fase 2 para a primeira da Fase 3 com a mesma versão de codebook, a diferença mostra o efeito de a LLM passar a receber o codebook. Na Fase 3, o codebook refinado entre rodadas deve aparecer como concordância maior na rodada seguinte. Na Fase 4, codebook e prompt não mudam: o que muda são os itens e os avaliadores, e cada rodada se lê ao lado da sua rodada de referência."
+              more={{ points: AGREEMENT_SERIES_POINTS }}
             >
               <AgreementSeriesChart points={series} />
             </Section>
@@ -514,7 +515,7 @@ export default async function ProjectPage({
                   : `Qualidade na rodada ${focus.roundNumber}`
               }
               hint={QUALITY_HINT}
-              help={QUALITY_HELP}
+              more={{ points: QUALITY_POINTS }}
             >
               <QualityPanel pair={focusQuality} />
             </Section>
@@ -524,7 +525,7 @@ export default async function ProjectPage({
             <Section
               title="Qualidade por rodada"
               hint={QUALITY_SERIES_HINT}
-              help={QUALITY_SERIES_HELP}
+              more={{ points: QUALITY_SERIES_POINTS }}
             >
               <QualitySeriesList points={qualityPoints} />
             </Section>

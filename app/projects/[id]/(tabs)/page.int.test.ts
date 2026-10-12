@@ -59,8 +59,9 @@ import { HowToRead } from '@/app/projects/[id]/(tabs)/rounds/how-to-read'
 import { QualityPanel } from '@/app/projects/[id]/(tabs)/rounds/quality-panel'
 import { QualitySeriesList } from '@/app/projects/[id]/(tabs)/rounds/quality-series-list'
 import {
-  QUALITY_SERIES_HELP,
+  QUALITY_POINTS,
   QUALITY_SERIES_HINT,
+  QUALITY_SERIES_POINTS,
   QUALITY_SERIES_NOTE,
   QUALITY_SERIES_NUMBERS,
 } from '@/app/projects/[id]/(tabs)/rounds/quality-labels'
@@ -72,6 +73,7 @@ import { ButtonLink } from '@/app/components/ui/button'
 import {
   AGREEMENT_ALL_LABEL,
   AGREEMENT_BANDS,
+  AGREEMENT_SERIES_POINTS,
   AGREEMENT_WITHOUT_OUTLIERS_LABEL,
   BAND_REFERENCE,
   NOT_CALCULABLE_LABEL,
@@ -384,6 +386,8 @@ function qualitySeriesPartsOf(tree: unknown): { bars: string; numbers: string } 
   expect(split).toBeGreaterThan(0)
   return { bars: markup.slice(0, split), numbers: markup.slice(split) }
 }
+
+type SectionProps = Parameters<typeof Section>[0]
 
 function sectionWith(node: unknown, type: unknown): ReactElement | null {
   if (Array.isArray(node)) {
@@ -1581,6 +1585,8 @@ describe('app/projects/[id]/page — escopo de visibilidade', () => {
     expect((section!.props as { title: unknown }).title).toBe(
       'Qualidade na rodada 1, fechada',
     )
+    expect((section!.props as SectionProps).help).toBeUndefined()
+    expect((section!.props as SectionProps).more).toEqual({ points: QUALITY_POINTS })
     expect(findElement(section, AgreementSeriesChart)).toBeNull()
     expect(sectionWith(tree, AgreementSeriesChart)).not.toBe(section)
     expect(hasProp(section, 'href', `/projects/${project}/rounds`)).toBe(false)
@@ -2062,9 +2068,13 @@ describe('app/projects/[id]/page — escopo de visibilidade', () => {
     expect(text).toContain('Codebook v3 · Fase 3')
     expect(text).toContain('a versão de codebook e a fase indicadas ao lado dele')
 
-    const help = (sectionWith(tree, AgreementSeriesChart)!.props as { help: string }).help
-    expect(help).toContain('As Fases 2, 3 e 4 ficam na mesma série')
-    expect(help).toContain('a LLM passar a receber o codebook')
+    const props = sectionWith(tree, AgreementSeriesChart)!.props as SectionProps
+    expect(props.hint).toBe('Um ponto por rodada, em ordem cronológica.')
+    expect(props.help).toBeUndefined()
+    expect(props.more).toEqual({ points: AGREEMENT_SERIES_POINTS })
+    const points = AGREEMENT_SERIES_POINTS.join(' ')
+    expect(points).toContain('As Fases 2, 3 e 4 ficam na mesma série')
+    expect(points).toContain('a LLM passar a receber o codebook')
   })
 
   it('as rodadas de cada fase ficam agrupadas, na ordem cronológica, sob o subtítulo da fase', async () => {
@@ -2191,10 +2201,11 @@ describe('app/projects/[id]/page — escopo de visibilidade', () => {
     auth.userId = admin
     const tree = await render(project)
 
-    const help = (sectionWith(tree, AgreementSeriesChart)!.props as { help: string }).help
-    expect(help).toContain('As Fases 2, 3 e 4 ficam na mesma série')
-    expect(help).toContain('Na Fase 4, codebook e prompt não mudam')
-    expect(help).toContain('ao lado da sua rodada de referência')
+    const { more } = sectionWith(tree, AgreementSeriesChart)!.props as SectionProps
+    const points = more!.points.join(' ')
+    expect(points).toContain('As Fases 2, 3 e 4 ficam na mesma série')
+    expect(points).toContain('Na Fase 4, codebook e prompt não mudam')
+    expect(points).toContain('ao lado da sua rodada de referência')
   })
 
   it('a série de Qualidade cobre as Fases 3 e 4, com a fase de cada ponto e um grupo por fase', async () => {
@@ -2234,18 +2245,20 @@ describe('app/projects/[id]/page — escopo de visibilidade', () => {
 
   it('os textos da série de Qualidade falam das Fases 3 e 4, e não só da Fase 3', async () => {
     expect(QUALITY_SERIES_HINT).toContain(`Fases ${PHASE_3} e ${PHASE_4}`)
-    expect(QUALITY_SERIES_HELP).toContain(`da Fase ${PHASE_3} ou da Fase ${PHASE_4}`)
-    expect(QUALITY_SERIES_HELP).toContain(`Fase ${PHASE_2} não entram`)
-    expect(QUALITY_SERIES_HELP).toContain('ao lado da sua rodada de referência')
+    const points = QUALITY_SERIES_POINTS.join(' ')
+    expect(points).toContain(`da Fase ${PHASE_3} ou da Fase ${PHASE_4}`)
+    expect(points).toContain(`Fase ${PHASE_2} não entram`)
+    expect(points).toContain('ao lado da sua rodada de referência')
 
     const admin = await newUser('Admin')
     const project = await phase4SeriesScene(admin)
 
     auth.userId = admin
     const section = sectionWith(await render(project), QualitySeriesList)
-    const props = section!.props as { hint: string; help: string }
+    const props = section!.props as SectionProps
     expect(props.hint).toBe(QUALITY_SERIES_HINT)
-    expect(props.help).toBe(QUALITY_SERIES_HELP)
+    expect(props.help).toBeUndefined()
+    expect(props.more).toEqual({ points: QUALITY_SERIES_POINTS })
   })
 
   it('o Avaliador não vê as séries num projeto com rodada da Fase 4', async () => {

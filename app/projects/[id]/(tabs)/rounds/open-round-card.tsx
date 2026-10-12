@@ -11,27 +11,22 @@ import { Card } from '@/app/components/ui/card'
 import { Chip } from '@/app/components/ui/chip'
 import { Disclosure } from '@/app/components/ui/disclosure'
 import { InfoTooltip } from '@/app/components/ui/tooltip'
+import { LearnMore } from '@/app/components/ui/learn-more'
 import { formatDate } from '@/app/notifications/labels'
 
 export const GENERATE_PANEL_ID = 'gerar'
 
-export function openRoundHelp(
-  round: Pick<
-    RoundSummary,
-    'roundNumber' | 'phase' | 'codebookVersionNumber' | 'promptVersionNumber'
-  >,
-): string {
+export const OPEN_ROUND_MORE_SUMMARY = 'Como funciona a rodada aberta'
+
+export function openRoundPoints(
+  round: Pick<RoundSummary, 'roundNumber' | 'phase'>,
+): readonly string[] {
   return [
-    openRoundSummary(
-      round.roundNumber,
-      round.codebookVersionNumber,
-      round.promptVersionNumber,
-    ),
     roundLockedMessage(round.roundNumber, round.phase),
     roundInputSummary(round.phase),
-    'Só existe uma rodada aberta por projeto.',
-    'Fechar é ação sua, é irreversível e não depende de todos terem terminado.',
-  ].join('\n\n')
+    'Só existe uma rodada aberta por projeto. Fechar é ação sua, é irreversível e não ' +
+      'depende de todos terem terminado.',
+  ]
 }
 
 export function OpenRoundCard({
@@ -60,7 +55,13 @@ export function OpenRoundCard({
           Rodada {round.roundNumber}
           <Badge tone="info">Aberta</Badge>
           <Chip>Fase {round.phase}</Chip>
-          <InfoTooltip text={openRoundHelp(round)} />
+          <InfoTooltip
+            text={openRoundSummary(
+              round.roundNumber,
+              round.codebookVersionNumber,
+              round.promptVersionNumber,
+            )}
+          />
         </h2>
         <p className="m-0 text-[13px] text-muted">
           Codebook v{round.codebookVersionNumber} · Prompt v{round.promptVersionNumber} ·
@@ -110,6 +111,8 @@ export function OpenRoundCard({
           </ul>
         )}
       </Disclosure>
+
+      <LearnMore summary={OPEN_ROUND_MORE_SUMMARY} points={openRoundPoints(round)} />
     </Card>
   )
 }

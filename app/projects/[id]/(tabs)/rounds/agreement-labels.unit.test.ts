@@ -2,6 +2,8 @@ import { describe, it, expect } from 'vitest'
 import {
   AGREEMENT_ALL_LABEL,
   AGREEMENT_BANDS,
+  AGREEMENT_SERIES_POINTS,
+  AGREEMENT_WITHOUT_OUTLIERS_LABEL,
   AGREEMENT_SOURCE,
   BAND_REFERENCE,
   BAND_REFERENCE_LABEL,
@@ -9,6 +11,7 @@ import {
   CELL_NOT_APPLICABLE_TITLE,
   CELL_UNRATED_LABEL,
   MATRIX_LEGEND,
+  OUTLIER_PAIR_POINTS,
   OUTLIER_PAIR_RESULT,
   OUTLIER_PAIR_SUMMARY,
   SMALL_SAMPLE_HELP,
@@ -25,6 +28,11 @@ import {
   sampleSize,
   smallSampleWarning,
 } from '@/app/projects/[id]/(tabs)/rounds/agreement-labels'
+import * as labels from '@/app/projects/[id]/(tabs)/rounds/agreement-labels'
+
+function wordsOf(text: string): number {
+  return text.split(/\s+/).filter(Boolean).length
+}
 
 describe('app/projects/[id]/rounds/agreement-labels — o coeficiente na tela', () => {
   it('abaixo do primeiro corte, a faixa é questionável', () => {
@@ -83,6 +91,38 @@ describe('app/projects/[id]/rounds/agreement-labels — o coeficiente na tela', 
   it('a linha curta do par diz qual valor é o resultado, e a frase longa continua dizendo o mesmo', () => {
     expect(OUTLIER_PAIR_RESULT).toBe(`O resultado da rodada é o valor ${AGREEMENT_ALL_LABEL}.`)
     expect(OUTLIER_PAIR_SUMMARY).toContain(AGREEMENT_ALL_LABEL)
+  })
+
+  it('o ⓘ do par fica com uma frase, e o resto da explicação vira tópicos curtos', () => {
+    expect(labels).not.toHaveProperty('OUTLIER_PAIR_HINT')
+    expect(wordsOf(OUTLIER_PAIR_SUMMARY)).toBeLessThanOrEqual(25)
+    expect(OUTLIER_PAIR_SUMMARY).toContain('saem do mesmo dado desta rodada')
+
+    expect(OUTLIER_PAIR_POINTS.length).toBeGreaterThanOrEqual(1)
+    expect(OUTLIER_PAIR_POINTS.length).toBeLessThanOrEqual(3)
+    const points = OUTLIER_PAIR_POINTS.join(' ')
+    expect(points).toContain(AGREEMENT_WITHOUT_OUTLIERS_LABEL)
+    expect(points).toContain('o quanto a exclusão move o número')
+    expect(points).toContain('declarada e justificada uma a uma')
+    expect(points).toContain('nunca sugerida pela ferramenta')
+    expect(points).toContain('nenhuma nota é apagada')
+  })
+
+  it('a ajuda da série de Concordância vira até três tópicos, sem perder as fases', () => {
+    expect(AGREEMENT_SERIES_POINTS).toHaveLength(3)
+    for (const point of AGREEMENT_SERIES_POINTS) {
+      expect(wordsOf(point)).toBeLessThanOrEqual(40)
+    }
+
+    const [each, twoToThree, threeAndFour] = AGREEMENT_SERIES_POINTS
+    expect(each).toContain('a versão de codebook que a rodada fixou e a fase em que ela foi aberta')
+    expect(each).toContain('As Fases 2, 3 e 4 ficam na mesma série')
+    expect(twoToThree).toContain('com a mesma versão de codebook')
+    expect(twoToThree).toContain('a LLM passar a receber o codebook')
+    expect(threeAndFour).toContain('concordância maior na rodada seguinte')
+    expect(threeAndFour).toContain('Na Fase 4, codebook e prompt não mudam')
+    expect(threeAndFour).toContain('os itens e os avaliadores')
+    expect(threeAndFour).toContain('ao lado da sua rodada de referência')
   })
 
   it('o N sai em unidades e avaliadores, no singular quando é um só', () => {

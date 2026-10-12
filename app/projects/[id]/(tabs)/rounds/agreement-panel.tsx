@@ -12,7 +12,7 @@ import {
   BAND_REFERENCE,
   BAND_REFERENCE_LABEL,
   NOT_CALCULABLE_LABEL,
-  OUTLIER_PAIR_HINT,
+  OUTLIER_PAIR_POINTS,
   OUTLIER_PAIR_RESULT,
   OUTLIER_PAIR_SUMMARY,
   agreementBand,
@@ -30,6 +30,7 @@ import { Card } from '@/app/components/ui/card'
 import { Disclosure } from '@/app/components/ui/disclosure'
 import { StatCard } from '@/app/components/ui/stat'
 import { InfoTooltip } from '@/app/components/ui/tooltip'
+import { LearnMore } from '@/app/components/ui/learn-more'
 import { cx } from '@/app/components/ui/cx'
 import { preWrapClass, scrollBoxClass } from '@/app/components/ui/prose'
 import { formatDate } from '@/app/notifications/labels'
@@ -194,8 +195,10 @@ export function AgreementPanel({
 
           <p className="m-0 flex flex-wrap items-center gap-2 text-xs text-muted">
             <span>{OUTLIER_PAIR_RESULT}</span>
-            <InfoTooltip text={`${OUTLIER_PAIR_SUMMARY}\n\n${OUTLIER_PAIR_HINT}`} />
+            <InfoTooltip text={OUTLIER_PAIR_SUMMARY} />
           </p>
+
+          <LearnMore points={OUTLIER_PAIR_POINTS} />
 
           <ExcludedList outliers={outliers} />
         </>

@@ -1,5 +1,6 @@
 import { plural } from '@/lib/plural'
 import type { Agreement, NotCalculableReason } from '@/lib/agreement'
+import { PHASE_2, PHASE_3, PHASE_4 } from '../../pipeline/preconditions'
 
 export type AgreementBand = 'questionable' | 'acceptable' | 'good'
 
@@ -42,13 +43,22 @@ export const OUTLIER_PAIR_SUMMARY =
 
 export const OUTLIER_PAIR_RESULT = `O resultado da rodada é o valor ${AGREEMENT_ALL_LABEL}.`
 
-export const OUTLIER_PAIR_HINT =
-  `Os dois valores saem do mesmo dado desta rodada. O primeiro, ${AGREEMENT_ALL_LABEL}, ` +
-  'é o resultado da rodada e continua sendo ele. O segundo, ' +
-  `${AGREEMENT_WITHOUT_OUTLIERS_LABEL}, refaz a conta retirando as notas de quem foi ` +
-  'marcado, e existe para mostrar o quanto a exclusão move o número. A exclusão é ' +
-  'declarada e justificada uma a uma, nunca sugerida pela ferramenta, e nenhuma nota é ' +
-  'apagada por causa dela.'
+export const OUTLIER_PAIR_POINTS: readonly string[] = [
+  `O segundo valor, ${AGREEMENT_WITHOUT_OUTLIERS_LABEL}, refaz a conta retirando as notas ` +
+    'de quem foi marcado, para mostrar o quanto a exclusão move o número.',
+  'A exclusão é declarada e justificada uma a uma, nunca sugerida pela ferramenta, e ' +
+    'nenhuma nota é apagada por causa dela.',
+]
+
+export const AGREEMENT_SERIES_POINTS: readonly string[] = [
+  'Cada ponto traz a versão de codebook que a rodada fixou e a fase em que ela foi aberta. ' +
+    `As Fases ${PHASE_2}, ${PHASE_3} e ${PHASE_4} ficam na mesma série.`,
+  `Da última rodada da Fase ${PHASE_2} para a primeira da Fase ${PHASE_3}, com a mesma ` +
+    'versão de codebook, a diferença mostra o efeito de a LLM passar a receber o codebook.',
+  `Na Fase ${PHASE_3}, o codebook refinado deve aparecer como concordância maior na rodada ` +
+    `seguinte. Na Fase ${PHASE_4}, codebook e prompt não mudam: mudam os itens e os ` +
+    'avaliadores, e cada rodada se lê ao lado da sua rodada de referência.',
+]
 
 export const MATRIX_SCOPE_NOTE =
   `A matriz por célula é calculada ${AGREEMENT_ALL_LABEL}, inclusive com as notas de ` +

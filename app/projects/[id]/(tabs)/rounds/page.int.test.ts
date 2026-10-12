@@ -31,7 +31,8 @@ import { CloseRound } from '@/app/projects/[id]/(tabs)/rounds/close-round'
 import { GenerateResponses } from '@/app/projects/[id]/(tabs)/rounds/generate-responses'
 import {
   OpenRoundCard,
-  openRoundHelp,
+  OPEN_ROUND_MORE_SUMMARY,
+  openRoundPoints,
 } from '@/app/projects/[id]/(tabs)/rounds/open-round-card'
 import { ReadingShortcuts } from '@/app/projects/[id]/(tabs)/rounds/reading-shortcuts'
 import {
@@ -46,7 +47,7 @@ import {
   QualitySummary,
 } from '@/app/projects/[id]/(tabs)/rounds/quality-panel'
 import {
-  QUALITY_HELP,
+  QUALITY_POINTS,
   QUALITY_HINT,
   QUALITY_MATRIX_LEGEND,
   QUALITY_UNRATED,
@@ -63,7 +64,7 @@ import {
   CELL_UNRATED_LABEL,
   MATRIX_LEGEND,
   MATRIX_SCOPE_NOTE,
-  OUTLIER_PAIR_HINT,
+  OUTLIER_PAIR_POINTS,
   OUTLIER_PAIR_RESULT,
   OUTLIER_PAIR_SUMMARY,
   SMALL_SAMPLE_HELP,
@@ -72,6 +73,7 @@ import {
 import { Section } from '@/app/components/ui/section'
 import { ButtonLink, buttonClass } from '@/app/components/ui/button'
 import { InfoTooltip } from '@/app/components/ui/tooltip'
+import { LearnMore } from '@/app/components/ui/learn-more'
 import { loadCodebookVersion } from '@/app/projects/[id]/pipeline/codebook'
 import { resolveCells } from '@/app/projects/[id]/pipeline/criteria'
 import { formatDate } from '@/app/notifications/labels'
@@ -366,6 +368,12 @@ function glanceTextOf(element: ReactElement): string {
 function tooltipTextsOf(element: ReactElement): string[] {
   return findAll(element, InfoTooltip).map(
     (tooltip) => (tooltip.props as { text: string }).text,
+  )
+}
+
+function learnMoreOf(element: ReactElement): { summary?: string; points: readonly string[] }[] {
+  return findAll(element, LearnMore).map(
+    (block) => block.props as { summary?: string; points: readonly string[] },
   )
 }
 
@@ -797,7 +805,7 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     expect(close.round.phase).toBe(PHASE_3)
     const card = cardOf(tree)
     expect(card.round.phase).toBe(PHASE_3)
-    expect(openRoundHelp(card.round)).toContain(roundInputSummary(PHASE_3))
+    expect(openRoundPoints(card.round)).toContain(roundInputSummary(PHASE_3))
     expect(cardTextOf(tree)).not.toContain(roundInputSummary(PHASE_2))
   })
 
@@ -1028,7 +1036,7 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     const close = closeRoundOf(tree)
     expect(close.round.phase).toBe(PHASE_4)
 
-    const help = openRoundHelp(cardOf(tree).round)
+    const help = openRoundPoints(cardOf(tree).round)
     expect(help).toContain(roundInputSummary(PHASE_4))
     expect(help).not.toContain(roundInputSummary(PHASE_3))
     expect(help).toContain(phase4RoundLockedMessage(2))
@@ -1185,17 +1193,19 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     expect(visible).toContain('1 resposta nesta rodada · 1 item do pool ainda sem resposta')
     expect(visible).toContain('Respostas da rodada 1 (1)')
     expect(visible).toContain('Item 1')
-    expect(visible).not.toContain(roundInputSummary(PHASE_2))
+    expect(glanceTextOf(element)).not.toContain(roundInputSummary(PHASE_2))
 
-    const help = openRoundHelp(card.round)
-    expect(tooltipTextsOf(OpenRoundCard(card))).toContain(help)
-    expect(help).toContain(openRoundSummary(1, 1, 1))
-    expect(help).toContain(codebookLockedMessage(1))
-    expect(help).toContain(roundInputSummary(PHASE_2))
-    expect(help).toContain('Só existe uma rodada aberta por projeto.')
-    expect(help).toContain(
-      'Fechar é ação sua, é irreversível e não depende de todos terem terminado.',
-    )
+    expect(tooltipTextsOf(OpenRoundCard(card))).toEqual([openRoundSummary(1, 1, 1)])
+    expect(learnMoreOf(OpenRoundCard(card))).toEqual([
+      { summary: OPEN_ROUND_MORE_SUMMARY, points: openRoundPoints(card.round) },
+    ])
+    expect(OPEN_ROUND_MORE_SUMMARY).toBe('Como funciona a rodada aberta')
+    expect(openRoundPoints(card.round)).toEqual([
+      codebookLockedMessage(1),
+      roundInputSummary(PHASE_2),
+      'Só existe uma rodada aberta por projeto. Fechar é ação sua, é irreversível e não depende de todos terem terminado.',
+    ])
+    expect(opensClosed(element)).toBe(true)
 
     const links = findAll(OpenRoundCard(card), ButtonLink)
     expect(links.map((link) => (link.props as { href: string }).href)).toEqual([
@@ -1529,8 +1539,10 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     const visible = visibleTextOf(createElement(AgreementPanel, props))
     expect(visible).toContain(OUTLIER_PAIR_RESULT)
     expect(visible).not.toContain(OUTLIER_PAIR_SUMMARY)
-    expect(tooltipTextsOf(AgreementPanel(props))).toContain(
-      `${OUTLIER_PAIR_SUMMARY}\n\n${OUTLIER_PAIR_HINT}`,
+    expect(tooltipTextsOf(AgreementPanel(props))).toContain(OUTLIER_PAIR_SUMMARY)
+    expect(learnMoreOf(AgreementPanel(props))).toEqual([{ points: OUTLIER_PAIR_POINTS }])
+    expect(glanceTextOf(createElement(AgreementPanel, props))).not.toContain(
+      OUTLIER_PAIR_POINTS[0],
     )
   })
 
@@ -2122,7 +2134,7 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     const tree = await render(scene.project)
     const closedAt = listOf(tree).rounds[0].closedAt!
 
-    type SectionProps = { hint: string; help: string }
+    type SectionProps = { hint: string; help: string; more?: { points: readonly string[] } }
 
     const agreement = findSection(tree, AgreementMatrixTable)!.props as SectionProps
     expect(agreement.hint).toBe(
@@ -2139,8 +2151,9 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
 
     const quality = findSection(tree, QualityMatrixTable)!.props as SectionProps
     expect(quality.hint).toBe(QUALITY_HINT)
-    expect(quality.help).toBe(QUALITY_HELP)
-    expect(QUALITY_HELP).not.toContain('distribuição das notas desta rodada')
+    expect(quality.help).toBeUndefined()
+    expect(quality.more).toEqual({ points: QUALITY_POINTS })
+    expect(QUALITY_POINTS.join(' ')).not.toContain('distribuição das notas desta rodada')
   })
 
   it('com a rodada aberta, o ⓘ da Concordância diz que o valor não trava nada, e a frase continua a mesma', async () => {

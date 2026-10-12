@@ -21,7 +21,7 @@ import { loadProjectOutliers, loadRoundOutliers } from './outliers'
 import { loadEvaluatorParticipation } from './participation'
 import { participationBefore } from './participation-labels'
 import { hasQuality, qualityPair, type QualityPair } from './quality'
-import { QUALITY_HELP, QUALITY_HINT } from './quality-labels'
+import { QUALITY_HINT, QUALITY_POINTS } from './quality-labels'
 import { evaluatorsNotFinished, isActiveEvaluator, roundBlockers } from './preconditions'
 import { NewRound } from './new-round'
 import { CloseRound } from './close-round'
@@ -372,7 +372,7 @@ export default async function ProjectRoundsPage({
               : `Qualidade na rodada ${focusRound.roundNumber}`
           }
           hint={QUALITY_HINT}
-          help={QUALITY_HELP}
+          more={{ points: QUALITY_POINTS }}
         >
           <div className="flex flex-col gap-4">
             <QualityPanel pair={focusQuality} />
