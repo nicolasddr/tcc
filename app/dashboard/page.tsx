@@ -28,7 +28,7 @@ import {
   formatDate,
   type NotificationPayload,
 } from '@/app/notifications/labels'
-import { projectStatusLabel, roleLabel } from '@/app/projects/labels'
+import { memberStatusLabel, projectStatusLabel, roleLabel } from '@/app/projects/labels'
 import { PROJECT_PHASES, TOTAL_PHASES } from '@/app/projects/[id]/phase-bar'
 
 type ListedProject = {
@@ -230,7 +230,7 @@ export default async function Dashboard({
                   </span>
                   <span className="flex shrink-0 items-center gap-2">
                     {p.onboardingPending ? (
-                      <Badge tone="warning">onboarding pendente</Badge>
+                      <Badge tone="warning">{memberStatusLabel('pending_onboarding')}</Badge>
                     ) : null}
                     <StatusBadge status={p.status}>
                       {projectStatusLabel(p.status)}
@@ -258,7 +258,7 @@ export default async function Dashboard({
                     </span>
                   </Link>
                   <span className="flex shrink-0 items-center gap-2">
-                    <Badge tone="accent">convite pendente</Badge>
+                    <Badge tone="accent">Convite pendente</Badge>
                     <form action={acceptInvitation}>
                       <input type="hidden" name="project_id" value={inv.projectId} />
                       <SubmitButton variant="primary" size="sm" pendingText="Aceitando…">
@@ -285,7 +285,7 @@ export default async function Dashboard({
         <ProcessOverview
           createAction={
             <ButtonLink href="/projects/new" fullWidth>
-              Criar Novo Projeto
+              + Novo projeto
             </ButtonLink>
           }
         />

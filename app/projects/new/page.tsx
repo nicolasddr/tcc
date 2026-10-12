@@ -26,7 +26,7 @@ export default async function NewProjectPage() {
         </TopBar>
       }
     >
-      <PageTitle>Criar novo projeto</PageTitle>
+      <PageTitle>Novo projeto</PageTitle>
 
       {allowed ? (
         <>

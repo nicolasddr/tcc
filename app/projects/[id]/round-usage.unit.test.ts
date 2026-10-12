@@ -94,20 +94,20 @@ describe('itemUsageMark e participationMark', () => {
 
   it('a marca curta conta as rodadas e a longa guarda a lista por fase', () => {
     expect(itemUsageMark(threePhases)).toEqual({
-      short: 'usado em 4 rodadas',
+      short: 'Usado em 4 rodadas',
       full: 'usado nas rodadas 1 e 2 (Fase 2), 4 (Fase 3) e 6 (Fase 4)',
     })
     expect(participationMark(threePhases)).toEqual({
-      short: 'avaliou em 4 rodadas',
+      short: 'Avaliou em 4 rodadas',
       full: 'avaliou nas rodadas 1 e 2 (Fase 2), 4 (Fase 3) e 6 (Fase 4)',
     })
   })
 
   it('usa o singular com uma rodada só', () => {
     expect(itemUsageMark([{ roundNumber: 3, phase: 2 }])).toEqual({
-      short: 'usado em 1 rodada',
+      short: 'Usado em 1 rodada',
       full: 'usado na rodada 3 (Fase 2)',
     })
-    expect(participationMark([{ roundNumber: 3, phase: 2 }])?.short).toBe('avaliou em 1 rodada')
+    expect(participationMark([{ roundNumber: 3, phase: 2 }])?.short).toBe('Avaliou em 1 rodada')
   })
 })

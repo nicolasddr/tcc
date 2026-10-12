@@ -70,9 +70,9 @@ export function RoundList({
                         Rodada {round.roundNumber}
                       </span>
                       {isOpen(round) ? (
-                        <Badge tone="info">aberta</Badge>
+                        <Badge tone="info">Aberta</Badge>
                       ) : (
-                        <Badge tone="neutral">fechada</Badge>
+                        <Badge tone="neutral">Fechada</Badge>
                       )}
                       <InfoTooltip text={openedText(round)} />
                     </span>

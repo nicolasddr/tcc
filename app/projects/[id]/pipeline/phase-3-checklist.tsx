@@ -63,10 +63,10 @@ export function Phase3Checklist({
         phase !== PHASE_3 ? (
           <Badge tone="success">Fase {PHASE_3} concluída</Badge>
         ) : blockers.length === 0 ? (
-          <Badge tone="success">tudo pronto</Badge>
+          <Badge tone="success">Tudo pronto</Badge>
         ) : (
           <Badge tone="warning">
-            {blockers.length === 1 ? 'falta 1' : `faltam ${blockers.length}`}
+            {blockers.length === 1 ? 'Falta 1' : `Faltam ${blockers.length}`}
           </Badge>
         )
       }

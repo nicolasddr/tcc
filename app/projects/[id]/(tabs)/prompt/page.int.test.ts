@@ -225,13 +225,13 @@ describe('app/projects/[id]/prompt — a tela do prompt', () => {
 
     expect(current.isLatest).toBe(true)
     expect(current.isOpen).toBe(true)
-    expect(textOf(VersionBadges({ version: current }))).toContain('vigente')
-    expect(textOf(VersionBadges({ version: current }))).toContain('em aberto')
+    expect(textOf(VersionBadges({ version: current }))).toContain('Vigente')
+    expect(textOf(VersionBadges({ version: current }))).toContain('Em aberto')
 
     expect(old.isLatest).toBe(false)
     expect(old.isOpen).toBe(false)
-    expect(textOf(VersionBadges({ version: old }))).toContain('congelada')
-    expect(textOf(VersionBadges({ version: old }))).not.toContain('vigente')
+    expect(textOf(VersionBadges({ version: old }))).toContain('Congelada')
+    expect(textOf(VersionBadges({ version: old }))).not.toContain('Vigente')
   })
 
   it('a versão vigente já usada aparece como congelada', async () => {
@@ -243,7 +243,7 @@ describe('app/projects/[id]/prompt — a tela do prompt', () => {
     const [version] = historyOf(await renderPrompt(project)).versions
     expect(version.isLatest).toBe(true)
     expect(version.isOpen).toBe(false)
-    expect(textOf(VersionBadges({ version }))).toContain('congelada')
+    expect(textOf(VersionBadges({ version }))).toContain('Congelada')
   })
 
   it('sem nenhuma versão, a tela não tem histórico nem link para ele; ambos aparecem a partir da versão 1', async () => {
@@ -304,7 +304,7 @@ describe('app/projects/[id]/prompt — a tela do prompt', () => {
 
     const props = badges!.props as { version: PromptVersionSummary }
     expect(props.version.versionNumber).toBe(1)
-    expect(textOf(VersionBadges(props))).toContain('congelada')
+    expect(textOf(VersionBadges(props))).toContain('Congelada')
   })
 
   it('o histórico não oferece editar ou apagar nenhuma versão', async () => {

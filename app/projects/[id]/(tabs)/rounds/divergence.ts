@@ -40,15 +40,15 @@ export function isDivergent(kind: CellDivergence): boolean {
 export function divergenceLabel(kind: CellDivergence): string {
   switch (kind) {
     case 'unrated':
-      return 'sem nota'
+      return 'Sem nota'
     case 'single':
       return '1 nota'
     case 'unanimous':
-      return 'unânime'
+      return 'Unânime'
     case 'adjacent':
-      return 'divergência adjacente'
+      return 'Divergência adjacente'
     case 'extreme':
-      return 'divergência extrema'
+      return 'Divergência extrema'
   }
 }
 

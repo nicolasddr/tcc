@@ -97,7 +97,7 @@ export function AgreementMatrixTable({
                 >
                   <span className="flex items-center gap-1.5">
                     {column.name}
-                    {column.isGeneral ? <Badge tone="neutral">geral</Badge> : null}
+                    {column.isGeneral ? <Badge tone="neutral">Geral</Badge> : null}
                   </span>
                 </th>
               ))}

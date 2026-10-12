@@ -71,7 +71,7 @@ function PointStatus({ point }: { point: QualitySeriesPoint }) {
   return point.closedAt ? (
     <span>fechada em {formatDate(point.closedAt)}</span>
   ) : (
-    <Badge tone="info">aberta</Badge>
+    <Badge tone="info">Aberta</Badge>
   )
 }
 
@@ -92,7 +92,7 @@ export function QualitySeriesList({ points }: { points: QualitySeriesPoint[] }) 
                 <span className="flex flex-col">
                   <span className="flex flex-wrap items-center gap-1.5 text-sm font-semibold text-ink">
                     Rodada {point.roundNumber}
-                    {point.closedAt ? null : <Badge tone="info">aberta</Badge>}
+                    {point.closedAt ? null : <Badge tone="info">Aberta</Badge>}
                   </span>
                   <span className="text-xs text-muted">
                     Codebook v{point.codebookVersionNumber} · Prompt v

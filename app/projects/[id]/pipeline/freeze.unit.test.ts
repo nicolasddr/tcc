@@ -67,7 +67,7 @@ describe('app/projects/[id]/pipeline/freeze — o congelamento da Fase 4', () =>
   })
 
   it('o selo da visão geral diz que codebook e prompt estão congelados', () => {
-    expect(FROZEN_BADGE_LABEL).toBe('codebook e prompt congelados')
+    expect(FROZEN_BADGE_LABEL).toBe('Codebook e prompt congelados')
   })
 
   it('a ajuda do selo diz o que fica congelado, o que continua editável e como mudar', () => {

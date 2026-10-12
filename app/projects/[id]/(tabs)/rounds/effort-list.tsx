@@ -46,10 +46,10 @@ export function EffortList({
               <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
                 <span className="text-ink">{evaluator.name}</span>
                 {excluded.has(evaluator.projectMemberId) ? (
-                  <Badge tone="warning">outlier</Badge>
+                  <Badge tone="warning">Outlier</Badge>
                 ) : null}
                 {evaluator.status === 'active' ? null : (
-                  <Badge tone="neutral">desativado</Badge>
+                  <Badge tone="neutral">Desativado</Badge>
                 )}
                 {participation?.[evaluator.projectMemberId] ? (
                   <RoundMarkBadge mark={participation[evaluator.projectMemberId]} />

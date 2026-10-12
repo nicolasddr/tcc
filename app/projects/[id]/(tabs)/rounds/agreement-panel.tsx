@@ -82,7 +82,7 @@ function ExcludedList({ outliers }: { outliers: OutlierMark[] }) {
                 <span className="text-[13px] font-semibold text-ink">
                   {mark.evaluatorName}
                 </span>
-                <Badge tone="warning">outlier</Badge>
+                <Badge tone="warning">Outlier</Badge>
                 <span className="text-[12.5px] text-muted">
                   marcado por {mark.markedByName} em {formatDate(mark.markedAt)}
                 </span>

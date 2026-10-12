@@ -1,0 +1,1325 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sugestões de layout</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #111827;
+    --ink-soft: #1f2937;
+    --label: #374151;
+    --muted: #5b6472;
+    --line: #e5e7eb;
+    --line-strong: #d1d5db;
+    --brand: #1d4ed8;
+    --brand-tint: #eff6ff;
+    --page: #f6f7f9;
+    --surface: #ffffff;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--page);
+    color: var(--ink);
+    font: 15px/1.55 Inter, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+    padding-bottom: 110px;
+  }
+  a { color: var(--brand); }
+  code {
+    font: 12.5px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    background: #eef0f3;
+    border-radius: 5px;
+    padding: 1px 5px;
+    word-break: break-word;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 32px 16px 0; }
+
+  .hero { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 28px; }
+  .hero .kicker { font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--brand); }
+  .hero h1 { margin: 6px 0 4px; font-size: 28px; line-height: 1.2; }
+  .hero .meta { color: var(--muted); font-size: 13.5px; margin: 0 0 18px; }
+  .hero p.lead { margin: 0 0 18px; max-width: 820px; }
+  .top3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 0; padding: 0; list-style: none; }
+  .top3 li { border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; background: #fbfcfd; }
+  .top3 b { display: block; font-size: 14.5px; margin-bottom: 4px; }
+  .top3 span { color: var(--muted); font-size: 13.5px; }
+  .top3 .n { display: inline-flex; width: 22px; height: 22px; border-radius: 50%; background: var(--ink); color: #fff; font-size: 12px; font-weight: 700; align-items: center; justify-content: center; margin-bottom: 8px; }
+  .context-note { margin: 18px 0 0; padding: 12px 14px; border-radius: 10px; background: var(--brand-tint); color: #1e3a8a; font-size: 13.5px; }
+
+  .toc { margin-top: 20px; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 18px 22px; }
+  .toc h2 { margin: 0 0 10px; font-size: 15px; }
+  .toc ol { margin: 0; padding-left: 22px; columns: 2; column-gap: 32px; }
+  .toc li { margin: 0 0 6px; font-size: 14px; break-inside: avoid; }
+  .toc a { color: var(--ink); text-decoration: none; }
+  .toc a:hover { color: var(--brand); text-decoration: underline; }
+  .toc .mini { font-size: 11.5px; color: var(--muted); margin-left: 4px; }
+
+  article.sug { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 24px; margin-top: 24px; scroll-margin-top: 16px; transition: border-color .15s, box-shadow .15s; }
+  article.sug.picked { border-color: #93c5fd; box-shadow: 0 0 0 3px rgba(29,78,216,.10); }
+  .sug-head { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 10px 16px; }
+  .sug-head h2 { margin: 0; font-size: 20px; line-height: 1.3; display: flex; gap: 10px; align-items: baseline; }
+  .sug-head h2 .num { color: var(--muted); font-weight: 600; font-size: 15px; min-width: 22px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip { font-size: 12px; font-weight: 600; border-radius: 999px; padding: 3px 10px; border: 1px solid var(--line-strong); color: var(--label); background: #fff; white-space: nowrap; }
+  .chip.imp-alto { background: #1e3a8a; border-color: #1e3a8a; color: #fff; }
+  .chip.imp-medio { background: #dbeafe; border-color: #bfdbfe; color: #1e40af; }
+  .chip.imp-baixo { background: #f3f4f6; color: var(--label); }
+  .chip.retomada { border-color: #fcd34d; background: #fffbeb; color: #92400e; }
+  .where { margin: 12px 0 0; display: grid; grid-template-columns: max-content 1fr; gap: 4px 12px; font-size: 13.5px; }
+  .where dt { color: var(--muted); font-weight: 600; }
+  .where dd { margin: 0; }
+  .where dd code { margin: 0 4px 4px 0; display: inline-block; }
+  .problem { margin: 14px 0 0; font-size: 15px; }
+  .problem b { color: #b91c1c; }
+
+  .ba { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 18px; }
+  .pane { min-width: 0; display: flex; flex-direction: column; }
+  .pane-label { display: inline-flex; align-self: flex-start; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; border-radius: 6px; padding: 3px 8px; margin-bottom: 8px; }
+  .pane.antes .pane-label { background: #fee2e2; color: #991b1b; }
+  .pane.depois .pane-label { background: #dcfce7; color: #166534; }
+  .pane-route { font-size: 12px; color: var(--muted); margin: -4px 0 8px; }
+  .pinnotes { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; gap: 5px; font-size: 13px; color: var(--label); }
+  .pinnotes li { display: flex; gap: 8px; align-items: flex-start; }
+
+  .changes h3, .controls-title { margin: 20px 0 8px; font-size: 14px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+  .changes ul { margin: 0; padding-left: 20px; }
+  .changes li { margin: 0 0 5px; }
+
+  .controls { margin-top: 18px; padding: 14px 16px; border-radius: 12px; background: #f9fafb; border: 1px solid var(--line); display: grid; grid-template-columns: auto auto 1fr; gap: 12px 20px; align-items: start; }
+  .controls label.want { display: inline-flex; align-items: center; gap: 8px; font-weight: 700; font-size: 14.5px; cursor: pointer; min-height: 40px; }
+  .controls input[type=checkbox] { width: 20px; height: 20px; accent-color: var(--brand); cursor: pointer; }
+  .controls .prio { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; color: var(--label); min-height: 40px; }
+  .controls select, .controls textarea { font: inherit; font-size: 14px; border: 1px solid var(--line-strong); border-radius: 8px; background: #fff; color: var(--ink); }
+  .controls select { padding: 7px 10px; min-height: 40px; }
+  .controls textarea { width: 100%; min-height: 40px; padding: 8px 10px; resize: vertical; }
+  .controls :focus-visible { outline: 3px solid rgba(29,78,216,.35); outline-offset: 1px; }
+
+  .bar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 50; background: rgba(255,255,255,.97); border-top: 1px solid var(--line); box-shadow: 0 -4px 16px rgba(0,0,0,.06); }
+  .bar .in { max-width: 1180px; margin: 0 auto; padding: 12px 16px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px; }
+  .bar .count { font-weight: 700; font-size: 15px; }
+  .bar .count small { display: block; font-weight: 400; color: var(--muted); font-size: 12.5px; }
+  .bar .actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .bar button { font: inherit; font-weight: 700; font-size: 14.5px; border-radius: 10px; padding: 10px 18px; cursor: pointer; min-height: 44px; }
+  .bar .copy { background: var(--brand); color: #fff; border: 1px solid var(--brand); }
+  .bar .copy:hover { background: #1e40af; }
+  .bar .see { background: #fff; color: var(--label); border: 1px solid var(--line-strong); }
+  .bar button:focus-visible { outline: 3px solid rgba(29,78,216,.35); outline-offset: 2px; }
+  .toast { font-size: 13.5px; color: #166534; min-height: 1em; }
+  .toast.err { color: #b91c1c; }
+
+  dialog#out { width: min(760px, calc(100vw - 24px)); border: 1px solid var(--line); border-radius: 14px; padding: 0; }
+  dialog#out::backdrop { background: rgba(0,0,0,.4); }
+  dialog#out .dh { display: flex; justify-content: space-between; align-items: center; padding: 14px 18px; border-bottom: 1px solid var(--line); }
+  dialog#out h2 { margin: 0; font-size: 16px; }
+  dialog#out textarea { display: block; width: calc(100% - 36px); margin: 14px 18px; height: 52vh; font: 12.5px/1.5 ui-monospace, Menlo, monospace; border: 1px solid var(--line-strong); border-radius: 8px; padding: 10px; }
+  dialog#out .df { display: flex; justify-content: flex-end; gap: 10px; padding: 0 18px 16px; }
+  dialog#out button { font: inherit; font-weight: 600; font-size: 14px; border-radius: 8px; padding: 9px 16px; cursor: pointer; border: 1px solid var(--line-strong); background: #fff; }
+  dialog#out button.p { background: var(--brand); border-color: var(--brand); color: #fff; }
+
+  @media (max-width: 900px) {
+    .ba { grid-template-columns: 1fr; }
+    .top3 { grid-template-columns: 1fr; }
+    .toc ol { columns: 1; }
+  }
+  @media (max-width: 640px) {
+    .wrap { padding-top: 16px; }
+    .hero { padding: 20px 16px; }
+    .hero h1 { font-size: 23px; }
+    article.sug { padding: 18px 14px; }
+    .sug-head h2 { font-size: 18px; }
+    .where { grid-template-columns: 1fr; }
+    .where dt { margin-top: 6px; }
+    .controls { grid-template-columns: 1fr; }
+    body { padding-bottom: 130px; }
+    .bar .in { padding: 10px 12px; gap: 8px; }
+    .bar .count small { display: none; }
+    .bar .actions { width: 100%; }
+    .bar .actions button { flex: 1; padding: 10px 12px; }
+    .bar .toast { width: 100%; order: 3; }
+  }
+  .toast:empty { display: none; }
+
+  /* ---------- Mockups: reproduzem os tokens de app/globals.css ---------- */
+  .app {
+    font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+    font-size: 14px; line-height: 1.5; color: #111827;
+    background: #f3f4f6; border: 1px solid #e5e7eb; border-radius: 12px;
+    padding: 16px; overflow-x: auto; flex: 1;
+  }
+  .app.flush { padding: 0; }
+  .app .pad { padding: 16px; }
+  .app p { margin: 0; }
+  .app ul, .app ol { margin: 0; padding: 0; list-style: none; }
+  .app .row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+  .app .between { justify-content: space-between; }
+  .app .col { display: flex; flex-direction: column; }
+  .app .g4 { gap: 4px; } .app .g6 { gap: 6px; } .app .g10 { gap: 10px; } .app .g12 { gap: 12px; }
+  .app .mt4 { margin-top: 4px; } .app .mt6 { margin-top: 6px; } .app .mt8 { margin-top: 8px; } .app .mt10 { margin-top: 10px; } .app .mt12 { margin-top: 12px; } .app .mt16 { margin-top: 16px; }
+  .app .card { border: 1px solid #e5e7eb; background: #fff; border-radius: 12px; padding: 16px 18px; }
+  .app .card.lg { padding: 18px 20px; }
+  .app .card.sm { padding: 12px 14px; }
+  .app .card.subtle { background: #f9fafb; }
+  .app .card.accent { border-color: #c7d2fe; }
+  .app .card.dashed { border-style: dashed; border-color: #d1d5db; }
+  .app .t11 { font-size: 11px; } .app .t12 { font-size: 12px; } .app .t13 { font-size: 13px; } .app .t15 { font-size: 15px; } .app .t16 { font-size: 16px; } .app .t22 { font-size: 22px; } .app .t26 { font-size: 26px; line-height: 1; }
+  .app .b { font-weight: 700; } .app .sb { font-weight: 600; }
+  .app .ink { color: #111827; } .app .muted { color: #6b7280; } .app .faint { color: #9ca3af; } .app .label { color: #374151; } .app .brand { color: #1d4ed8; }
+  .app .eyebrow { font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: #6b7280; }
+  .app .badge { border-radius: 999px; padding: 3px 9px; font-size: 11px; font-weight: 600; white-space: nowrap; display: inline-block; line-height: 1.35; }
+  .app .b-success { background: #dcfce7; color: #166534; }
+  .app .b-info { background: #dbeafe; color: #1e40af; }
+  .app .b-neutral { background: #e5e7eb; color: #4b5563; }
+  .app .b-warning { background: #fef3c7; color: #92400e; }
+  .app .b-danger { background: #fee2e2; color: #b91c1c; }
+  .app .b-accent { background: #e0e7ff; color: #3730a3; }
+  .app .chipx { border: 1px solid #e5e7eb; background: #f9fafb; color: #374151; border-radius: 999px; padding: 2px 9px; font-size: 12px; white-space: nowrap; }
+  .app .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; border-radius: 8px; font-weight: 600; padding: 9px 18px; font-size: 14px; line-height: 20px; border: 1px solid transparent; white-space: nowrap; font-family: inherit; }
+  .app .btn.sm { padding: 5px 12px; font-size: 12px; line-height: 16px; }
+  .app .btn.primary { background: #1d4ed8; color: #fff; }
+  .app .btn.secondary { background: #fff; border-color: #d1d5db; color: #374151; }
+  .app .btn.dangerSolid { background: #dc2626; color: #fff; }
+  .app .btn.warning { background: #f59e0b; color: #422006; }
+  .app .btn.dangerOut { background: #fff; border-color: #fca5a5; color: #b91c1c; }
+  .app .btn.off { opacity: .6; }
+  .app .btn.sel { border-color: #1d4ed8; background: #eff6ff; color: #1e40af; }
+  .app .lnk { color: #1d4ed8; font-weight: 600; font-size: 13px; white-space: nowrap; }
+  .app .lnkxs { color: #1d4ed8; font-size: 12px; font-weight: 600; }
+  .app .dangerxs { color: #b91c1c; font-size: 12px; font-weight: 600; }
+  .app .tip { display: inline-flex; width: 18px; height: 18px; border-radius: 50%; border: 1px solid #d1d5db; background: #fff; color: #6b7280; font-size: 11px; font-weight: 700; align-items: center; justify-content: center; flex: none; font-family: Georgia, serif; font-style: italic; }
+  .app .tip.big { width: 24px; height: 24px; font-size: 13px; }
+  .app .balloon { background: #1f2937; color: #fff; font-size: 12.5px; line-height: 1.5; border-radius: 8px; padding: 10px 12px; box-shadow: 0 4px 12px rgba(0,0,0,.18); max-width: 320px; }
+  .app .sect { margin-top: 18px; border-top: 1px solid #e5e7eb; padding-top: 14px; }
+  .app .sect.first { margin-top: 0; border-top: 0; padding-top: 0; }
+  .app .h2 { font-size: 16px; font-weight: 700; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .app .hint { font-size: 13px; color: #6b7280; margin-top: 4px; }
+  .app .alert { border-radius: 8px; border: 1px solid; padding: 10px 12px; font-size: 13px; }
+  .app .alert.notice { background: #fef3c7; color: #92400e; border-color: #fde68a; }
+  .app .alert.success { background: #dcfce7; color: #166534; border-color: #bbf7d0; }
+  .app .alert.neutral { background: #f9fafb; color: #374151; border-color: #e5e7eb; display: flex; gap: 8px; align-items: flex-start; }
+  .app .tabs { display: flex; gap: 4px; padding: 4px; border: 1px solid #e5e7eb; border-radius: 10px; background: #f9fafb; width: max-content; min-width: 100%; }
+  .app .tab { padding: 6px 11px; border-radius: 8px; border: 1px solid transparent; font-size: 13px; font-weight: 600; color: #6b7280; white-space: nowrap; }
+  .app .tab.on { background: #fff; border-color: #e5e7eb; color: #111827; box-shadow: 0 1px 2px rgba(0,0,0,.05); }
+  .app .tab.dis { color: #9ca3af; }
+  .app .tabsep { width: 1px; background: #e5e7eb; margin: 6px 4px; }
+  .app .topbar { display: flex; align-items: center; gap: 14px; background: #fff; border-bottom: 1px solid #e5e7eb; padding: 10px 16px; }
+  .app .steps { display: flex; gap: 8px; margin-top: 10px; }
+  .app .steps li { flex: 1; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+  .app .steps .barx { height: 6px; border-radius: 999px; background: #e5e7eb; }
+  .app .steps .barx.on { background: #1d4ed8; }
+  .app .steps span.l { font-size: 11px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .app .prog { height: 6px; border-radius: 999px; background: #e5e7eb; overflow: hidden; }
+  .app .prog > i { display: block; height: 100%; background: #1d4ed8; border-radius: 999px; }
+  .app .qbar { display: flex; height: 8px; border-radius: 999px; overflow: hidden; background: #e5e7eb; }
+  .app .qh { background: #1e3a8a; } .app .qm { background: #6b8fd6; } .app .ql { background: #c9d6f2; }
+  .app .sw { display: inline-block; width: 8px; height: 8px; border-radius: 2px; }
+  .app .avatar { width: 30px; height: 30px; border-radius: 50%; background: #e0e7ff; color: #3730a3; font-weight: 700; font-size: 13px; display: inline-flex; align-items: center; justify-content: center; flex: none; }
+  .app .divider { border-top: 1px solid #e5e7eb; margin: 14px 0; }
+  .app .mono { font-family: ui-monospace, Menlo, monospace; font-size: 13px; line-height: 1.6; }
+  .app .input { border: 1px solid #d1d5db; border-radius: 8px; background: #fff; padding: 9px 12px; font-size: 14px; color: #9ca3af; flex: 1; min-width: 160px; }
+  .app .fieldlabel { font-size: 13px; font-weight: 600; color: #374151; }
+  .app .ic { width: 16px; height: 16px; flex: none; vertical-align: -3px; }
+  .app .fade { opacity: .45; }
+  .app .savebar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; border: 1px solid #d1d5db; border-radius: 12px; background: #fff; padding: 10px 14px; box-shadow: 0 -2px 10px rgba(0,0,0,.06); }
+  .app .sysdlg { background: #ececec; border: 1px solid #c8c8c8; border-radius: 10px; padding: 14px 16px; font-family: -apple-system, system-ui, sans-serif; font-size: 13px; color: #222; max-width: 360px; box-shadow: 0 8px 24px rgba(0,0,0,.2); }
+  .app .sysdlg .sbtn { border-radius: 6px; padding: 4px 14px; border: 1px solid #b9b9b9; background: #fff; font-size: 13px; }
+  .app .sysdlg .sbtn.d { background: #2f7cf6; color: #fff; border-color: #2f7cf6; }
+  .app .measure { outline: 1.5px dashed #dc2626; outline-offset: 1px; }
+  .app .measure-ok { outline: 1.5px dashed #16a34a; outline-offset: 1px; }
+  .app .tag-anno { font-size: 10.5px; font-weight: 700; color: #b91c1c; background: #fff; border: 1px solid #fecaca; border-radius: 4px; padding: 0 4px; white-space: nowrap; }
+  .app .tag-anno.ok { color: #166534; border-color: #bbf7d0; }
+  .app .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  @media (max-width: 640px) { .app .grid2 { grid-template-columns: 1fr; } }
+  .app .groupt { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #6b7280; background: #fff; border: 1px solid #e5e7eb; border-radius: 6px; padding: 1px 6px; display: inline-block; margin-bottom: 6px; }
+  .pin, .app .pin { display: inline-flex; width: 18px; height: 18px; border-radius: 50%; background: #dc2626; color: #fff; font-size: 11px; font-weight: 800; align-items: center; justify-content: center; flex: none; font-family: Inter, system-ui, sans-serif; font-style: normal; line-height: 1; vertical-align: middle; }
+  .pin.ok, .app .pin.ok { background: #16a34a; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="hero">
+    <div class="kicker">Análise de UX/UI · Engenharia de Prompt</div>
+    <h1>Sugestões de layout para o app</h1>
+    <p class="meta">Feita sobre o código de <code>main</code> em <code>f190588</code>, 12/10/2026. Os mockups reconstroem cada trecho a partir dos tokens de <code>app/globals.css</code> e das classes dos componentes, com os textos reais do código; os nomes de projeto, pessoas e itens são dados de exemplo.</p>
+
+    <p class="lead">O app já tem uma base consistente: os mesmos <code>Card</code>, <code>Badge</code>, <code>Button</code> e <code>Section</code> em todas as telas, e a rodada de 08/10 (Planos A–F) resolveu a navegação por abas, a tela Avaliar e o topo da Visão geral. O que ainda atrapalha é <b>o quanto o usuário precisa ler e decidir sozinho</b>. Os três problemas mais importantes:</p>
+
+    <ol class="top3">
+      <li><span class="n">1</span><b>Falta uma ação principal por tela</b><span>Na Visão geral, o único botão azul (“Avançar para a Fase N”) fica desabilitado enquanto há pendências, e as pendências têm todas o mesmo peso. Em Rodadas, operar a rodada e ler os resultados disputam a mesma rolagem.</span></li>
+      <li><span class="n">2</span><b>Explicação demais, em balões</b><span>Mais de 50 pontos do código geram um ⓘ, e há balões de 86 e 105 palavras. Eles só abrem no hover, cobrem o conteúdo e são lidos inteiros como nome do botão pelo leitor de tela.</span></li>
+      <li><span class="n">3</span><b>Pouca orientação fora da Visão geral</b><span>A fase atual só aparece na Visão geral, e dentro do projeto somem o sino, o perfil e o nome do app. Os rótulos também mudam de tela para tela (“Configuração Inicial” / “inicial”, “onboarding”, “Ainda não implementado”).</span></li>
+    </ol>
+
+    <p class="context-note">Esta rodada parte do que já foi feito em 08/10. As sugestões marcadas <b>Retomada</b> foram propostas naquela data, não entraram, e continuam valendo no código atual; mostro só a parte que ainda falta. A “matriz por definição” não voltou, porque você escolheu outra variante em <code>7aa6771</code>.</p>
+  </header>
+
+  <nav class="toc" aria-label="Índice das sugestões">
+    <h2>As 10 sugestões, por impacto</h2>
+    <ol>
+      <li><a href="#s1">Visão geral: um “Próximo passo” com um botão só</a><span class="mini">alto · M</span></li>
+      <li><a href="#s2">Cabeçalho do projeto: fase visível em todas as abas</a><span class="mini">alto · M</span></li>
+      <li><a href="#s3">Avaliar: o item de entrada à vista, ao lado da resposta</a><span class="mini">alto · P</span></li>
+      <li><a href="#s4">Balões ⓘ curtos e “Saiba mais” no lugar dos textos longos</a><span class="mini">alto · M</span></li>
+      <li><a href="#s5">Rodadas: operar a rodada em cima, resultados em abas</a><span class="mini">alto · G</span></li>
+      <li><a href="#s6">Codebook, Prompt e Itens: um padrão só de edição</a><span class="mini">médio · M</span></li>
+      <li><a href="#s7">Cores e confirmações que dizem a gravidade</a><span class="mini">médio · M · retomada</span></li>
+      <li><a href="#s8">Membros e Ajustes: o mais usado primeiro</a><span class="mini">médio · M</span></li>
+      <li><a href="#s9">Rótulos: os mesmos nomes e a mesma caixa em toda parte</a><span class="mini">médio · P · retomada</span></li>
+      <li><a href="#s10">Toque, foco e contraste nos controles pequenos</a><span class="mini">médio · P · retomada</span></li>
+    </ol>
+  </nav>
+
+  <!-- ===================================================== 1 -->
+  <article class="sug" id="s1" data-id="1"
+    data-title="Visão geral: um “Próximo passo” com um botão só"
+    data-screens="Visão geral do projeto (/projects/[id]), visão do Administrador nas Fases 1, 2 e 3"
+    data-files="app/projects/[id]/(tabs)/page.tsx, app/projects/[id]/phase-bar.tsx, app/projects/[id]/pipeline/checklist.tsx, app/projects/[id]/pipeline/pipeline-checklist.tsx, app/projects/[id]/pipeline/phase-2-checklist.tsx, app/projects/[id]/pipeline/phase-3-checklist.tsx, app/projects/[id]/pipeline/advance-phase.tsx">
+    <div class="sug-head">
+      <h2><span class="num">1</span>Visão geral: um “Próximo passo” com um botão só</h2>
+      <div class="chips"><span class="chip imp-alto">Impacto alto</span><span class="chip">Esforço M</span></div>
+    </div>
+    <dl class="where">
+      <dt>Telas</dt><dd>Visão geral do projeto (<code>/projects/[id]</code>), visão do Administrador nas Fases 1, 2 e 3</dd>
+      <dt>Arquivos</dt><dd><code>app/projects/[id]/(tabs)/page.tsx</code><code>app/projects/[id]/phase-bar.tsx</code><code>app/projects/[id]/pipeline/checklist.tsx</code><code>pipeline/pipeline-checklist.tsx</code><code>pipeline/phase-2-checklist.tsx</code><code>pipeline/phase-3-checklist.tsx</code><code>pipeline/advance-phase.tsx</code></dd>
+    </dl>
+    <p class="problem"><b>Problema:</b> o cartão da fase lista as pendências com o mesmo peso, cada uma com um ⓘ e um “Ir para…”, e a única ação com cara de principal, “Avançar para a Fase 2”, aparece desabilitada. Quem abre o projeto não sabe por onde começar.</p>
+
+    <div class="ba">
+      <div class="pane antes">
+        <span class="pane-label">Antes</span>
+        <div class="app">
+          <div class="card lg subtle">
+            <div class="eyebrow">Fase 1 de 4</div>
+            <div class="t15 b mt4">Configuração inicial</div>
+            <ol class="steps">
+              <li><span class="barx on"></span><span class="l ink">1. Configuração</span></li>
+              <li><span class="barx"></span><span class="l faint">2. Codebook</span></li>
+              <li><span class="barx"></span><span class="l faint">3. Prompt</span></li>
+              <li><span class="barx"></span><span class="l faint">4. Final</span></li>
+            </ol>
+            <div class="divider"></div>
+            <div class="row between"><span class="t13 sb">Para avançar para a Fase 2</span><span class="badge b-warning">faltam 2</span></div>
+            <ul class="col g10 mt10 t13">
+              <li class="row"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="#166534" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/></svg><span class="muted">Definição</span></li>
+              <li class="row between"><span class="row g6"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="2"><circle cx="12" cy="12" r="9"/></svg><span class="sb">Escrever o texto do prompt</span><span class="tip">i</span><span class="pin">3</span></span><span class="lnk">Ir para Prompt</span></li>
+              <li class="row between"><span class="row g6"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="2"><circle cx="12" cy="12" r="9"/></svg><span class="sb">Cadastrar um item de entrada</span><span class="tip">i</span></span><span class="row g6"><span class="pin">2</span><span class="lnk">Ir para Itens</span></span></li>
+            </ul>
+            <div class="row g10 mt16">
+              <span class="btn primary off">Avançar para a Fase 2 →</span><span class="pin">1</span>
+              <span class="t13 muted">Faltam texto do prompt e item de entrada para liberar o avanço.</span>
+            </div>
+          </div>
+        </div>
+        <ul class="pinnotes">
+          <li><span class="pin">1</span>O único botão primário da tela está desabilitado.</li>
+          <li><span class="pin">2</span>Duas pendências com o mesmo peso, sem dizer por qual começar.</li>
+          <li><span class="pin">3</span>O porquê de cada pendência só aparece no hover do ⓘ.</li>
+        </ul>
+      </div>
+      <div class="pane depois">
+        <span class="pane-label">Depois</span>
+        <div class="app">
+          <div class="card lg subtle">
+            <div class="row between"><span class="eyebrow">Fase 1 de 4 · Configuração inicial</span><span class="t12 muted">1 de 3 prontos</span></div>
+            <ol class="steps">
+              <li><span class="barx on"></span><span class="l ink">1. Configuração</span></li>
+              <li><span class="barx"></span><span class="l muted">2. Codebook</span></li>
+              <li><span class="barx"></span><span class="l muted">3. Prompt</span></li>
+              <li><span class="barx"></span><span class="l muted">4. Final</span></li>
+            </ol>
+            <div class="card accent mt16">
+              <div class="eyebrow brand">Próximo passo</div>
+              <div class="t15 b mt4">Escrever o texto do prompt</div>
+              <p class="t13 muted mt4">Escreva o texto do prompt que será enviado à LLM.</p>
+              <div class="mt12"><span class="btn primary">Ir para Prompt →</span></div>
+            </div>
+            <div class="t13 sb mt16">Para avançar para a Fase 2</div>
+            <ul class="row g10 mt6 t13">
+              <li class="row g4"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="#166534" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/></svg><span class="muted">Definição</span></li>
+              <li class="row g4"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="#1d4ed8" stroke-width="2"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3" fill="#1d4ed8"/></svg><span class="sb">Texto do prompt</span></li>
+              <li class="row g4"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="2"><circle cx="12" cy="12" r="9"/></svg><span class="lnk">Item de entrada</span></li>
+            </ul>
+            <p class="t13 muted mt12">“Avançar para a Fase 2” aparece aqui quando os 3 estiverem prontos.</p>
+          </div>
+        </div>
+        <ul class="pinnotes">
+          <li><span class="pin ok">✓</span>Um botão primário, que funciona, levando à aba certa.</li>
+          <li><span class="pin ok">✓</span>A frase que estava no ⓘ aparece só no passo da vez.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="changes">
+      <h3>O que muda</h3>
+      <ul>
+        <li>A primeira pendência da lista vira o bloco “Próximo passo”: título, a frase de ajuda que hoje está no ⓘ e um único botão primário (“Ir para Prompt”).</li>
+        <li>As outras pendências ficam numa linha compacta (feito · atual · por fazer), cada uma como link, sem ⓘ.</li>
+        <li>“Avançar para a Fase N” só aparece como botão primário quando está liberado. Antes disso, uma linha de texto diz o que falta (ADR 0004 continua atendida).</li>
+        <li>Mesmo formato nas Fases 2 e 3 (ex.: “Fechar a rodada 2” → “Ir para Rodadas”).</li>
+        <li>Rótulos das fases ainda não alcançadas passam de <code>text-faint</code> para <code>text-muted</code> (ver sugestão 10).</li>
+      </ul>
+    </div>
+
+    <div class="controls">
+      <label class="want"><input type="checkbox" class="pick"> Quero esta</label>
+      <label class="prio">Prioridade <select class="prio-sel"><option value="1">1 · alta</option><option value="2" selected>2 · média</option><option value="3">3 · baixa</option></select></label>
+      <textarea class="obs" rows="1" placeholder="Observação (opcional)" aria-label="Observação sobre a sugestão 1"></textarea>
+    </div>
+  </article>
+
+  <!-- ===================================================== 2 -->
+  <article class="sug" id="s2" data-id="2"
+    data-title="Cabeçalho do projeto: fase visível em todas as abas"
+    data-screens="Todas as abas de /projects/[id] (Visão geral, Codebook, Prompt, Itens, Rodadas, Avaliar, Membros, Ajustes); Dashboard (/dashboard)"
+    data-files="app/projects/[id]/(tabs)/layout.tsx, app/components/ui/shell.tsx, app/projects/[id]/project-tabs.tsx, app/dashboard/page.tsx, app/components/notification-bell.tsx, app/components/process-phases-footer.tsx">
+    <div class="sug-head">
+      <h2><span class="num">2</span>Cabeçalho do projeto: fase visível em todas as abas</h2>
+      <div class="chips"><span class="chip imp-alto">Impacto alto</span><span class="chip">Esforço M</span></div>
+    </div>
+    <dl class="where">
+      <dt>Telas</dt><dd>Todas as abas de <code>/projects/[id]</code>; <code>/dashboard</code></dd>
+      <dt>Arquivos</dt><dd><code>app/projects/[id]/(tabs)/layout.tsx</code><code>app/components/ui/shell.tsx</code><code>app/projects/[id]/project-tabs.tsx</code><code>app/dashboard/page.tsx</code><code>app/components/notification-bell.tsx</code><code>app/components/process-phases-footer.tsx</code></dd>
+    </dl>
+    <p class="problem"><b>Problema:</b> dentro do projeto a barra do topo só tem “← Meus projetos”. O sino, o perfil e o nome do app existem só no dashboard, e a fase atual só aparece na Visão geral: em Codebook, Prompt ou Rodadas o usuário não vê em que ponto do fluxo está. A descrição do projeto fica escondida num ⓘ.</p>
+
+    <div class="ba">
+      <div class="pane antes">
+        <span class="pane-label">Antes</span>
+        <div class="app flush">
+          <div class="topbar"><span class="t13 label">← Meus projetos</span><span class="pin">1</span></div>
+          <div class="pad">
+            <div class="row g10"><span class="t22 b">Classificação de intenção de busca</span><span class="tip">i</span><span class="pin">2</span><span class="badge b-success">Ativo</span></div>
+            <p class="t13 muted mt6">Classificação · Administrador e Avaliador</p>
+            <div style="overflow-x:auto" class="mt16"><div class="tabs"><span class="tab">Visão geral</span><span class="tab on">Codebook</span><span class="tab">Prompt</span><span class="tab">Itens</span><span class="tab">Rodadas</span><span class="tab">Avaliar</span><span class="tabsep"></span><span class="tab">Membros</span><span class="tab">Ajustes</span></div></div>
+            <div class="sect">
+              <div class="h2">Definições <span class="tip">i</span><span class="pin">3</span></div>
+              <p class="hint">Os conceitos que estruturam a tarefa da LLM.</p>
+            </div>
+          </div>
+        </div>
+        <ul class="pinnotes">
+          <li><span class="pin">1</span>Sem nome do app, sino de notificações ou perfil.</li>
+          <li><span class="pin">2</span>A descrição do projeto só aparece no hover.</li>
+          <li><span class="pin">3</span>Em que fase está o projeto? Nesta aba, nada diz.</li>
+        </ul>
+      </div>
+      <div class="pane depois">
+        <span class="pane-label">Depois</span>
+        <div class="app flush">
+          <div class="topbar">
+            <span class="row g6 t13 b brand"><span style="display:inline-flex;width:22px;height:22px;border-radius:6px;background:#1d4ed8;color:#fff;align-items:center;justify-content:center;font-size:12px">✦</span>Engenharia de Prompt</span>
+            <span class="t13 muted" style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Meus projetos <span class="faint">/</span> <span class="ink">Classificação de intenção de busca</span></span>
+            <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="#374151" stroke-width="2"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
+            <span class="avatar" style="width:26px;height:26px;font-size:12px">N</span>
+          </div>
+          <div class="pad">
+            <div class="row g10"><span class="t22 b">Classificação de intenção de busca</span><span class="badge b-info" style="font-size:12px">Fase 2 de 4 · Validação do codebook →</span></div>
+            <p class="t13 label mt6" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Classificar consultas de busca em Informacional, Transacional e Navegacional.</p>
+            <p class="t13 muted mt4">Classificação · Administrador e Avaliador</p>
+            <div style="overflow-x:auto" class="mt16"><div class="tabs"><span class="tab">Visão geral</span><span class="tab on">Codebook</span><span class="tab">Prompt</span><span class="tab">Itens</span><span class="tab">Rodadas</span><span class="tab">Avaliar</span><span class="tabsep"></span><span class="tab">Membros</span><span class="tab">Ajustes</span></div></div>
+            <div class="sect">
+              <div class="h2">Definições <span class="tip">i</span></div>
+              <p class="hint">Os conceitos que estruturam a tarefa da LLM.</p>
+            </div>
+          </div>
+        </div>
+        <ul class="pinnotes">
+          <li><span class="pin ok">✓</span>Barra única em todas as telas logadas, com trilha, sino e avatar.</li>
+          <li><span class="pin ok">✓</span>O selo da fase leva à Visão geral de qualquer aba.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="changes">
+      <h3>O que muda</h3>
+      <ul>
+        <li>Uma <code>TopBar</code> só para as telas logadas: marca do app à esquerda, trilha “Meus projetos / Nome do projeto” e, à direita, o sino (<code>NotificationBell</code>) e o avatar com link para o perfil.</li>
+        <li>A fase atual vira um selo ao lado do título (“Fase 2 de 4 · Validação do codebook”), presente em todas as abas, com link para a Visão geral.</li>
+        <li>A descrição do projeto sai do ⓘ e vira uma linha de subtítulo, cortada em uma linha.</li>
+        <li>O selo “Ativo” deixa de aparecer, porque é o estado normal; “Concluído” e “Arquivado” continuam.</li>
+        <li>No dashboard, sai o rodapé com as 4 fases (<code>ProcessPhasesFooter</code>): cada cartão de projeto já diz a fase dele, e o guia do processo continua recolhido.</li>
+      </ul>
+    </div>
+
+    <div class="controls">
+      <label class="want"><input type="checkbox" class="pick"> Quero esta</label>
+      <label class="prio">Prioridade <select class="prio-sel"><option value="1">1 · alta</option><option value="2" selected>2 · média</option><option value="3">3 · baixa</option></select></label>
+      <textarea class="obs" rows="1" placeholder="Observação (opcional)" aria-label="Observação sobre a sugestão 2"></textarea>
+    </div>
+  </article>
+
+  <!-- ===================================================== 3 -->
+  <article class="sug" id="s3" data-id="3"
+    data-title="Avaliar: o item de entrada à vista, ao lado da resposta"
+    data-screens="Avaliar (/projects/[id]/evaluate), visão do Avaliador"
+    data-files="app/projects/[id]/(tabs)/evaluate/evaluation-form.tsx, app/projects/[id]/(tabs)/evaluate/context-panel.tsx, app/projects/[id]/(tabs)/evaluate/page.tsx">
+    <div class="sug-head">
+      <h2><span class="num">3</span>Avaliar: o item de entrada à vista, ao lado da resposta</h2>
+      <div class="chips"><span class="chip imp-alto">Impacto alto</span><span class="chip">Esforço P</span></div>
+    </div>
+    <dl class="where">
+      <dt>Telas</dt><dd>Avaliar (<code>/projects/[id]/evaluate</code>), visão do Avaliador</dd>
+      <dt>Arquivos</dt><dd><code>app/projects/[id]/(tabs)/evaluate/evaluation-form.tsx</code><code>evaluate/context-panel.tsx</code><code>evaluate/page.tsx</code></dd>
+    </dl>
+    <p class="problem"><b>Problema:</b> para dar a nota, o avaliador compara a resposta da LLM com a entrada que a gerou, mas o item de entrada está fechado em “O que foi pedido à LLM”, junto com o prompt inteiro. O cartão da resposta mostra só o nome do item e a data, sem dizer que aquele texto é a resposta.</p>
+
+    <div class="ba">
+      <div class="pane antes">
+        <span class="pane-label">Antes</span>
+        <div class="app">
+          <div class="row g10"><span class="t13 sb">Resposta 3</span><span class="t13 muted">2 de 6 respostas avaliadas por você nesta rodada</span><span class="tip">i</span></div>
+          <div class="prog mt6"><i style="width:33%"></i></div>
+          <div class="grid2 mt12">
+            <div class="col g10">
+              <div class="card sm subtle">
+                <div class="row g10"><span class="t13 muted">consulta-017</span><span class="t13 muted">12/10/2026</span><span class="pin">1</span></div>
+                <p class="mt6">Informacional. A consulta busca entender como a fotossíntese funciona, sem intenção de compra nem de chegar a um site específico.</p>
+              </div>
+              <div class="card sm subtle"><span class="row g6 t12 sb muted">▸ O que foi pedido à LLM <span class="pin">2</span></span></div>
+            </div>
+            <div class="col g10">
+              <p class="t13 muted">Dê uma nota em cada critério. Justificativa é opcional.</p>
+              <div class="card sm">
+                <div class="row"><span class="sb">Informacional</span><span class="badge b-neutral">0 de 2</span></div>
+                <p class="t12 muted mt4">A resposta busca informação sobre um assunto, sem intenção de compra.</p>
+                <div class="divider" style="margin:10px 0"></div>
+                <div class="t13 sb">A resposta cita a fonte</div>
+                <div class="row mt6"><span class="btn secondary sm"><i class="sw qh"></i>Alto</span><span class="btn secondary sm"><i class="sw qm"></i>Médio</span><span class="btn secondary sm"><i class="sw ql"></i>Baixo</span></div>
+                <div class="lnkxs mt6">+ Justificar</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <ul class="pinnotes">
+          <li><span class="pin">1</span>Só o nome do item; o texto não tem rótulo de “resposta”.</li>
+          <li><span class="pin">2</span>A entrada que gerou a resposta fica fechada, junto com o prompt.</li>
+        </ul>
+      </div>
+      <div class="pane depois">
+        <span class="pane-label">Depois</span>
+        <div class="app">
+          <div class="row g10"><span class="t13 muted">2 de 6 respostas avaliadas por você nesta rodada</span><span class="tip">i</span></div>
+          <div class="prog mt6"><i style="width:33%"></i></div>
+          <div class="grid2 mt12">
+            <div class="col g10">
+              <div class="card sm">
+                <div class="eyebrow">Item de entrada · consulta-017</div>
+                <p class="mt4">como funciona a fotossíntese</p>
+              </div>
+              <div class="card sm subtle">
+                <div class="row between"><span class="eyebrow">Resposta da LLM · Resposta 3</span><span class="t12 muted">12/10/2026</span></div>
+                <p class="mt6">Informacional. A consulta busca entender como a fotossíntese funciona, sem intenção de compra nem de chegar a um site específico.</p>
+              </div>
+              <div class="card sm subtle"><span class="t12 sb muted">▸ Ver o prompt (versão 3)</span></div>
+            </div>
+            <div class="col g10">
+              <p class="t13 muted">Dê uma nota em cada critério. Justificativa é opcional.</p>
+              <div class="card sm">
+                <div class="row"><span class="sb">Informacional</span><span class="badge b-neutral">0 de 2</span></div>
+                <p class="t12 muted mt4">A resposta busca informação sobre um assunto, sem intenção de compra.</p>
+                <div class="divider" style="margin:10px 0"></div>
+                <div class="t13 sb">A resposta cita a fonte</div>
+                <div class="row mt6"><span class="btn secondary sm"><i class="sw qh"></i>Alto</span><span class="btn secondary sm"><i class="sw qm"></i>Médio</span><span class="btn secondary sm"><i class="sw ql"></i>Baixo</span></div>
+                <div class="lnkxs mt6">+ Justificar</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <ul class="pinnotes">
+          <li><span class="pin ok">✓</span>Entrada e resposta, rotuladas, uma embaixo da outra.</li>
+          <li><span class="pin ok">✓</span>O prompt, que é igual em toda a rodada, continua recolhido.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="changes">
+      <h3>O que muda</h3>
+      <ul>
+        <li>O item de entrada sai do <code>Disclosure</code> e aparece aberto acima da resposta, com o rótulo “Item de entrada · nome do item”.</li>
+        <li>A resposta ganha rótulo próprio (“Resposta da LLM”), e o rótulo fixo “Resposta 3” passa a ficar no cabeçalho dela, não na linha do progresso.</li>
+        <li>O prompt continua recolhido, com o resumo “Ver o prompt (versão N)” no lugar de “O que foi pedido à LLM”.</li>
+        <li>Itens longos usam a caixa com rolagem que já existe (<code>scrollBoxClass</code>), e a coluna da esquerda continua fixa (<code>sticky</code>) a partir de 1024 px.</li>
+        <li>No celular, a ordem fica: item, resposta, prompt recolhido, formulário.</li>
+      </ul>
+    </div>
+
+    <div class="controls">
+      <label class="want"><input type="checkbox" class="pick"> Quero esta</label>
+      <label class="prio">Prioridade <select class="prio-sel"><option value="1">1 · alta</option><option value="2" selected>2 · média</option><option value="3">3 · baixa</option></select></label>
+      <textarea class="obs" rows="1" placeholder="Observação (opcional)" aria-label="Observação sobre a sugestão 3"></textarea>
+    </div>
+  </article>
+
+  <!-- ===================================================== 4 -->
+  <article class="sug" id="s4" data-id="4"
+    data-title="Balões ⓘ curtos e “Saiba mais” no lugar dos textos longos"
+    data-screens="Todas as telas com Section help ou InfoTooltip; exemplos: Membros (Equipe do projeto), Visão geral (Concordância por rodada), Rodadas (rodada aberta, Concordância, Qualidade)"
+    data-files="app/components/ui/section.tsx, app/components/ui/tooltip.tsx, app/projects/[id]/(tabs)/rounds/how-to-read.tsx, app/projects/[id]/(tabs)/members/page.tsx, app/projects/[id]/(tabs)/page.tsx, app/projects/[id]/(tabs)/rounds/open-round-card.tsx, app/projects/[id]/(tabs)/rounds/agreement-labels.ts, app/projects/[id]/(tabs)/rounds/quality-labels.ts">
+    <div class="sug-head">
+      <h2><span class="num">4</span>Balões ⓘ curtos e “Saiba mais” no lugar dos textos longos</h2>
+      <div class="chips"><span class="chip imp-alto">Impacto alto</span><span class="chip">Esforço M</span></div>
+    </div>
+    <dl class="where">
+      <dt>Telas</dt><dd>Todas com <code>Section help</code> ou <code>InfoTooltip</code>; exemplos em Membros, Visão geral e Rodadas</dd>
+      <dt>Arquivos</dt><dd><code>app/components/ui/section.tsx</code><code>app/components/ui/tooltip.tsx</code><code>rounds/how-to-read.tsx</code><code>(tabs)/members/page.tsx</code><code>(tabs)/page.tsx</code><code>rounds/open-round-card.tsx</code><code>rounds/agreement-labels.ts</code><code>rounds/quality-labels.ts</code></dd>
+    </dl>
+    <p class="problem"><b>Problema:</b> a rodada de 08/10 tirou o texto da tela e o pôs no ⓘ, e agora os balões é que ficaram longos: o de “Equipe do projeto” tem 86 palavras, o de “Concordância por rodada”, 105, e o da rodada aberta junta cinco parágrafos. O balão abre no hover, cobre a lista que o usuário quer ler e, como o texto inteiro vai no <code>aria-label</code>, o leitor de tela lê o parágrafo como nome do botão.</p>
+
+    <div class="ba">
+      <div class="pane antes">
+        <span class="pane-label">Antes</span>
+        <div class="app">
+          <div class="h2">Equipe do projeto <span class="tip">i</span><span class="pin">2</span></div>
+          <p class="hint">Acompanhe quem participa, veja as respostas de onboarding e desative avaliadores.</p>
+          <div style="position:relative" class="mt12">
+            <ul class="col g6">
+              <li class="row g10"><span class="avatar">N</span><span class="col"><span class="t13 sb">Nicolas David</span><span class="t11 muted">Administrador · Avaliador</span></span></li>
+              <li class="row g10"><span class="avatar">A</span><span class="col"><span class="t13 sb">Ana Souza</span><span class="t11 muted">Avaliador · ana@exemplo.com</span></span></li>
+              <li class="row g10"><span class="avatar">B</span><span class="col"><span class="t13 sb">Bruno Lima</span><span class="t11 muted">Avaliador · bruno@exemplo.com</span></span></li>
+            </ul>
+            <div class="balloon" style="position:absolute;top:-18px;left:110px"><span class="pin" style="float:right;margin:0 0 4px 8px">1</span>Desativar é sobre acesso: a pessoa deixa de entrar no projeto, e as avaliações que ela já enviou continuam gravadas e continuam no cálculo de concordância. Tirar notas do cálculo é a outra porta, e se faz marcando a pessoa como outlier em uma rodada. A marca "avaliou em N rodadas" mostra em quais rodadas, e de quais fases, cada avaliador já enviou avaliação. Ela não impede ninguém de avaliar: para tirar do cálculo quem já tinha avaliado antes, use a marca de outlier na rodada.</div>
+          </div>
+          <div style="height:120px"></div>
+        </div>
+        <ul class="pinnotes">
+          <li><span class="pin">1</span>86 palavras num balão de 320 px, por cima da lista.</li>
+          <li><span class="pin">2</span>Só abre com mouse; no celular, o toque não mostra o balão.</li>
+        </ul>
+      </div>
+      <div class="pane depois">
+        <span class="pane-label">Depois</span>
+        <div class="app">
+          <div class="h2">Equipe do projeto</div>
+          <p class="hint">Quem participa e em que papel.</p>
+          <div class="mt8"><span class="t12 sb muted">▾ Desativar ou marcar como outlier?</span></div>
+          <div class="card sm subtle mt6">
+            <ul class="col g4 t13 muted" style="list-style:disc;padding-left:18px">
+              <li>Desativar tira o acesso ao projeto. As avaliações já enviadas continuam no cálculo.</li>
+              <li>Para tirar as notas de alguém do cálculo, marque a pessoa como outlier na rodada.</li>
+            </ul>
+          </div>
+          <ul class="col g6 mt12">
+            <li class="row g10"><span class="avatar">N</span><span class="col"><span class="t13 sb">Nicolas David</span><span class="t11 muted">Administrador · Avaliador</span></span></li>
+            <li class="row g10"><span class="avatar">A</span><span class="col"><span class="t13 sb">Ana Souza</span><span class="t11 muted">Avaliador · ana@exemplo.com</span></span></li>
+            <li class="row g10"><span class="avatar">B</span><span class="col"><span class="t13 sb">Bruno Lima</span><span class="t11 muted">Avaliador · bruno@exemplo.com</span></span></li>
+          </ul>
+        </div>
+        <ul class="pinnotes">
+          <li><span class="pin ok">✓</span>Uma frase visível; o resto em dois tópicos, fechados por padrão.</li>
+          <li><span class="pin ok">✓</span>Abre no clique e no toque, e não cobre a lista.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="changes">
+      <h3>O que muda</h3>
+      <ul>
+        <li>Regra para o <code>Section</code>: título + no máximo uma frase visível (<code>hint</code>). Quando a explicação passa de duas frases, o <code>help</code> vira um “Saiba mais” recolhido (o <code>HowToRead</code>, que já existe nas matrizes), não um balão.</li>
+        <li>O ⓘ fica para definir um termo em até 25 palavras: ICR, outlier, versão congelada, faixa de referência.</li>
+        <li>Reescrever as ajudas longas em 1 a 3 tópicos curtos: Equipe do projeto, Concordância por rodada, rodada aberta (<code>openRoundHelp</code>), Qualidade (<code>QUALITY_HELP</code>, <code>QUALITY_SERIES_HELP</code>), <code>OUTLIER_PAIR_HINT</code>.</li>
+        <li>Nenhum texto some, ele muda de lugar ou encolhe, como na regra de 08/10.</li>
+      </ul>
+    </div>
+
+    <div class="controls">
+      <label class="want"><input type="checkbox" class="pick"> Quero esta</label>
+      <label class="prio">Prioridade <select class="prio-sel"><option value="1">1 · alta</option><option value="2" selected>2 · média</option><option value="3">3 · baixa</option></select></label>
+      <textarea class="obs" rows="1" placeholder="Observação (opcional)" aria-label="Observação sobre a sugestão 4"></textarea>
+    </div>
+  </article>
+
+  <!-- ===================================================== 5 -->
+  <article class="sug" id="s5" data-id="5"
+    data-title="Rodadas: operar a rodada em cima, resultados em abas"
+    data-screens="Rodadas (/projects/[id]/rounds), visão do Administrador com rodada aberta e com rodada fechada"
+    data-files="app/projects/[id]/(tabs)/rounds/page.tsx, app/projects/[id]/(tabs)/rounds/reading-shortcuts.tsx, app/projects/[id]/(tabs)/rounds/reading-guidance-note.tsx, app/projects/[id]/(tabs)/rounds/open-round-card.tsx, app/projects/[id]/(tabs)/rounds/agreement-panel.tsx, app/projects/[id]/(tabs)/rounds/quality-panel.tsx, app/projects/[id]/(tabs)/rounds/round-list.tsx">
+    <div class="sug-head">
+      <h2><span class="num">5</span>Rodadas: operar a rodada em cima, resultados em abas</h2>
+      <div class="chips"><span class="chip imp-alto">Impacto alto</span><span class="chip">Esforço G</span></div>
+    </div>
+    <dl class="where">
+      <dt>Telas</dt><dd>Rodadas (<code>/projects/[id]/rounds</code>), Administrador</dd>
+      <dt>Arquivos</dt><dd><code>app/projects/[id]/(tabs)/rounds/page.tsx</code><code>rounds/reading-shortcuts.tsx</code><code>rounds/reading-guidance-note.tsx</code><code>rounds/open-round-card.tsx</code><code>rounds/agreement-panel.tsx</code><code>rounds/quality-panel.tsx</code><code>rounds/round-list.tsx</code></dd>
+    </dl>
+    <p class="problem"><b>Problema:</b> com uma rodada aberta na Fase 3, a página empilha sete blocos: cartão da rodada, “Ir para:”, “Por onde ler esta rodada”, Concordância (cartão, aviso, matriz, “Como ler”), Qualidade (painel, matriz) e a lista de rodadas. Operar (gerar respostas, fechar) e ler resultados disputam a mesma rolagem, e os atalhos em texto passam despercebidos.</p>
+
+    <div class="ba">
+      <div class="pane antes">
+        <span class="pane-label">Antes</span>
+        <div class="app">
+          <div class="card lg accent">
+            <div class="h2">Rodada 3 <span class="badge b-info">aberta</span><span class="chipx">Fase 3</span><span class="tip">i</span></div>
+            <p class="t13 muted mt4">Codebook v2 · Prompt v3 · aberta em 10/10/2026</p>
+            <div class="t13 sb label mt12">Avaliações enviadas</div>
+            <div class="col g4 mt6">
+              <div class="row between t13 muted"><span class="ink">Ana Souza</span><span>4 de 6</span></div><div class="prog"><i style="width:66%"></i></div>
+              <div class="row between t13 muted mt4"><span class="ink">Bruno Lima</span><span>6 de 6</span></div><div class="prog"><i style="width:100%"></i></div>
+            </div>
+            <div class="row g10 mt12"><span class="btn primary">Gerar respostas</span><span class="btn secondary">Fechar rodada 3</span></div>
+            <p class="t13 muted mt6">6 respostas nesta rodada · 2 itens do pool ainda sem resposta</p>
+          </div>
+          <p class="t13 mt12"><span class="muted">Ir para:</span> <span class="lnk">Concordância</span> <span class="muted">·</span> <span class="lnk">Qualidade</span> <span class="muted">·</span> <span class="lnk">Rodadas do projeto (3)</span> <span class="pin">1</span></p>
+          <div class="card sm subtle mt16">
+            <p class="t13 sb">Por onde ler esta rodada</p>
+            <p class="t13 mt4">O ICR desta rodada ficou abaixo da faixa de referência: os avaliadores não estão aplicando o codebook da mesma forma. O caminho é refinar o codebook antes de olhar a Qualidade, porque, enquanto eles não concordam entre si, a distribuição das notas ainda não diz se a LLM segue o codebook.</p>
+          </div>
+          <div class="sect">
+            <div class="h2">Concordância na rodada 3 <span class="tip">i</span></div>
+            <p class="hint">Krippendorff's Alpha ordinal, sobre a versão de codebook que a rodada fixou.</p>
+            <div class="card lg subtle mt10" style="max-width:320px">
+              <div class="row between"><span class="eyebrow">Concordância (ICR)</span><span class="badge b-danger">questionável</span></div>
+              <div class="t26 b mt8">0,612</div>
+            </div>
+          </div>
+          <p class="t12 muted mt12 fade">… aviso de amostra · matriz · Como ler esta tabela · Qualidade na rodada 3 · matriz · Rodadas do projeto <span class="pin">2</span></p>
+        </div>
+        <ul class="pinnotes">
+          <li><span class="pin">1</span>Atalhos em texto miúdo, fáceis de não ver.</li>
+          <li><span class="pin">2</span>Mais quatro blocos abaixo, na mesma rolagem.</li>
+        </ul>
+      </div>
+      <div class="pane depois">
+        <span class="pane-label">Depois</span>
+        <div class="app">
+          <div class="card lg accent">
+            <div class="row between">
+              <div class="h2">Rodada 3 <span class="badge b-info">aberta</span><span class="chipx">Fase 3</span></div>
+              <div class="row g10"><span class="btn primary sm">Gerar respostas</span><span class="btn secondary sm">Fechar rodada 3</span></div>
+            </div>
+            <p class="t13 muted mt4">Codebook v2 · Prompt v3 · aberta em 10/10/2026 · 6 respostas · 2 itens sem resposta</p>
+            <div class="row between t13 muted mt10"><span>Avaliações: <span class="ink">Ana Souza 4/6</span> · <span class="ink">Bruno Lima 6/6</span></span><span class="lnk">Detalhes ▸</span></div>
+          </div>
+          <div style="overflow-x:auto" class="mt16"><div class="tabs"><span class="tab on">Resultados da rodada 3</span><span class="tab">Rodadas do projeto (3)</span></div></div>
+          <div class="card sm mt12" style="border-left:3px solid #1d4ed8">
+            <p class="t13"><span class="sb">Por onde ler:</span> o ICR ficou abaixo da faixa de referência. Refine o codebook antes de olhar a Qualidade.</p>
+            <p class="t13 mt6"><span class="lnk">Abrir o codebook</span></p>
+          </div>
+          <div class="grid2 mt12">
+            <div class="card subtle">
+              <div class="row between"><span class="eyebrow">Concordância (ICR)</span><span class="badge b-danger">questionável</span></div>
+              <div class="t26 b mt8">0,612</div>
+              <p class="t12 muted mt6">2 avaliadores · 10 respostas · amostra pequena</p>
+            </div>
+            <div class="card subtle">
+              <div class="eyebrow">Qualidade</div>
+              <div class="qbar mt12"><i class="qh" style="width:48%"></i><i class="qm" style="width:31%"></i><i class="ql" style="width:21%"></i></div>
+              <p class="t12 mt8"><i class="sw qh"></i> <b>Alto</b> 48% · <i class="sw qm"></i> <b>Médio</b> 31% · <i class="sw ql"></i> <b>Baixo</b> 21%</p>
+            </div>
+          </div>
+          <div class="col g6 mt12"><span class="t12 sb muted">▸ Concordância por critério</span><span class="t12 sb muted">▸ Qualidade por critério</span></div>
+        </div>
+        <ul class="pinnotes">
+          <li><span class="pin ok">✓</span>As duas ações da rodada no cabeçalho do cartão.</li>
+          <li><span class="pin ok">✓</span>Resultados num resumo de uma tela; matrizes recolhidas.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="changes">
+      <h3>O que muda</h3>
+      <ul>
+        <li>Topo: o cartão da rodada aberta, mais compacto, com “Gerar respostas” e “Fechar rodada N” no cabeçalho e o progresso por avaliador numa linha (lista completa em “Detalhes”).</li>
+        <li>Abaixo, abas internas “Resultados da rodada N” e “Rodadas do projeto (N)” no lugar da linha “Ir para:”.</li>
+        <li>Em Resultados, a orientação “Por onde ler” vira a manchete, seguida de Concordância e Qualidade lado a lado. As matrizes e o “Como ler esta tabela” ficam recolhidos.</li>
+        <li>O aviso de amostra pequena vira uma linha dentro do cartão de Concordância, em vez de uma caixa amarela separada.</li>
+        <li>A aba escolhida fica na URL (como o <code>?gerar=1</code>), para sobreviver à revalidação e ao recarregar.</li>
+        <li>Na Fase 4, a comparação com a rodada de referência entra como primeiro bloco de Resultados.</li>
+      </ul>
+    </div>
+
+    <div class="controls">
+      <label class="want"><input type="checkbox" class="pick"> Quero esta</label>
+      <label class="prio">Prioridade <select class="prio-sel"><option value="1">1 · alta</option><option value="2" selected>2 · média</option><option value="3">3 · baixa</option></select></label>
+      <textarea class="obs" rows="1" placeholder="Observação (opcional)" aria-label="Observação sobre a sugestão 5"></textarea>
+    </div>
+  </article>
+
+  <!-- ===================================================== 6 -->
+  <article class="sug" id="s6" data-id="6"
+    data-title="Codebook, Prompt e Itens: um padrão só de edição"
+    data-screens="Codebook (/projects/[id]/codebook), Prompt (/projects/[id]/prompt), Itens (/projects/[id]/items)"
+    data-files="app/projects/[id]/pipeline/codebook-editor.tsx, app/projects/[id]/pipeline/prompt-editor.tsx, app/projects/[id]/pipeline/prompt-metadata-editor.tsx, app/projects/[id]/pipeline/items-editor.tsx, app/components/ui/editable-row.tsx, app/components/ui/save-bar.tsx, app/projects/[id]/(tabs)/codebook/page.tsx">
+    <div class="sug-head">
+      <h2><span class="num">6</span>Codebook, Prompt e Itens: um padrão só de edição</h2>
+      <div class="chips"><span class="chip imp-medio">Impacto médio</span><span class="chip">Esforço M</span></div>
+    </div>
+    <dl class="where">
+      <dt>Telas</dt><dd>Codebook, Prompt e Itens (<code>/projects/[id]/codebook</code>, <code>/prompt</code>, <code>/items</code>)</dd>
+      <dt>Arquivos</dt><dd><code>pipeline/codebook-editor.tsx</code><code>pipeline/prompt-editor.tsx</code><code>pipeline/prompt-metadata-editor.tsx</code><code>pipeline/items-editor.tsx</code><code>app/components/ui/editable-row.tsx</code><code>app/components/ui/save-bar.tsx</code><code>(tabs)/codebook/page.tsx</code></dd>
+    </dl>
+    <p class="problem"><b>Problema:</b> cada aba edita de um jeito. No Codebook, “Editar definições” fica no pé da lista e salvar usa a barra fixa; no Prompt, “Editar texto” fica no cabeçalho e salvar é um botão solto; nos Itens não há botão Editar visível (o rótulo existe só para leitor de tela) e é preciso clicar no cartão. Para sair da edição há quatro nomes: “Voltar à leitura”, “Concluir edição”, “Fechar” e “Descartar”.</p>
+
+    <div class="ba">
+      <div class="pane antes">
+        <span class="pane-label">Antes</span>
+        <div class="app">
+          <span class="groupt">Codebook</span>
+          <div class="card sm">
+            <div class="row g10"><span class="t13 sb">Versão 2</span><span class="badge b-info">em aberto</span><span class="tip">i</span></div>
+            <ul class="col g6 mt10 t13"><li class="row"><span class="muted">1</span><span class="sb">Informacional</span><span class="badge b-accent">Categoria</span></li><li class="row"><span class="muted">2</span><span class="sb">Transacional</span><span class="badge b-accent">Categoria</span></li></ul>
+            <div class="row g6 mt12"><span class="btn primary">Editar definições</span><span class="pin">1</span></div>
+          </div>
+          <span class="groupt mt12">Prompt</span>
+          <div class="card sm">
+            <div class="row between"><span class="row g6"><span class="t15 b">Prompt</span><span class="t13 muted">· versão 3</span><span class="badge b-info">em aberto</span><span class="tip">i</span></span><span class="row g6"><span class="pin">1</span><span class="btn secondary sm">Histórico</span><span class="btn primary sm">Editar texto</span></span></div>
+          </div>
+          <span class="groupt mt12">Itens</span>
+          <div class="card sm">
+            <div class="row between"><span class="row g10"><span class="sb">consulta-017</span><span class="t13 muted">28 caracteres · 1 linha</span></span><span class="row g6"><span class="pin">2</span><span class="muted b">⋯</span></span></div>
+            <p class="t13 muted mt4">como funciona a fotossíntese</p>
+          </div>
+          <p class="t12 muted mt12">Sair da edição: <span class="chipx">Voltar à leitura</span> <span class="chipx">Concluir edição</span> <span class="chipx">Fechar</span> <span class="chipx">Descartar</span> <span class="pin">3</span></p>
+        </div>
+        <ul class="pinnotes">
+          <li><span class="pin">1</span>“Editar” no pé da lista numa aba e no cabeçalho na outra.</li>
+          <li><span class="pin">2</span>No item, editar é clicar no cartão; o ⋯ só tem “Remover”.</li>
+          <li><span class="pin">3</span>Quatro nomes para a mesma saída.</li>
+        </ul>
+      </div>
+      <div class="pane depois">
+        <span class="pane-label">Depois</span>
+        <div class="app">
+          <span class="groupt">Codebook</span>
+          <div class="card sm">
+            <div class="row between"><span class="row g10"><span class="t13 sb">Versão 2</span><span class="badge b-info">em aberto</span><span class="tip">i</span></span><span class="btn secondary sm">Editar</span></div>
+            <ul class="col g6 mt10 t13"><li class="row"><span class="muted">1</span><span class="sb">Informacional</span><span class="badge b-accent">Categoria</span></li><li class="row"><span class="muted">2</span><span class="sb">Transacional</span><span class="badge b-accent">Categoria</span></li></ul>
+          </div>
+          <span class="groupt mt12">Prompt</span>
+          <div class="card sm">
+            <div class="row between"><span class="row g6"><span class="t15 b">Prompt</span><span class="t13 muted">· versão 3</span><span class="badge b-info">em aberto</span><span class="tip">i</span></span><span class="row g6"><span class="btn secondary sm">Histórico</span><span class="btn secondary sm">Editar</span></span></div>
+          </div>
+          <span class="groupt mt12">Itens</span>
+          <div class="card sm">
+            <div class="row between"><span class="row g10"><span class="sb">consulta-017</span><span class="t13 muted">28 caracteres · 1 linha</span></span><span class="row g6"><span class="btn secondary sm">Editar</span><span class="muted b">⋯</span></span></div>
+            <p class="t13 muted mt4">como funciona a fotossíntese</p>
+          </div>
+          <span class="groupt mt12">Em edição (as três abas)</span>
+          <div class="savebar"><span class="t13 muted">Alterações não salvas: 1 definição alterada.</span><span class="row g10"><span class="btn secondary sm">Descartar</span><span class="btn primary sm">Salvar</span></span></div>
+        </div>
+        <ul class="pinnotes">
+          <li><span class="pin ok">✓</span>“Editar” sempre no canto direito do bloco, no mesmo estilo.</li>
+          <li><span class="pin ok">✓</span>Em edição, sempre a mesma barra fixa “Descartar / Salvar”.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="changes">
+      <h3>O que muda</h3>
+      <ul>
+        <li>Botão “Editar” (secondary, sm) sempre no canto direito do cabeçalho do bloco: Codebook, Prompt e cada linha de Itens. Nos itens congelados, “Ver conteúdo”.</li>
+        <li>Em modo edição, as três abas usam a <code>SaveBar</code> fixa (“Descartar” / “Salvar”). Sai o par “Salvar prompt” + “Voltar à leitura” e o “Concluir edição” do <code>EditableRow</code>.</li>
+        <li>Rótulos de saída unificados: “Descartar” quando há alteração, “Cancelar” quando não há.</li>
+        <li>No Codebook em edição, sai o segundo título “Definições” (o do cartão interno), que repete o título da seção.</li>
+        <li>Nos Itens vazios, sai a busca “Buscar no pool” (não há o que buscar) e o estado vazio aponta para o bloco de envio.</li>
+      </ul>
+    </div>
+
+    <div class="controls">
+      <label class="want"><input type="checkbox" class="pick"> Quero esta</label>
+      <label class="prio">Prioridade <select class="prio-sel"><option value="1">1 · alta</option><option value="2" selected>2 · média</option><option value="3">3 · baixa</option></select></label>
+      <textarea class="obs" rows="1" placeholder="Observação (opcional)" aria-label="Observação sobre a sugestão 6"></textarea>
+    </div>
+  </article>
+
+  <!-- ===================================================== 7 -->
+  <article class="sug" id="s7" data-id="7"
+    data-title="Cores e confirmações que dizem a gravidade"
+    data-screens="Ajustes (/projects/[id]/settings), Rodadas (/projects/[id]/rounds), Codebook e Prompt na Fase 4, Itens, Membros"
+    data-files="app/projects/[id]/manage-project.tsx, app/components/ui/alert.tsx, app/components/ui/button.tsx, app/projects/[id]/pipeline/freeze.ts, app/projects/[id]/pipeline/codebook-editor.tsx, app/projects/[id]/pipeline/prompt-editor.tsx, app/projects/[id]/(tabs)/rounds/new-round.tsx, app/projects/[id]/(tabs)/rounds/close-round.tsx, app/projects/[id]/pipeline/items-editor.tsx, app/projects/[id]/member-actions.tsx">
+    <div class="sug-head">
+      <h2><span class="num">7</span>Cores e confirmações que dizem a gravidade</h2>
+      <div class="chips"><span class="chip imp-medio">Impacto médio</span><span class="chip">Esforço M</span><span class="chip retomada">Retomada de 08/10, em parte</span></div>
+    </div>
+    <dl class="where">
+      <dt>Telas</dt><dd>Ajustes, Rodadas, Codebook e Prompt na Fase 4, Itens, Membros</dd>
+      <dt>Arquivos</dt><dd><code>app/projects/[id]/manage-project.tsx</code><code>app/components/ui/alert.tsx</code><code>app/components/ui/button.tsx</code><code>pipeline/freeze.ts</code><code>pipeline/codebook-editor.tsx</code><code>pipeline/prompt-editor.tsx</code><code>rounds/new-round.tsx</code><code>rounds/close-round.tsx</code><code>pipeline/items-editor.tsx</code><code>app/projects/[id]/member-actions.tsx</code></dd>
+    </dl>
+    <p class="problem"><b>Problema:</b> em Ajustes, “Concluir projeto” é vermelho cheio e “Arquivar” amarelo cheio, mas os dois têm volta; já “Fechar rodada”, que é irreversível, é um botão cinza. O amarelo de aviso também marca textos só informativos, como o codebook congelado na Fase 4. E as confirmações alternam entre a caixa do navegador (<code>confirm()</code>) e o diálogo do app.</p>
+
+    <div class="ba">
+      <div class="pane antes">
+        <span class="pane-label">Antes</span>
+        <div class="app">
+          <span class="groupt">Ajustes</span>
+          <div class="h2">Status do projeto <span class="tip">i</span></div>
+          <p class="hint">O projeto está ativo e editável.</p>
+          <div class="row g10 mt10"><span class="btn dangerSolid">Concluir projeto</span><span class="btn warning">Arquivar</span><span class="pin">1</span></div>
+          <div class="sysdlg mt12">
+            <div class="b" style="margin-bottom:4px">localhost:3000 diz</div>
+            <div>Concluir o projeto? Ele fica somente leitura (você pode reativá-lo depois).</div>
+            <div class="row mt10" style="justify-content:flex-end"><span class="sbtn">Cancelar</span><span class="sbtn d">OK</span></div>
+          </div>
+          <p class="t12 muted mt6 row g6"><span class="pin">2</span>caixa do navegador, com “OK”</p>
+          <span class="groupt mt16">Rodadas</span>
+          <div class="row g10"><span class="btn primary">Gerar respostas</span><span class="btn secondary">Fechar rodada 3</span><span class="pin">3</span></div>
+          <span class="groupt mt16">Codebook na Fase 4</span>
+          <div class="alert notice">Este projeto está na Fase 4, que congela o codebook e o prompt enquanto dura, para que o teste de replicação meça exatamente o que a Fase 3 avaliou. Para refinar o codebook, é preciso voltar à Fase 3.</div>
+          <p class="t12 muted mt6 row g6"><span class="pin">4</span>amarelo de alerta para uma informação</p>
+        </div>
+        <ul class="pinnotes">
+          <li><span class="pin">1</span>Vermelho e amarelo cheios para ações reversíveis.</li>
+          <li><span class="pin">2</span>Confirmação do navegador, diferente do resto do app.</li>
+          <li><span class="pin">3</span>A ação sem volta é a mais discreta.</li>
+          <li><span class="pin">4</span>Estado informativo pintado como alerta.</li>
+        </ul>
+      </div>
+      <div class="pane depois">
+        <span class="pane-label">Depois</span>
+        <div class="app">
+          <span class="groupt">Ajustes</span>
+          <div class="h2">Status do projeto <span class="tip">i</span></div>
+          <p class="hint">O projeto está ativo e editável.</p>
+          <div class="row g10 mt10"><span class="btn secondary">Concluir projeto</span><span class="btn secondary">Arquivar</span></div>
+          <div class="card mt12" style="max-width:380px;box-shadow:0 8px 24px rgba(0,0,0,.14)">
+            <div class="t15 b">Concluir o projeto?</div>
+            <p class="t13 muted mt6">Ele fica somente leitura. Você pode reativá-lo depois.</p>
+            <div class="row mt12" style="justify-content:flex-end"><span class="btn secondary sm">Cancelar</span><span class="btn primary sm">Concluir projeto</span></div>
+          </div>
+          <span class="groupt mt16">Rodadas</span>
+          <div class="row g10"><span class="btn primary">Gerar respostas</span><span class="btn dangerOut">Fechar rodada 3</span></div>
+          <span class="groupt mt16">Codebook na Fase 4</span>
+          <div class="alert neutral"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="#374151" stroke-width="2"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg><span>Codebook congelado na Fase 4, para o teste de replicação. Para refinar, <span class="lnk">volte à Fase 3</span>.</span></div>
+        </div>
+        <ul class="pinnotes">
+          <li><span class="pin ok">✓</span>Vermelho só no que não tem volta.</li>
+          <li><span class="pin ok">✓</span>Um diálogo só, com o verbo da ação no botão.</li>
+          <li><span class="pin ok">✓</span>Informação em cinza, com cadeado e o caminho de volta.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="changes">
+      <h3>O que muda</h3>
+      <ul>
+        <li>Vermelho (variante <code>danger</code> de contorno vermelho) só para o que não tem volta: “Fechar rodada”, “Remover” item, “Desativar” avaliador, “Recusar” convite. “Concluir projeto” e “Arquivar” viram <code>secondary</code>, e a variante <code>warning</code> sai.</li>
+        <li>O <code>dangerSolid</code> fica só no botão de confirmação dos diálogos de ações irreversíveis.</li>
+        <li>Todas as confirmações usam o mesmo <code>&lt;dialog&gt;</code> (o de “Avançar fase”, <code>dialogClass</code>), com o verbo no botão (“Concluir projeto”, “Remover item”); sai o <code>window.confirm</code> de <code>manage-project.tsx</code>, <code>items-editor.tsx</code> e <code>member-actions.tsx</code>.</li>
+        <li>Novo tom <code>neutral</code> no <code>Alert</code> para estados (congelado, rodada aberta trava o codebook, “Esta rodada vai congelar…”). O amarelo (<code>notice</code>) fica para pendência que pede ação.</li>
+        <li>As mensagens de congelamento (<code>frozenMessage</code>) encolhem para uma frase com link “volte à Fase 3”.</li>
+      </ul>
+    </div>
+
+    <div class="controls">
+      <label class="want"><input type="checkbox" class="pick"> Quero esta</label>
+      <label class="prio">Prioridade <select class="prio-sel"><option value="1">1 · alta</option><option value="2" selected>2 · média</option><option value="3">3 · baixa</option></select></label>
+      <textarea class="obs" rows="1" placeholder="Observação (opcional)" aria-label="Observação sobre a sugestão 7"></textarea>
+    </div>
+  </article>
+
+  <!-- ===================================================== 8 -->
+  <article class="sug" id="s8" data-id="8"
+    data-title="Membros e Ajustes: o mais usado primeiro"
+    data-screens="Membros (/projects/[id]/members) e Ajustes (/projects/[id]/settings), visão do Administrador"
+    data-files="app/projects/[id]/(tabs)/members/page.tsx, app/projects/[id]/invite-evaluator-form.tsx, app/projects/[id]/member-list.tsx, app/projects/[id]/evaluator-role.tsx, app/projects/[id]/(tabs)/members/outlier-panel.tsx, app/projects/[id]/(tabs)/settings/page.tsx, app/projects/[id]/manage-project.tsx">
+    <div class="sug-head">
+      <h2><span class="num">8</span>Membros e Ajustes: o mais usado primeiro</h2>
+      <div class="chips"><span class="chip imp-medio">Impacto médio</span><span class="chip">Esforço M</span></div>
+    </div>
+    <dl class="where">
+      <dt>Telas</dt><dd>Membros (<code>/projects/[id]/members</code>) e Ajustes (<code>/projects/[id]/settings</code>), Administrador</dd>
+      <dt>Arquivos</dt><dd><code>(tabs)/members/page.tsx</code><code>app/projects/[id]/invite-evaluator-form.tsx</code><code>app/projects/[id]/member-list.tsx</code><code>app/projects/[id]/evaluator-role.tsx</code><code>members/outlier-panel.tsx</code><code>(tabs)/settings/page.tsx</code><code>app/projects/[id]/manage-project.tsx</code></dd>
+    </dl>
+    <p class="problem"><b>Problema:</b> em Membros, o formulário de convite vem antes da própria equipe, e a página segue com “Outliers por rodada” e “Avaliar neste projeto” no mesmo peso. Em Ajustes, a data de criação aparece solta no topo e a primeira seção é a das perguntas de onboarding, enquanto nome e descrição, o que mais se edita, ficam no meio.</p>
+
+    <div class="ba">
+      <div class="pane antes">
+        <span class="pane-label">Antes</span>
+        <div class="app">
+          <span class="groupt">Membros</span>
+          <div class="h2">Convidar avaliador</div>
+          <p class="hint">O convidado recebe uma notificação e entra no projeto depois do onboarding.</p>
+          <div class="col g6 mt10"><span class="fieldlabel">E-mail do avaliador</span><div class="row g10"><span class="input">avaliador@exemplo.com</span><span class="btn primary">Convidar</span></div></div>
+          <p class="t12 muted mt6">Pode convidar mesmo quem ainda não tem conta: o convite aparece no primeiro acesso com o Google.</p>
+          <div class="sect">
+            <div class="h2">Equipe do projeto <span class="tip">i</span><span class="pin">1</span></div>
+            <ul class="col g6 mt10"><li class="row g10"><span class="avatar">A</span><span class="col"><span class="t13 sb">Ana Souza</span><span class="t11 muted">Avaliador · ana@exemplo.com</span></span></li></ul>
+          </div>
+          <div class="sect fade"><div class="h2">Outliers por rodada</div></div>
+          <div class="sect fade"><div class="h2">Avaliar neste projeto</div></div>
+          <span class="groupt mt16">Ajustes</span>
+          <p class="t13 muted">Data de criação do projeto: 03/10/2026 <span class="pin">2</span></p>
+          <div class="sect"><div class="h2">Onboarding dos avaliadores <span class="tip">i</span></div><div class="mt8"><span class="btn secondary">Gerenciar perguntas de onboarding</span></div></div>
+          <div class="sect fade"><div class="h2">Editar projeto</div></div>
+        </div>
+        <ul class="pinnotes">
+          <li><span class="pin">1</span>A equipe, que é o assunto da aba, só vem depois do convite.</li>
+          <li><span class="pin">2</span>Dado solto, sem seção, acima de tudo.</li>
+        </ul>
+      </div>
+      <div class="pane depois">
+        <span class="pane-label">Depois</span>
+        <div class="app">
+          <span class="groupt">Membros</span>
+          <div class="row between"><div class="h2">Equipe do projeto <span class="t13 muted" style="font-weight:400">· 3</span></div><span class="btn primary sm">+ Convidar avaliador</span></div>
+          <p class="hint">Quem participa e em que papel.</p>
+          <ul class="col g6 mt10">
+            <li class="row g10"><span class="avatar">N</span><span class="col" style="flex:1"><span class="t13 sb">Nicolas David <span class="muted" style="font-weight:400">(você)</span></span><span class="t11 muted">Administrador · Avaliador</span></span></li>
+            <li class="row g10"><span class="avatar">A</span><span class="col" style="flex:1"><span class="t13 sb">Ana Souza</span><span class="t11 muted">Avaliador · ana@exemplo.com</span></span></li>
+          </ul>
+          <div class="sect"><div class="h2" style="font-size:14px">Avaliar neste projeto</div><p class="hint">Você participa deste projeto como Administrador-avaliador.</p></div>
+          <div class="sect"><span class="t12 sb muted">▸ Outliers por rodada</span></div>
+          <span class="groupt mt16">Ajustes</span>
+          <div class="h2">Projeto</div>
+          <p class="hint">Nome e descrição ficam visíveis para todos os membros. Criado em 03/10/2026.</p>
+          <div class="row between mt8"><span class="t13"><b>Classificação de intenção de busca</b></span><span class="btn secondary sm">Editar</span></div>
+          <div class="sect"><div class="h2" style="font-size:14px">Perguntas de entrada</div><div class="mt8"><span class="btn secondary sm">Gerenciar perguntas</span></div></div>
+          <div class="sect"><div class="h2" style="font-size:14px">Status do projeto</div></div>
+        </div>
+        <ul class="pinnotes">
+          <li><span class="pin ok">✓</span>A lista primeiro; convidar vira a ação do cabeçalho.</li>
+          <li><span class="pin ok">✓</span>Ajustes do mais comum (nome) ao mais raro (status).</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="changes">
+      <h3>O que muda</h3>
+      <ul>
+        <li>Membros: “Equipe do projeto · N” vem primeiro, com “+ Convidar avaliador” no cabeçalho; o formulário de e-mail abre logo abaixo dele ao clicar, com a dica do primeiro acesso.</li>
+        <li>A linha do próprio administrador ganha “(você)”; “Avaliar neste projeto” vem logo depois da lista, em tamanho menor.</li>
+        <li>“Outliers por rodada” vai para o fim da página, recolhido por padrão (continua na aba Membros).</li>
+        <li>Ajustes, nesta ordem: “Projeto” (nome, descrição e a data de criação como meta), “Perguntas de entrada” e, por último, “Status do projeto”.</li>
+      </ul>
+    </div>
+
+    <div class="controls">
+      <label class="want"><input type="checkbox" class="pick"> Quero esta</label>
+      <label class="prio">Prioridade <select class="prio-sel"><option value="1">1 · alta</option><option value="2" selected>2 · média</option><option value="3">3 · baixa</option></select></label>
+      <textarea class="obs" rows="1" placeholder="Observação (opcional)" aria-label="Observação sobre a sugestão 8"></textarea>
+    </div>
+  </article>
+
+  <!-- ===================================================== 9 -->
+  <article class="sug" id="s9" data-id="9"
+    data-title="Rótulos: os mesmos nomes e a mesma caixa em toda parte"
+    data-screens="Home (/), Dashboard (/dashboard), Novo projeto (/projects/new), cabeçalho e abas do projeto, Visão geral, Itens, Rodadas, Onboarding (/projects/[id]/onboarding), Ajustes"
+    data-files="app/components/process-phases-footer.tsx, app/components/process-overview.tsx, app/projects/[id]/phase-bar.tsx, app/projects/labels.ts, app/dashboard/page.tsx, app/page.tsx, app/projects/new/page.tsx, app/projects/[id]/project-tabs.tsx, app/projects/[id]/pipeline/checklist.tsx, app/projects/[id]/pipeline/pipeline-checklist.tsx, app/projects/[id]/pipeline/items-editor.tsx, app/projects/[id]/(tabs)/rounds/round-list.tsx, app/projects/[id]/onboarding/page.tsx, app/projects/[id]/(tabs)/settings/page.tsx">
+    <div class="sug-head">
+      <h2><span class="num">9</span>Rótulos: os mesmos nomes e a mesma caixa em toda parte</h2>
+      <div class="chips"><span class="chip imp-medio">Impacto médio</span><span class="chip">Esforço P</span><span class="chip retomada">Retomada de 08/10</span></div>
+    </div>
+    <dl class="where">
+      <dt>Telas</dt><dd>Home, Dashboard, Novo projeto, cabeçalho e abas do projeto, Visão geral, Itens, Rodadas, Onboarding, Ajustes</dd>
+      <dt>Arquivos</dt><dd><code>app/components/process-phases-footer.tsx</code><code>app/components/process-overview.tsx</code><code>app/projects/[id]/phase-bar.tsx</code><code>app/projects/labels.ts</code><code>app/dashboard/page.tsx</code><code>app/page.tsx</code><code>app/projects/new/page.tsx</code><code>app/projects/[id]/project-tabs.tsx</code><code>pipeline/checklist.tsx</code><code>pipeline/pipeline-checklist.tsx</code><code>pipeline/items-editor.tsx</code><code>rounds/round-list.tsx</code><code>app/projects/[id]/onboarding/page.tsx</code><code>(tabs)/settings/page.tsx</code></dd>
+    </dl>
+    <p class="problem"><b>Problema:</b> o mesmo conceito aparece com nomes e caixas diferentes, e o usuário não sabe se é a mesma coisa: “Configuração Inicial” no rodapé e “Configuração inicial” na barra de fase; “+ Novo projeto”, “Criar Novo Projeto” e “Criar novo projeto”; “onboarding pendente” e “Onboarding pendente”. A aba Rodadas bloqueada diz “Ainda não implementado” para quem só não concluiu a entrada.</p>
+
+    <div class="ba">
+      <div class="pane antes">
+        <span class="pane-label">Antes</span>
+        <div class="app">
+          <span class="groupt">Dashboard · Home · Novo projeto</span>
+          <div class="row g10"><span class="btn primary sm">+ Novo projeto</span><span class="btn primary sm">Criar Novo Projeto</span><span class="t15 b">Criar novo projeto</span></div>
+          <span class="groupt mt12">Cartão no dashboard</span>
+          <div class="card sm row between"><span class="col g4"><span class="t15 sb">Classificação de intenção de busca</span><span class="t12 muted">Avaliador · Fase 2 de 4, Validação do codebook</span></span><span class="row g6"><span class="badge b-warning">onboarding pendente</span><span class="badge b-success">Ativo</span></span></div>
+          <span class="groupt mt12">Rodapé e barra de fase</span>
+          <div class="row g10 t13"><span>Fase 1 <b>Configuração Inicial</b></span><span class="muted">|</span><span>Fase 2 <b>Validação do Codebook</b></span><span class="muted">vs.</span><span class="b">Configuração inicial</span></div>
+          <span class="groupt mt12">Selos</span>
+          <div class="row g6"><span class="badge b-success">Fase 1 concluída</span><span class="badge b-success">tudo pronto</span><span class="badge b-warning">faltam 2</span><span class="badge b-info">aberta</span><span class="badge b-neutral">fechada</span></div>
+          <span class="groupt mt12">Abas e Itens</span>
+          <div class="row g10"><span class="tab dis" style="border:1px dashed #d1d5db">Rodadas</span><span class="balloon" style="padding:4px 8px;font-size:12px">Ainda não implementado</span><span class="pin">1</span></div>
+          <div class="row g10 mt8"><span class="t15 b">Upload de itens</span><span class="btn secondary sm">Gerenciar perguntas de onboarding</span></div>
+        </div>
+        <ul class="pinnotes">
+          <li><span class="pin">1</span>A dica da aba bloqueada não é verdadeira: a tela existe.</li>
+        </ul>
+      </div>
+      <div class="pane depois">
+        <span class="pane-label">Depois</span>
+        <div class="app">
+          <span class="groupt">Dashboard · Home · Novo projeto</span>
+          <div class="row g10"><span class="btn primary sm">+ Novo projeto</span><span class="btn primary sm">+ Novo projeto</span><span class="t15 b">Novo projeto</span></div>
+          <span class="groupt mt12">Cartão no dashboard</span>
+          <div class="card sm row between"><span class="col g4"><span class="t15 sb">Classificação de intenção de busca</span><span class="t12 muted">Avaliador · Fase 2 de 4, Validação do codebook</span></span><span class="row g6"><span class="badge b-warning">Entrada pendente</span></span></div>
+          <span class="groupt mt12">Rodapé e barra de fase</span>
+          <div class="row g10 t13"><span>Fase 1 <b>Configuração inicial</b></span><span class="muted">|</span><span>Fase 2 <b>Validação do codebook</b></span></div>
+          <span class="groupt mt12">Selos</span>
+          <div class="row g6"><span class="badge b-success">Fase 1 concluída</span><span class="badge b-success">Tudo pronto</span><span class="badge b-warning">Faltam 2</span><span class="badge b-info">Aberta</span><span class="badge b-neutral">Fechada</span></div>
+          <span class="groupt mt12">Abas e Itens</span>
+          <div class="row g10"><span class="tab dis" style="border:1px dashed #d1d5db;color:#6b7280">Rodadas</span><span class="balloon" style="padding:4px 8px;font-size:12px">Disponível depois de concluir a entrada no projeto</span></div>
+          <div class="row g10 mt8"><span class="t15 b">Enviar itens</span><span class="btn secondary sm">Gerenciar perguntas de entrada</span></div>
+        </div>
+        <ul class="pinnotes">
+          <li><span class="pin ok">✓</span>Um nome por coisa, em caixa de frase, vindo de uma constante só.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="changes">
+      <h3>O que muda</h3>
+      <ul>
+        <li>Nomes das fases sempre em caixa de frase, lidos de <code>PROJECT_PHASES</code> também no rodapé e no guia do processo (hoje digitados à mão em <code>process-phases-footer.tsx</code> e <code>process-overview.tsx</code>).</li>
+        <li>Criar projeto: “+ Novo projeto” em todo botão (dashboard, estado vazio, home) e “Novo projeto” no título da página; o envio continua “Criar projeto”.</li>
+        <li>Selos sempre com inicial maiúscula (“Tudo pronto”, “Faltam 2”, “Aberta”, “Fechada”, “Convite pendente”).</li>
+        <li>“Onboarding”, que não está no glossário, vira “entrada no projeto” na interface: “Entrada pendente”, “Concluir entrada”, “Perguntas de entrada”, título “Entrada no projeto — Nome”. Termos do glossário (<code>docs/CONTEXT.md</code>: codebook, rodada, pool, outlier) ficam.</li>
+        <li>Aba bloqueada: o <code>title</code> passa de “Ainda não implementado” para “Disponível depois de concluir a entrada no projeto”.</li>
+        <li>Itens: “Upload de itens” vira “Enviar itens”.</li>
+      </ul>
+    </div>
+
+    <div class="controls">
+      <label class="want"><input type="checkbox" class="pick"> Quero esta</label>
+      <label class="prio">Prioridade <select class="prio-sel"><option value="1">1 · alta</option><option value="2" selected>2 · média</option><option value="3">3 · baixa</option></select></label>
+      <textarea class="obs" rows="1" placeholder="Observação (opcional)" aria-label="Observação sobre a sugestão 9"></textarea>
+    </div>
+  </article>
+
+  <!-- ===================================================== 10 -->
+  <article class="sug" id="s10" data-id="10"
+    data-title="Toque, foco e contraste nos controles pequenos"
+    data-screens="Global; exemplos em Membros (lista da equipe), Avaliar (+ Justificar), barra de fase da Visão geral, abas do projeto"
+    data-files="app/components/ui/tooltip.tsx, app/components/ui/button.tsx, app/projects/[id]/member-list.tsx, app/projects/[id]/member-actions.tsx, app/projects/[id]/phase-bar.tsx, app/components/ui/tabs.tsx, app/globals.css">
+    <div class="sug-head">
+      <h2><span class="num">10</span>Toque, foco e contraste nos controles pequenos</h2>
+      <div class="chips"><span class="chip imp-medio">Impacto médio</span><span class="chip">Esforço P</span><span class="chip retomada">Retomada de 08/10, em parte</span></div>
+    </div>
+    <dl class="where">
+      <dt>Telas</dt><dd>Global; exemplos em Membros, Avaliar, barra de fase e abas do projeto</dd>
+      <dt>Arquivos</dt><dd><code>app/components/ui/tooltip.tsx</code><code>app/components/ui/button.tsx</code><code>app/projects/[id]/member-list.tsx</code><code>app/projects/[id]/member-actions.tsx</code><code>app/projects/[id]/phase-bar.tsx</code><code>app/components/ui/tabs.tsx</code><code>app/globals.css</code></dd>
+    </dl>
+    <p class="problem"><b>Problema:</b> as variantes <code>link</code> e <code>dangerGhost</code> não têm padding, então “Ver respostas”, “Desativar” e “+ Justificar” são alvos de 16 px de altura, e o ⓘ tem 18 px. O cinza <code>#9ca3af</code>, usado nas fases ainda não alcançadas e na aba desabilitada, tem contraste de 2,4:1 sobre o fundo do cartão (o mínimo é 4,5:1). E o balão do ⓘ depende de hover, que não existe no celular.</p>
+
+    <div class="ba">
+      <div class="pane antes">
+        <span class="pane-label">Antes</span>
+        <div class="app">
+          <span class="groupt">Membros</span>
+          <div class="card sm row g10">
+            <span class="avatar">A</span>
+            <span class="col" style="flex:1;min-width:120px"><span class="t13 sb">Ana Souza</span><span class="t11 muted">Avaliador · ana@exemplo.com</span></span>
+            <span class="row g10"><span class="lnkxs measure">Ver respostas</span><span class="dangerxs measure">Desativar</span><span class="tag-anno">16 px</span></span>
+          </div>
+          <span class="groupt mt12">Barra de fase</span>
+          <div class="card sm subtle">
+            <ol class="steps" style="margin-top:0">
+              <li><span class="barx on"></span><span class="l ink">1. Configuração</span></li>
+              <li><span class="barx on"></span><span class="l muted">2. Codebook</span></li>
+              <li><span class="barx"></span><span class="l faint">3. Prompt</span></li>
+              <li><span class="barx"></span><span class="l faint">4. Final</span></li>
+            </ol>
+            <div class="row mt6"><span class="tag-anno">#9ca3af · 2,4:1</span></div>
+          </div>
+          <span class="groupt mt12">Ajuda</span>
+          <div class="row g10"><span class="t13 sb">Concordância (ICR)</span><span class="tip measure">i</span><span class="tag-anno">18 px · só hover</span></div>
+        </div>
+      </div>
+      <div class="pane depois">
+        <span class="pane-label">Depois</span>
+        <div class="app">
+          <span class="groupt">Membros</span>
+          <div class="card sm row g10">
+            <span class="avatar">A</span>
+            <span class="col" style="flex:1;min-width:120px"><span class="t13 sb">Ana Souza</span><span class="t11 muted">Avaliador · ana@exemplo.com</span></span>
+            <span class="row g6"><span class="btn secondary sm measure-ok">Ver respostas</span><span class="btn dangerOut sm measure-ok">Desativar</span><span class="tag-anno ok">28 px</span></span>
+          </div>
+          <span class="groupt mt12">Barra de fase</span>
+          <div class="card sm subtle">
+            <ol class="steps" style="margin-top:0">
+              <li><span class="barx on"></span><span class="l ink">1. Configuração</span></li>
+              <li><span class="barx on"></span><span class="l muted">2. Codebook</span></li>
+              <li><span class="barx"></span><span class="l muted">3. Prompt</span></li>
+              <li><span class="barx"></span><span class="l muted">4. Final</span></li>
+            </ol>
+            <div class="row mt6"><span class="tag-anno ok">#6b7280 · 4,6:1</span></div>
+          </div>
+          <span class="groupt mt12">Ajuda</span>
+          <div class="row g10" style="align-items:flex-start"><span class="t13 sb">Concordância (ICR)</span><span class="tip big measure-ok">i</span><span class="balloon" style="max-width:220px">Grau em que os avaliadores aplicam o codebook da mesma forma.</span></div>
+          <div class="row mt6"><span class="tag-anno ok">24 px · abre no toque</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="changes">
+      <h3>O que muda</h3>
+      <ul>
+        <li>Alvo mínimo de 24 × 24 px (WCAG 2.5.8) para todo controle; ações por linha (“Ver respostas”, “Desativar”) viram botões <code>sm</code> de 28 px, e “+ Justificar” ganha padding vertical.</li>
+        <li>O ⓘ passa a 24 px, abre e fecha no clique ou toque (e com Esc), e liga o texto por <code>aria-describedby</code> em vez de repetir o parágrafo no <code>aria-label</code>.</li>
+        <li><code>text-faint</code> só em borda e decoração; rótulos de fase futura e a aba desabilitada passam a <code>text-muted</code>.</li>
+        <li><code>--color-muted</code> sobre o fundo <code>canvas</code> (#f3f4f6) dá 4,39:1; escurecer para <code>#5b6472</code> resolve as duas superfícies (proposta de 08/10 que ficou pendente).</li>
+      </ul>
+    </div>
+
+    <div class="controls">
+      <label class="want"><input type="checkbox" class="pick"> Quero esta</label>
+      <label class="prio">Prioridade <select class="prio-sel"><option value="1">1 · alta</option><option value="2" selected>2 · média</option><option value="3">3 · baixa</option></select></label>
+      <textarea class="obs" rows="1" placeholder="Observação (opcional)" aria-label="Observação sobre a sugestão 10"></textarea>
+    </div>
+  </article>
+
+  <p style="color:var(--muted);font-size:13px;margin:28px 0 0">Ficaram de fora, por serem pequenos ou já decididos: a matriz como lista por definição (escolhida outra variante em 08/10), a ordem dos campos de Novo projeto (já curta e clara) e ajustes de espaçamento isolados.</p>
+</div>
+
+<div class="bar" role="region" aria-label="Seleção de sugestões">
+  <div class="in">
+    <div class="count" aria-live="polite"><span id="n">0</span> de 10 selecionadas<small id="hint">Marque “Quero esta” nas sugestões que quiser implementar.</small></div>
+    <div class="actions">
+      <span class="toast" id="toast" role="status"></span>
+      <button type="button" class="see" id="see">Ver texto</button>
+      <button type="button" class="copy" id="copy">Copiar seleção como prompt</button>
+    </div>
+  </div>
+</div>
+
+<dialog id="out" aria-labelledby="out-title">
+  <div class="dh"><h2 id="out-title">Prompt para o Claude Code</h2><button type="button" id="close">Fechar</button></div>
+  <textarea id="out-text" readonly aria-label="Texto do prompt"></textarea>
+  <div class="df"><button type="button" class="p" id="copy2">Copiar</button></div>
+</dialog>
+
+<script>
+(function () {
+  var KEY = 'tcc-sugestoes-layout-2026-10-12';
+  var articles = Array.prototype.slice.call(document.querySelectorAll('article.sug'));
+
+  function readState() {
+    try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) { return {}; }
+  }
+  function writeState(state) {
+    try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {}
+  }
+
+  var state = readState();
+
+  articles.forEach(function (art) {
+    var id = art.getAttribute('data-id');
+    var saved = state[id] || {};
+    var pick = art.querySelector('.pick');
+    var prio = art.querySelector('.prio-sel');
+    var obs = art.querySelector('.obs');
+    if (saved.pick) pick.checked = true;
+    if (saved.prio) prio.value = saved.prio;
+    if (saved.obs) obs.value = saved.obs;
+    function sync() {
+      state[id] = { pick: pick.checked, prio: prio.value, obs: obs.value };
+      writeState(state);
+      art.classList.toggle('picked', pick.checked);
+      update();
+    }
+    pick.addEventListener('change', sync);
+    prio.addEventListener('change', sync);
+    obs.addEventListener('input', sync);
+    art.classList.toggle('picked', pick.checked);
+  });
+
+  var countEl = document.getElementById('n');
+  var hintEl = document.getElementById('hint');
+  var toast = document.getElementById('toast');
+  var dialog = document.getElementById('out');
+  var outText = document.getElementById('out-text');
+
+  function selected() {
+    return articles
+      .filter(function (art) { return art.querySelector('.pick').checked; })
+      .map(function (art) {
+        return {
+          order: Number(art.getAttribute('data-id')),
+          prio: Number(art.querySelector('.prio-sel').value),
+          title: art.getAttribute('data-title'),
+          screens: art.getAttribute('data-screens'),
+          files: art.getAttribute('data-files'),
+          changes: Array.prototype.map.call(art.querySelectorAll('.changes li'), function (li) {
+            return li.textContent.replace(/\s+/g, ' ').trim();
+          }),
+          obs: art.querySelector('.obs').value.trim()
+        };
+      })
+      .sort(function (a, b) { return a.prio - b.prio || a.order - b.order; });
+  }
+
+  function update() {
+    var n = selected().length;
+    countEl.textContent = String(n);
+    hintEl.textContent = n === 0
+      ? 'Marque “Quero esta” nas sugestões que quiser implementar.'
+      : 'O prompt sai ordenado pela prioridade que você escolheu.';
+  }
+
+  function buildPrompt(list) {
+    var prioName = { 1: 'alta', 2: 'média', 3: 'baixa' };
+    var lines = [
+      'Quero implementar estas melhorias de layout no app (repositório tcc), na ordem abaixo: prioridade 1 primeiro.',
+      'São mudanças de layout, texto e clareza: não criar funcionalidade nova nem mudar regras de negócio, e manter os termos do glossário em docs/CONTEXT.md.',
+      'Antes de escrever código, monte um plano por sugestão, dividido em partes pequenas, e me pergunte o que estiver ambíguo.',
+      ''
+    ];
+    list.forEach(function (s, i) {
+      lines.push('## ' + (i + 1) + '. ' + s.title + ' (prioridade ' + s.prio + ' · ' + prioName[s.prio] + '; sugestão ' + s.order + ' da análise de 12/10/2026)');
+      lines.push('Telas: ' + s.screens);
+      lines.push('Arquivos principais: ' + s.files);
+      lines.push('O que muda:');
+      s.changes.forEach(function (c) { lines.push('- ' + c); });
+      lines.push('Minha observação: ' + (s.obs || '(nenhuma)'));
+      lines.push('');
+    });
+    return lines.join('\n').trim() + '\n';
+  }
+
+  function say(text, isError) {
+    toast.textContent = text;
+    toast.className = isError ? 'toast err' : 'toast';
+  }
+
+  function fallbackCopy(text) {
+    var ta = document.createElement('textarea');
+    ta.value = text;
+    ta.setAttribute('readonly', '');
+    ta.style.position = 'fixed';
+    ta.style.top = '-1000px';
+    document.body.appendChild(ta);
+    ta.select();
+    var ok = false;
+    try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+    document.body.removeChild(ta);
+    return ok;
+  }
+
+  function openDialog(text) {
+    outText.value = text;
+    if (typeof dialog.showModal === 'function') dialog.showModal();
+    else dialog.setAttribute('open', '');
+    outText.focus();
+    outText.select();
+  }
+
+  function copy(text, onDone) {
+    if (navigator.clipboard && window.isSecureContext !== false) {
+      navigator.clipboard.writeText(text).then(function () { onDone(true); }, function () { onDone(fallbackCopy(text)); });
+    } else {
+      onDone(fallbackCopy(text));
+    }
+  }
+
+  document.getElementById('copy').addEventListener('click', function () {
+    var list = selected();
+    if (list.length === 0) { say('Marque ao menos uma sugestão.', true); return; }
+    var text = buildPrompt(list);
+    copy(text, function (ok) {
+      if (ok) say('Copiado: ' + list.length + (list.length === 1 ? ' sugestão.' : ' sugestões.'), false);
+      else { say('Não consegui copiar; o texto abriu para você copiar.', true); openDialog(text); }
+    });
+  });
+
+  document.getElementById('see').addEventListener('click', function () {
+    var list = selected();
+    if (list.length === 0) { say('Marque ao menos uma sugestão.', true); return; }
+    openDialog(buildPrompt(list));
+  });
+
+  document.getElementById('copy2').addEventListener('click', function () {
+    copy(outText.value, function (ok) {
+      say(ok ? 'Copiado.' : 'Selecione o texto e use Cmd+C.', !ok);
+      if (ok) dialog.close();
+    });
+  });
+
+  document.getElementById('close').addEventListener('click', function () { dialog.close(); });
+
+  update();
+})();
+</script>
+</body>
+</html>

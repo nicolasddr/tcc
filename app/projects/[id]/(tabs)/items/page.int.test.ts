@@ -159,11 +159,11 @@ describe('app/projects/[id]/items — a tela dos itens de entrada', () => {
       [],
     ])
     expect(itemUsageMark(props.items[0].rounds)).toEqual({
-      short: 'usado em 2 rodadas',
+      short: 'Usado em 2 rodadas',
       full: 'usado nas rodadas 1 (Fase 2) e 2 (Fase 3)',
     })
     expect(itemUsageMark(props.items[1].rounds)).toEqual({
-      short: 'usado em 1 rodada',
+      short: 'Usado em 1 rodada',
       full: 'usado na rodada 2 (Fase 3)',
     })
     expect(itemUsageMark(props.items[2].rounds)).toBeNull()
@@ -179,7 +179,7 @@ describe('app/projects/[id]/items — a tela dos itens de entrada', () => {
     expect(props.items).toEqual([])
 
     const html = renderToStaticMarkup(createElement(ItemsEditor, props))
-    expect(html).toContain('Upload de itens')
+    expect(html).toContain('Enviar itens')
     expect(html).toContain('Arraste um arquivo de texto aqui')
     expect(html).toContain('Escolher arquivo')
     expect(html).not.toContain('Importar arquivo')
@@ -201,7 +201,7 @@ describe('app/projects/[id]/items — a tela dos itens de entrada', () => {
     const tree = await render(project)
     const html = renderToStaticMarkup(createElement(ItemsEditor, itemsOf(tree)))
     expect(html).toContain('Importar arquivo')
-    expect(html).not.toContain('Upload de itens')
+    expect(html).not.toContain('Enviar itens')
     expect(html).not.toContain('Arraste um arquivo de texto aqui')
 
     const fileInputs = html.match(/<input[^>]*type="file"[^>]*>/g) ?? []

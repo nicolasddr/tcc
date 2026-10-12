@@ -397,7 +397,7 @@ export function ItemsEditor({
   return (
     <div className="flex flex-col gap-5">
       {empty ? (
-        <Panel title="Upload de itens">
+        <Panel title="Enviar itens">
           <div className="flex flex-col gap-3">
             <ItemDropZone reading={reading} onFiles={loadFiles} />
             {fileError}

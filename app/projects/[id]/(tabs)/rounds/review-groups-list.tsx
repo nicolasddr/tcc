@@ -25,7 +25,7 @@ import type { ReviewCell, ReviewGroup, ReviewNote } from './review-groups'
 
 export type DefinitionGroup = ReviewGroup<CodebookDefinition, CodebookCriterion>
 
-export const OUTLIER_NOTE_LABEL = 'outlier'
+export const OUTLIER_NOTE_LABEL = 'Outlier'
 
 export const MINUTES_LABEL = 'Ata da discussão'
 
@@ -242,7 +242,7 @@ function Cell({
           <span className="text-[13px] font-semibold text-ink">
             {cell.criterion.name}
           </span>
-          {cell.isGeneral ? <Badge tone="neutral">geral</Badge> : null}
+          {cell.isGeneral ? <Badge tone="neutral">Geral</Badge> : null}
           <span title={divergenceMeaning(cell.divergence)}>
             <Badge tone={divergenceTone(cell.divergence)}>
               {divergenceLabel(cell.divergence)}

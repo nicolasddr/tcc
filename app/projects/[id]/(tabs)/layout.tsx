@@ -3,7 +3,7 @@ import { and, eq } from 'drizzle-orm'
 import { requireUserId } from '@/lib/supabase/server'
 import { transaction, projects, projectMembers, projectInvitations } from '@/lib/db'
 import { taskTypeLabel } from '../../task-types'
-import { projectStatusLabel, roleLabel } from '../../labels'
+import { memberStatusLabel, projectStatusLabel, roleLabel } from '../../labels'
 import { ProjectTabs } from '../project-tabs'
 import { Badge, StatusBadge } from '@/app/components/ui/badge'
 import { PageShell, TopBar, BackLink, PageTitle } from '@/app/components/ui/shell'
@@ -93,7 +93,7 @@ export default async function ProjectTabsLayout({
             {projectStatusLabel(project.status)}
           </StatusBadge>
           {onboardingPending ? (
-            <Badge tone="warning">onboarding pendente</Badge>
+            <Badge tone="warning">{memberStatusLabel('pending_onboarding')}</Badge>
           ) : null}
         </div>
 

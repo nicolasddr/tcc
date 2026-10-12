@@ -362,7 +362,7 @@ describe('app/projects/[id]/rounds — o ciclo completo de uma rodada da Fase 4'
       const offered = before.items.find((item) => item.id === s.usedItem)!
       expect(offered.rounds).toEqual([{ roundNumber: 1, phase: PHASE_3 }])
       expect(itemUsageMark(offered.rounds)).toEqual({
-        short: 'usado em 1 rodada',
+        short: 'Usado em 1 rodada',
         full: 'usado na rodada 1 (Fase 3)',
       })
       expect(before.generated).toEqual([])

@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { PROJECT_PHASES } from '@/app/projects/[id]/phase-bar'
 import { Disclosure } from './ui/disclosure'
 import './process-overview.css'
 
@@ -127,7 +128,7 @@ function ProcessGuide() {
           <div className="phase-card phase-1">
             <div className="phase-card-head">
               <div className="phase-num-tag">Fase 1</div>
-              <div className="phase-card-name">Configuração Inicial</div>
+              <div className="phase-card-name">{PROJECT_PHASES[0].name}</div>
             </div>
             <div className="phase-card-body">
               <ul className="phase-acts">
@@ -147,7 +148,7 @@ function ProcessGuide() {
                 <div className="phase-num-tag" style={{ marginBottom: 0 }}>Fase 2</div>
                 <span className="loop-tag" style={{ marginTop: 0 }}>↺ iterativo</span>
               </div>
-              <div className="phase-card-name">Validação do Codebook</div>
+              <div className="phase-card-name">{PROJECT_PHASES[1].name}</div>
             </div>
             <div className="phase-card-body">
               <ul className="phase-acts">
@@ -172,7 +173,7 @@ function ProcessGuide() {
                 <div className="phase-num-tag" style={{ marginBottom: 0 }}>Fase 3</div>
                 <span className="loop-tag" style={{ marginTop: 0 }}>↺ iterativo</span>
               </div>
-              <div className="phase-card-name">Validação do Prompt</div>
+              <div className="phase-card-name">{PROJECT_PHASES[2].name}</div>
             </div>
             <div className="phase-card-body">
               <ul className="phase-acts">
@@ -190,7 +191,7 @@ function ProcessGuide() {
           <div className="phase-card phase-4">
             <div className="phase-card-head">
               <div className="phase-num-tag">Fase 4</div>
-              <div className="phase-card-name">Validação Final</div>
+              <div className="phase-card-name">{PROJECT_PHASES[3].name}</div>
             </div>
             <div className="phase-card-body">
               <ul className="phase-acts">

@@ -8,11 +8,11 @@ export function VersionBadges({
 }) {
   return (
     <span className="flex flex-wrap items-center gap-2">
-      {version.isLatest ? <Badge tone="accent">vigente</Badge> : null}
+      {version.isLatest ? <Badge tone="accent">Vigente</Badge> : null}
       {version.isOpen ? (
-        <Badge tone="info">em aberto</Badge>
+        <Badge tone="info">Em aberto</Badge>
       ) : (
-        <Badge tone="neutral">congelada</Badge>
+        <Badge tone="neutral">Congelada</Badge>
       )}
     </span>
   )

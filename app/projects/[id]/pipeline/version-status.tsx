@@ -27,7 +27,7 @@ export function VersionStatus({
         Versão {version.versionNumber}
       </span>
       <Badge tone={isOpen ? 'info' : 'neutral'}>
-        {isOpen ? 'em aberto' : 'congelada'}
+        {isOpen ? 'Em aberto' : 'Congelada'}
       </Badge>
       <InfoTooltip text={versionExplanation(version.versionNumber, isOpen)} />
     </div>

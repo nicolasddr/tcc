@@ -66,11 +66,11 @@ describe('app/projects/[id]/rounds/divergence — a divergência de uma célula'
   })
 
   it('cada estado tem rótulo próprio em português e tom de badge', () => {
-    expect(divergenceLabel('unrated')).toBe('sem nota')
+    expect(divergenceLabel('unrated')).toBe('Sem nota')
     expect(divergenceLabel('single')).toBe('1 nota')
-    expect(divergenceLabel('unanimous')).toBe('unânime')
-    expect(divergenceLabel('adjacent')).toBe('divergência adjacente')
-    expect(divergenceLabel('extreme')).toBe('divergência extrema')
+    expect(divergenceLabel('unanimous')).toBe('Unânime')
+    expect(divergenceLabel('adjacent')).toBe('Divergência adjacente')
+    expect(divergenceLabel('extreme')).toBe('Divergência extrema')
 
     expect(STATES.map(divergenceTone)).toEqual([
       'neutral',

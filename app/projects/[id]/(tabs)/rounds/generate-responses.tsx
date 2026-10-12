@@ -132,7 +132,7 @@ export function GenerateResponses({
                   {item.name}
                 </span>
                 {used ? (
-                  <Badge tone="info">já respondido nesta rodada</Badge>
+                  <Badge tone="info">Já respondido nesta rodada</Badge>
                 ) : usage ? (
                   <RoundMarkBadge mark={usage} />
                 ) : null}

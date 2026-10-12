@@ -120,7 +120,7 @@ export function PromptEditor({
           </span>
           {version ? (
             <Badge tone={isOpen ? 'info' : 'neutral'}>
-              {isOpen ? 'em aberto' : 'congelada'}
+              {isOpen ? 'Em aberto' : 'Congelada'}
             </Badge>
           ) : null}
           <InfoTooltip

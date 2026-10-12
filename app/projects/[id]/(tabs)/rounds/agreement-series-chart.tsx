@@ -24,7 +24,7 @@ const SLOT_MAX_PX = 120
 
 const OUTLIER_MARK_HEIGHT = 2
 
-const OUTLIER_MARK_LABEL = 'com exclusão'
+const OUTLIER_MARK_LABEL = 'Com exclusão'
 
 const OUTLIER_MARK_TITLE =
   'Nesta rodada há avaliador marcado como outlier. A coluna continua sendo o valor ' +
@@ -196,7 +196,7 @@ export function AgreementSeriesChart({ points }: { points: SeriesPoint[] }) {
                         fechada em {formatDate(point.closedAt)}
                       </span>
                     ) : (
-                      <Badge tone="info">aberta</Badge>
+                      <Badge tone="info">Aberta</Badge>
                     )}
                     {point.hasOutlier ? (
                       <span title={OUTLIER_MARK_TITLE}>

@@ -8,7 +8,7 @@ function participationOf(entries: [string, RoundTag[]][]): Map<string, RoundTag[
 
 describe('participationBefore', () => {
   it('a marca curta é a mesma para todos, porque a rodada em foco é sempre a mais nova', () => {
-    expect(PARTICIPATED_BEFORE).toBe('já avaliou antes')
+    expect(PARTICIPATED_BEFORE).toBe('Já avaliou antes')
   })
 
   it('só as rodadas de número menor que a do painel entram', () => {

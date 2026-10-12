@@ -37,7 +37,7 @@ export default async function Home() {
         </div>
 
         <ProcessOverview
-          createAction={<LoginButton fullWidth>Criar Novo Projeto</LoginButton>}
+          createAction={<LoginButton fullWidth>+ Novo projeto</LoginButton>}
         />
       </main>
 

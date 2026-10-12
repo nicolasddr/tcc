@@ -49,7 +49,7 @@ function Evaluator({
       <Card padding="sm" tone={mark ? 'accent' : 'default'}>
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
           <span className="text-[13px] font-semibold text-ink">{evaluator.name}</span>
-          {mark ? <Badge tone="warning">outlier</Badge> : null}
+          {mark ? <Badge tone="warning">Outlier</Badge> : null}
           <span className="text-[12.5px] text-muted">
             {submittedLabel(evaluator.submitted)}
           </span>
@@ -97,7 +97,7 @@ function HistoryEntry({ mark }: { mark: OutlierMark }) {
             {mark.evaluatorName}
           </span>
           <Badge tone={mark.removedAt ? 'neutral' : 'warning'}>
-            {mark.removedAt ? 'marca removida' : 'marca ativa'}
+            {mark.removedAt ? 'Marca removida' : 'Marca ativa'}
           </Badge>
         </div>
 

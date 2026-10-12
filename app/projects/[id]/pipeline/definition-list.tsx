@@ -32,7 +32,7 @@ export function DefinitionList({
                 </span>
                 <span className="flex flex-wrap items-center gap-2">
                   {own.length === 0 && applicable.length > 0 ? (
-                    <Badge tone="warning">sem critério próprio</Badge>
+                    <Badge tone="warning">Sem critério próprio</Badge>
                   ) : null}
                   <Badge tone="accent">
                     {definitionTypeLabel(definition.type) ?? definition.type}
@@ -55,7 +55,7 @@ export function DefinitionList({
                           {criterion.name}
                         </span>
                         {isGeneral(criterion) ? (
-                          <Badge tone="info">geral</Badge>
+                          <Badge tone="info">Geral</Badge>
                         ) : null}
                       </span>
                       {criterion.description ? (

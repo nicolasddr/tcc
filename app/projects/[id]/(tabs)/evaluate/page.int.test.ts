@@ -439,7 +439,7 @@ describe('app/projects/[id]/evaluate — a tela do avaliador', () => {
       expect(html).not.toContain('aria-label="busca informação"')
       expect(html).not.toContain('aria-label="menciona de onde veio"')
       expect(html).not.toContain('aria-label="linha um')
-      expect(html).not.toContain('>geral<')
+      expect(html).not.toContain('>Geral<')
     }
   })
 

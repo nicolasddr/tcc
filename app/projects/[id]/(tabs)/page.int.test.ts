@@ -529,7 +529,7 @@ describe('app/projects/[id]/page — escopo de visibilidade', () => {
 
     const text = checklistTextOf(tree)
     expect(text).toContain('Para avançar para a Fase 2')
-    expect(text).toContain('faltam 2')
+    expect(text).toContain('Faltam 2')
     expect(text).toContain('Cadastrar uma definição')
     expect(text).toContain('Escrever o texto do prompt')
     expect(text).not.toContain('Cadastrar um item de entrada')
@@ -563,7 +563,7 @@ describe('app/projects/[id]/page — escopo de visibilidade', () => {
     const props = phase3Of(tree)!
 
     const text = phase3TextOf(tree)
-    expect(text).toContain('faltam 2')
+    expect(text).toContain('Faltam 2')
     expect(text).toContain('Fechar a rodada 2')
     expect(text).toContain(`Fechar ao menos uma rodada da Fase ${PHASE_3}`)
     expect(text).toContain('Codebook e prompt iguais aos da rodada de referência')
@@ -1165,7 +1165,7 @@ describe('app/projects/[id]/page — escopo de visibilidade', () => {
 
     const text = phase3TextOf(tree)
     expect(text).toContain('Codebook e prompt iguais aos da rodada de referência pronto')
-    expect(text).toContain('tudo pronto')
+    expect(text).toContain('Tudo pronto')
     expect(text).not.toContain('Ir para')
     expect(text).not.toContain('Depende da rodada de referência')
     expect(text).toContain(
@@ -1213,7 +1213,7 @@ describe('app/projects/[id]/page — escopo de visibilidade', () => {
       expect(text).toContain(
         phase3BlockerMessage({ key: 'versions_changed', referenceRound: 2, changes }),
       )
-      expect(text).toContain('falta 1')
+      expect(text).toContain('Falta 1')
       expect(text).toContain(`Abrir e fechar mais uma rodada da Fase ${PHASE_3}`)
       expect(text.match(/Ir para Rodadas/g)).toHaveLength(1)
     },
@@ -1236,7 +1236,7 @@ describe('app/projects/[id]/page — escopo de visibilidade', () => {
       `Depende da rodada de referência, a última rodada fechada da Fase ${PHASE_3}, que ainda não existe.`,
     )
     expect(text).not.toContain('Codebook e prompt iguais aos da rodada de referência pronto')
-    expect(text).toContain('falta 1')
+    expect(text).toContain('Falta 1')
     expect(text).toContain('Falta 1 pendência')
     expect(text.match(/Ir para Rodadas/g)).toHaveLength(1)
   })
@@ -1614,7 +1614,7 @@ describe('app/projects/[id]/page — escopo de visibilidade', () => {
     expect(text).toContain('Prompt v2')
     expect(text).toContain('Alto 62,5% (5) · Médio 25% (2) · Baixo 12,5% (1)')
     expect(text).toContain('Alto 0% (0) · Médio 25% (1) · Baixo 75% (3)')
-    expect(text).toContain('aberta')
+    expect(text).toContain('Aberta')
     expect(text).not.toContain(AGREEMENT_ALL_LABEL)
     expect(text).not.toContain('média')
     expect(text).toContain(QUALITY_SERIES_NOTE)

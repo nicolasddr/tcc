@@ -43,10 +43,10 @@ function roundCount(rounds: readonly RoundTag[]): string {
 
 export function itemUsageMark(rounds: readonly RoundTag[]): RoundMark | null {
   const full = itemUsageLabel(rounds)
-  return full ? { short: `usado em ${roundCount(rounds)}`, full } : null
+  return full ? { short: `Usado em ${roundCount(rounds)}`, full } : null
 }
 
 export function participationMark(rounds: readonly RoundTag[]): RoundMark | null {
   const full = participationLabel(rounds)
-  return full ? { short: `avaliou em ${roundCount(rounds)}`, full } : null
+  return full ? { short: `Avaliou em ${roundCount(rounds)}`, full } : null
 }

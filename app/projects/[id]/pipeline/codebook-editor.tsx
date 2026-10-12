@@ -554,7 +554,7 @@ function CodebookFields({
                     badges={
                       <>
                         {inPhase2 && own === 0 && applicable > 0 ? (
-                          <Badge tone="warning">sem critério próprio</Badge>
+                          <Badge tone="warning">Sem critério próprio</Badge>
                         ) : null}
                         {typeLabel ? <Badge tone="accent">{typeLabel}</Badge> : null}
                       </>

@@ -22,7 +22,7 @@ function SideHeading({ round, isReference }: { round: ComparedRound; isReference
       <span className="flex flex-col items-end gap-0.5">
         <span className="flex items-center gap-1.5 font-semibold whitespace-nowrap text-ink">
           {`Rodada ${round.roundNumber}`}
-          {isOpen(round) ? <Badge tone="info">aberta</Badge> : null}
+          {isOpen(round) ? <Badge tone="info">Aberta</Badge> : null}
         </span>
         <span className="text-xs whitespace-nowrap text-muted">
           {comparedPhase(round, isReference)}

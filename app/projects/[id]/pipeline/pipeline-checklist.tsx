@@ -39,10 +39,10 @@ export function PipelineChecklist({
         phase !== PHASE_1 ? (
           <Badge tone="success">Fase 1 concluída</Badge>
         ) : pending.length === 0 ? (
-          <Badge tone="success">tudo pronto</Badge>
+          <Badge tone="success">Tudo pronto</Badge>
         ) : (
           <Badge tone="warning">
-            {pending.length === 1 ? 'falta 1' : `faltam ${pending.length}`}
+            {pending.length === 1 ? 'Falta 1' : `Faltam ${pending.length}`}
           </Badge>
         )
       }

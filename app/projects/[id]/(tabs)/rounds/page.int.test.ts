@@ -743,9 +743,9 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
 
     const text = markupTextOf(createElement(RoundList, list))
     expect(text).toContain('Rodada 1')
-    expect(text).toContain('fechada')
+    expect(text).toContain('Fechada')
     expect(text).toContain('Rodada 2')
-    expect(text).toContain('aberta')
+    expect(text).toContain('Aberta')
     expect(text).toContain('Codebook v1')
     expect(text).toContain('Prompt v1')
     expect(text).toContain(formatDate(list.rounds[1].createdAt))
@@ -1178,7 +1178,7 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     expect(card.round.id).toBe(round)
     const element = createElement(OpenRoundCard, card)
     const visible = visibleTextOf(element)
-    expect(visible).toContain(`Rodada 1 aberta Fase ${PHASE_2}`)
+    expect(visible).toContain(`Rodada 1 Aberta Fase ${PHASE_2}`)
     expect(visible).toContain(
       `Codebook v1 · Prompt v1 · aberta em ${formatDate(card.round.createdAt)}`,
     )
@@ -1319,7 +1319,7 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
       [],
     ])
     expect(itemUsageMark(props.items[0].rounds)).toEqual({
-      short: 'usado em 2 rodadas',
+      short: 'Usado em 2 rodadas',
       full: 'usado nas rodadas 1 e 2 (Fase 2)',
     })
     expect(itemUsageMark(props.items[1].rounds)).toBeNull()
@@ -1356,7 +1356,7 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     expect(text).toContain('Concordância (ICR)')
     expect(text).toContain('1,000')
     expect(text).toContain('3 unidades · 2 avaliadores')
-    expect(text).toContain('boa')
+    expect(text).toContain('Boa')
     expect(text).toContain(AGREEMENT_SOURCE)
     expect(text).toContain('não trava')
 
@@ -1580,7 +1580,7 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
       ['Ana', 'active'],
       ['Bruno', 'inactive'],
     ])
-    expect(cardTextOf(tree)).toContain('desativado')
+    expect(cardTextOf(tree)).toContain('Desativado')
   })
 
   it('a lista de rodadas traz o coeficiente ao lado das versões que ele mede', async () => {
@@ -1615,7 +1615,7 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
 
     const text = markupTextOf(value!)
     expect(text).toContain('Concordância (ICR): 1,000')
-    expect(text).toContain('boa')
+    expect(text).toContain('Boa')
     expect(text).toContain('2 unidades · 2 avaliadores')
   })
 

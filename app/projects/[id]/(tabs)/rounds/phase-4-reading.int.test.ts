@@ -493,7 +493,7 @@ describe('app/projects/[id]/rounds — a rodada da Fase 4 ao lado da rodada de r
     expect(comparison.round.closedAt).toBeNull()
 
     const [heading] = tableOf(tree)
-    expect(heading[2]).toBe('Rodada 2 aberta Fase 4')
+    expect(heading[2]).toBe('Rodada 2 Aberta Fase 4')
   })
 
   it('os dois lados trazem ICR e Qualidade com os mesmos números da lista de rodadas', async () => {
@@ -870,8 +870,8 @@ describe('app/projects/[id]/rounds — a rodada da Fase 4 ao lado da rodada de r
 
     const element = createElement(AgreementPanel, panelOf(tree))
     const text = markupTextOf(element)
-    expect(text).toContain('Ana já avaliou antes')
-    expect(text).toContain('Bruno já avaliou antes')
+    expect(text).toContain('Ana Já avaliou antes')
+    expect(text).toContain('Bruno Já avaliou antes')
     expect(text).not.toContain('Carla já avaliou')
     expect(text).not.toContain('rodada 2')
 
@@ -896,8 +896,8 @@ describe('app/projects/[id]/rounds — a rodada da Fase 4 ao lado da rodada de r
     expect(panelOf(tree).participation).toBeUndefined()
 
     const text = markupTextOf(createElement(OpenRoundCard, cardOf(tree)))
-    expect(text).toContain('Ana já avaliou antes')
-    expect(text).toContain('Bruno já avaliou antes')
+    expect(text).toContain('Ana Já avaliou antes')
+    expect(text).toContain('Bruno Já avaliou antes')
   })
 
   it('depois de um retorno e de um novo avanço, a marca lista todas as rodadas anteriores', async () => {

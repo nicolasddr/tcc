@@ -58,7 +58,7 @@ export function OpenRoundCard({
       <div className="flex flex-col gap-1.5">
         <h2 className="m-0 flex flex-wrap items-center gap-2 text-[16px] font-bold text-ink">
           Rodada {round.roundNumber}
-          <Badge tone="info">aberta</Badge>
+          <Badge tone="info">Aberta</Badge>
           <Chip>Fase {round.phase}</Chip>
           <InfoTooltip text={openRoundHelp(round)} />
         </h2>

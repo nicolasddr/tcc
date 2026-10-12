@@ -88,11 +88,11 @@ export function agreementBand(alpha: number): AgreementBand {
 export function bandLabel(band: AgreementBand): string {
   switch (band) {
     case 'good':
-      return 'boa'
+      return 'Boa'
     case 'acceptable':
-      return 'aceitável'
+      return 'Aceitável'
     case 'questionable':
-      return 'questionável'
+      return 'Questionável'
   }
 }
 

@@ -263,9 +263,9 @@ describe('app/projects/[id]/page — painel para voltar da Fase 4 para a Fase 3'
 
     const text = panelTextOf(tree)
     expect(text).toContain('Para voltar à Fase 3')
-    expect(text).toContain('liberado')
+    expect(text).toContain('Liberado')
     expect(text).toContain('Nenhuma rodada aberta')
-    expect(text).toContain('pronto')
+    expect(text).toContain('Pronto')
     expect(text).toContain('Voltar à Fase 3')
   })
 

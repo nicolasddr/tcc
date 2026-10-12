@@ -37,7 +37,7 @@ export function Phase4Return({
         blocker ? (
           <Badge tone="warning">1 pendência</Badge>
         ) : (
-          <Badge tone="neutral">liberado</Badge>
+          <Badge tone="neutral">Liberado</Badge>
         )
       }
     >
@@ -72,7 +72,7 @@ export function Phase4Return({
                 Resolver
               </Link>
             ) : (
-              <Badge tone="success">pronto</Badge>
+              <Badge tone="success">Pronto</Badge>
             )}
           </Card>
         </li>

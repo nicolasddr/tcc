@@ -13,7 +13,7 @@ import {
   SlidersIcon,
 } from '@/app/components/ui/icons'
 
-const soon = 'Ainda não implementado'
+const roundsLocked = 'Disponível para avaliadores ativos que concluíram o onboarding'
 
 export type ProjectTab =
   | 'overview'
@@ -107,7 +107,7 @@ export function ProjectTabs({
           Rodadas
         </Tab>
       ) : (
-        <Tab icon={<RepeatIcon />} hint={soon}>
+        <Tab icon={<RepeatIcon />} hint={roundsLocked}>
           Rodadas
         </Tab>
       )}

@@ -53,9 +53,9 @@ describe('app/projects/[id]/rounds/agreement-labels — o coeficiente na tela', 
   })
 
   it('cada faixa tem rótulo em português e tom de badge próprio', () => {
-    expect(bandLabel('questionable')).toBe('questionável')
-    expect(bandLabel('acceptable')).toBe('aceitável')
-    expect(bandLabel('good')).toBe('boa')
+    expect(bandLabel('questionable')).toBe('Questionável')
+    expect(bandLabel('acceptable')).toBe('Aceitável')
+    expect(bandLabel('good')).toBe('Boa')
 
     expect(bandTone('questionable')).toBe('danger')
     expect(bandTone('acceptable')).toBe('warning')
