@@ -25,7 +25,7 @@ import { loadEvaluationContext, type EvaluationContext } from './context'
 import { buildQueue, neighbours, pickResponseId } from './queue'
 import { PROGRESS_HELP, progressMessage, type Progress } from './progress'
 import { waitingMessage, waitingState, type WaitingState } from './waiting'
-import { ContextPanel } from './context-panel'
+import { ItemPanel, PromptPanel } from './context-panel'
 import { EvaluationForm } from './evaluation-form'
 import { QueueNav } from '@/app/components/ui/queue-nav'
 import { Alert } from '@/app/components/ui/alert'
@@ -176,13 +176,10 @@ export default async function ProjectEvaluatePage({
       ) : (
         <div className="flex flex-col gap-5">
           <div className="flex flex-col gap-2">
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-              <span className="text-[13px] font-semibold text-ink">{label}</span>
-              <span className="flex items-center gap-1.5 text-[13px] text-muted">
-                {progressMessage(progress)}
-                <InfoTooltip text={PROGRESS_HELP} />
-              </span>
-            </div>
+            <span className="flex items-center gap-1.5 text-[13px] text-muted">
+              {progressMessage(progress)}
+              <InfoTooltip text={PROGRESS_HELP} />
+            </span>
 
             <ProgressBar value={progress.evaluated} max={progress.total} />
 
@@ -201,9 +198,11 @@ export default async function ProjectEvaluatePage({
             key={response.id}
             projectId={id}
             response={response}
+            label={label}
             cells={cells}
             submitted={submitted}
-            context={context ? <ContextPanel context={context} /> : null}
+            item={context ? <ItemPanel item={context.item} /> : null}
+            context={context ? <PromptPanel prompt={context.prompt} /> : null}
           />
         </div>
       )}

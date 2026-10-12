@@ -4,7 +4,7 @@ Sugestão 3 da análise de 12/10 (`referencia-visual.html#s3`). Independe dos ou
 
 | Parte | Entrega | Commit sugerido | Estado |
 |---|---|---|---|
-| 1 | Item de entrada aberto acima da resposta, resposta rotulada e o prompt recolhido em "Ver o prompt (versão N)" | `feat(avaliar): item de entrada à vista acima da resposta` | |
+| 1 | Item de entrada aberto acima da resposta, resposta rotulada e o prompt recolhido em "Ver o prompt (versão N)" | `feat(avaliar): item de entrada à vista acima da resposta` | ✅ |
 
 ## Contexto
 

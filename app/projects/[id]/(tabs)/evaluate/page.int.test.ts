@@ -21,7 +21,7 @@ vi.mock('next/navigation', () => ({
 
 import ProjectEvaluatePage from '@/app/projects/[id]/(tabs)/evaluate/page'
 import { EvaluationForm } from '@/app/projects/[id]/(tabs)/evaluate/evaluation-form'
-import { ContextPanel } from '@/app/projects/[id]/(tabs)/evaluate/context-panel'
+import { ItemPanel, PromptPanel } from '@/app/projects/[id]/(tabs)/evaluate/context-panel'
 import { QueueNav } from '@/app/components/ui/queue-nav'
 import {
   AgreementPanel,
@@ -110,7 +110,9 @@ function hasProp(node: unknown, key: string, value: unknown): boolean {
 
 type FormProps = Parameters<typeof EvaluationForm>[0]
 
-type PanelProps = Parameters<typeof ContextPanel>[0]
+type PanelProps = Parameters<typeof PromptPanel>[0]
+
+type ItemProps = Parameters<typeof ItemPanel>[0]
 
 function render(id: string, response?: string, sent?: boolean) {
   return ProjectEvaluatePage({
@@ -141,13 +143,19 @@ function headingOf(tree: unknown): string {
 }
 
 function panelOf(tree: unknown): PanelProps {
-  const element = findElement(tree, ContextPanel)
+  const element = findElement(tree, PromptPanel)
   expect(element).toBeTruthy()
   return element!.props as PanelProps
 }
 
 function panelMarkupOf(tree: unknown): string {
-  return renderToStaticMarkup(createElement(ContextPanel, panelOf(tree)))
+  return renderToStaticMarkup(createElement(PromptPanel, panelOf(tree)))
+}
+
+function itemMarkupOf(tree: unknown): string {
+  const element = findElement(tree, ItemPanel)
+  expect(element).toBeTruthy()
+  return renderToStaticMarkup(createElement(ItemPanel, element!.props as ItemProps))
 }
 
 async function open(id: string, response?: string) {
@@ -167,6 +175,7 @@ function screenTextOf(tree: unknown): string {
     renderToStaticMarkup(createElement(Fragment, null, tree as ReactElement)),
     markupOf(formOf(tree)),
     panelMarkupOf(tree),
+    itemMarkupOf(tree),
   ]
     .join(' ')
     .replace(/<[^>]*>/g, ' ')
@@ -560,10 +569,10 @@ describe('app/projects/[id]/evaluate — a tela do avaliador', () => {
     const third = scene.responses[2]
 
     auth.userId = mine
-    expect(textOf(await open(scene.project, third))).toContain('Resposta 3')
+    expect(formOf(await open(scene.project, third)).label).toBe('Resposta 3')
 
     auth.userId = theirs
-    expect(textOf(await open(scene.project, third))).toContain('Resposta 3')
+    expect(formOf(await open(scene.project, third)).label).toBe('Resposta 3')
   })
 
   it('voltar pelo controle a uma resposta já enviada mostra o modo leitura', async () => {
@@ -652,7 +661,7 @@ describe('app/projects/[id]/evaluate — a tela do avaliador', () => {
     expect(url).not.toContain('sent')
   })
 
-  it('o painel de contexto traz o prompt e o item que geraram a resposta', async () => {
+  it('o painel do prompt traz o prompt recolhido em "Ver o prompt (versão N)", sem o item', async () => {
     const admin = await newUser('Admin')
     const scene = await scenario(admin, {
       prompt: { text: 'Classifique a intenção de busca.' },
@@ -664,11 +673,31 @@ describe('app/projects/[id]/evaluate — a tela do avaliador', () => {
     const tree = await open(scene.project)
     const html = panelMarkupOf(tree)
 
-    expect(html).toContain('O que foi pedido')
+    expect(html).toMatch(/<summary[^>]*>.*Ver o prompt \(versão 1\)<\/summary>/)
     expect(html).toContain('Classifique a inten')
-    expect(html).toContain('como plantar manjeric')
-    expect(html).toContain('Consulta do usu')
-    expect(html).toContain('versão 1')
+    expect(html).not.toContain('O que foi pedido')
+    expect(html).not.toContain('como plantar manjeric')
+    expect(html).not.toContain('Consulta do usu')
+    expect(html).not.toContain('Item de entrada')
+  })
+
+  it('o item de entrada fica aberto, fora de <details>, com o rótulo "Item de entrada · nome"', async () => {
+    const admin = await newUser('Admin')
+    const scene = await scenario(admin, {
+      item: { name: 'como plantar manjericão', content: 'Linha um\nLinha dois' },
+    })
+    const evaluator = await newEvaluator(scene.project)
+
+    auth.userId = evaluator
+    const tree = await open(scene.project)
+    const html = itemMarkupOf(tree)
+
+    expect(html).toContain('Item de entrada · como plantar manjericão')
+    expect(html).not.toContain('<details')
+    expect(html).toMatch(
+      /class="[^"]*max-h-\[40vh\][^"]*whitespace-pre-wrap[^"]*"[^>]*>Linha um\nLinha dois</,
+    )
+    expect(markupOf(formOf(tree)).split('como plantar manjericão').length - 1).toBe(1)
   })
 
   it('o nome e a descrição do prompt aparecem quando preenchidos e somem quando nulos', async () => {
@@ -698,15 +727,37 @@ describe('app/projects/[id]/evaluate — a tela do avaliador', () => {
     auth.userId = evaluator
     const tree = await open(scene.project)
 
-    expect(findElement(formOf(tree).context, ContextPanel)).toBeTruthy()
+    expect(findElement(formOf(tree).context, PromptPanel)).toBeTruthy()
+    expect(findElement(formOf(tree).item, ItemPanel)).toBeTruthy()
 
     const html = markupOf(formOf(tree))
     const form = html.slice(html.indexOf('<form'), html.indexOf('</form>'))
-    expect(html).toContain('O que foi pedido')
+    expect(html).toContain('Ver o prompt')
+    expect(html).toContain('Item de entrada')
     expect(form).toContain('Enviar avalia')
-    expect(form).not.toContain('O que foi pedido')
+    expect(form).not.toContain('Ver o prompt')
+    expect(form).not.toContain('Item de entrada')
     expect(panelMarkupOf(tree)).toContain('<details')
     expect(panelMarkupOf(tree)).not.toContain('open=""')
+  })
+
+  it('a coluna da esquerda empilha item, resposta e prompt, na mesma ordem em toda largura', async () => {
+    const admin = await newUser('Admin')
+    const scene = await scenario(admin)
+    const evaluator = await newEvaluator(scene.project)
+
+    auth.userId = evaluator
+    const html = markupOf(formOf(await open(scene.project)))
+
+    const item = html.indexOf('Item de entrada')
+    const response = html.indexOf('Resposta da LLM')
+    const prompt = html.indexOf('Ver o prompt')
+    const form = html.indexOf('<form')
+    expect(item).toBeGreaterThan(-1)
+    expect(item).toBeLessThan(response)
+    expect(response).toBeLessThan(prompt)
+    expect(prompt).toBeLessThan(form)
+    expect(html).not.toContain('order-first')
   })
 
   it('o texto da resposta e o do prompt preservam a formatação', async () => {
@@ -749,25 +800,33 @@ describe('app/projects/[id]/evaluate — a tela do avaliador', () => {
     expect(findElement(sectionOf(tree).children, QueueNav)).toBeNull()
   })
 
-  it('o rótulo "Resposta N" aparece uma vez, na linha do progresso, também no modo leitura', async () => {
+  it('o rótulo "Resposta N" aparece uma vez, no cabeçalho da resposta, também no modo leitura', async () => {
     const admin = await newUser('Admin')
     const scene = await scenario(admin, { responseText: 'Texto da LLM.' })
     const evaluator = await newEvaluator(scene.project)
 
+    function occurrences(tree: unknown): number {
+      return renderToStaticMarkup(createElement(Fragment, null, tree as ReactElement)).split(
+        'Resposta 1',
+      ).length - 1
+    }
+
     auth.userId = evaluator
     const pending = await open(scene.project)
-    expect(textOf(pending)).toContain('Resposta 1')
+    expect(textOf(pending)).not.toContain('Resposta 1')
+    expect(markupOf(formOf(pending))).toContain('Resposta da LLM · Resposta 1')
     expect(markupOf(formOf(pending))).toContain('Texto da LLM.')
-    expect(markupOf(formOf(pending))).not.toContain('Resposta 1')
+    expect(occurrences(pending)).toBe(1)
 
     const member = await memberIdOf(ownerDb, scene.project, evaluator)
     await addEvaluation(ownerDb, scene.round, scene.responses[0], member)
 
     const reading = await open(scene.project, scene.responses[0])
     expect(formOf(reading).submitted).not.toBeNull()
-    expect(textOf(reading)).toContain('Resposta 1')
+    expect(textOf(reading)).not.toContain('Resposta 1')
+    expect(markupOf(formOf(reading))).toContain('Resposta da LLM · Resposta 1')
     expect(markupOf(formOf(reading))).toContain('Texto da LLM.')
-    expect(markupOf(formOf(reading))).not.toContain('Resposta 1')
+    expect(occurrences(reading)).toBe(1)
   })
 
   it('a rota escolhe a resposta pedida, e sem pedido abre a primeira ainda não avaliada', async () => {

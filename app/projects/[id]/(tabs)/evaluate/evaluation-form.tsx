@@ -104,11 +104,13 @@ function DefinitionSummary({
   )
 }
 
-function ResponseCard({ response }: { response: ResponseDetail }) {
+function ResponseCard({ response, label }: { response: ResponseDetail; label: string }) {
   return (
     <Card tone="subtle" padding="sm">
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-        <span className="text-[13px] text-muted">{response.itemName}</span>
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+        <span className="text-[13px] font-semibold text-label">
+          {`Resposta da LLM · ${label}`}
+        </span>
         <span className="text-[13px] text-muted">{formatDate(response.createdAt)}</span>
       </div>
       <p className={`m-0 mt-2 text-sm ${scrollBoxClass} ${preWrapClass} text-ink`}>
@@ -165,18 +167,23 @@ function Justification({
 
 function Columns({
   response,
+  label,
+  item,
   context,
   children,
 }: {
   response: ResponseDetail
+  label: string
+  item: React.ReactNode
   context: React.ReactNode
   children: React.ReactNode
 }) {
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
       <div className="flex min-w-0 flex-col gap-3 lg:sticky lg:top-4 lg:max-h-[calc(100dvh-2rem)] lg:self-start lg:overflow-y-auto">
-        <ResponseCard response={response} />
-        {context ? <div className="order-first lg:order-none">{context}</div> : null}
+        {item}
+        <ResponseCard response={response} label={label} />
+        {context}
       </div>
       <div className="min-w-0">{children}</div>
     </div>
@@ -186,14 +193,18 @@ function Columns({
 export function EvaluationForm({
   projectId,
   response,
+  label,
   cells,
   submitted,
+  item,
   context,
 }: {
   projectId: string
   response: ResponseDetail
+  label: string
   cells: Cell[]
   submitted: SubmittedEvaluation | null
+  item?: React.ReactNode
   context?: React.ReactNode
 }) {
   const [state, action, pending] = useActionState(submitEvaluation, initialState)
@@ -222,7 +233,7 @@ export function EvaluationForm({
 
   if (reading) {
     return (
-      <Columns response={response} context={context}>
+      <Columns response={response} label={label} item={item} context={context}>
         <div className="flex flex-col gap-4">
           {sent ? <Alert tone="success">Avaliação enviada.</Alert> : null}
 
@@ -275,7 +286,7 @@ export function EvaluationForm({
   const error = state !== null && 'error' in state ? state.error : null
 
   return (
-    <Columns response={response} context={context}>
+    <Columns response={response} label={label} item={item} context={context}>
       <Form action={action} gap="sm">
         <input type="hidden" name="project_id" value={projectId} />
         <input type="hidden" name="response_id" value={response.id} />

@@ -14,12 +14,21 @@ function Block({ label, children }: { label: string; children: React.ReactNode }
   )
 }
 
-export function ContextPanel({ context }: { context: EvaluationContext }) {
-  const { prompt, item } = context
+export function ItemPanel({ item }: { item: EvaluationContext['item'] }) {
+  return (
+    <Card tone="subtle" padding="sm" className="flex flex-col gap-2">
+      <span className="text-[13px] font-semibold text-label">
+        {`Item de entrada · ${item.name}`}
+      </span>
+      <p className={textClass}>{item.content}</p>
+    </Card>
+  )
+}
 
+export function PromptPanel({ prompt }: { prompt: EvaluationContext['prompt'] }) {
   return (
     <Card tone="subtle" padding="sm">
-      <Disclosure summary="O que foi pedido à LLM">
+      <Disclosure summary={`Ver o prompt (versão ${prompt.versionNumber})`}>
         <div className="mt-3 flex flex-col gap-3 border-t border-line pt-3">
           {prompt.name ? (
             <Block label="Nome do prompt">
@@ -37,10 +46,6 @@ export function ContextPanel({ context }: { context: EvaluationContext }) {
 
           <Block label={`Prompt · versão ${prompt.versionNumber}`}>
             <p className={textClass}>{prompt.text}</p>
-          </Block>
-
-          <Block label={`Item de entrada · ${item.name}`}>
-            <p className={textClass}>{item.content}</p>
           </Block>
         </div>
       </Disclosure>
