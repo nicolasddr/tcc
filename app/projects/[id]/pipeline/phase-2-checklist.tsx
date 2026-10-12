@@ -9,7 +9,7 @@ import {
   type Phase2Inputs,
 } from './preconditions'
 import { AdvancePhase } from './advance-phase'
-import { ChecklistItem, PhaseChecklist } from './checklist'
+import { PhaseChecklist, type ChecklistStep } from './checklist'
 import { LastRoundSummary, type LastClosedRound } from './last-round-summary'
 
 type Phase2Requirement = { key: Phase2Blocker['key']; title: string }
@@ -53,31 +53,22 @@ export function Phase2Checklist({
       className={className}
       title={`Para avançar para a Fase ${PHASE_3}`}
       badge={
-        phase !== PHASE_2 ? (
-          <Badge tone="success">Fase {PHASE_2} concluída</Badge>
-        ) : blockers.length === 0 ? (
-          <Badge tone="success">Tudo pronto</Badge>
-        ) : (
-          <Badge tone="warning">
-            {blockers.length === 1 ? 'Falta 1' : `Faltam ${blockers.length}`}
-          </Badge>
-        )
+        phase !== PHASE_2 ? <Badge tone="success">Fase {PHASE_2} concluída</Badge> : null
       }
-      items={PHASE_2_REQUIREMENTS.map((req) => {
+      active={phase === PHASE_2}
+      steps={PHASE_2_REQUIREMENTS.map((req): ChecklistStep => {
         const blocker = byKey.get(req.key)
 
-        return blocker ? (
-          <ChecklistItem
-            key={req.key}
-            status="pending"
-            label={phase2BlockerAction(blocker)}
-            help={phase2BlockerMessage(blocker)}
-            href={`/projects/${projectId}/rounds`}
-            destination="rounds"
-          />
-        ) : (
-          <ChecklistItem key={req.key} status="done" label={req.title} />
-        )
+        return blocker
+          ? {
+              key: req.key,
+              status: 'pending',
+              action: phase2BlockerAction(blocker),
+              why: phase2BlockerMessage(blocker),
+              href: `/projects/${projectId}/rounds`,
+              destination: 'rounds',
+            }
+          : { key: req.key, status: 'done', title: req.title }
       })}
     >
       {phase === PHASE_2 ? (

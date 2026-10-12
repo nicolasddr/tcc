@@ -9,7 +9,7 @@ import {
   type PipelineInputs,
 } from './preconditions'
 import { AdvancePhase } from './advance-phase'
-import { ChecklistItem, PhaseChecklist } from './checklist'
+import { PhaseChecklist } from './checklist'
 
 export function PipelineChecklist({
   projectId,
@@ -35,30 +35,19 @@ export function PipelineChecklist({
     <PhaseChecklist
       className={className}
       title="Para avançar para a Fase 2"
-      badge={
-        phase !== PHASE_1 ? (
-          <Badge tone="success">Fase 1 concluída</Badge>
-        ) : pending.length === 0 ? (
-          <Badge tone="success">Tudo pronto</Badge>
-        ) : (
-          <Badge tone="warning">
-            {pending.length === 1 ? 'Falta 1' : `Faltam ${pending.length}`}
-          </Badge>
-        )
-      }
-      items={PIPELINE_REQUIREMENTS.map((req) =>
-        pendingKeys.has(req.key) ? (
-          <ChecklistItem
-            key={req.key}
-            status="pending"
-            label={req.action}
-            help={req.pending}
-            href={`/projects/${projectId}/${req.route}`}
-            destination={req.route}
-          />
-        ) : (
-          <ChecklistItem key={req.key} status="done" label={req.title} />
-        ),
+      badge={phase !== PHASE_1 ? <Badge tone="success">Fase 1 concluída</Badge> : null}
+      active={phase === PHASE_1}
+      steps={PIPELINE_REQUIREMENTS.map((req) =>
+        pendingKeys.has(req.key)
+          ? {
+              key: req.key,
+              status: 'pending' as const,
+              action: req.action,
+              why: req.pending,
+              href: `/projects/${projectId}/${req.route}`,
+              destination: req.route,
+            }
+          : { key: req.key, status: 'done' as const, title: req.title },
       )}
     >
       {phase === PHASE_1 ? (

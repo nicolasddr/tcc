@@ -59,7 +59,7 @@ export function PhaseBar({
                   <span
                     className={cx(
                       'truncate text-[11px] font-semibold',
-                      isCurrent ? 'text-ink' : reached ? 'text-muted' : 'text-faint',
+                      isCurrent ? 'text-ink' : 'text-muted',
                     )}
                   >
                     {step}

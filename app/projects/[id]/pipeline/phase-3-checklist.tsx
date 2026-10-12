@@ -9,7 +9,7 @@ import {
   type Phase3Inputs,
 } from './preconditions'
 import { AdvancePhase } from './advance-phase'
-import { ChecklistItem, PhaseChecklist } from './checklist'
+import { PhaseChecklist, type ChecklistStep } from './checklist'
 import { LastRoundSummary, type LastClosedRound } from './last-round-summary'
 
 type Phase3Requirement = { key: Phase3Blocker['key']; title: string }
@@ -60,42 +60,32 @@ export function Phase3Checklist({
       className={className}
       title={`Para avançar para a Fase ${PHASE_4}`}
       badge={
-        phase !== PHASE_3 ? (
-          <Badge tone="success">Fase {PHASE_3} concluída</Badge>
-        ) : blockers.length === 0 ? (
-          <Badge tone="success">Tudo pronto</Badge>
-        ) : (
-          <Badge tone="warning">
-            {blockers.length === 1 ? 'Falta 1' : `Faltam ${blockers.length}`}
-          </Badge>
-        )
+        phase !== PHASE_3 ? <Badge tone="success">Fase {PHASE_3} concluída</Badge> : null
       }
-      items={PHASE_3_REQUIREMENTS.map((req) => {
+      active={phase === PHASE_3}
+      steps={PHASE_3_REQUIREMENTS.map((req): ChecklistStep => {
         const blocker = byKey.get(req.key)
 
         if (blocker) {
-          return (
-            <ChecklistItem
-              key={req.key}
-              status="pending"
-              label={phase3BlockerAction(blocker)}
-              help={phase3BlockerMessage(blocker)}
-              href={`/projects/${projectId}/rounds`}
-              destination="rounds"
-            />
-          )
+          return {
+            key: req.key,
+            status: 'pending',
+            action: phase3BlockerAction(blocker),
+            why: phase3BlockerMessage(blocker),
+            href: `/projects/${projectId}/rounds`,
+            destination: 'rounds',
+          }
         }
 
-        return req.key === 'versions_changed' && inputs.versions === null ? (
-          <ChecklistItem
-            key={req.key}
-            status="waiting"
-            label={req.title}
-            help={NO_REFERENCE_ROUND}
-          />
-        ) : (
-          <ChecklistItem key={req.key} status="done" label={req.title} />
-        )
+        return req.key === 'versions_changed' && inputs.versions === null
+          ? {
+              key: req.key,
+              status: 'waiting',
+              title: req.title,
+              note: 'aguardando a rodada de referência',
+              help: NO_REFERENCE_ROUND,
+            }
+          : { key: req.key, status: 'done', title: req.title }
       })}
     >
       {phase === PHASE_3 ? (

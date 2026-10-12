@@ -52,54 +52,61 @@ export function AdvancePhase({
     <div className="mt-4 flex flex-col gap-3">
       {error ? <Alert tone="error">{error}</Alert> : null}
 
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-        <Button
-          onClick={() => dialog.current?.showModal()}
-          disabled={blocked}
-          loading={isPending}
-          loadingText="Avançando…"
-        >
-          Avançar para a Fase {target}
-          <ArrowRightIcon />
-        </Button>
+      {blocked ? (
+        <p className="m-0 text-[13px] leading-[1.6] text-muted">
+          {`${hint} “Avançar para a Fase ${target}” aparece aqui quando tudo estiver pronto.`}
+        </p>
+      ) : (
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+          <Button
+            onClick={() => dialog.current?.showModal()}
+            loading={isPending}
+            loadingText="Avançando…"
+          >
+            Avançar para a Fase {target}
+            <ArrowRightIcon />
+          </Button>
 
-        <span className="text-[13px] text-muted">{hint}</span>
-      </div>
-
-      <dialog ref={dialog} className={dialogClass} aria-labelledby={titleId}>
-        <div className="flex flex-col gap-4 p-5">
-          <h3 id={titleId} className="m-0 text-[15px] font-bold text-ink">
-            Avançar para a Fase {target} — {targetName}?
-          </h3>
-
-          {summary}
-
-          <div className="flex flex-col gap-2 text-[13px] leading-[1.6] text-muted">
-            {lines.map((line) => (
-              <p key={line} className="m-0">
-                {line}
-              </p>
-            ))}
-          </div>
-
-          <div className="flex flex-wrap items-center justify-end gap-3">
-            <Button
-              variant="secondary"
-              onClick={() => dialog.current?.close()}
-              disabled={isPending}
-            >
-              Cancelar
-            </Button>
-
-            <form action={action}>
-              <input type="hidden" name="project_id" value={projectId} />
-              <Button type="submit" loading={isPending} loadingText="Avançando…">
-                Confirmar avanço
-              </Button>
-            </form>
-          </div>
+          <span className="text-[13px] text-muted">{hint}</span>
         </div>
-      </dialog>
+      )}
+
+      {blocked ? null : (
+        <dialog ref={dialog} className={dialogClass} aria-labelledby={titleId}>
+          <div className="flex flex-col gap-4 p-5">
+            <h3 id={titleId} className="m-0 text-[15px] font-bold text-ink">
+              Avançar para a Fase {target} — {targetName}?
+            </h3>
+
+            {summary}
+
+            <div className="flex flex-col gap-2 text-[13px] leading-[1.6] text-muted">
+              {lines.map((line) => (
+                <p key={line} className="m-0">
+                  {line}
+                </p>
+              ))}
+            </div>
+
+            <div className="flex flex-wrap items-center justify-end gap-3">
+              <Button
+                variant="secondary"
+                onClick={() => dialog.current?.close()}
+                disabled={isPending}
+              >
+                Cancelar
+              </Button>
+
+              <form action={action}>
+                <input type="hidden" name="project_id" value={projectId} />
+                <Button type="submit" loading={isPending} loadingText="Avançando…">
+                  Confirmar avanço
+                </Button>
+              </form>
+            </div>
+          </div>
+        </dialog>
+      )}
     </div>
   )
 }
