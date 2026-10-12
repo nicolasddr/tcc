@@ -81,6 +81,7 @@ describe('app/projects/[id]/rounds/agreement-labels — o coeficiente na tela', 
     expect(BAND_REFERENCE).toContain('0,667')
     expect(BAND_REFERENCE).toContain('0,8')
     expect(BAND_REFERENCE).toContain('não trava')
+    expect(wordsOf(BAND_REFERENCE)).toBeLessThanOrEqual(25)
   })
 
   it('o rótulo curto da faixa é o começo da frase inteira', () => {
@@ -174,6 +175,8 @@ describe('app/projects/[id]/rounds/agreement-labels — o coeficiente na tela', 
     expect(SMALL_SAMPLE_HELP).toContain('convenção desta ferramenta')
     expect(SMALL_SAMPLE_HELP).toContain('continua valendo')
     expect(SMALL_SAMPLE_HELP).not.toContain(AGREEMENT_SOURCE)
+    expect(SMALL_SAMPLE_HELP).toContain('não da literatura')
+    expect(wordsOf(SMALL_SAMPLE_HELP)).toBeLessThanOrEqual(25)
   })
 
   it('cada motivo de não calculável tem o seu texto, e nenhum promete zero ou um', () => {

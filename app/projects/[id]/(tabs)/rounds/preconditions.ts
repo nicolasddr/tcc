@@ -101,7 +101,34 @@ export function roundBlockerSummary(blocker: RoundBlocker): string {
     case 'no_reference_round':
       return `Nenhuma rodada da Fase ${PHASE_3} foi fechada, e a Fase ${PHASE_4} só testa o que a Fase ${PHASE_3} avaliou.`
     case 'versions_changed':
-      return `${versionChangesSubject(blocker.changes)} depois da rodada de referência, a rodada ${blocker.referenceRound}.`
+      return `${versionChangesSubject(blocker.changes)} depois da rodada de referência, a rodada ${blocker.referenceRound}: ${versionChangesNumbers(blocker.changes)}.`
+  }
+}
+
+export function roundBlockerHelp(blocker: RoundBlocker): string {
+  switch (blocker.key) {
+    case 'phase':
+      return 'Avance a fase para poder abrir a primeira rodada.'
+    case 'open_round':
+      return 'Só existe uma rodada aberta por projeto. Feche-a para abrir a próxima.'
+    case 'definition':
+      return (
+        'Sem definição, não haveria o que avaliar na rodada. Crie ao menos uma, com ao ' +
+        'menos um critério, antes de abrir.'
+      )
+    case 'criteria':
+      return blocker.titles.length === 1
+        ? 'Sem critério, o avaliador não teria régua para julgá-la. Crie um nela, ou um critério geral que valha para todas as definições.'
+        : `Faltam critérios em ${quotedList(blocker.titles)}, e o avaliador não teria régua. Crie um em cada uma, ou um critério geral para todas.`
+    case 'prompt':
+      return 'Escreva o texto do prompt antes de abrir a rodada.'
+    case 'no_reference_round':
+      return `Volte à Fase ${PHASE_3}, abra e feche uma rodada e avance de novo.`
+    case 'versions_changed':
+      return (
+        `Seria testar uma versão que nenhum avaliador aplicou na Fase ${PHASE_3}. Volte a ` +
+        'ela, abra e feche uma rodada com as versões vigentes e avance.'
+      )
   }
 }
 
@@ -148,6 +175,12 @@ export function roundBlockerMessage(blocker: RoundBlocker): string {
         'com as versões vigentes e avance de novo.'
       )
   }
+}
+
+function versionChangesNumbers(changes: readonly VersionChange[]): string {
+  return changes
+    .map((change) => `${change.subject} v${change.reference} → v${change.current}`)
+    .join(', ')
 }
 
 function versionChangesSubject(changes: readonly VersionChange[]): string {
@@ -305,9 +338,15 @@ export function responsesLeftMessage(left: number, max: number): string {
 }
 
 export const RESPONSES_LEFT_HELP =
-  'É o teto de respostas de LLM deste projeto, contado em todas as rodadas: cada item ' +
-  'selecionado gera uma resposta e gasta uma vaga. O teto existe para o teste não virar ' +
-  'fatura; para revisá-lo, fale com quem cuida da instalação.'
+  'É o teto de respostas de LLM deste projeto: cada item selecionado gera uma resposta e ' +
+  'gasta uma vaga.'
+
+export const RESPONSES_LEFT_SUMMARY = 'Sobre o teto de respostas'
+
+export const RESPONSES_LEFT_POINTS: readonly string[] = [
+  'O teto soma as respostas de todas as rodadas e também as dos testes de prompt.',
+  'Ele existe para o teste não virar fatura. Para revisá-lo, fale com quem cuida da instalação.',
+]
 
 export function selectionCountLabel(count: number, max: number): string {
   return `${plural(count, 'selecionado', 'selecionados')} · até ${max} por geração`
@@ -339,6 +378,13 @@ export function phase4RoundLockedMessage(roundNumber: number): string {
     `A rodada ${roundNumber} está aberta. Na Fase ${PHASE_4} o codebook e o prompt já estão ` +
     'congelados pela fase, e continuam assim depois do fechamento.'
   )
+}
+
+export function roundLockedHelp(roundNumber: number, phase: number): string {
+  return phase >= PHASE_4
+    ? phase4RoundLockedMessage(roundNumber)
+    : `Enquanto a rodada ${roundNumber} estiver aberta, o codebook fica em leitura, para não ` +
+        'mudar debaixo dos avaliadores. Fechada, a primeira alteração cria a versão seguinte.'
 }
 
 export function roundLockedMessage(roundNumber: number, phase: number): string {
@@ -394,6 +440,6 @@ export function openRoundSummary(
 
 export function roundInputSummary(phase: number): string {
   return phase >= PHASE_3
-    ? `Rodada da Fase ${phase}: a LLM recebe o prompt, o codebook completo — título, descrição e critérios de cada definição, e os critérios gerais — e o item de entrada.`
+    ? `Rodada da Fase ${phase}: a LLM recebe o prompt, o item de entrada e o codebook completo, com descrição e critérios, inclusive os critérios gerais.`
     : `Rodada da Fase ${PHASE_2}: a LLM recebe o prompt, os títulos das definições e o item de entrada.`
 }

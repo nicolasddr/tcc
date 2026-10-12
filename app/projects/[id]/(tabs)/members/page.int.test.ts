@@ -212,6 +212,22 @@ describe('app/projects/[id]/members — só quem participa ativamente entra', ()
     expect(forEvaluator.more).toBeUndefined()
   })
 
+  it('o ⓘ de Avaliar neste projeto fica em até 25 palavras e aponta a marca de outlier para separar as notas', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin)
+
+    auth.userId = admin
+    const section = findAll(await render(project), Section).find(
+      (candidate) => (candidate.props as { title: unknown }).title === 'Avaliar neste projeto',
+    )
+    expect(section).toBeTruthy()
+    const help = (section!.props as Parameters<typeof Section>[0]).help!
+    expect(help.split(/\s+/).filter(Boolean).length).toBeLessThanOrEqual(25)
+    expect(help).toContain('mesmo consentimento e questionário de perfil dos demais')
+    expect(help).toContain('marque-se como outlier na rodada')
+    expect(help).not.toContain('separam o Administrador-avaliador')
+  })
+
   it('o painel de assumir o papel de avaliador é só do Administrador, e mostra o vínculo atual', async () => {
     const admin = await newUser('Admin')
     const evaluator = await newUser('Avaliador')

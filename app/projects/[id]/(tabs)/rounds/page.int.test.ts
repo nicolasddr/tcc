@@ -71,6 +71,11 @@ import {
   matrixVersionNote,
 } from '@/app/projects/[id]/(tabs)/rounds/agreement-labels'
 import { Section } from '@/app/components/ui/section'
+import {
+  DEACTIVATED_HELP,
+  EFFORT_MORE_SUMMARY,
+  EffortList,
+} from '@/app/projects/[id]/(tabs)/rounds/effort-list'
 import { ButtonLink, buttonClass } from '@/app/components/ui/button'
 import { InfoTooltip } from '@/app/components/ui/tooltip'
 import { LearnMore } from '@/app/components/ui/learn-more'
@@ -89,6 +94,9 @@ import {
   openRoundSummary,
   pendingEvaluatorsTitle,
   phase4RoundLockedMessage,
+  RESPONSES_LEFT_HELP,
+  RESPONSES_LEFT_POINTS,
+  roundBlockerHelp,
   roundBlockerMessage,
   roundBlockerSummary,
   roundInputSummary,
@@ -957,6 +965,46 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     expect(roundBlockerMessage(phaseBlocker!)).toContain(`Fase ${PHASE_2}`)
   })
 
+  it('na Nova rodada, cada ⓘ fica em até 25 palavras, e a seção leva o resto num "Saiba mais"', async () => {
+    const admin = await newUser('Admin')
+    const blocked = await readyProject(admin, PHASE_1)
+    const ready = await readyProject(admin, PHASE_2)
+
+    auth.userId = admin
+    const tooltipsOf = (props: NewRoundProps) =>
+      [
+        ...renderToStaticMarkup(createElement(NewRound, props)).matchAll(
+          /<span [^>]*role="tooltip"[^>]*>([^<]*)<\/span>/g,
+        ),
+      ].map((match) => match[1])
+
+    const blockedProps = newRoundOf(await render(blocked.project))
+    expect(blockedProps.blockers.length).toBeGreaterThan(0)
+    expect(tooltipsOf(blockedProps)).toEqual(blockedProps.blockers.map(roundBlockerHelp))
+
+    const readyTree = await render(ready.project)
+    const readyTips = tooltipsOf(newRoundOf(readyTree))
+    expect(readyTips).toHaveLength(1)
+    expect(readyTips[0]).toContain('As duas versões congelam na mesma operação que cria a rodada')
+    expect(readyTips[0]).toContain('a alteração seguinte cria a versão seguinte')
+
+    for (const text of [...tooltipsOf(blockedProps), ...readyTips]) {
+      expect(text.split(/\s+/).filter(Boolean).length).toBeLessThanOrEqual(25)
+    }
+
+    const section = findSection(readyTree, NewRound)!.props as {
+      help: string
+      more?: { points: readonly string[] }
+    }
+    expect(section.help.split(/\s+/).filter(Boolean).length).toBeLessThanOrEqual(25)
+    expect(section.help).toContain('A rodada é a unidade de coleta')
+    const points = section.more!.points.join(' ')
+    expect(points).toContain('passa a produzir dado de pesquisa')
+    expect(points).toContain('aponta para um codebook e um prompt que não mudam mais')
+    expect(points).toContain('Só existe uma rodada aberta por projeto')
+    expect(points).toContain('o codebook completo e uma versão de prompt escrita')
+  })
+
   it('na Fase 4, com as versões da rodada de referência, a nova rodada fica liberada, e as rodadas da Fase 3 continuam listadas com a Qualidade', async () => {
     const admin = await newUser('Admin')
     const scene = await roundWith(admin, 4, {
@@ -1159,6 +1207,14 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     expect(props.generated[0].itemId).toBe(first)
     expect(props.generated[0].itemName).toBe('Item 1')
     expect(formatDate(props.generated[0].createdAt)).toBeTruthy()
+
+    const markup = renderToStaticMarkup(createElement(GenerateResponses, props))
+    const tooltips = [...markup.matchAll(/<span [^>]*role="tooltip"[^>]*>([^<]*)<\/span>/g)].map(
+      (match) => match[1],
+    )
+    expect(tooltips).toEqual([RESPONSES_LEFT_HELP])
+    expect(RESPONSES_LEFT_HELP.split(/\s+/).filter(Boolean).length).toBeLessThanOrEqual(25)
+    for (const point of RESPONSES_LEFT_POINTS) expect(markup).toContain(point)
   })
 
   it('com rodada aberta, a aba começa pelo cartão da rodada, com as duas ações lado a lado', async () => {
@@ -1593,6 +1649,14 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
       ['Bruno', 'inactive'],
     ])
     expect(cardTextOf(tree)).toContain('Desativado')
+
+    const effortList = findElement(OpenRoundCard(cardOf(tree)), EffortList)
+    expect(effortList).toBeTruthy()
+    const list = EffortList(effortList!.props as Parameters<typeof EffortList>[0])!
+    expect(tooltipTextsOf(list)).toEqual([])
+    expect(learnMoreOf(list)).toEqual([
+      expect.objectContaining({ summary: EFFORT_MORE_SUMMARY, points: [DEACTIVATED_HELP] }),
+    ])
   })
 
   it('a lista de rodadas traz o coeficiente ao lado das versões que ele mede', async () => {
@@ -2141,7 +2205,9 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
       "Krippendorff's Alpha ordinal, sobre a versão de codebook que a rodada fixou.",
     )
     expect(agreement.help).toContain(`A rodada 1 fechou em ${formatDate(closedAt)}.`)
-    expect(agreement.help).toContain('é com ela que se decide onde refinar o codebook')
+    expect(agreement.help).toContain('a leitura segue aqui')
+    expect(agreement.help).toContain('com ela se decide onde refinar o codebook')
+    expect(agreement.help.split(/\s+/).filter(Boolean).length).toBeLessThanOrEqual(25)
     expect(agreement.help).not.toContain('versão de codebook que esta rodada fixou')
 
     const rounds = findSection(tree, RoundList)!.props as SectionProps
@@ -2643,6 +2709,11 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     const props = evaluatorRoundsOf(tree)
     expect(props.rounds.map((round) => round.roundNumber)).toEqual([1, 3])
     expect(props.projectId).toBe(project)
+
+    const help = (findElement(tree, Section)!.props as { help: string }).help
+    expect(help.split(/\s+/).filter(Boolean).length).toBeLessThanOrEqual(25)
+    expect(help).toContain('como cada avaliador pontuou cada célula do codebook da rodada')
+    expect(help).toContain('é dela que o refinamento sai')
 
     const text = markupTextOf(createElement(EvaluatorRounds, props))
     expect(text).toContain('Rodada 1')

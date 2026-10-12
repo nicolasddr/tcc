@@ -150,7 +150,7 @@ export default async function ProjectEvaluatePage({
   return (
     <Section
       title={roundNumber ? `Avaliar na rodada ${roundNumber}` : 'Avaliar respostas'}
-      help={`Avaliando como ${memberName}. A avaliação cobre cada critério de cada definição do codebook que esta rodada fixou, e o envio é definitivo: a avaliação enviada não volta para edição.`}
+      help={`Avaliando como ${memberName}. Cada critério de cada definição do codebook desta rodada recebe nota; o envio é definitivo e não volta para edição.`}
       action={
         evaluating ? (
           <QueueNav

@@ -22,7 +22,7 @@ import { ItemsEditor } from '@/app/projects/[id]/pipeline/items-editor'
 import { itemUsageMark } from '@/app/projects/[id]/round-usage'
 import {
   ITEM_FILE_FORMATS,
-  ITEM_FILE_HINT,
+  ITEM_FILE_NOTE,
 } from '@/app/projects/[id]/pipeline/item-content'
 import { Section } from '@/app/components/ui/section'
 import { PHASE_4 } from '@/app/projects/[id]/pipeline/preconditions'
@@ -58,6 +58,8 @@ function findElement(node: unknown, type: unknown): ReactElement | null {
 }
 
 type ItemsProps = Parameters<typeof ItemsEditor>[0]
+
+type SectionProps = { help: string; more?: { points: readonly string[] } }
 
 function render(id: string) {
   return ProjectItemsPage({ params: Promise.resolve({ id }) })
@@ -186,10 +188,11 @@ describe('app/projects/[id]/items — a tela dos itens de entrada', () => {
     expect(html).toContain(ITEM_FILE_FORMATS)
 
     const section = findElement(await render(project), Section)
-    const help = (section!.props as { help: string }).help
-    expect(help).not.toContain(ITEM_FILE_FORMATS)
-    expect(help).toContain('as fases seguintes amostram desse pool')
-    expect(help).toContain('o arquivo em si não é guardado')
+    const { help, more } = section!.props as SectionProps
+    expect(help).toBe(
+      'Cada item vira uma resposta da LLM, e as fases seguintes amostram desse pool.',
+    )
+    expect(more?.points).toEqual([ITEM_FILE_NOTE])
   })
 
   it('com itens no pool, o upload vira o botão "Importar arquivo" e nenhum input de arquivo fica à vista', async () => {
@@ -209,7 +212,9 @@ describe('app/projects/[id]/items — a tela dos itens de entrada', () => {
     for (const input of fileInputs) expect(input).toContain('class="sr-only"')
 
     const section = findElement(tree, Section)
-    expect((section!.props as { help: string }).help).toContain(ITEM_FILE_HINT)
+    const { help, more } = section!.props as SectionProps
+    expect(help.split(/\s+/).filter(Boolean).length).toBeLessThanOrEqual(25)
+    expect(more?.points).toEqual([ITEM_FILE_FORMATS, ITEM_FILE_NOTE])
   })
 
   it('na Fase 4, o pool continua aberto: cadastrar e editar o item não usado seguem na tela', async () => {

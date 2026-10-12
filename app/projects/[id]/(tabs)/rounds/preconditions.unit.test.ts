@@ -11,12 +11,15 @@ import {
   phase4RoundLockedMessage,
   generationMax,
   RESPONSES_LEFT_HELP,
+  RESPONSES_LEFT_POINTS,
   responsesLeftMessage,
   retryLabel,
+  roundBlockerHelp,
   roundBlockerMessage,
   roundBlockerSummary,
   roundInputSummary,
   roundBlockers,
+  roundLockedHelp,
   roundLockedMessage,
   selectionBlockerMessage,
   selectionBlockers,
@@ -494,9 +497,12 @@ describe('app/projects/[id]/rounds/preconditions — rodada na Fase 4', () => {
   ])('o resumo e a mensagem de versões mudadas nomeiam %j', (changes, subject, numbers) => {
     const blocker = { key: 'versions_changed', referenceRound: 3, changes } as const
 
-    expect(roundBlockerSummary(blocker)).toBe(
-      `${subject} depois da rodada de referência, a rodada 3.`,
+    expect(roundBlockerSummary(blocker)).toMatch(
+      new RegExp(`^${subject} depois da rodada de referência, a rodada 3: `),
     )
+    for (const number of numbers) {
+      expect(roundBlockerSummary(blocker)).toMatch(new RegExp(`v${number}\\b`))
+    }
 
     const message = roundBlockerMessage(blocker)
     expect(message.startsWith(versionChangesSentence(3, changes))).toBe(true)
@@ -529,5 +535,87 @@ describe('app/projects/[id]/rounds/preconditions — rodada na Fase 4', () => {
       expect(roundBlockerSummary(blocker)).not.toContain('ainda não está disponível')
       expect(roundBlockerMessage(blocker)).not.toContain('ainda não está disponível')
     }
+  })
+})
+
+function wordsOf(text: string): number {
+  return text.split(/\s+/).filter(Boolean).length
+}
+
+describe('app/projects/[id]/rounds/preconditions — as ajudas em ⓘ cabem em 25 palavras', () => {
+  it('o ⓘ de cada bloqueio diz o porquê e o que fazer, sem repetir o resumo à vista', () => {
+    const blockers: RoundBlocker[] = [
+      ...ALL_BLOCKERS,
+      { key: 'criteria', titles: ['Informacional', 'Navegacional'] },
+      {
+        key: 'versions_changed',
+        referenceRound: 3,
+        changes: [
+          { subject: 'codebook', reference: 2, current: 4 },
+          { subject: 'prompt', reference: 5, current: 6 },
+        ],
+      },
+    ]
+    for (const blocker of blockers) {
+      const help = roundBlockerHelp(blocker)
+      expect(wordsOf(help)).toBeLessThanOrEqual(25)
+      expect(help).not.toContain(roundBlockerSummary(blocker))
+    }
+  })
+
+  it('o ⓘ de cada bloqueio guarda as ideias da mensagem longa', () => {
+    expect(roundBlockerHelp({ key: 'phase', phase: PHASE_1 })).toContain(
+      'Avance a fase para poder abrir a primeira rodada',
+    )
+    const open = roundBlockerHelp({ key: 'open_round', roundNumber: 2 })
+    expect(open).toContain('Só existe uma rodada aberta por projeto')
+    expect(open).toContain('Feche-a para abrir a próxima')
+    const definition = roundBlockerHelp({ key: 'definition' })
+    expect(definition).toContain('não haveria o que avaliar na rodada')
+    expect(definition).toContain('com ao menos um critério')
+    const one = roundBlockerHelp({ key: 'criteria', titles: ['Informacional'] })
+    expect(one).toContain('o avaliador não teria régua para julgá-la')
+    expect(one).toContain('um critério geral que valha para todas as definições')
+    const many = roundBlockerHelp({ key: 'criteria', titles: ['Informacional', 'Navegacional'] })
+    expect(many).toContain('“Informacional” e “Navegacional”')
+    expect(many).toContain('um critério geral')
+    expect(roundBlockerHelp({ key: 'prompt' })).toContain('Escreva o texto do prompt')
+    expect(roundBlockerHelp({ key: 'no_reference_round' })).toContain(
+      `Volte à Fase ${PHASE_3}, abra e feche uma rodada e avance de novo`,
+    )
+    const changed = roundBlockerHelp(ALL_BLOCKERS[ALL_BLOCKERS.length - 1])
+    expect(changed).toContain(`uma versão que nenhum avaliador aplicou na Fase ${PHASE_3}`)
+    expect(changed).toContain('abra e feche uma rodada com as versões vigentes e avance')
+  })
+
+  it('o ⓘ da rodada recém-aberta diz o que trava e o que libera, em até 25 palavras', () => {
+    for (const phase of [PHASE_2, PHASE_3]) {
+      const help = roundLockedHelp(2, phase)
+      expect(wordsOf(help)).toBeLessThanOrEqual(25)
+      expect(help).toContain('Enquanto a rodada 2 estiver aberta, o codebook fica em leitura')
+      expect(help).toContain('debaixo dos avaliadores')
+      expect(help).toContain('a primeira alteração cria a versão seguinte')
+    }
+    expect(roundLockedHelp(2, PHASE_4)).toBe(phase4RoundLockedMessage(2))
+    expect(wordsOf(phase4RoundLockedMessage(2))).toBeLessThanOrEqual(25)
+  })
+
+  it('a frase do que vai à LLM cabe num ⓘ', () => {
+    for (const phase of [PHASE_2, PHASE_3, PHASE_4]) {
+      expect(wordsOf(roundInputSummary(phase))).toBeLessThanOrEqual(25)
+    }
+  })
+
+  it('o ⓘ do teto fica com uma frase, e o resto vira tópicos', () => {
+    expect(wordsOf(RESPONSES_LEFT_HELP)).toBeLessThanOrEqual(25)
+    expect(RESPONSES_LEFT_HELP).toContain('cada item selecionado gera uma resposta e gasta uma vaga')
+
+    expect(RESPONSES_LEFT_POINTS.length).toBeGreaterThanOrEqual(1)
+    expect(RESPONSES_LEFT_POINTS.length).toBeLessThanOrEqual(3)
+    const points = RESPONSES_LEFT_POINTS.join(' ')
+    expect(points).toContain('todas as rodadas')
+    expect(points).toContain('testes de prompt')
+    expect(points).toContain('não virar fatura')
+    expect(points).toContain('fale com quem cuida da instalação')
   })
 })

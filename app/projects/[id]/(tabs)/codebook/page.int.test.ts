@@ -30,6 +30,7 @@ import { DefinitionList } from '@/app/projects/[id]/pipeline/definition-list'
 import {
   CodebookEditor,
   CodebookReadOnly,
+  ORDER_HELP,
 } from '@/app/projects/[id]/pipeline/codebook-editor'
 import { VersionStatus } from '@/app/projects/[id]/pipeline/version-status'
 import { Button } from '@/app/components/ui/button'
@@ -312,6 +313,29 @@ describe('app/projects/[id]/codebook — a tela do codebook', () => {
     expect(sectionHelp(await renderCodebook(phase2), 'Definições')).toContain(
       'Só os títulos vão para a LLM.',
     )
+  })
+
+  it('os ⓘ do editor do codebook ficam em até 25 palavras', async () => {
+    expect(ORDER_HELP.split(/\s+/).filter(Boolean).length).toBeLessThanOrEqual(25)
+    expect(ORDER_HELP).toContain('aparecem para a equipe e vão à LLM')
+    expect(ORDER_HELP).toContain('Reordene pelas setas')
+    expect(ORDER_HELP).toContain('a ordem é salva com a versão')
+
+    const admin = await newUser('Admin')
+    const project = await newProject(admin)
+    await addCodebookVersion(ownerDb, project, admin)
+
+    auth.userId = admin
+    const editor = findElement(await renderCodebook(project), CodebookEditor)
+    const props = editor!.props as Parameters<typeof CodebookEditor>[0]
+    const html = renderToStaticMarkup(createElement(CodebookEditor, props))
+    const tooltips = [...html.matchAll(/<span [^>]*role="tooltip"[^>]*>([^<]*)<\/span>/g)].map(
+      (match) => match[1],
+    )
+    expect(tooltips.length).toBeGreaterThan(0)
+    for (const text of tooltips) {
+      expect(text.split(/\s+/).filter(Boolean).length).toBeLessThanOrEqual(25)
+    }
   })
 
   it('abrir uma versão antiga mostra as definições na ordem daquela versão', async () => {

@@ -130,3 +130,12 @@ describe('app/projects/[id]/rounds/round-changes-labels — o que mudou na tela'
     expect(phase4Note).toMatch(/Fase 4/)
   })
 })
+
+describe('app/projects/[id]/rounds/round-changes-labels — as notas cabem num ⓘ', () => {
+  it('as notas de primeira rodada da fase ficam em até 25 palavras', () => {
+    for (const note of [ENTERS_PHASE_3_NOTE, entersPhase4Note(7)]) {
+      expect(note.split(/\s+/).filter(Boolean).length).toBeLessThanOrEqual(25)
+    }
+    expect(ENTERS_PHASE_3_NOTE).toContain('a mudança principal foi a forma de montar a entrada')
+  })
+})

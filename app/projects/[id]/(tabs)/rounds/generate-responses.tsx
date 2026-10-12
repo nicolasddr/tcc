@@ -4,6 +4,8 @@ import { useActionState, useRef, useState } from 'react'
 import { generateResponses, type GenerateResponsesState } from './actions'
 import {
   RESPONSES_LEFT_HELP,
+  RESPONSES_LEFT_POINTS,
+  RESPONSES_LEFT_SUMMARY,
   SELECTION_MAX,
   ceilingReachedMessage,
   generatedCountMessage,
@@ -29,6 +31,7 @@ import { Disclosure } from '@/app/components/ui/disclosure'
 import { EmptyState } from '@/app/components/ui/empty-state'
 import { Form, FormActions } from '@/app/components/ui/form'
 import { InfoTooltip } from '@/app/components/ui/tooltip'
+import { LearnMore } from '@/app/components/ui/learn-more'
 
 const initialState: GenerateResponsesState = null
 
@@ -170,6 +173,7 @@ export function GenerateResponses({
             {responsesLeftMessage(responsesLeft, responsesMax)}
             <InfoTooltip text={RESPONSES_LEFT_HELP} />
           </p>
+          <LearnMore summary={RESPONSES_LEFT_SUMMARY} points={RESPONSES_LEFT_POINTS} />
         </div>
 
         {available.length > 0 ? (

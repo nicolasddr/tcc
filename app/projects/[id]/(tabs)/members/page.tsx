@@ -141,7 +141,7 @@ export default async function ProjectMembersPage({
         <Section
           title="Avaliar neste projeto"
           hint="Como Administrador, você pode se dar também o papel de Avaliador."
-          help="O vínculo novo passa pelo mesmo consentimento e pelo mesmo questionário de perfil dos demais avaliadores, e os painéis de concordância separam o Administrador-avaliador do restante da equipe."
+          help="O vínculo novo passa pelo mesmo consentimento e questionário de perfil dos demais. Para separar suas notas, marque-se como outlier na rodada."
         >
           <EvaluatorRolePanel
             projectId={project.id}

@@ -6,6 +6,7 @@ import {
   isCodebookComplete,
   isGeneral,
   missingCriteriaMessage,
+  NOTES_PER_RESPONSE_HELP,
   notesPerResponse,
   notesPerResponseFormula,
   ownCriteria,
@@ -192,6 +193,13 @@ describe('app/projects/[id]/pipeline/criteria — a conta mostrada no card de no
 
   it('sem critério nenhum, diz que são zero', () => {
     expect(notesPerResponseFormula([informacional], [])).toBe('0 critérios')
+  })
+
+  it('o ⓘ do card fica em até 25 palavras e diz que o critério geral rende uma nota por definição', () => {
+    expect(NOTES_PER_RESPONSE_HELP.split(/\s+/).filter(Boolean).length).toBeLessThanOrEqual(25)
+    expect(NOTES_PER_RESPONSE_HELP).toContain('Cada critério geral vira uma nota em cada definição')
+    expect(NOTES_PER_RESPONSE_HELP).toContain('e não uma nota por resposta')
+    expect(NOTES_PER_RESPONSE_HELP).toContain('o esforço do avaliador a cada resposta')
   })
 })
 

@@ -113,6 +113,7 @@ export function PromptEditor({
       title={
         <>
           Prompt
+          <InfoTooltip text={SCREEN_EXPLANATION} label="Sobre o prompt" />
           <span className="text-[13px] font-normal text-muted">
             {version
               ? `· versão ${version.versionNumber}${version.name ? ` · «${version.name}»` : ''}`
@@ -124,11 +125,12 @@ export function PromptEditor({
             </Badge>
           ) : null}
           <InfoTooltip
-            text={`${SCREEN_EXPLANATION}\n\n${
+            text={
               version
                 ? versionExplanation(version.versionNumber, isOpen)
                 : NO_VERSION_EXPLANATION
-            }`}
+            }
+            label="Sobre a versão"
           />
         </>
       }

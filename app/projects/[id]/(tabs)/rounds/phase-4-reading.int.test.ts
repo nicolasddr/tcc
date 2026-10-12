@@ -39,6 +39,7 @@ import {
   COMPARISON_EMPTY,
   COMPARISON_TOTAL_ROW,
   REFERENCE_COMPARISON_HELP,
+  REFERENCE_COMPARISON_POINTS,
   REFERENCE_COMPARISON_TITLE,
   noReferenceMessage,
   referenceComparisonHint,
@@ -462,10 +463,16 @@ describe('app/projects/[id]/rounds — a rodada da Fase 4 ao lado da rodada de r
 
     const section = findSection(tree, ReferenceComparisonPanel)
     expect(section).toBeTruthy()
-    const props = section!.props as { title: ReactNode; hint?: ReactNode; help?: string }
+    const props = section!.props as {
+      title: ReactNode
+      hint?: ReactNode
+      help?: string
+      more?: { points: readonly string[] }
+    }
     expect(props.title).toBe(REFERENCE_COMPARISON_TITLE)
     expect(props.hint).toBe(referenceComparisonHint(2, 1))
     expect(props.help).toBe(REFERENCE_COMPARISON_HELP)
+    expect(props.more).toEqual({ points: REFERENCE_COMPARISON_POINTS })
 
     const text = markupTextOf(comparisonElementOf(tree))
     expect(text).not.toContain('Rodada de referência:')
@@ -937,7 +944,7 @@ describe('app/projects/[id]/rounds — a rodada da Fase 4 ao lado da rodada de r
     })
   })
 
-  it('com a marca no painel, o texto de ajuda explica a marca e aponta a marca de outlier', async () => {
+  it('com a marca no painel, o "Saiba mais" da lista explica a marca e aponta a marca de outlier', async () => {
     const admin = await newUser('Admin')
     const scene = await basicScene(admin)
 
@@ -948,7 +955,11 @@ describe('app/projects/[id]/rounds — a rodada da Fase 4 ao lado da rodada de r
     const tooltips = [...markup.matchAll(/<span [^>]*role="tooltip"[^>]*>([^<]*)<\/span>/g)].map(
       (match) => match[1].replaceAll('&quot;', '"'),
     )
-    expect(tooltips.some((text) => text.includes(PARTICIPATION_HELP))).toBe(true)
+    expect(tooltips.some((text) => text.includes(PARTICIPATION_HELP))).toBe(false)
+    expect(markup.replaceAll('&quot;', '"')).toContain(PARTICIPATION_HELP)
+    for (const text of tooltips) {
+      expect(text.split(/\s+/).filter(Boolean).length).toBeLessThanOrEqual(25)
+    }
   })
 
   it('numa rodada em foco da Fase 3 ou da Fase 2, o painel não recebe marca', async () => {

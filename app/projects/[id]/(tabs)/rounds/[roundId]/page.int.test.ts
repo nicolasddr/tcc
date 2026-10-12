@@ -58,6 +58,8 @@ import { roundInputSummary } from '@/app/projects/[id]/(tabs)/rounds/preconditio
 import { RoundChangeChips } from '@/app/projects/[id]/(tabs)/rounds/round-changes-note'
 import { closedOn } from '@/app/projects/[id]/(tabs)/rounds/reference-comparison-labels'
 import { Section } from '@/app/components/ui/section'
+import { LearnMore } from '@/app/components/ui/learn-more'
+import { formatDate } from '@/app/notifications/labels'
 import {
   CODEBOOK_AND_PROMPT_NOTICE,
   CODEBOOK_AND_PROMPT_WITH_INPUT_NOTICE,
@@ -1065,6 +1067,33 @@ describe('app/projects/[id]/rounds/[roundId] — a revisão de discordâncias', 
     expect(text).not.toContain(CODEBOOK_AND_PROMPT_WITH_INPUT_NOTICE)
   })
 
+  it('na primeira rodada da fase, o ⓘ do chip fica com o que foi à LLM, e a nota da fase vai para o "Saiba mais"', async () => {
+    const admin = await newUser('Admin')
+    const first = await roundWith(admin, 1, { phase: PHASE_3 })
+    const second = await nextRoundWith(admin, first, 1, {
+      roundNumber: 2,
+      phase: PHASE_4,
+    })
+
+    auth.userId = admin
+    const element = findElement(await render(second.project, second.round), RoundChangeChips)
+    const props = element!.props as ChangesProps
+    const markup = renderToStaticMarkup(createElement(RoundChangeChips, props))
+    const tooltips = [...markup.matchAll(/<span [^>]*role="tooltip"[^>]*>([^<]*)<\/span>/g)].map(
+      (match) => match[1],
+    )
+
+    expect(tooltips).toEqual([roundInputSummary(PHASE_4)])
+    for (const text of tooltips) {
+      expect(text.split(/\s+/).filter(Boolean).length).toBeLessThanOrEqual(25)
+    }
+    expect(
+      findAll(RoundChangeChips(props), [LearnMore]).map(
+        (block) => (block.props as { points: readonly string[] }).points,
+      ),
+    ).toEqual([[entersPhase4Note(1)]])
+  })
+
   it('a frase da Fase 4 aparece mesmo com os mesmos itens e avaliadores da referência', async () => {
     const admin = await newUser('Admin')
     const first = await roundWith(admin, 1, { phase: PHASE_3 })
@@ -1177,7 +1206,10 @@ describe('app/projects/[id]/rounds/[roundId] — a revisão de discordâncias', 
     const props = section!.props as { title: string; hint?: unknown; help?: string }
     expect(props.title).toBe('Revisão de discordâncias da rodada 1')
     expect(props.hint).toBeUndefined()
-    expect(props.help).toBeTruthy()
+    expect(props.help).toContain('Mostra todas as células dessa versão, divergentes em destaque.')
+    expect(props.help).toContain(`Fechada em ${formatDate(closedAt!)}, a rodada prende a discussão`)
+    expect(props.help).toContain('o que se refina vale para a próxima')
+    expect(props.help!.split(/\s+/).filter(Boolean).length).toBeLessThanOrEqual(25)
   })
 
   it('o avaliador continua lendo o hint da versão, sem chips', async () => {

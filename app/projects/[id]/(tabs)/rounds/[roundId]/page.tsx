@@ -219,8 +219,8 @@ export default async function RoundReviewPage({
         hint={isAdmin ? undefined : evaluatorHint(round)}
         help={
           round.closedAt
-            ? `A revisão mostra todas as células dessa versão, com as divergentes destacadas. A rodada fechou em ${formatDate(round.closedAt)}, e a discussão fica presa a ela: o que se refina aqui vale para a próxima.`
-            : 'A revisão mostra todas as células dessa versão, com as divergentes destacadas.'
+            ? `Mostra todas as células dessa versão, divergentes em destaque. Fechada em ${formatDate(round.closedAt)}, a rodada prende a discussão: o que se refina vale para a próxima.`
+            : 'Mostra todas as células dessa versão, divergentes em destaque.'
         }
       >
         {isOpen(round) ? (

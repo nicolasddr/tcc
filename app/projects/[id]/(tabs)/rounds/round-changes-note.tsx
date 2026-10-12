@@ -1,6 +1,7 @@
 import { Alert } from '@/app/components/ui/alert'
 import { Chip } from '@/app/components/ui/chip'
 import { InfoTooltip } from '@/app/components/ui/tooltip'
+import { LearnMore } from '@/app/components/ui/learn-more'
 import type { Change, RoundChanges } from './round-changes'
 import {
   CODEBOOK_AND_PROMPT_NOTICE,
@@ -89,7 +90,7 @@ export function RoundChangeChips({
     <ChangeChip
       change={phase}
       text={phaseChipText(phase)}
-      help={helpOf(phaseHelp === undefined ? notes : [phaseHelp, ...notes])}
+      help={helpOf(phaseHelp === undefined ? notes : [phaseHelp])}
     />
   )
 
@@ -105,6 +106,7 @@ export function RoundChangeChips({
       </div>
 
       {changes ? <NoticeAlert changes={changes} /> : null}
+      {phaseHelp !== undefined && notes.length > 0 ? <LearnMore points={notes} /> : null}
     </div>
   )
 }

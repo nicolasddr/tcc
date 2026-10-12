@@ -69,10 +69,9 @@ export const BAND_REFERENCE_LABEL = 'Faixa de referência'
 
 export const BAND_REFERENCE =
   `${BAND_REFERENCE_LABEL} de ${AGREEMENT_SOURCE}: abaixo de ` +
-  `${formatCut(AGREEMENT_BANDS.acceptable)} é questionável, de ` +
-  `${formatCut(AGREEMENT_BANDS.acceptable)} a ${formatCut(AGREEMENT_BANDS.good)} é ` +
-  `aceitável, e ${formatCut(AGREEMENT_BANDS.good)} ou mais é boa. É referência de ` +
-  'leitura, e não trava nada no projeto.'
+  `${formatCut(AGREEMENT_BANDS.acceptable)}, questionável; de ` +
+  `${formatCut(AGREEMENT_BANDS.acceptable)} a ${formatCut(AGREEMENT_BANDS.good)}, ` +
+  `aceitável; ${formatCut(AGREEMENT_BANDS.good)} ou mais, boa. Ela não trava nada no projeto.`
 
 export function matrixVersionLabel(codebookVersionNumber: number): string {
   return `Codebook v${codebookVersionNumber} da rodada`
@@ -149,8 +148,8 @@ export function smallSampleWarning({
 
 export const SMALL_SAMPLE_HELP =
   `Abaixo de ${SMALL_SAMPLE_RATERS} avaliadores ou de ${SMALL_SAMPLE_RESPONSES} ` +
-  'respostas avaliadas, o coeficiente oscila muito de uma nota para outra. O corte é ' +
-  'convenção desta ferramenta, não da literatura, e o valor acima continua valendo.'
+  'respostas avaliadas, o coeficiente oscila muito: corte por convenção desta ferramenta, ' +
+  'não da literatura. O valor continua valendo.'
 
 export function notCalculableMessage(reason: NotCalculableReason): string {
   switch (reason) {

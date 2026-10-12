@@ -13,8 +13,8 @@ const FROZEN_PREFIX =
 export const FROZEN_BADGE_LABEL = 'Codebook e prompt congelados'
 
 export const FROZEN_BADGE_HELP =
-  `Codebook e prompt ficam como na rodada de referência enquanto o projeto estiver na Fase ${PHASE_4}. ` +
-  `Os metadados do prompt e os itens continuam editáveis. Para mudar, volte à Fase ${PHASE_3}.`
+  `Na Fase ${PHASE_4}, codebook e prompt ficam como na rodada de referência; para mudá-los, ` +
+  `volte à Fase ${PHASE_3}. Metadados do prompt e itens seguem editáveis.`
 
 export function frozenMessage(subject: FrozenSubject): string {
   switch (subject) {

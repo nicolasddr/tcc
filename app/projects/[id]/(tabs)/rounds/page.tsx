@@ -50,6 +50,7 @@ import {
 import { referenceComparison } from './reference-comparison'
 import {
   REFERENCE_COMPARISON_HELP,
+  REFERENCE_COMPARISON_POINTS,
   REFERENCE_COMPARISON_TITLE,
   referenceComparisonHint,
 } from './reference-comparison-labels'
@@ -62,6 +63,13 @@ import { ButtonLink } from '@/app/components/ui/button'
 import { formatDate } from '@/app/notifications/labels'
 
 const EMPTY_SET: ReadonlySet<string> = new Set<string>()
+
+const NEW_ROUND_POINTS: readonly string[] = [
+  'Criar a rodada é o momento em que o projeto passa a produzir dado de pesquisa: tudo o ' +
+    'que ela produz aponta para um codebook e um prompt que não mudam mais.',
+  'Só existe uma rodada aberta por projeto, e abrir uma exige o codebook completo e uma ' +
+    'versão de prompt escrita.',
+]
 
 export default async function ProjectRoundsPage({
   params,
@@ -139,7 +147,7 @@ export default async function ProjectRoundsPage({
       <Section
         title="Rodadas para revisar"
         hint="As rodadas fechadas em que você enviou avaliação."
-        help="A revisão mostra, resposta por resposta, como cada avaliador pontuou cada célula do codebook que aquela rodada fixou — e fica presa à rodada, porque é dela que o refinamento sai."
+        help="Mostra, resposta por resposta, como cada avaliador pontuou cada célula do codebook da rodada. Fica presa à rodada, porque é dela que o refinamento sai."
       >
         <EvaluatorRounds projectId={project.id} rounds={reviewable} />
       </Section>
@@ -257,7 +265,8 @@ export default async function ProjectRoundsPage({
       ) : (
         <Section
           title="Nova rodada"
-          help="A rodada é a unidade de coleta: é dentro dela que as respostas são geradas e avaliadas, e criá-la é o momento em que o projeto passa a produzir dado de pesquisa. Só existe uma rodada aberta por projeto, e abrir uma exige o codebook completo e uma versão de prompt escrita."
+          help="A rodada é a unidade de coleta: dentro dela as respostas são geradas e avaliadas."
+          more={{ points: NEW_ROUND_POINTS }}
         >
           <NewRound
             projectId={project.id}
@@ -317,6 +326,7 @@ export default async function ProjectRoundsPage({
               : undefined
           }
           help={REFERENCE_COMPARISON_HELP}
+          more={{ points: REFERENCE_COMPARISON_POINTS }}
         >
           <ReferenceComparisonPanel
             roundNumber={focusRound.roundNumber}
@@ -337,7 +347,7 @@ export default async function ProjectRoundsPage({
           hint="Krippendorff's Alpha ordinal, sobre a versão de codebook que a rodada fixou."
           help={
             focusRound.closedAt
-              ? `A rodada ${focusRound.roundNumber} fechou em ${formatDate(focusRound.closedAt)}. É a última rodada do projeto, e a leitura continua aqui depois do fechamento: é com ela que se decide onde refinar o codebook antes da próxima rodada.`
+              ? `A rodada ${focusRound.roundNumber} fechou em ${formatDate(focusRound.closedAt)}. É a última, e a leitura segue aqui: com ela se decide onde refinar o codebook antes da próxima.`
               : 'O valor aparece desde a primeira avaliação e não trava nada: fechar a rodada e avançar de fase continuam sendo decisão sua.'
           }
         >

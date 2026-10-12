@@ -158,9 +158,9 @@ function TypeLegend() {
   )
 }
 
-const ORDER_HELP =
-  'A ordem desta lista é a ordem em que as definições aparecem para a equipe e são ' +
-  'enviadas à LLM. Use as setas para reordenar; a ordem é salva junto com a versão.'
+export const ORDER_HELP =
+  'A ordem em que as definições aparecem para a equipe e vão à LLM. Reordene pelas ' +
+  'setas; a ordem é salva com a versão.'
 
 const DESCRIPTION_HELP =
   'O texto que o avaliador lê para entender o que o título quis dizer. Salvar sem ' +

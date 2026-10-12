@@ -6,7 +6,7 @@ export const NO_VERSION_EXPLANATION =
 
 export function versionExplanation(versionNumber: number, isOpen: boolean): string {
   return isOpen
-    ? `Enquanto nenhuma rodada usar esta versão, salvar altera a própria versão. Assim que uma rodada a usar, ela congela e o salvamento seguinte cria a versão ${versionNumber + 1}.`
+    ? `Salvar altera esta versão enquanto nenhuma rodada a usar. Usada por uma rodada, ela congela, e o próximo salvamento cria a versão ${versionNumber + 1}.`
     : `Esta versão já foi usada por uma rodada e não muda mais. A próxima alteração salva cria a versão ${versionNumber + 1}, com o conteúdo copiado desta.`
 }
 

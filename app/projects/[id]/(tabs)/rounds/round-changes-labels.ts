@@ -25,13 +25,11 @@ export const CODEBOOK_AND_PROMPT_WITH_INPUT_NOTICE =
 
 export const ENTERS_PHASE_3_NOTE =
   `Primeira rodada da Fase ${PHASE_3}: a mudança principal foi a forma de montar a ` +
-  'entrada, que passou a levar o codebook completo à LLM junto com o prompt e o item ' +
-  'de entrada.'
+  'entrada, que passou a levar também o codebook completo à LLM.'
 
 export function entersPhase4Note(referenceRoundNumber: number): string {
   return (
-    `Primeira rodada da Fase ${PHASE_4}: o codebook e o prompt são os mesmos da rodada de ` +
-    `referência, a rodada ${referenceRoundNumber}. O que deve mudar são os itens de entrada e ` +
-    'os avaliadores.'
+    `Primeira rodada da Fase ${PHASE_4}: codebook e prompt são os mesmos da rodada de ` +
+    `referência, a rodada ${referenceRoundNumber}; devem mudar itens de entrada e avaliadores.`
   )
 }

@@ -785,7 +785,11 @@ describe('app/projects/[id]/evaluate — a tela do avaliador', () => {
     auth.userId = evaluator
     const tree = await open(scene.project)
     expect(headingOf(tree)).not.toContain('Avaliando como')
-    expect(sectionOf(tree).help).toContain('Avaliando como Marta Ribeiro')
+    const help = sectionOf(tree).help!
+    expect(help).toContain('Avaliando como Marta Ribeiro')
+    expect(help).toContain('Cada critério de cada definição do codebook desta rodada recebe nota')
+    expect(help).toContain('o envio é definitivo e não volta para edição')
+    expect(help.split(/\s+/).filter(Boolean).length).toBeLessThanOrEqual(25)
   })
 
   it('anterior e próxima ficam na linha do título', async () => {

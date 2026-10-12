@@ -270,6 +270,41 @@ describe('app/projects/[id]/prompt — a tela do prompt', () => {
     expect(html).toContain(`href="#${editor.historyAnchor}"`)
   })
 
+  it('o cabeçalho do editor tem um ⓘ sobre o prompt e outro sobre a versão, cada um em até 25 palavras', async () => {
+    const admin = await newUser('Admin')
+    const empty = await newProject(admin)
+    const versioned = await newProject(admin)
+    await addPromptVersion(ownerDb, versioned, admin)
+
+    auth.userId = admin
+    const tooltipsOf = async (project: string) => {
+      const editor = findElement(await renderPrompt(project), PromptEditor)!
+        .props as Parameters<typeof PromptEditor>[0]
+      const html = renderToStaticMarkup(createElement(PromptEditor, editor))
+      return {
+        texts: [...html.matchAll(/<span [^>]*role="tooltip"[^>]*>([^<]*)<\/span>/g)].map(
+          (match) => match[1],
+        ),
+        labels: [...html.matchAll(/aria-label="([^"]*)" aria-describedby/g)].map(
+          (match) => match[1],
+        ),
+      }
+    }
+
+    for (const project of [empty, versioned]) {
+      const { texts, labels } = await tooltipsOf(project)
+      expect(labels).toEqual(['Sobre o prompt', 'Sobre a versão'])
+      expect(texts[0]).toBe(
+        'A instrução enviada à LLM, versionada de forma independente do codebook.',
+      )
+      for (const text of texts) {
+        expect(text.split(/\s+/).filter(Boolean).length).toBeLessThanOrEqual(25)
+      }
+    }
+    expect((await tooltipsOf(empty)).texts[1]).toContain('cria a versão 1')
+    expect((await tooltipsOf(versioned)).texts[1]).toContain('cria a versão 2')
+  })
+
   it('abrir uma versão antiga mostra o texto daquela versão, com a formatação preservada', async () => {
     const admin = await newUser('Admin')
     const project = await newProject(admin)

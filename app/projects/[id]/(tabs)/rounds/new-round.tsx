@@ -3,9 +3,9 @@
 import { useActionState } from 'react'
 import { createRound, type NewRoundState } from './actions'
 import {
-  roundBlockerMessage,
+  roundBlockerHelp,
   roundBlockerSummary,
-  roundLockedMessage,
+  roundLockedHelp,
   type RoundBlocker,
 } from './preconditions'
 import { Alert } from '@/app/components/ui/alert'
@@ -16,10 +16,8 @@ import { InfoTooltip } from '@/app/components/ui/tooltip'
 const initialState: NewRoundState = null
 
 const FREEZE_HELP =
-  'As duas versões congelam na mesma operação que cria a rodada: a partir dali elas ' +
-  'não mudam mais, e a alteração seguinte cria a versão seguinte. É por isso que a ' +
-  'rodada é a unidade de dado de pesquisa: tudo o que ela produz aponta para um ' +
-  'codebook e um prompt que não se mexem mais.'
+  'As duas versões congelam na mesma operação que cria a rodada: daí em diante não ' +
+  'mudam, e a alteração seguinte cria a versão seguinte.'
 
 export function NewRound({
   projectId,
@@ -45,7 +43,7 @@ export function NewRound({
             <Alert key={blocker.key} tone="notice">
               <span className="inline-flex flex-wrap items-center gap-2">
                 <span>{roundBlockerSummary(blocker)}</span>
-                <InfoTooltip text={roundBlockerMessage(blocker)} />
+                <InfoTooltip text={roundBlockerHelp(blocker)} />
               </span>
             </Alert>
           ))}
@@ -67,7 +65,7 @@ export function NewRound({
         <Alert tone="success">
           <span className="inline-flex flex-wrap items-center gap-2">
             <span>Rodada {state.roundNumber} aberta.</span>
-            <InfoTooltip text={roundLockedMessage(state.roundNumber, phase)} />
+            <InfoTooltip text={roundLockedHelp(state.roundNumber, phase)} />
           </span>
         </Alert>
       ) : null}

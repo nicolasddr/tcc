@@ -81,7 +81,6 @@ export const ITEM_FILE_FORMATS = `Formatos de texto (${TEXT_FILE_EXAMPLES}) e ar
 export const ITEM_FILE_NOTE =
   'O conteúdo entra no formulário e continua editável antes de cadastrar; o arquivo em si não é guardado.'
 
-export const ITEM_FILE_HINT = `${ITEM_FILE_FORMATS} ${ITEM_FILE_NOTE}`
 
 const FORMAT_REFUSED =
   `Este formato de arquivo não é aceito. Envie um arquivo de texto (${TEXT_FILE_EXAMPLES}) ` +

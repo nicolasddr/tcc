@@ -55,7 +55,7 @@ export function notesPerResponse(
 }
 
 export const NOTES_PER_RESPONSE_HELP =
-  'Cada critério geral vira uma nota em cada definição, e não uma nota por resposta. É esse o esforço que o avaliador terá a cada resposta.'
+  'Cada critério geral vira uma nota em cada definição, e não uma nota por resposta. É o esforço do avaliador a cada resposta.'
 
 export function notesPerResponseFormula(
   definitions: readonly DefinitionKey[],

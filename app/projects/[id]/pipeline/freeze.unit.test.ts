@@ -73,8 +73,9 @@ describe('app/projects/[id]/pipeline/freeze — o congelamento da Fase 4', () =>
   it('a ajuda do selo diz o que fica congelado, o que continua editável e como mudar', () => {
     expect(FROZEN_BADGE_HELP).toContain('rodada de referência')
     expect(FROZEN_BADGE_HELP).toContain(`Fase ${PHASE_4}`)
-    expect(FROZEN_BADGE_HELP).toContain('metadados do prompt e os itens continuam editáveis')
+    expect(FROZEN_BADGE_HELP).toContain('Metadados do prompt e itens seguem editáveis')
     expect(FROZEN_BADGE_HELP).toContain(`volte à Fase ${PHASE_3}`)
     expect(FROZEN_BADGE_HELP).not.toMatch(JUDGEMENT_WORDS)
+    expect(FROZEN_BADGE_HELP.split(/\s+/).filter(Boolean).length).toBeLessThanOrEqual(25)
   })
 })

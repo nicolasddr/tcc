@@ -5,9 +5,11 @@ import type { RoundMark } from '../../round-usage'
 import { RoundMarkBadge } from '../../round-mark-badge'
 import { Badge } from '@/app/components/ui/badge'
 import { ProgressBar } from '@/app/components/ui/stat'
-import { InfoTooltip } from '@/app/components/ui/tooltip'
+import { LearnMore } from '@/app/components/ui/learn-more'
 
-const DEACTIVATED_HELP =
+export const EFFORT_MORE_SUMMARY = 'Sobre esta lista'
+
+export const DEACTIVATED_HELP =
   'O avaliador desativado continua nesta lista porque as notas que ele enviou nesta ' +
   'rodada continuam gravadas e continuam no cálculo. Desativar é sobre acesso, e só ' +
   'tira a pessoa do acompanhamento de quem ainda falta terminar.'
@@ -29,16 +31,17 @@ export function EffortList({
 
   const deactivated = effort.some((evaluator) => evaluator.status !== 'active')
   const marked = effort.some((evaluator) => participation?.[evaluator.projectMemberId])
-  const help = [deactivated ? DEACTIVATED_HELP : null, marked ? PARTICIPATION_HELP : null]
+  const points = [deactivated ? DEACTIVATED_HELP : null, marked ? PARTICIPATION_HELP : null]
     .filter((text) => text !== null)
-    .join('\n\n')
 
   return (
     <div>
       <span className="flex flex-wrap items-center gap-2 text-[13px] font-semibold text-label">
         {title}
-        {help ? <InfoTooltip text={help} /> : null}
       </span>
+      {points.length > 0 ? (
+        <LearnMore summary={EFFORT_MORE_SUMMARY} points={points} className="mt-1" />
+      ) : null}
       <ul className="m-0 mt-2 flex list-none flex-col gap-1 p-0">
         {effort.map((evaluator) => (
           <li key={evaluator.projectMemberId} className="flex flex-col gap-1">
