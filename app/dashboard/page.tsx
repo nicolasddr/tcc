@@ -7,7 +7,6 @@ import { isSuperAdmin, listMyPendingInvitations, type PendingInvitation } from '
 import { declineInvitation } from '@/app/invitations/actions'
 import { acceptInvitation } from '@/app/onboarding/actions'
 import { CollapsedProcessOverview, ProcessOverview } from '@/app/components/process-overview'
-import { ProcessPhasesFooter } from '@/app/components/process-phases-footer'
 import { AppTopBar } from '@/app/components/app-top-bar'
 import { loadTopBar } from '@/app/components/app-top-bar-data'
 import { SubmitButton } from '@/app/components/submit-button'
@@ -97,7 +96,6 @@ export default async function Dashboard({
   return (
     <PageShell
       width="wide"
-      footer={<ProcessPhasesFooter />}
       header={<AppTopBar trail={[{ label: 'Meus projetos' }]} />}
     >
       <section className="mb-12">

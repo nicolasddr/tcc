@@ -5,7 +5,7 @@ Sugestão 2 da análise de 12/10 (`referencia-visual.html#s2`). Faça depois do 
 | Parte | Entrega | Commit sugerido | Estado |
 |---|---|---|---|
 | 1 | `AppTopBar` em todas as telas logadas: marca, trilha, sino, avatar e "Sair" | `feat(shell): barra do topo única nas telas logadas` | ✅ |
-| 2 | Selo da fase ao lado do título, descrição como subtítulo, sem "Ativo", e o dashboard sem o rodapé de fases | `feat(projeto): fase e descrição no cabeçalho de todas as abas` | |
+| 2 | Selo da fase ao lado do título, descrição como subtítulo, sem "Ativo", e o dashboard sem o rodapé de fases | `feat(projeto): fase e descrição no cabeçalho de todas as abas` | ✅ |
 
 ## Contexto comum
 

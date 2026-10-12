@@ -119,4 +119,13 @@ describe('app/dashboard — fase de cada projeto', () => {
     expect(header.type).toBe(AppTopBar)
     expect(header.props).toEqual({ trail: [{ label: 'Meus projetos' }] })
   })
+
+  it('não tem o rodapé das fases do processo', async () => {
+    const admin = await newUser('Admin')
+
+    auth.userId = admin
+    const tree = (await render()) as ReactElement<{ footer?: unknown }>
+
+    expect(tree.props.footer).toBeUndefined()
+  })
 })

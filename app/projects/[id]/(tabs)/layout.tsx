@@ -1,4 +1,5 @@
 import { notFound } from 'next/navigation'
+import Link from '@/app/components/app-link'
 import { and, eq } from 'drizzle-orm'
 import { requireUserId } from '@/lib/supabase/server'
 import { transaction, projects, projectMembers, projectInvitations } from '@/lib/db'
@@ -7,9 +8,10 @@ import { memberStatusLabel, projectStatusLabel, roleLabel } from '../../labels'
 import { ProjectTabs } from '../project-tabs'
 import { Badge, StatusBadge } from '@/app/components/ui/badge'
 import { PageShell, PageTitle } from '@/app/components/ui/shell'
+import { cx } from '@/app/components/ui/cx'
 import { AppTopBar } from '@/app/components/app-top-bar'
 import { loadTopBar } from '@/app/components/app-top-bar-data'
-import { InfoTooltip } from '@/app/components/ui/tooltip'
+import { PROJECT_PHASES, TOTAL_PHASES } from '../phase-bar'
 
 export default async function ProjectTabsLayout({
   params,
@@ -29,6 +31,7 @@ export default async function ProjectTabsLayout({
         name: projects.name,
         description: projects.description,
         status: projects.status,
+        phase: projects.phase,
         taskType: projects.taskType,
         createdBy: projects.createdBy,
       })
@@ -92,18 +95,36 @@ export default async function ProjectTabsLayout({
       <header>
         <div className="flex min-w-0 flex-wrap items-center gap-3">
           <PageTitle>{project.name}</PageTitle>
-          {project.description ? (
-            <InfoTooltip text={project.description} />
+          <Link
+            href={`/projects/${project.id}`}
+            className="rounded-full transition-opacity hover:opacity-80"
+          >
+            <Badge>
+              {`Fase ${project.phase} de ${TOTAL_PHASES} · ${PROJECT_PHASES[project.phase - 1].name}`}
+              <span aria-hidden> →</span>
+            </Badge>
+          </Link>
+          {project.status !== 'active' ? (
+            <StatusBadge status={project.status}>
+              {projectStatusLabel(project.status)}
+            </StatusBadge>
           ) : null}
-          <StatusBadge status={project.status}>
-            {projectStatusLabel(project.status)}
-          </StatusBadge>
           {onboardingPending ? (
             <Badge tone="warning">{memberStatusLabel('pending_onboarding')}</Badge>
           ) : null}
         </div>
 
-        {summary ? <p className="mt-1.5 text-sm text-muted">{summary}</p> : null}
+        {project.description ? (
+          <p className="mt-1.5 truncate text-sm text-muted" title={project.description}>
+            {project.description}
+          </p>
+        ) : null}
+
+        {summary ? (
+          <p className={cx('text-sm text-muted', project.description ? 'mt-1' : 'mt-1.5')}>
+            {summary}
+          </p>
+        ) : null}
 
         {isMember ? (
           <ProjectTabs
