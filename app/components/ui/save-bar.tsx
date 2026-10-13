@@ -2,18 +2,18 @@ import { Button } from './button'
 import { cx } from './cx'
 
 export function SaveBar({
+  dirty,
   changes,
   onDiscard,
-  discardLabel = 'Descartar',
   saveLabel = 'Salvar',
   loading,
   loadingText,
   className,
   children,
 }: {
+  dirty: boolean
   changes: React.ReactNode
   onDiscard: () => void
-  discardLabel?: React.ReactNode
   saveLabel?: React.ReactNode
   loading?: boolean
   loadingText?: React.ReactNode
@@ -30,14 +30,14 @@ export function SaveBar({
       )}
     >
       <span className="text-[13px] text-muted" role="status">
-        {changes}
+        {dirty ? changes : 'Nenhuma alteração.'}
       </span>
       <div className="flex flex-wrap items-center gap-3">
         {children}
         <Button variant="secondary" onClick={onDiscard} disabled={loading}>
-          {discardLabel}
+          {dirty ? 'Descartar' : 'Cancelar'}
         </Button>
-        <Button type="submit" loading={loading} loadingText={loadingText}>
+        <Button type="submit" disabled={!dirty} loading={loading} loadingText={loadingText}>
           {saveLabel}
         </Button>
       </div>

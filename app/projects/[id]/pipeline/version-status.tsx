@@ -13,15 +13,13 @@ export function versionExplanation(versionNumber: number, isOpen: boolean): stri
 export function VersionStatus({
   version,
   isOpen,
+  action,
 }: {
   version: { versionNumber: number } | null
   isOpen: boolean
+  action?: React.ReactNode
 }) {
-  if (!version) {
-    return <p className="m-0 text-[13px] text-muted">{NO_VERSION_EXPLANATION}</p>
-  }
-
-  return (
+  const status = version ? (
     <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5">
       <span className="text-[13px] font-semibold text-ink">
         Versão {version.versionNumber}
@@ -30,6 +28,17 @@ export function VersionStatus({
         {isOpen ? 'Em aberto' : 'Congelada'}
       </Badge>
       <InfoTooltip text={versionExplanation(version.versionNumber, isOpen)} />
+    </div>
+  ) : (
+    <p className="m-0 text-[13px] text-muted">{NO_VERSION_EXPLANATION}</p>
+  )
+
+  if (!action) return status
+
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+      {status}
+      {action}
     </div>
   )
 }

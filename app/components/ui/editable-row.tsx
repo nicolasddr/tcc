@@ -16,7 +16,7 @@ export function EditableRow({
   expanded,
   onToggle,
   expandLabel = 'Editar',
-  collapseLabel = 'Concluir edição',
+  collapseLabel,
   footer,
   className,
   children,
@@ -49,6 +49,8 @@ export function EditableRow({
     onToggle()
   }
 
+  const toggleLabel = expanded ? collapseLabel : expandLabel
+
   function onCardClick(event: React.MouseEvent<HTMLDivElement>) {
     if (expanded) return
     if ((event.target as HTMLElement).closest(INTERACTIVE)) return
@@ -66,25 +68,24 @@ export function EditableRow({
     >
       <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
         <span className="flex min-w-[160px] flex-1 flex-wrap items-baseline gap-x-2.5 gap-y-1">
-          <button
-            ref={expandRef}
-            type="button"
-            aria-expanded={expanded}
-            aria-controls={panelId}
-            onClick={expanded ? collapse : onToggle}
-            className={cx(
-              'cursor-pointer border-0 bg-transparent p-0 text-left text-sm font-semibold text-ink',
-              'rounded-control focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-brand-ring',
-            )}
-          >
-            {title}
-            <span className="sr-only"> · {expanded ? collapseLabel : expandLabel}</span>
-          </button>
+          <span className="text-sm font-semibold text-ink">{title}</span>
           {meta ? <span className="text-[13px] text-muted">{meta}</span> : null}
         </span>
 
         <span className="flex flex-wrap items-center gap-2">
           {badges}
+          {toggleLabel ? (
+            <Button
+              ref={expandRef}
+              variant="secondary"
+              size="sm"
+              aria-expanded={expanded}
+              aria-controls={panelId}
+              onClick={expanded ? collapse : onToggle}
+            >
+              {toggleLabel}
+            </Button>
+          ) : null}
           {actions}
         </span>
       </div>
@@ -97,12 +98,9 @@ export function EditableRow({
       >
         {children}
 
-        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-t border-line pt-3">
-          <span className="text-[13px] text-muted">{footer}</span>
-          <Button variant="secondary" size="sm" onClick={collapse}>
-            {collapseLabel}
-          </Button>
-        </div>
+        {footer ? (
+          <p className="m-0 border-t border-line pt-3 text-[13px] text-muted">{footer}</p>
+        ) : null}
       </div>
     </div>
   )

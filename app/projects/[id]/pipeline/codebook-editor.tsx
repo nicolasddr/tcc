@@ -410,7 +410,7 @@ function InheritedCriteria({ criteria }: { criteria: CriterionRow[] }) {
   )
 }
 
-function CodebookFields({
+export function CodebookFields({
   definitions,
   criteria,
   defaultType,
@@ -519,14 +519,12 @@ function CodebookFields({
       ) : null}
 
       <Card padding="sm">
-        <SectionTitle title="Definições" help={ORDER_HELP} />
-
         {rows.length === 0 ? (
-          <EmptyState className="mt-3">
+          <EmptyState>
             Nenhuma definição na lista. Adicione ao menos uma para poder salvar.
           </EmptyState>
         ) : (
-          <ul className="m-0 mt-3 flex list-none flex-col gap-3 p-0">
+          <ul className="m-0 flex list-none flex-col gap-3 p-0">
             {rows.map((row, index) => {
               const expanded = expandedKey === row.key
               const id = String(row.key)
@@ -540,6 +538,7 @@ function CodebookFields({
                   <EditableRow
                     expanded={expanded}
                     onToggle={() => toggle(row.key)}
+                    collapseLabel="Recolher"
                     title={
                       <>
                         <span className="mr-2 tabular-nums text-muted">{index + 1}</span>
@@ -662,6 +661,7 @@ function CodebookFields({
           <Button variant="secondary" size="sm" onClick={add}>
             Adicionar definição
           </Button>
+          <InfoTooltip text={ORDER_HELP} label="Sobre a ordem das definições" />
         </FormActions>
 
         {inPhase2 && uncovered.length > 0 ? (
@@ -708,21 +708,13 @@ function CodebookFields({
 
       {status}
 
-      {dirty ? (
-        <SaveBar
-          changes={changesLabel(changedDefinitions, generalChanged, noteChanged)}
-          onDiscard={discard}
-          loading={pending}
-          loadingText="Salvando…"
-          saveLabel="Salvar definições"
-        />
-      ) : (
-        <FormActions align="start">
-          <Button variant="secondary" onClick={onDone}>
-            Voltar à leitura
-          </Button>
-        </FormActions>
-      )}
+      <SaveBar
+        dirty={dirty}
+        changes={changesLabel(changedDefinitions, generalChanged, noteChanged)}
+        onDiscard={discard}
+        loading={pending}
+        loadingText="Salvando…"
+      />
     </>
   )
 }
@@ -808,7 +800,17 @@ export function CodebookEditor({
 
     return (
       <div className="flex flex-col gap-4">
-        <VersionStatus version={version} isOpen={isOpen} />
+        <VersionStatus
+          version={version}
+          isOpen={isOpen}
+          action={
+            empty ? null : (
+              <Button variant="secondary" size="sm" onClick={startEditing}>
+                Editar
+              </Button>
+            )
+          }
+        />
         <CodebookBody
           hasVersion={version !== null}
           definitions={definitions}
@@ -817,11 +819,6 @@ export function CodebookEditor({
           onAdd={startEditing}
         />
         {saved ? <Alert tone="success">Definições salvas.</Alert> : null}
-        {empty ? null : (
-          <FormActions align="start">
-            <Button onClick={startEditing}>Editar definições</Button>
-          </FormActions>
-        )}
       </div>
     )
   }

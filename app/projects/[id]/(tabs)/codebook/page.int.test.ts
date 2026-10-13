@@ -29,11 +29,12 @@ import {
 import { DefinitionList } from '@/app/projects/[id]/pipeline/definition-list'
 import {
   CodebookEditor,
+  CodebookFields,
   CodebookReadOnly,
   ORDER_HELP,
 } from '@/app/projects/[id]/pipeline/codebook-editor'
 import { VersionStatus } from '@/app/projects/[id]/pipeline/version-status'
-import { Button } from '@/app/components/ui/button'
+import { Button, buttonClass } from '@/app/components/ui/button'
 import { InfoTooltip } from '@/app/components/ui/tooltip'
 import { Section } from '@/app/components/ui/section'
 import { formatDate } from '@/app/notifications/labels'
@@ -274,6 +275,7 @@ describe('app/projects/[id]/codebook — a tela do codebook', () => {
     )
     expect(html).toContain('Adicionar definições')
     expect(html).not.toContain('Editar definições')
+    expect(html).not.toContain('>Editar</button>')
     expect(html).not.toContain('Esta versão não tem definições.')
     expect(html.match(/cria a versão 1/g)).toHaveLength(1)
   })
@@ -289,7 +291,7 @@ describe('app/projects/[id]/codebook — a tela do codebook', () => {
     const html = renderToStaticMarkup(createElement(CodebookEditor, props))
     expect(html).toContain('Esta versão não tem definições.')
     expect(html).not.toContain('Nenhuma definição ainda.')
-    expect(html).toContain('Editar definições')
+    expect(html).toContain('>Editar</button>')
 
     expect(textOf(await renderVersion(project, versionId))).toContain(
       'Esta versão não tem definições.',
@@ -454,10 +456,111 @@ describe('app/projects/[id]/codebook — a tela do codebook', () => {
     expect(html).not.toContain('<input')
     expect(html).not.toContain('<textarea')
     expect(html).not.toContain('<select')
-    expect(html).toContain('Editar defini')
     expect(html).toContain('Informacional')
     expect(html).toContain('busca informa')
     expect(html).toContain('Clareza')
+  })
+
+  it('em leitura, o "Editar" fica na linha da versão, acima das definições, e não no pé', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin, PHASE_2)
+    await addCodebookVersion(ownerDb, project, admin, {
+      definitions: [{ title: 'Informacional', type: 'category' }],
+    })
+
+    auth.userId = admin
+    const editor = findElement(await renderCodebook(project), CodebookEditor)
+    const props = editor!.props as Parameters<typeof CodebookEditor>[0]
+    const html = renderToStaticMarkup(createElement(CodebookEditor, props))
+
+    expect(html).not.toContain('Editar definições')
+    const edits = [...html.matchAll(/<button[^>]*>Editar<\/button>/g)]
+    expect(edits).toHaveLength(1)
+    expect(edits[0][0]).toContain(`class="${buttonClass('secondary', { size: 'sm' })}"`)
+
+    const version = html.indexOf('Versão 1')
+    const status = html.indexOf('Em aberto')
+    const edit = edits[0].index!
+    const legend = html.indexOf('O que é cada tipo')
+    expect(status).toBeGreaterThan(version)
+    expect(edit).toBeGreaterThan(status)
+    expect(legend).toBeGreaterThan(edit)
+  })
+
+  it('em edição, só a barra de salvar fecha o formulário, e o cartão não repete o título "Definições"', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin, PHASE_2)
+    await addCodebookVersion(ownerDb, project, admin, {
+      definitions: [{ title: 'Informacional', type: 'category' }],
+    })
+
+    auth.userId = admin
+    const tree = await renderCodebook(project)
+    const props = findElement(tree, CodebookEditor)!.props as Parameters<
+      typeof CodebookEditor
+    >[0]
+    const html = renderToStaticMarkup(
+      createElement(CodebookFields, {
+        definitions: props.definitions,
+        criteria: props.criteria,
+        defaultType: props.defaultType,
+        note: props.version?.note ?? '',
+        inPhase2: true,
+        pending: false,
+        status: null,
+        onDone: () => {},
+      }),
+    )
+
+    expect(html).not.toContain('Voltar à leitura')
+    expect(html).not.toContain('Salvar definições')
+    expect(html).toContain('Nenhuma alteração.')
+    expect(html).toContain('>Cancelar</button>')
+    expect(html).not.toContain('>Descartar</button>')
+    expect(html).toMatch(/<button type="submit"[^>]*disabled=""[^>]*>Salvar<\/button>/)
+
+    expect(sectionTitles(tree).filter((title) => title === 'Definições')).toHaveLength(1)
+    expect(html).not.toMatch(/<h\d[^>]*>\s*Definições/)
+
+    const tooltips = [...html.matchAll(/<span [^>]*role="tooltip"[^>]*>([^<]*)<\/span>/g)].map(
+      (match) => match[1],
+    )
+    expect(tooltips).toContain(ORDER_HELP)
+  })
+
+  it('em edição, a definição fechada mostra "Editar" e a aberta mostra "Recolher"', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin, PHASE_2)
+    await addCodebookVersion(ownerDb, project, admin, {
+      definitions: [{ title: 'Informacional', type: 'category' }],
+    })
+
+    auth.userId = admin
+    const props = findElement(await renderCodebook(project), CodebookEditor)!.props as Parameters<
+      typeof CodebookEditor
+    >[0]
+    const fields = (definitions: typeof props.definitions) =>
+      renderToStaticMarkup(
+        createElement(CodebookFields, {
+          definitions,
+          criteria: props.criteria,
+          defaultType: props.defaultType,
+          note: '',
+          inPhase2: true,
+          pending: false,
+          status: null,
+          onDone: () => {},
+        }),
+      )
+
+    const closed = fields(props.definitions)
+    expect(closed).toMatch(/<button[^>]*aria-expanded="false"[^>]*>Editar<\/button>/)
+    expect(closed).not.toContain('Recolher')
+    expect(closed).not.toContain('Concluir edição')
+
+    const opened = fields([])
+    expect(opened).toMatch(/<button[^>]*aria-expanded="true"[^>]*>Recolher<\/button>/)
+    expect(opened).not.toContain('Concluir edição')
   })
 
   it('com rodada aberta, a tela fica em leitura e explica que é preciso fechar a rodada', async () => {
@@ -525,6 +628,7 @@ describe('app/projects/[id]/codebook — a tela do codebook', () => {
     expect(html).not.toContain('<textarea')
     expect(html).not.toContain('<select')
     expect(html).not.toContain('Editar defini')
+    expect(html).not.toContain('>Editar</button>')
     expect(html).toContain('Informacional')
     expect(html).toContain('busca informa')
     expect(html).toContain('Cita a fonte')
@@ -568,7 +672,7 @@ describe('app/projects/[id]/codebook — a tela do codebook', () => {
       auth.userId = admin
       const html = await editorHtml(project)
 
-      expect(html).toContain('Editar defini')
+      expect(html).toContain('>Editar</button>')
       expect(html).not.toContain('Fase 4')
     },
   )
