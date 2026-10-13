@@ -83,7 +83,7 @@ export function UnmarkOutlierForm({
       <ConfirmDialog
         trigger={(open) => (
           <span>
-            <Button variant="danger" size="sm" onClick={open}>
+            <Button variant="secondary" size="sm" onClick={open}>
               Remover a marca
             </Button>
           </span>

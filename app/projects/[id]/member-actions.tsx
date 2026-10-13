@@ -18,7 +18,7 @@ export function DeactivateMemberButton({
   return (
     <ConfirmDialog
       trigger={(open) => (
-        <Button variant="dangerGhost" onClick={open}>
+        <Button variant="danger" size="sm" onClick={open}>
           Desativar
         </Button>
       )}

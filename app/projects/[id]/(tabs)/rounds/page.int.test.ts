@@ -1272,7 +1272,7 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     expect(findElement(card.close, CloseRound)).toBeTruthy()
     const closeMarkup = renderToStaticMarkup(createElement(CloseRound, closeRoundOf(tree)))
     expect(closeMarkup).toContain(
-      `class="${buttonClass('secondary')}">Fechar rodada 1</button>`,
+      `class="${buttonClass('danger')}">Fechar rodada 1</button>`,
     )
     expect(closeMarkup.split(`class="${buttonClass('dangerSolid')}"`)).toHaveLength(2)
     expect(closeMarkup).toContain(

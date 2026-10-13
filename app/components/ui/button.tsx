@@ -7,8 +7,6 @@ export type ButtonVariant =
   | 'secondary'
   | 'danger'
   | 'dangerSolid'
-  | 'warning'
-  | 'dangerGhost'
   | 'ghost'
   | 'link'
   | 'quiet'
@@ -26,15 +24,10 @@ const variants: Record<ButtonVariant, string> = {
   secondary:
     'border border-line-strong bg-surface text-label not-disabled:hover:bg-canvas',
   danger:
-    'border border-line-strong bg-surface text-label ' +
-    'not-disabled:hover:bg-danger-tint not-disabled:hover:border-danger-tint-border ' +
-    'not-disabled:hover:text-danger-fg',
+    'border border-danger-border bg-surface text-danger-fg ' +
+    'not-disabled:hover:bg-danger-tint not-disabled:hover:border-danger-tint-border',
   dangerSolid:
     'border border-transparent bg-danger text-white not-disabled:hover:bg-danger-hover',
-  warning:
-    'border border-transparent bg-warning text-warning-on not-disabled:hover:bg-warning-hover',
-  dangerGhost:
-    'border-0 bg-transparent p-0 text-xs text-danger-fg not-disabled:hover:underline',
   ghost:
     'border-0 bg-transparent px-2 py-1.5 text-sm text-label not-disabled:hover:bg-canvas',
   link: 'border-0 bg-transparent p-0 text-xs text-brand not-disabled:hover:underline',
@@ -51,7 +44,7 @@ const sizes: Record<ButtonSize, string> = {
   sm: 'px-3 py-[5px] text-xs',
 }
 
-const unsized = new Set<ButtonVariant>(['dangerGhost', 'ghost', 'link', 'quiet'])
+const unsized = new Set<ButtonVariant>(['ghost', 'link', 'quiet'])
 
 export type ButtonOptions = {
   variant?: ButtonVariant

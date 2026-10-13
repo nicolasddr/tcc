@@ -110,7 +110,7 @@ export function ConsentForm({
           separado para não arrastar a validação/pending do consentimento. */}
       <form action={abandonOnboarding} className="mt-5 border-t border-line pt-4">
         <input type="hidden" name="project_id" value={projectId} />
-        <SubmitButton variant="danger" pendingText="Abandonando…">
+        <SubmitButton variant="secondary" pendingText="Abandonando…">
           Abandonar
         </SubmitButton>
       </form>

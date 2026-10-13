@@ -223,7 +223,7 @@ export function ManageProject({ projectId, status, name, description }: ManagePr
                 to="completed"
                 label="Concluir projeto"
                 pendingText="Concluindo…"
-                variant="dangerSolid"
+                variant="secondary"
                 confirmation={{
                   title: 'Concluir o projeto?',
                   lines: ['Ele fica somente leitura. Você pode reativá-lo depois.'],
@@ -236,7 +236,7 @@ export function ManageProject({ projectId, status, name, description }: ManagePr
                 to="archived"
                 label="Arquivar"
                 pendingText="Arquivando…"
-                variant="warning"
+                variant="secondary"
                 confirmation={{
                   title: 'Arquivar o projeto?',
                   lines: [
@@ -264,7 +264,7 @@ export function ManageProject({ projectId, status, name, description }: ManagePr
                 to="archived"
                 label="Arquivar"
                 pendingText="Arquivando…"
-                variant="warning"
+                variant="secondary"
                 confirmation={{
                   title: 'Arquivar o projeto?',
                   lines: ['Ele sai da lista padrão. Você pode reativá-lo depois.'],

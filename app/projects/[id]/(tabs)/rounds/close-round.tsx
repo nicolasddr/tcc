@@ -32,7 +32,7 @@ export function CloseRound({
     <div className="flex flex-col gap-3">
       <div>
         <Button
-          variant="secondary"
+          variant="danger"
           onClick={() => dialog.current?.showModal()}
           loading={pending}
           loadingText="Fechando…"
