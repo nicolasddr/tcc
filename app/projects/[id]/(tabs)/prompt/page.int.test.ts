@@ -27,12 +27,13 @@ import {
 } from '@/app/projects/[id]/pipeline/version-history'
 import {
   PromptEditor,
+  PromptForm,
   promptComposition,
 } from '@/app/projects/[id]/pipeline/prompt-editor'
 import { PromptMetadataEditor } from '@/app/projects/[id]/pipeline/prompt-metadata-editor'
 import { PromptTest } from '@/app/projects/[id]/pipeline/prompt-test'
 import type { PromptVersionSummary } from '@/app/projects/[id]/pipeline/prompt'
-import { Button } from '@/app/components/ui/button'
+import { Button, buttonClass } from '@/app/components/ui/button'
 import { formatDate } from '@/app/notifications/labels'
 import {
   PHASE_1,
@@ -479,6 +480,7 @@ describe('app/projects/[id]/prompt — a tela do prompt', () => {
 
     const html = renderToStaticMarkup(createElement(PromptEditor, props))
     expect(html).not.toContain('Editar texto')
+    expect(html).not.toContain('>Editar</button>')
     expect(html).not.toContain('Escrever o prompt')
     expect(html).not.toContain('<textarea')
     expect(html).not.toContain('<form')
@@ -514,9 +516,76 @@ describe('app/projects/[id]/prompt — a tela do prompt', () => {
       expect(props.notice).toBeNull()
 
       const html = renderToStaticMarkup(createElement(PromptEditor, props))
-      expect(html).toContain('Editar texto')
+      expect(html).not.toContain('Editar texto')
+      const edits = [...html.matchAll(/<button[^>]*>Editar<\/button>/g)]
+      expect(edits).toHaveLength(1)
+      expect(edits[0][0]).toContain(`class="${buttonClass('secondary', { size: 'sm' })}"`)
+      expect(edits[0].index!).toBeGreaterThan(html.indexOf('Histórico'))
     },
   )
+
+  it('sem versão, o cabeçalho oferece "Escrever o prompt" no mesmo estilo do "Editar"', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin)
+
+    auth.userId = admin
+    const props = findElement(await renderPrompt(project), PromptEditor)!
+      .props as Parameters<typeof PromptEditor>[0]
+    const html = renderToStaticMarkup(createElement(PromptEditor, props))
+
+    const writes = [...html.matchAll(/<button[^>]*>Escrever o prompt<\/button>/g)]
+    expect(writes).toHaveLength(1)
+    expect(writes[0][0]).toContain(`class="${buttonClass('secondary', { size: 'sm' })}"`)
+    expect(html).not.toContain('>Editar</button>')
+  })
+
+  it('em edição, só a barra de salvar fecha o formulário', async () => {
+    const admin = await newUser('Admin')
+    const project = await readyProject(admin, PHASE_2)
+
+    auth.userId = admin
+    const props = findElement(await renderPrompt(project), PromptEditor)!
+      .props as Parameters<typeof PromptEditor>[0]
+    const form = (version: typeof props.version) =>
+      renderToStaticMarkup(
+        createElement(PromptForm, {
+          projectId: props.projectId,
+          version,
+          composition: promptComposition(props.phase, props.definitions, props.items),
+          error: null,
+          pending: false,
+          onSubmit: () => {},
+          onDone: () => {},
+        }),
+      )
+
+    const html = form(props.version)
+    expect(html).toContain('Classifique a consulta.')
+    expect(html).not.toContain('Salvar prompt')
+    expect(html).not.toContain('Voltar à leitura')
+    expect(html).toContain('Nenhuma alteração.')
+    expect(html).toContain('>Cancelar</button>')
+    expect(html).not.toContain('>Descartar</button>')
+    expect(html).toMatch(/<button type="submit"[^>]*disabled=""[^>]*>Salvar<\/button>/)
+    expect(html).toMatch(/class="(?:[^"]* )?sticky /)
+
+    const blank = form(null)
+    expect(blank).toContain('>Cancelar</button>')
+    expect(blank).toMatch(/<button type="submit"[^>]*disabled=""[^>]*>Salvar<\/button>/)
+  })
+
+  it('os dados da versão continuam com o próprio botão, agora "Salvar dados"', async () => {
+    const admin = await newUser('Admin')
+    const project = await readyProject(admin, PHASE_2)
+
+    auth.userId = admin
+    const props = findElement(await renderPrompt(project), PromptMetadataEditor)!
+      .props as Parameters<typeof PromptMetadataEditor>[0]
+    const html = renderToStaticMarkup(createElement(PromptMetadataEditor, props))
+
+    expect(html).toMatch(/<button type="submit"[^>]*>Salvar dados<\/button>/)
+    expect(html).not.toContain('Salvar dados do prompt')
+  })
 
   it('o Avaliador não acessa a tela nem a versão', async () => {
     const admin = await newUser('Admin')

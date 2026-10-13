@@ -96,7 +96,7 @@ export function PromptMetadataEditor({
           loading={pending}
           loadingText="Salvando…"
         >
-          Salvar dados do prompt
+          Salvar dados
         </Button>
       </FormActions>
     </Form>

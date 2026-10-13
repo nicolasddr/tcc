@@ -1,6 +1,6 @@
 'use client'
 
-import { startTransition, useActionState, useState } from 'react'
+import { startTransition, useActionState, useEffect, useState } from 'react'
 import { savePrompt, type PromptState } from './actions'
 import type { PromptVersion } from './prompt'
 import { Button, buttonClass } from '@/app/components/ui/button'
@@ -8,10 +8,11 @@ import { Badge } from '@/app/components/ui/badge'
 import { Card } from '@/app/components/ui/card'
 import { Panel } from '@/app/components/ui/panel'
 import { Field, Textarea } from '@/app/components/ui/field'
-import { Form, FormActions } from '@/app/components/ui/form'
+import { Form } from '@/app/components/ui/form'
 import { Alert } from '@/app/components/ui/alert'
 import { EmptyState } from '@/app/components/ui/empty-state'
 import { InfoTooltip } from '@/app/components/ui/tooltip'
+import { SaveBar } from '@/app/components/ui/save-bar'
 import { preWrapClass } from '@/app/components/ui/prose'
 import { plural } from '@/lib/plural'
 import { NO_VERSION_EXPLANATION, versionExplanation } from './version-status'
@@ -68,6 +69,80 @@ function TextFrame({
   )
 }
 
+export function PromptForm({
+  projectId,
+  version,
+  composition,
+  error,
+  pending,
+  onSubmit,
+  onDone,
+}: {
+  projectId: string
+  version: PromptVersion | null
+  composition: string
+  error: string | null
+  pending: boolean
+  onSubmit: (event: React.FormEvent<HTMLFormElement>) => void
+  onDone: () => void
+}) {
+  const [text, setText] = useState(version?.text ?? '')
+  const dirty = text !== (version?.text ?? '')
+
+  useEffect(() => {
+    if (!dirty) return
+    function warnOnLeave(event: BeforeUnloadEvent) {
+      event.preventDefault()
+    }
+    window.addEventListener('beforeunload', warnOnLeave)
+    return () => window.removeEventListener('beforeunload', warnOnLeave)
+  }, [dirty])
+
+  return (
+    <Form onSubmit={onSubmit} gap="sm">
+      <input type="hidden" name="project_id" value={projectId} />
+      {version ? <input type="hidden" name="version_id" value={version.id} /> : null}
+
+      <Field
+        label={
+          <>
+            Texto do prompt{' '}
+            <span className="font-normal tabular-nums text-muted">
+              · {counterLabel(text.length)}
+            </span>
+          </>
+        }
+        required
+        hint={TEXT_HINT}
+      >
+        <Textarea
+          name="text"
+          required
+          rows={12}
+          maxLength={PROMPT_TEXT_MAX}
+          className={textClass}
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          placeholder="Ex.: Classifique a consulta de busca abaixo em uma das categorias do codebook."
+        />
+      </Field>
+
+      <p className="m-0 text-xs text-muted">{composition}</p>
+
+      {error !== null ? <Alert tone="error">{error}</Alert> : null}
+
+      <SaveBar
+        dirty={dirty}
+        changes="Texto do prompt alterado."
+        onDiscard={onDone}
+        canSave={text.trim().length > 0}
+        loading={pending}
+        loadingText="Salvando…"
+      />
+    </Form>
+  )
+}
+
 export function PromptEditor({
   projectId,
   version,
@@ -88,7 +163,6 @@ export function PromptEditor({
   notice: string | null
 }) {
   const [state, submit, pending] = useActionState(savePrompt, initialState)
-  const [text, setText] = useState(version?.text ?? '')
 
   const saved = state !== null && 'ok' in state
   const savedNonce = saved ? state.nonce : 0
@@ -96,7 +170,6 @@ export function PromptEditor({
   const editing = notice === null && editingNonce === savedNonce
 
   function edit() {
-    setText(version?.text ?? '')
     setEditingNonce(savedNonce)
   }
 
@@ -145,60 +218,23 @@ export function PromptEditor({
             </a>
           ) : null}
           {editing || notice !== null ? null : (
-            <Button size="sm" onClick={edit}>
-              {version ? 'Editar texto' : 'Escrever o prompt'}
+            <Button variant="secondary" size="sm" onClick={edit}>
+              {version ? 'Editar' : 'Escrever o prompt'}
             </Button>
           )}
         </div>
       }
     >
       {editing ? (
-        <Form onSubmit={onSubmit} gap="sm">
-          <input type="hidden" name="project_id" value={projectId} />
-          {version ? <input type="hidden" name="version_id" value={version.id} /> : null}
-
-          <Field
-            label={
-              <>
-                Texto do prompt{' '}
-                <span className="font-normal tabular-nums text-muted">
-                  · {counterLabel(text.length)}
-                </span>
-              </>
-            }
-            required
-            hint={TEXT_HINT}
-          >
-            <Textarea
-              name="text"
-              required
-              rows={12}
-              maxLength={PROMPT_TEXT_MAX}
-              className={textClass}
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              placeholder="Ex.: Classifique a consulta de busca abaixo em uma das categorias do codebook."
-            />
-          </Field>
-
-          <p className="m-0 text-xs text-muted">{composition}</p>
-
-          {state && 'error' in state ? <Alert tone="error">{state.error}</Alert> : null}
-
-          <FormActions align="start">
-            <Button
-              type="submit"
-              disabled={text.trim().length === 0}
-              loading={pending}
-              loadingText="Salvando…"
-            >
-              Salvar prompt
-            </Button>
-            <Button variant="secondary" onClick={() => setEditingNonce(null)}>
-              Voltar à leitura
-            </Button>
-          </FormActions>
-        </Form>
+        <PromptForm
+          projectId={projectId}
+          version={version}
+          composition={composition}
+          error={state && 'error' in state ? state.error : null}
+          pending={pending}
+          onSubmit={onSubmit}
+          onDone={() => setEditingNonce(null)}
+        />
       ) : (
         <div className="flex flex-col gap-3">
           {saved ? <Alert tone="success">Prompt salvo.</Alert> : null}

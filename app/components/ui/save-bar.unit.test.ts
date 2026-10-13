@@ -53,6 +53,15 @@ describe('app/components/ui/save-bar — a barra de salvar', () => {
     expect(isDisabled(save.tag)).toBe(false)
   })
 
+  it('com canSave falso, o "Salvar" fica desabilitado mesmo com alteração', () => {
+    const markup = render({ dirty: true, canSave: false })
+
+    const [discard, save] = buttons(markup)
+    expect(discard.label).toBe('Descartar')
+    expect(isDisabled(discard.tag)).toBe(false)
+    expect(isDisabled(save.tag)).toBe(true)
+  })
+
   it('o rótulo de salvar pode ser trocado', () => {
     const markup = render({ dirty: true, saveLabel: 'Cadastrar' })
     expect(buttons(markup).map((button) => button.label)).toEqual(['Descartar', 'Cadastrar'])

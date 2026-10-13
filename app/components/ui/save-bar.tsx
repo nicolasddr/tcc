@@ -5,6 +5,7 @@ export function SaveBar({
   dirty,
   changes,
   onDiscard,
+  canSave = true,
   saveLabel = 'Salvar',
   loading,
   loadingText,
@@ -14,6 +15,7 @@ export function SaveBar({
   dirty: boolean
   changes: React.ReactNode
   onDiscard: () => void
+  canSave?: boolean
   saveLabel?: React.ReactNode
   loading?: boolean
   loadingText?: React.ReactNode
@@ -37,7 +39,7 @@ export function SaveBar({
         <Button variant="secondary" onClick={onDiscard} disabled={loading}>
           {dirty ? 'Descartar' : 'Cancelar'}
         </Button>
-        <Button type="submit" disabled={!dirty} loading={loading} loadingText={loadingText}>
+        <Button type="submit" disabled={!dirty || !canSave} loading={loading} loadingText={loadingText}>
           {saveLabel}
         </Button>
       </div>
