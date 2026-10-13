@@ -11,6 +11,7 @@ import { Panel } from '@/app/components/ui/panel'
 import { Field, Textarea } from '@/app/components/ui/field'
 import { Form } from '@/app/components/ui/form'
 import { Alert } from '@/app/components/ui/alert'
+import { FrozenNotice } from './frozen-notice'
 import { EmptyState } from '@/app/components/ui/empty-state'
 import { InfoTooltip } from '@/app/components/ui/tooltip'
 import { SaveBar } from '@/app/components/ui/save-bar'
@@ -152,7 +153,7 @@ export function PromptEditor({
   definitions,
   items,
   historyAnchor,
-  notice,
+  frozen,
 }: {
   projectId: string
   version: PromptVersion | null
@@ -161,13 +162,13 @@ export function PromptEditor({
   definitions: number
   items: number
   historyAnchor?: string
-  notice: string | null
+  frozen: boolean
 }) {
   const [state, submit, pending] = useActionState(savePrompt, initialState)
 
   const saved = state !== null && 'ok' in state
   const [editingNonce, setEditingNonce] = useState<number | null>(null)
-  const editing = notice === null && isEditing(state, editingNonce)
+  const editing = !frozen && isEditing(state, editingNonce)
 
   function edit() {
     setEditingNonce(savedNonceOf(state))
@@ -217,7 +218,7 @@ export function PromptEditor({
               Histórico
             </a>
           ) : null}
-          {editing || notice !== null ? null : (
+          {editing || frozen ? null : (
             <Button variant="secondary" size="sm" onClick={edit}>
               {version ? 'Editar' : 'Escrever o prompt'}
             </Button>
@@ -238,7 +239,7 @@ export function PromptEditor({
       ) : (
         <div className="flex flex-col gap-3">
           {saved ? <Alert tone="success">Prompt salvo.</Alert> : null}
-          {notice !== null ? <Alert tone="notice">{notice}</Alert> : null}
+          {frozen ? <FrozenNotice subject="prompt" projectId={projectId} /> : null}
 
           {version ? (
             <TextFrame counter={counterLabel(version.text.length)} footer={composition}>

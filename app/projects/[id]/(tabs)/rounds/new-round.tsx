@@ -10,7 +10,6 @@ import {
 } from './preconditions'
 import { Alert } from '@/app/components/ui/alert'
 import { Button } from '@/app/components/ui/button'
-import { Card } from '@/app/components/ui/card'
 import { InfoTooltip } from '@/app/components/ui/tooltip'
 
 const initialState: NewRoundState = null
@@ -49,15 +48,15 @@ export function NewRound({
           ))}
         </div>
       ) : (
-        <Card tone="subtle" padding="sm">
-          <p className="m-0 flex flex-wrap items-center gap-2 text-[13px] text-muted">
+        <Alert tone="neutral">
+          <span className="inline-flex flex-wrap items-center gap-2">
             <span>
               Esta rodada vai congelar o codebook v{codebookVersionNumber} e o prompt v
               {promptVersionNumber}.
             </span>
             <InfoTooltip text={FREEZE_HELP} />
-          </p>
-        </Card>
+          </span>
+        </Alert>
       )}
 
       {state && 'error' in state ? <Alert tone="error">{state.error}</Alert> : null}

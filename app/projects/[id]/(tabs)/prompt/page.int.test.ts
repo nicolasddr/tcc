@@ -41,7 +41,7 @@ import {
   PHASE_3,
   PHASE_4,
 } from '@/app/projects/[id]/pipeline/preconditions'
-import { frozenMessage } from '@/app/projects/[id]/pipeline/freeze'
+import { FROZEN_RETURN_LINK, frozenLead } from '@/app/projects/[id]/pipeline/freeze'
 import { llmModel } from '@/lib/ai'
 import { ownerDb } from '@/lib/db'
 import {
@@ -476,7 +476,7 @@ describe('app/projects/[id]/prompt — a tela do prompt', () => {
     expect(editor).toBeTruthy()
 
     const props = editor!.props as Parameters<typeof PromptEditor>[0]
-    expect(props.notice).toBe(frozenMessage('prompt'))
+    expect(props.frozen).toBe(true)
 
     const html = renderToStaticMarkup(createElement(PromptEditor, props))
     expect(html).not.toContain('Editar texto')
@@ -485,7 +485,9 @@ describe('app/projects/[id]/prompt — a tela do prompt', () => {
     expect(html).not.toContain('<textarea')
     expect(html).not.toContain('<form')
     expect(html).toContain('Classifique a consulta.')
-    expect(html).toContain(frozenMessage('prompt'))
+    expect(html).toContain(frozenLead('prompt'))
+    expect(html).toContain(`href="/projects/${project}#voltar"`)
+    expect(html).toContain(`>${FROZEN_RETURN_LINK}</a>`)
     expect(html).toContain('Histórico')
   })
 
@@ -513,7 +515,7 @@ describe('app/projects/[id]/prompt — a tela do prompt', () => {
       auth.userId = admin
       const editor = findElement(await renderPrompt(project), PromptEditor)
       const props = editor!.props as Parameters<typeof PromptEditor>[0]
-      expect(props.notice).toBeNull()
+      expect(props.frozen).toBe(false)
 
       const html = renderToStaticMarkup(createElement(PromptEditor, props))
       expect(html).not.toContain('Editar texto')

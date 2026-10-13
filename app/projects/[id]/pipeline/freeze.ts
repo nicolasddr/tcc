@@ -6,25 +6,27 @@ export function isFrozen(phase: number): boolean {
   return phase >= PHASE_4
 }
 
-const FROZEN_PREFIX =
-  `Este projeto está na Fase ${PHASE_4}, que congela o codebook e o prompt enquanto ` +
-  `dura, para que o teste de replicação meça exatamente o que a Fase ${PHASE_3} avaliou.`
-
 export const FROZEN_BADGE_LABEL = 'Codebook e prompt congelados'
 
 export const FROZEN_BADGE_HELP =
-  `Na Fase ${PHASE_4}, codebook e prompt ficam como na rodada de referência; para mudá-los, ` +
-  `volte à Fase ${PHASE_3}. Metadados do prompt e itens seguem editáveis.`
+  `Na Fase ${PHASE_4}, codebook e prompt ficam como na rodada de referência, para a ` +
+  `replicação medir o que a Fase ${PHASE_3} avaliou. Para mudá-los, volte à Fase ` +
+  `${PHASE_3}. Metadados do prompt e itens seguem editáveis.`
 
-export function frozenMessage(subject: FrozenSubject): string {
+export const FROZEN_RETURN_LINK = `volte à Fase ${PHASE_3}`
+
+export function frozenLead(subject: FrozenSubject): string {
   switch (subject) {
     case 'codebook':
-      return `${FROZEN_PREFIX} Para refinar o codebook, é preciso voltar à Fase ${PHASE_3}.`
+      return `Codebook congelado na Fase ${PHASE_4}, para o teste de replicação. Para refinar,`
     case 'prompt':
       return (
-        `${FROZEN_PREFIX} Para refinar o texto do prompt, é preciso voltar à Fase ` +
-        `${PHASE_3}. Nome, descrição e registro de mudanças continuam editáveis, ` +
-        'porque não vão à LLM.'
+        `Texto do prompt congelado na Fase ${PHASE_4}, para o teste de replicação. ` +
+        'Nome, descrição e registro de mudanças continuam editáveis. Para refinar o texto,'
       )
   }
+}
+
+export function frozenMessage(subject: FrozenSubject): string {
+  return `${frozenLead(subject)} ${FROZEN_RETURN_LINK}.`
 }

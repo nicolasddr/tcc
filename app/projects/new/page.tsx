@@ -38,7 +38,7 @@ export default async function NewProjectPage() {
           <PageSubtitle>
             Sua conta ainda não tem permissão para criar projetos.
           </PageSubtitle>
-          <Alert tone="notice">
+          <Alert tone="neutral">
             Sua solicitação está em análise. Você receberá uma notificação assim que ela
             for aprovada ou recusada.
           </Alert>

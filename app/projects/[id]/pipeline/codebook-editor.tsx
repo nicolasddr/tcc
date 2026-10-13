@@ -25,6 +25,7 @@ import { Card } from '@/app/components/ui/card'
 import { InfoTooltip } from '@/app/components/ui/tooltip'
 import { preWrapClass } from '@/app/components/ui/prose'
 import { Alert } from '@/app/components/ui/alert'
+import { LockIcon } from '@/app/components/ui/icons'
 import { VersionStatus } from './version-status'
 import { DefinitionList } from './definition-list'
 import { EmptyState } from '@/app/components/ui/empty-state'
@@ -39,7 +40,8 @@ import {
   type CriterionScope,
 } from './criteria'
 import { codebookLockedMessage } from '../(tabs)/rounds/preconditions'
-import { frozenMessage, isFrozen } from './freeze'
+import { isFrozen } from './freeze'
+import { FrozenNotice } from './frozen-notice'
 import { CodebookSummary } from './criteria-summary'
 import {
   CODEBOOK_NOTE_MAX,
@@ -720,7 +722,7 @@ export function CodebookFields({
   )
 }
 
-export function CodebookReadOnly({
+function CodebookReadOnly({
   version,
   isOpen,
   notice,
@@ -730,7 +732,7 @@ export function CodebookReadOnly({
 }: {
   version: CodebookVersion | null
   isOpen: boolean
-  notice: string | null
+  notice: React.ReactNode
   definitions: CodebookDefinition[]
   criteria: CodebookCriterion[]
   inPhase2: boolean
@@ -738,7 +740,7 @@ export function CodebookReadOnly({
   return (
     <div className="flex flex-col gap-4">
       <VersionStatus version={version} isOpen={isOpen} />
-      {notice !== null ? <Alert tone="notice">{notice}</Alert> : null}
+      {notice}
       <CodebookBody
         hasVersion={version !== null}
         definitions={definitions}
@@ -775,11 +777,13 @@ export function CodebookEditor({
   const [editingNonce, setEditingNonce] = useState<number | null>(null)
   const editing = isEditing(state, editingNonce)
 
-  const notice = isFrozen(phase)
-    ? frozenMessage('codebook')
-    : openRoundNumber !== null
-      ? codebookLockedMessage(openRoundNumber)
-      : null
+  const notice = isFrozen(phase) ? (
+    <FrozenNotice subject="codebook" projectId={projectId} />
+  ) : openRoundNumber !== null ? (
+    <Alert tone="neutral" icon={<LockIcon />}>
+      {codebookLockedMessage(openRoundNumber)}
+    </Alert>
+  ) : null
 
   if (notice !== null) {
     return (

@@ -10,7 +10,7 @@ import { PromptTest } from '../../pipeline/prompt-test'
 import { loadItems } from '../../pipeline/items'
 import { loadCodebook } from '../../pipeline/codebook'
 import { EMPTY_PIPELINE, canAdvanceFromPhase1 } from '../../pipeline/preconditions'
-import { frozenMessage, isFrozen } from '../../pipeline/freeze'
+import { isFrozen } from '../../pipeline/freeze'
 import { llmModel } from '@/lib/ai'
 import { Card } from '@/app/components/ui/card'
 import { Disclosure } from '@/app/components/ui/disclosure'
@@ -61,7 +61,7 @@ export default async function ProjectPromptPage({
           definitions={codebook.definitions.length}
           items={items.length}
           historyAnchor={versions.length > 0 ? HISTORY_ANCHOR : undefined}
-          notice={isFrozen(project.phase) ? frozenMessage('prompt') : null}
+          frozen={isFrozen(project.phase)}
         />
 
         <Card>

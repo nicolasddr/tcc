@@ -11,6 +11,7 @@ import { Button, type ButtonVariant } from '@/app/components/ui/button'
 import { Field, Input, Textarea } from '@/app/components/ui/field'
 import { Form, FormActions } from '@/app/components/ui/form'
 import { Alert } from '@/app/components/ui/alert'
+import { LockIcon } from '@/app/components/ui/icons'
 import { ConfirmDialog, DialogLines } from '@/app/components/ui/confirm-dialog'
 import { Section } from '@/app/components/ui/section'
 import { PROJECT_DESCRIPTION_MAX, PROJECT_NAME_MAX } from '@/lib/limits'
@@ -201,7 +202,7 @@ export function ManageProject({ projectId, status, name, description }: ManagePr
         {status === 'active' ? (
           <EditProjectForm projectId={projectId} name={name} description={description} />
         ) : (
-          <Alert tone="notice">
+          <Alert tone="neutral" icon={<LockIcon />}>
             {status === 'completed'
               ? 'Projeto concluído: somente leitura. Reative-o para editar nome ou descrição.'
               : 'Projeto arquivado: somente leitura. Reative-o para editar nome ou descrição.'}

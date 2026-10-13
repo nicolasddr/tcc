@@ -30,7 +30,6 @@ import { DefinitionList } from '@/app/projects/[id]/pipeline/definition-list'
 import {
   CodebookEditor,
   CodebookFields,
-  CodebookReadOnly,
   ORDER_HELP,
 } from '@/app/projects/[id]/pipeline/codebook-editor'
 import { VersionStatus } from '@/app/projects/[id]/pipeline/version-status'
@@ -44,7 +43,7 @@ import {
   PHASE_3,
   PHASE_4,
 } from '@/app/projects/[id]/pipeline/preconditions'
-import { frozenMessage } from '@/app/projects/[id]/pipeline/freeze'
+import { FROZEN_RETURN_LINK, frozenLead } from '@/app/projects/[id]/pipeline/freeze'
 import { codebookLockedMessage } from '@/app/projects/[id]/(tabs)/rounds/preconditions'
 import { ownerDb } from '@/lib/db'
 import {
@@ -585,18 +584,19 @@ describe('app/projects/[id]/codebook — a tela do codebook', () => {
     const props = editor!.props as Parameters<typeof CodebookEditor>[0]
     expect(props.openRoundNumber).toBe(1)
 
-    const readOnly = CodebookReadOnly({
-      version: props.version,
-      isOpen: props.isOpen,
-      notice: codebookLockedMessage(props.openRoundNumber!),
-      definitions: props.definitions,
-      criteria: props.criteria,
-      inPhase2: true,
-    })
-    expect(findElement(readOnly, 'form')).toBeNull()
-    expect(textOf(readOnly)).toContain('rodada 1')
-    expect(textOf(readOnly)).toContain('Feche a rodada')
+    const html = renderToStaticMarkup(createElement(CodebookEditor, props))
+    expect(html).not.toContain('<form')
+    expect(html).toContain(codebookLockedMessage(1))
+    const notice = noticeTagOf(html, codebookLockedMessage(1))
+    expect(notice).toContain('bg-surface-subtle')
+    expect(notice).not.toContain('warning')
   })
+
+  function noticeTagOf(html: string, text: string): string {
+    const notice = html.match(new RegExp(`<p [^>]*>(?:(?!<p ).)*?${text.slice(0, 20)}`))
+    expect(notice).toBeTruthy()
+    return notice![0]
+  }
 
   async function editorHtml(project: string): Promise<string> {
     const editor = findElement(await renderCodebook(project), CodebookEditor)
@@ -632,7 +632,10 @@ describe('app/projects/[id]/codebook — a tela do codebook', () => {
     expect(html).toContain('Informacional')
     expect(html).toContain('busca informa')
     expect(html).toContain('Cita a fonte')
-    expect(html).toContain(frozenMessage('codebook'))
+    expect(html).toContain(frozenLead('codebook'))
+    expect(html).toContain(`href="/projects/${project}#voltar"`)
+    expect(html).toContain(`>${FROZEN_RETURN_LINK}</a>`)
+    expect(noticeTagOf(html, frozenLead('codebook'))).toContain('bg-surface-subtle')
   })
 
   it('na Fase 4 com rodada aberta, o aviso é o do congelamento, e não o de fechar a rodada', async () => {
@@ -656,7 +659,10 @@ describe('app/projects/[id]/codebook — a tela do codebook', () => {
     const html = await editorHtml(project)
 
     expect(html).not.toContain('<form')
-    expect(html).toContain(frozenMessage('codebook'))
+    expect(html).toContain(frozenLead('codebook'))
+    expect(html).toContain(`href="/projects/${project}#voltar"`)
+    expect(html).toContain(`>${FROZEN_RETURN_LINK}</a>`)
+    expect(noticeTagOf(html, frozenLead('codebook'))).toContain('bg-surface-subtle')
     expect(html).not.toContain('Feche a rodada')
   })
 

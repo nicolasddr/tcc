@@ -2,6 +2,8 @@ import { describe, it, expect } from 'vitest'
 import {
   FROZEN_BADGE_HELP,
   FROZEN_BADGE_LABEL,
+  FROZEN_RETURN_LINK,
+  frozenLead,
   frozenMessage,
   isFrozen,
   type FrozenSubject,
@@ -17,12 +19,6 @@ const SUBJECTS: FrozenSubject[] = ['codebook', 'prompt']
 
 const JUDGEMENT_WORDS = /aprov|reprov|replicou|generaliz/i
 
-function sharedPrefix(a: string, b: string): string {
-  let i = 0
-  while (i < a.length && i < b.length && a[i] === b[i]) i++
-  return a.slice(0, i)
-}
-
 describe('app/projects/[id]/pipeline/freeze — o congelamento da Fase 4', () => {
   it.each([PHASE_1, PHASE_2, PHASE_3])('a Fase %i não congela nada', (phase) => {
     expect(isFrozen(phase)).toBe(false)
@@ -32,31 +28,28 @@ describe('app/projects/[id]/pipeline/freeze — o congelamento da Fase 4', () =>
     expect(isFrozen(PHASE_4)).toBe(true)
   })
 
+  it('a mensagem do codebook é uma frase só, que manda voltar à Fase 3', () => {
+    expect(frozenMessage('codebook')).toBe(
+      `Codebook congelado na Fase ${PHASE_4}, para o teste de replicação. ` +
+        `Para refinar, volte à Fase ${PHASE_3}.`,
+    )
+  })
+
+  it('a mensagem do prompt diz o que congela, o que continua editável e manda voltar à Fase 3', () => {
+    expect(frozenMessage('prompt')).toBe(
+      `Texto do prompt congelado na Fase ${PHASE_4}, para o teste de replicação. ` +
+        'Nome, descrição e registro de mudanças continuam editáveis. ' +
+        `Para refinar o texto, volte à Fase ${PHASE_3}.`,
+    )
+  })
+
   it.each(SUBJECTS)(
-    'a mensagem do %s diz que a Fase 4 congela codebook e prompt e que refinar exige voltar à Fase 3',
+    'a mensagem do %s é o trecho do aviso seguido do texto do link',
     (subject) => {
-      const message = frozenMessage(subject)
-      expect(message).toContain(`Fase ${PHASE_4}`)
-      expect(message).toContain('congela o codebook e o prompt')
-      expect(message).toContain(`voltar à Fase ${PHASE_3}`)
+      expect(FROZEN_RETURN_LINK).toBe(`volte à Fase ${PHASE_3}`)
+      expect(frozenMessage(subject)).toBe(`${frozenLead(subject)} ${FROZEN_RETURN_LINK}.`)
     },
   )
-
-  it('a mensagem do codebook fala em refinar o codebook', () => {
-    expect(frozenMessage('codebook')).toContain('refinar o codebook')
-  })
-
-  it('a mensagem do prompt fala em refinar o texto do prompt e diz que os metadados continuam editáveis', () => {
-    const message = frozenMessage('prompt')
-    expect(message).toContain('refinar o texto do prompt')
-    expect(message).toContain('Nome, descrição e registro de mudanças continuam editáveis')
-  })
-
-  it('as duas mensagens têm o mesmo formato: começam pelo mesmo trecho', () => {
-    const prefix = sharedPrefix(frozenMessage('codebook'), frozenMessage('prompt'))
-    expect(prefix).toContain(`Este projeto está na Fase ${PHASE_4}`)
-    expect(prefix).toContain(`o que a Fase ${PHASE_3} avaliou.`)
-  })
 
   it('as duas mensagens são diferentes', () => {
     expect(frozenMessage('codebook')).not.toBe(frozenMessage('prompt'))
@@ -70,12 +63,17 @@ describe('app/projects/[id]/pipeline/freeze — o congelamento da Fase 4', () =>
     expect(FROZEN_BADGE_LABEL).toBe('Codebook e prompt congelados')
   })
 
+  it('a ajuda do selo diz por que congela: a replicação mede o que a Fase 3 avaliou', () => {
+    expect(FROZEN_BADGE_HELP).toContain('replicação')
+    expect(FROZEN_BADGE_HELP).toContain(`o que a Fase ${PHASE_3} avaliou`)
+  })
+
   it('a ajuda do selo diz o que fica congelado, o que continua editável e como mudar', () => {
     expect(FROZEN_BADGE_HELP).toContain('rodada de referência')
     expect(FROZEN_BADGE_HELP).toContain(`Fase ${PHASE_4}`)
     expect(FROZEN_BADGE_HELP).toContain('Metadados do prompt e itens seguem editáveis')
     expect(FROZEN_BADGE_HELP).toContain(`volte à Fase ${PHASE_3}`)
     expect(FROZEN_BADGE_HELP).not.toMatch(JUDGEMENT_WORDS)
-    expect(FROZEN_BADGE_HELP.split(/\s+/).filter(Boolean).length).toBeLessThanOrEqual(25)
+    expect(FROZEN_BADGE_HELP.split(/\s+/).filter(Boolean).length).toBeLessThanOrEqual(35)
   })
 })
