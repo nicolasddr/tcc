@@ -2,6 +2,7 @@
 
 import { startTransition, useActionState, useEffect, useState } from 'react'
 import { savePrompt, type PromptState } from './actions'
+import { isEditing, savedNonceOf } from './editing'
 import type { PromptVersion } from './prompt'
 import { Button, buttonClass } from '@/app/components/ui/button'
 import { Badge } from '@/app/components/ui/badge'
@@ -165,12 +166,11 @@ export function PromptEditor({
   const [state, submit, pending] = useActionState(savePrompt, initialState)
 
   const saved = state !== null && 'ok' in state
-  const savedNonce = saved ? state.nonce : 0
   const [editingNonce, setEditingNonce] = useState<number | null>(null)
-  const editing = notice === null && editingNonce === savedNonce
+  const editing = notice === null && isEditing(state, editingNonce)
 
   function edit() {
-    setEditingNonce(savedNonce)
+    setEditingNonce(savedNonceOf(state))
   }
 
   function onSubmit(event: React.FormEvent<HTMLFormElement>) {

@@ -2,6 +2,7 @@
 
 import { startTransition, useActionState, useEffect, useState } from 'react'
 import { saveCodebook, type CodebookState } from './actions'
+import { isEditing, savedNonceOf } from './editing'
 import type {
   CodebookCriterion,
   CodebookDefinition,
@@ -771,9 +772,8 @@ export function CodebookEditor({
   const [state, submit, pending] = useActionState(saveCodebook, initialState)
 
   const saved = state !== null && 'ok' in state
-  const savedNonce = saved ? state.nonce : 0
   const [editingNonce, setEditingNonce] = useState<number | null>(null)
-  const editing = editingNonce === savedNonce
+  const editing = isEditing(state, editingNonce)
 
   const notice = isFrozen(phase)
     ? frozenMessage('codebook')
@@ -795,7 +795,7 @@ export function CodebookEditor({
   }
 
   if (!editing) {
-    const startEditing = () => setEditingNonce(savedNonce)
+    const startEditing = () => setEditingNonce(savedNonceOf(state))
     const empty = version === null && definitions.length === 0
 
     return (
