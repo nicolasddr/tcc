@@ -108,7 +108,7 @@ export default async function MemberProfileAnswersPage({
                 <p
                   className={cx(
                     'm-0 text-sm leading-[1.5] whitespace-pre-wrap',
-                    r.answer ? 'text-ink' : 'text-faint italic',
+                    r.answer ? 'text-ink' : 'text-muted italic',
                   )}
                 >
                   {r.answer ?? 'Sem resposta'}

@@ -58,7 +58,7 @@ function Levels({
 function Cell({ cell }: { cell: MeasuredCell<QualityPair> }) {
   if (cell.state === 'not_applicable') {
     return (
-      <span className="text-faint" title={CELL_NOT_APPLICABLE_TITLE}>
+      <span className="text-muted" title={CELL_NOT_APPLICABLE_TITLE}>
         {CELL_NOT_APPLICABLE}
       </span>
     )

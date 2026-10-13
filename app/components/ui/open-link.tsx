@@ -8,7 +8,7 @@ export function OpenLink({
   children: React.ReactNode
 }) {
   return (
-    <Link href={href} className="font-semibold text-brand hover:text-brand-hover">
+    <Link href={href} className="inline-flex min-h-6 items-center font-semibold text-brand hover:text-brand-hover">
       {children}
     </Link>
   )

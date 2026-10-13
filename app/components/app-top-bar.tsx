@@ -58,7 +58,7 @@ export async function AppTopBar({ trail }: { trail: TrailItem[] }) {
                   ) : (
                     <Link
                       href={item.href}
-                      className="block truncate text-label transition-colors hover:text-ink"
+                      className="block truncate py-0.5 text-label transition-colors hover:text-ink"
                     >
                       {item.label}
                     </Link>

@@ -48,7 +48,8 @@ export function MemberList({
             {canManage && m.roles.includes('evaluator') ? (
               <ButtonLink
                 href={`/projects/${projectId}/profile-answers/${m.userId}`}
-                variant="link"
+                variant="secondary"
+                size="sm"
               >
                 Ver respostas
               </ButtonLink>

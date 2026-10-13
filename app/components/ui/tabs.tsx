@@ -72,7 +72,7 @@ export function Tab({
       aria-selected="false"
       aria-disabled="true"
       title={hint}
-      className={cx(base, 'cursor-not-allowed border-transparent text-faint')}
+      className={cx(base, 'cursor-not-allowed border-transparent text-muted')}
     >
       {icon}
       {children}

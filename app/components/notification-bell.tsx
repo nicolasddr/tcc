@@ -91,7 +91,7 @@ export function NotificationBell({ items }: { items: InboxItem[] }) {
                       {n.text}
                     </span>
                     <span className="flex items-center justify-between gap-2">
-                      <span className="text-[11px] text-faint">{n.dateLabel}</span>
+                      <span className="text-[11px] text-muted">{n.dateLabel}</span>
                       {!n.read ? (
                         <form action={markNotificationRead}>
                           <input type="hidden" name="notification_id" value={n.id} />

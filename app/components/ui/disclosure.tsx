@@ -2,7 +2,7 @@ import { cx } from './cx'
 import { ChevronRightIcon } from './icons'
 
 const summaryBase =
-  'inline-flex cursor-pointer list-none items-center gap-1.5 rounded-control ' +
+  'inline-flex min-h-6 cursor-pointer list-none items-center gap-1.5 rounded-control ' +
   'focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-brand-ring ' +
   '[&::-webkit-details-marker]:hidden'
 

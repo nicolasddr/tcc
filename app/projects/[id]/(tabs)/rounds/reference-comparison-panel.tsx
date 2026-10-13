@@ -36,7 +36,7 @@ function SideHeading({ round, isReference }: { round: ComparedRound; isReference
 }
 
 function Value({ cell, secondary }: { cell: ComparisonCell; secondary: boolean }) {
-  if (cell === null) return <span className="text-faint">{COMPARISON_EMPTY}</span>
+  if (cell === null) return <span className="text-muted">{COMPARISON_EMPTY}</span>
 
   return (
     <span className={secondary || cell.muted ? 'text-muted' : 'text-ink'}>

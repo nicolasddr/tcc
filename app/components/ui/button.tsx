@@ -30,9 +30,9 @@ const variants: Record<ButtonVariant, string> = {
     'border border-transparent bg-danger text-white not-disabled:hover:bg-danger-hover',
   ghost:
     'border-0 bg-transparent px-2 py-1.5 text-sm text-label not-disabled:hover:bg-canvas',
-  link: 'border-0 bg-transparent p-0 text-xs text-brand not-disabled:hover:underline',
+  link: 'min-h-6 border-0 bg-transparent p-0 text-xs text-brand not-disabled:hover:underline',
   quiet:
-    'border-0 bg-transparent p-0 text-[13px] whitespace-nowrap text-label ' +
+    'min-h-6 border-0 bg-transparent p-0 text-[13px] whitespace-nowrap text-label ' +
     'not-disabled:hover:text-ink not-disabled:hover:underline',
 }
 

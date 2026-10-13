@@ -139,7 +139,7 @@ function Justification({
     return (
       <Button
         variant="link"
-        className="self-start"
+        className="self-start py-1"
         aria-label={`Justificar ${criterion.name}`}
         aria-expanded={false}
         disabled={disabled}

@@ -25,7 +25,7 @@ import { HowToRead } from './how-to-read'
 function Cell({ cell }: { cell: MatrixCell }) {
   if (cell.state === 'not_applicable') {
     return (
-      <span className="text-faint" title={CELL_NOT_APPLICABLE_TITLE}>
+      <span className="text-muted" title={CELL_NOT_APPLICABLE_TITLE}>
         {CELL_NOT_APPLICABLE}
       </span>
     )
