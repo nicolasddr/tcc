@@ -25,6 +25,7 @@ import {
   ITEM_FILE_NOTE,
 } from '@/app/projects/[id]/pipeline/item-content'
 import { Section } from '@/app/components/ui/section'
+import { buttonClass } from '@/app/components/ui/button'
 import { PHASE_4 } from '@/app/projects/[id]/pipeline/preconditions'
 import { ownerDb } from '@/lib/db'
 import {
@@ -186,6 +187,12 @@ describe('app/projects/[id]/items — a tela dos itens de entrada', () => {
     expect(html).toContain('Escolher arquivo')
     expect(html).not.toContain('Importar arquivo')
     expect(html).toContain(ITEM_FILE_FORMATS)
+    expect(html).toContain('Nenhum item de entrada ainda. Envie o primeiro pelo bloco acima.')
+    expect(html).toContain('Novo item')
+    expect(html).not.toContain('type="search"')
+    expect(html).not.toContain('Buscar no pool')
+    expect(html).not.toContain('no pool')
+    expect(html).not.toContain('caractere')
 
     const section = findElement(await render(project), Section)
     const { help, more } = section!.props as SectionProps
@@ -215,6 +222,40 @@ describe('app/projects/[id]/items — a tela dos itens de entrada', () => {
     const { help, more } = section!.props as SectionProps
     expect(help.split(/\s+/).filter(Boolean).length).toBeLessThanOrEqual(25)
     expect(more?.points).toEqual([ITEM_FILE_FORMATS, ITEM_FILE_NOTE])
+  })
+
+  it('cada item mostra "Editar" (ou "Ver conteúdo", se congelado) antes do ⋯, e o formulário do item usa a barra de salvar', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin)
+    await addInputItem(ownerDb, project, admin, {
+      name: 'Consulta 001',
+      usedAt: new Date().toISOString(),
+    })
+    await addInputItem(ownerDb, project, admin, { name: 'Consulta 002' })
+
+    auth.userId = admin
+    const props = itemsOf(await render(project))
+    expect(props.items.map((item) => item.isEditable)).toEqual([false, true])
+    const html = renderToStaticMarkup(createElement(ItemsEditor, props))
+
+    expect(html).toContain('type="search"')
+    expect(html).toContain('2 itens no pool')
+
+    const toggles = [...html.matchAll(/<button[^>]*aria-expanded="false"[^>]*>([^<]*)<\/button>/g)]
+    expect(toggles.map((match) => match[1])).toEqual(['Ver conteúdo', 'Editar'])
+    for (const [tag] of toggles) {
+      expect(tag).toContain(`class="${buttonClass('secondary', { size: 'sm' })}"`)
+    }
+    expect(toggles[1].index!).toBeLessThan(html.indexOf('Mais ações do item Consulta 002'))
+
+    expect(html).not.toContain('Salvar item')
+    expect(html).not.toContain('Concluir edição')
+    expect(html).not.toContain('>Fechar</button>')
+    expect(html.match(/Nenhuma alteração\./g) ?? []).toHaveLength(1)
+    expect(html).toContain('>Cancelar</button>')
+    expect(html).not.toContain('>Descartar</button>')
+    expect(html).toMatch(/<button type="submit"[^>]*disabled=""[^>]*>Salvar<\/button>/)
+    expect(html).toMatch(/class="(?:[^"]* )?sticky /)
   })
 
   it('na Fase 4, o pool continua aberto: cadastrar e editar o item não usado seguem na tela', async () => {

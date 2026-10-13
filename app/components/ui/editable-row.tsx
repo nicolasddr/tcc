@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useId, useRef } from 'react'
+import { useId, useLayoutEffect, useRef } from 'react'
 import { Button } from './button'
 import { cardClassName, cardInteractiveClass } from './card'
 import { cx } from './cx'
@@ -36,10 +36,13 @@ export function EditableRow({
 }) {
   const panelId = useId()
   const expandRef = useRef<HTMLButtonElement>(null)
+  const panelRef = useRef<HTMLDivElement>(null)
   const restoreFocus = useRef(false)
 
-  useEffect(() => {
-    if (expanded || !restoreFocus.current) return
+  useLayoutEffect(() => {
+    if (expanded) return
+    const focusInside = panelRef.current?.contains(document.activeElement) ?? false
+    if (!restoreFocus.current && !focusInside) return
     restoreFocus.current = false
     expandRef.current?.focus()
   }, [expanded])
@@ -94,6 +97,7 @@ export function EditableRow({
 
       <div
         id={panelId}
+        ref={panelRef}
         className={cx('mt-3 flex-col gap-3', expanded ? 'flex' : 'hidden')}
       >
         {children}

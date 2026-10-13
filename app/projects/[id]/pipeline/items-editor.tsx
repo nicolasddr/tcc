@@ -12,6 +12,7 @@ import { EditableRow } from '@/app/components/ui/editable-row'
 import { Field, Input, Textarea } from '@/app/components/ui/field'
 import { Form, FormActions } from '@/app/components/ui/form'
 import { Panel } from '@/app/components/ui/panel'
+import { SaveBar } from '@/app/components/ui/save-bar'
 import { Alert } from '@/app/components/ui/alert'
 import { EmptyState } from '@/app/components/ui/empty-state'
 import { InfoTooltip } from '@/app/components/ui/tooltip'
@@ -173,14 +174,16 @@ function ItemDropZone({
 function ItemFields({
   name,
   content,
+  onName,
+  onContent,
   withFile = true,
 }: {
-  name?: string
-  content?: string
+  name: string
+  content: string
+  onName: (name: string) => void
+  onContent: (content: string) => void
   withFile?: boolean
 }) {
-  const [text, setText] = useState(content ?? '')
-
   return (
     <>
       <Field label="Nome do item" required>
@@ -189,12 +192,13 @@ function ItemFields({
           name="name"
           required
           maxLength={ITEM_NAME_MAX}
-          defaultValue={name}
+          value={name}
+          onChange={(event) => onName(event.target.value)}
           placeholder="Ex.: Consulta 001"
         />
       </Field>
 
-      {withFile ? <ItemFileField onText={setText} /> : null}
+      {withFile ? <ItemFileField onText={onContent} /> : null}
 
       <Field
         label="Conteúdo"
@@ -207,8 +211,8 @@ function ItemFields({
           rows={8}
           maxLength={ITEM_CONTENT_MAX}
           className={contentClass}
-          value={text}
-          onChange={(event) => setText(event.target.value)}
+          value={content}
+          onChange={(event) => onContent(event.target.value)}
           placeholder="Cole aqui o texto que a LLM vai processar, ou carregue de um arquivo acima."
         />
       </Field>
@@ -231,25 +235,63 @@ function NewItemPanel({
   const created = state && 'ok' in state ? state : null
 
   return (
+    <NewItemForm
+      key={created ? created.nonce : 'idle'}
+      projectId={projectId}
+      name={created ? '' : draft.name}
+      content={created ? '' : draft.content}
+      action={action}
+      pending={pending}
+      error={state && 'error' in state ? state.error : null}
+      created={created !== null}
+      onClose={onClose}
+    />
+  )
+}
+
+function NewItemForm({
+  projectId,
+  action,
+  pending,
+  error,
+  created,
+  onClose,
+  ...initial
+}: {
+  projectId: string
+  name: string
+  content: string
+  action: (data: FormData) => void
+  pending: boolean
+  error: string | null
+  created: boolean
+  onClose: () => void
+}) {
+  const [name, setName] = useState(initial.name)
+  const [content, setContent] = useState(initial.content)
+  const dirty = name !== '' || content !== ''
+
+  return (
     <Panel
       tone="accent"
       title="Novo item"
       action={
         <Button variant="secondary" size="sm" onClick={onClose}>
-          Fechar
+          {dirty ? 'Descartar' : 'Cancelar'}
         </Button>
       }
     >
       <Form action={action} gap="sm">
         <input type="hidden" name="project_id" value={projectId} />
         <ItemFields
-          key={created ? created.nonce : 'idle'}
-          name={created ? undefined : draft.name}
-          content={created ? undefined : draft.content}
+          name={name}
+          content={content}
+          onName={setName}
+          onContent={setContent}
           withFile={false}
         />
 
-        {state && 'error' in state ? <Alert tone="error">{state.error}</Alert> : null}
+        {error !== null ? <Alert tone="error">{error}</Alert> : null}
         {created ? <Alert tone="success">Item cadastrado.</Alert> : null}
 
         <FormActions align="start">
@@ -262,23 +304,53 @@ function NewItemPanel({
   )
 }
 
-function EditItemForm({ projectId, item }: { projectId: string; item: InputItem }) {
-  const [state, action, pending] = useActionState(updateItem, initialState)
+function itemChanges(nameChanged: boolean, contentChanged: boolean): string {
+  if (nameChanged && contentChanged) return 'Nome e conteúdo alterados.'
+  return nameChanged ? 'Nome alterado.' : 'Conteúdo alterado.'
+}
+
+function EditItemForm({
+  projectId,
+  item,
+  action,
+  pending,
+  error,
+  onClose,
+}: {
+  projectId: string
+  item: InputItem
+  action: (data: FormData) => void
+  pending: boolean
+  error: string | null
+  onClose: () => void
+}) {
+  const [name, setName] = useState(item.name)
+  const [content, setContent] = useState(item.content)
+  const nameChanged = name !== item.name
+  const contentChanged = content !== item.content
+  const dirty = nameChanged || contentChanged
+
+  function discard() {
+    setName(item.name)
+    setContent(item.content)
+    onClose()
+  }
 
   return (
     <Form action={action} gap="sm">
       <input type="hidden" name="project_id" value={projectId} />
       <input type="hidden" name="item_id" value={item.id} />
-      <ItemFields name={item.name} content={item.content} />
+      <ItemFields name={name} content={content} onName={setName} onContent={setContent} />
 
-      {state && 'error' in state ? <Alert tone="error">{state.error}</Alert> : null}
-      {state && 'ok' in state ? <Alert tone="success">Item atualizado.</Alert> : null}
+      {error !== null ? <Alert tone="error">{error}</Alert> : null}
 
-      <FormActions align="start">
-        <Button type="submit" loading={pending} loadingText="Salvando…">
-          Salvar item
-        </Button>
-      </FormActions>
+      <SaveBar
+        dirty={dirty}
+        changes={itemChanges(nameChanged, contentChanged)}
+        onDiscard={discard}
+        loading={pending}
+        loadingText="Salvando…"
+      />
     </Form>
   )
 }
@@ -313,27 +385,43 @@ function ItemRowActions({ projectId, item }: { projectId: string; item: InputIte
 function ItemRow({
   projectId,
   item,
-  expanded,
-  onToggle,
+  selected,
+  onOpen,
+  onClose,
 }: {
   projectId: string
   item: InputItem
-  expanded: boolean
-  onToggle: () => void
+  selected: boolean
+  onOpen: () => void
+  onClose: () => void
 }) {
+  const [state, action, pending] = useActionState(updateItem, initialState)
+  const savedNonce = state && 'ok' in state ? state.nonce : null
+  const [openedNonce, setOpenedNonce] = useState<number | null>(null)
+  const expanded = selected && (savedNonce === null || savedNonce === openedNonce)
+  const saved = selected && !expanded
+
+  function open() {
+    setOpenedNonce(savedNonce)
+    onOpen()
+  }
+
   const lines = item.content.split('\n').length
   const usage = itemUsageMark(item.rounds)
 
   return (
     <EditableRow
       expanded={expanded}
-      onToggle={onToggle}
+      onToggle={expanded ? onClose : open}
       title={item.name}
       meta={`${plural(item.content.length, 'caractere', 'caracteres')} · ${plural(lines, 'linha', 'linhas')}`}
       preview={
-        <p className={`m-0 text-[13px] ${preWrapClass} text-muted`}>
-          {itemPreviewLines(item.content)}
-        </p>
+        <div className="flex flex-col gap-2">
+          {saved ? <Alert tone="success">Item atualizado.</Alert> : null}
+          <p className={`m-0 text-[13px] ${preWrapClass} text-muted`}>
+            {itemPreviewLines(item.content)}
+          </p>
+        </div>
       }
       badges={
         <>
@@ -350,11 +438,18 @@ function ItemRow({
         item.isEditable ? <ItemRowActions projectId={projectId} item={item} /> : null
       }
       expandLabel={item.isEditable ? 'Editar' : 'Ver conteúdo'}
-      collapseLabel={item.isEditable ? 'Concluir edição' : 'Fechar'}
+      collapseLabel={item.isEditable ? undefined : 'Fechar'}
       footer={item.isEditable ? null : FROZEN}
     >
       {item.isEditable ? (
-        <EditItemForm projectId={projectId} item={item} />
+        <EditItemForm
+          projectId={projectId}
+          item={item}
+          action={action}
+          pending={pending}
+          error={state && 'error' in state ? state.error : null}
+          onClose={onClose}
+        />
       ) : (
         <p className={`m-0 ${contentClass} ${preWrapClass} text-ink`}>{item.content}</p>
       )}
@@ -406,40 +501,46 @@ export function ItemsEditor({
       ) : null}
 
       <div className="flex flex-col gap-3">
-        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
-          <p className="m-0 text-[13px] font-semibold text-ink">
-            {plural(items.length, 'item', 'itens')} no pool ·{' '}
-            {plural(characters, 'caractere', 'caracteres')} no total
-          </p>
-
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="relative inline-flex items-center">
-              <SearchIcon className="pointer-events-none absolute left-3 text-muted" />
-              <Input
-                type="search"
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                aria-label="Buscar itens pelo nome ou pelo conteúdo"
-                placeholder="Buscar no pool"
-                className="w-[240px] pl-9"
-              />
-            </span>
-
+        {empty && draft ? null : (
+          <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
             {empty ? null : (
-              <label className={buttonClass('secondary', { className: pickerClass })}>
-                <HiddenFileInput disabled={reading} onFiles={loadFiles} />
-                {reading ? 'Lendo o arquivo…' : 'Importar arquivo'}
-              </label>
+              <p className="m-0 text-[13px] font-semibold text-ink">
+                {plural(items.length, 'item', 'itens')} no pool ·{' '}
+                {plural(characters, 'caractere', 'caracteres')} no total
+              </p>
             )}
 
-            {draft ? null : (
-              <Button onClick={() => openDraft('', '')}>
-                <PlusIcon />
-                Novo item
-              </Button>
-            )}
+            <div className="flex flex-wrap items-center gap-2">
+              {empty ? null : (
+                <span className="relative inline-flex items-center">
+                  <SearchIcon className="pointer-events-none absolute left-3 text-muted" />
+                  <Input
+                    type="search"
+                    value={query}
+                    onChange={(event) => setQuery(event.target.value)}
+                    aria-label="Buscar itens pelo nome ou pelo conteúdo"
+                    placeholder="Buscar no pool"
+                    className="w-[240px] pl-9"
+                  />
+                </span>
+              )}
+
+              {empty ? null : (
+                <label className={buttonClass('secondary', { className: pickerClass })}>
+                  <HiddenFileInput disabled={reading} onFiles={loadFiles} />
+                  {reading ? 'Lendo o arquivo…' : 'Importar arquivo'}
+                </label>
+              )}
+
+              {draft ? null : (
+                <Button onClick={() => openDraft('', '')}>
+                  <PlusIcon />
+                  Novo item
+                </Button>
+              )}
+            </div>
           </div>
-        </div>
+        )}
 
         {empty ? null : fileError}
 
@@ -454,8 +555,7 @@ export function ItemsEditor({
 
         {empty ? (
           <EmptyState>
-            Nenhum item de entrada ainda. Traga o primeiro pelo bloco acima — a Fase 2
-            amostra deste pool.
+            Nenhum item de entrada ainda. Envie o primeiro pelo bloco acima.
           </EmptyState>
         ) : (
           <div
@@ -474,10 +574,9 @@ export function ItemsEditor({
                     <ItemRow
                       projectId={projectId}
                       item={item}
-                      expanded={expandedId === item.id}
-                      onToggle={() =>
-                        setExpandedId((current) => (current === item.id ? null : item.id))
-                      }
+                      selected={expandedId === item.id}
+                      onOpen={() => setExpandedId(item.id)}
+                      onClose={() => setExpandedId(null)}
                     />
                   </li>
                 ))}
