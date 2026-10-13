@@ -1275,7 +1275,9 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
       `class="${buttonClass('secondary')}">Fechar rodada 1</button>`,
     )
     expect(closeMarkup.split(`class="${buttonClass('dangerSolid')}"`)).toHaveLength(2)
-    expect(closeMarkup).toContain('Confirmar fechamento')
+    expect(closeMarkup).toContain(
+      `class="${buttonClass('dangerSolid')}">Fechar rodada 1</button>`,
+    )
   })
 
   it('com ?gerar, o painel de geração aparece logo abaixo do cartão, com âncora e Cancelar', async () => {

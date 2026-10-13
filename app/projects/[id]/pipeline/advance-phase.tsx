@@ -5,13 +5,10 @@ import { advancePhase, type AdvancePhaseState } from './actions'
 import { PROJECT_PHASES } from '../phase-bar'
 import { Button } from '@/app/components/ui/button'
 import { Alert } from '@/app/components/ui/alert'
+import { dialogClass } from '@/app/components/ui/confirm-dialog'
 import { ArrowRightIcon } from '@/app/components/ui/icons'
 
 const initialState: AdvancePhaseState = null
-
-export const dialogClass =
-  'm-auto w-[min(32rem,calc(100vw-2rem))] rounded-card border border-line bg-surface ' +
-  'p-0 text-ink backdrop:bg-black/40'
 
 export function AdvancePhase({
   projectId,
@@ -100,7 +97,7 @@ export function AdvancePhase({
               <form action={action}>
                 <input type="hidden" name="project_id" value={projectId} />
                 <Button type="submit" loading={isPending} loadingText="Avançando…">
-                  Confirmar avanço
+                  Avançar para a Fase {target}
                 </Button>
               </form>
             </div>

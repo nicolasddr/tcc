@@ -4,9 +4,9 @@ import { useActionState, useEffect, useRef } from 'react'
 import { returnToPhase3, type ReturnPhaseState } from './actions'
 import { PROJECT_PHASES } from '../phase-bar'
 import { PHASE_3 } from './preconditions'
-import { dialogClass } from './advance-phase'
 import { Button } from '@/app/components/ui/button'
 import { Alert } from '@/app/components/ui/alert'
+import { dialogClass } from '@/app/components/ui/confirm-dialog'
 
 const initialState: ReturnPhaseState = null
 
@@ -90,7 +90,7 @@ export function ReturnPhase({
             <form action={action}>
               <input type="hidden" name="project_id" value={projectId} />
               <Button type="submit" loading={isPending} loadingText="Voltando…">
-                Confirmar retorno
+                Voltar à Fase {PHASE_3}
               </Button>
             </form>
           </div>

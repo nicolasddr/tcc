@@ -6,12 +6,9 @@ import { closeConfirmationLines, pendingEvaluatorsTitle } from './preconditions'
 import { Alert } from '@/app/components/ui/alert'
 import { Button } from '@/app/components/ui/button'
 import { Chip } from '@/app/components/ui/chip'
+import { dialogClass } from '@/app/components/ui/confirm-dialog'
 
 const initialState: CloseRoundState = null
-
-const dialogClass =
-  'm-auto w-[min(32rem,calc(100vw-2rem))] rounded-card border border-line bg-surface ' +
-  'p-0 text-ink backdrop:bg-black/40'
 
 export function CloseRound({
   projectId,
@@ -94,7 +91,7 @@ export function CloseRound({
                 loading={pending}
                 loadingText="Fechando…"
               >
-                Confirmar fechamento
+                Fechar rodada {round.roundNumber}
               </Button>
             </form>
           </div>

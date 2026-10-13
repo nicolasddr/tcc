@@ -9,6 +9,8 @@ import {
 import { OUTLIER_REASON_MAX } from '@/lib/limits'
 import { SubmitButton } from '@/app/components/submit-button'
 import { Alert } from '@/app/components/ui/alert'
+import { Button } from '@/app/components/ui/button'
+import { ConfirmDialog, DialogLines } from '@/app/components/ui/confirm-dialog'
 import { Field, Textarea } from '@/app/components/ui/field'
 
 const initialState: OutlierState = null
@@ -75,29 +77,30 @@ export function UnmarkOutlierForm({
   const [state, action] = useActionState(unmarkOutlier, initialState)
 
   return (
-    <form
-      action={action}
-      className="flex flex-col gap-2"
-      onSubmit={(e) => {
-        if (
-          !confirm(
-            `Remover a marca de outlier de ${evaluatorName} na rodada ${roundNumber}? As notas dela voltam a entrar no cálculo imediatamente. A marcação não é apagada: fica no histórico da rodada, com quem removeu e quando.`,
-          )
-        )
-          e.preventDefault()
-      }}
-    >
-      <input type="hidden" name="project_id" value={projectId} />
-      <input type="hidden" name="round_id" value={roundId} />
-      <input type="hidden" name="mark_id" value={markId} />
-
+    <div className="flex flex-col gap-2">
       {state && 'error' in state ? <Alert tone="error">{state.error}</Alert> : null}
 
-      <span>
-        <SubmitButton variant="danger" size="sm" pendingText="Removendo…">
-          Remover a marca
-        </SubmitButton>
-      </span>
-    </form>
+      <ConfirmDialog
+        trigger={(open) => (
+          <span>
+            <Button variant="danger" size="sm" onClick={open}>
+              Remover a marca
+            </Button>
+          </span>
+        )}
+        title={`Remover a marca de outlier de ${evaluatorName}?`}
+        confirmLabel="Remover a marca"
+        pendingLabel="Removendo…"
+        action={action}
+        fields={{ project_id: projectId, round_id: roundId, mark_id: markId }}
+      >
+        <DialogLines
+          lines={[
+            `As notas dela na rodada ${roundNumber} voltam a entrar no cálculo imediatamente.`,
+            'A marcação não é apagada: fica no histórico da rodada, com quem removeu e quando.',
+          ]}
+        />
+      </ConfirmDialog>
+    </div>
   )
 }

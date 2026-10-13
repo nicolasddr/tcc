@@ -11,6 +11,7 @@ import { Button, type ButtonVariant } from '@/app/components/ui/button'
 import { Field, Input, Textarea } from '@/app/components/ui/field'
 import { Form, FormActions } from '@/app/components/ui/form'
 import { Alert } from '@/app/components/ui/alert'
+import { ConfirmDialog, DialogLines } from '@/app/components/ui/confirm-dialog'
 import { Section } from '@/app/components/ui/section'
 import { PROJECT_DESCRIPTION_MAX, PROJECT_NAME_MAX } from '@/lib/limits'
 
@@ -136,6 +137,12 @@ function EditProjectForm({
 
 // Botão de transição de status (concluir/arquivar/reativar). Confirma antes de enviar
 // quando a ação torna o projeto somente leitura (concluir/arquivar).
+type StatusConfirmation = {
+  title: string
+  lines: readonly string[]
+  label: string
+}
+
 function StatusButton({
   projectId,
   from,
@@ -143,7 +150,7 @@ function StatusButton({
   label,
   pendingText,
   variant,
-  confirmMessage,
+  confirmation,
 }: {
   projectId: string
   from: string
@@ -151,15 +158,29 @@ function StatusButton({
   label: string
   pendingText: string
   variant: ButtonVariant
-  confirmMessage?: string
+  confirmation?: StatusConfirmation
 }) {
+  if (confirmation) {
+    return (
+      <ConfirmDialog
+        trigger={(open) => (
+          <Button variant={variant} onClick={open}>
+            {label}
+          </Button>
+        )}
+        title={confirmation.title}
+        confirmLabel={confirmation.label}
+        pendingLabel={pendingText}
+        action={setProjectStatus}
+        fields={{ project_id: projectId, from, to }}
+      >
+        <DialogLines lines={confirmation.lines} />
+      </ConfirmDialog>
+    )
+  }
+
   return (
-    <form
-      action={setProjectStatus}
-      onSubmit={(e) => {
-        if (confirmMessage && !confirm(confirmMessage)) e.preventDefault()
-      }}
-    >
+    <form action={setProjectStatus}>
       <input type="hidden" name="project_id" value={projectId} />
       <input type="hidden" name="from" value={from} />
       <input type="hidden" name="to" value={to} />
@@ -203,7 +224,11 @@ export function ManageProject({ projectId, status, name, description }: ManagePr
                 label="Concluir projeto"
                 pendingText="Concluindo…"
                 variant="dangerSolid"
-                confirmMessage="Concluir o projeto? Ele fica somente leitura (você pode reativá-lo depois)."
+                confirmation={{
+                  title: 'Concluir o projeto?',
+                  lines: ['Ele fica somente leitura. Você pode reativá-lo depois.'],
+                  label: 'Concluir projeto',
+                }}
               />
               <StatusButton
                 projectId={projectId}
@@ -212,7 +237,13 @@ export function ManageProject({ projectId, status, name, description }: ManagePr
                 label="Arquivar"
                 pendingText="Arquivando…"
                 variant="warning"
-                confirmMessage="Arquivar o projeto? Ele sai da lista padrão e fica somente leitura (você pode reativá-lo depois)."
+                confirmation={{
+                  title: 'Arquivar o projeto?',
+                  lines: [
+                    'Ele sai da lista padrão e fica somente leitura. Você pode reativá-lo depois.',
+                  ],
+                  label: 'Arquivar projeto',
+                }}
               />
             </>
           ) : null}
@@ -234,7 +265,11 @@ export function ManageProject({ projectId, status, name, description }: ManagePr
                 label="Arquivar"
                 pendingText="Arquivando…"
                 variant="warning"
-                confirmMessage="Arquivar o projeto? Ele sai da lista padrão (você pode reativá-lo depois)."
+                confirmation={{
+                  title: 'Arquivar o projeto?',
+                  lines: ['Ele sai da lista padrão. Você pode reativá-lo depois.'],
+                  label: 'Arquivar projeto',
+                }}
               />
             </>
           ) : null}

@@ -13,6 +13,7 @@ import { Field, Input, Textarea } from '@/app/components/ui/field'
 import { Form, FormActions } from '@/app/components/ui/form'
 import { Panel } from '@/app/components/ui/panel'
 import { SaveBar } from '@/app/components/ui/save-bar'
+import { ConfirmDialog, DialogLines } from '@/app/components/ui/confirm-dialog'
 import { Alert } from '@/app/components/ui/alert'
 import { EmptyState } from '@/app/components/ui/empty-state'
 import { InfoTooltip } from '@/app/components/ui/tooltip'
@@ -360,22 +361,23 @@ function ItemRowActions({ projectId, item }: { projectId: string; item: InputIte
 
   return (
     <>
-      <form
+      <ConfirmDialog
+        trigger={(open) => (
+          <RowActions menuLabel={`Mais ações do item ${item.name}`}>
+            <RowMenuItem onClick={open} disabled={pending} aria-busy={pending || undefined}>
+              {pending ? 'Removendo…' : 'Remover'}
+            </RowMenuItem>
+          </RowActions>
+        )}
+        title={`Remover o item “${item.name}”?`}
+        confirmLabel="Remover item"
+        pendingLabel="Removendo…"
+        tone="danger"
         action={action}
-        onSubmit={(e) => {
-          if (!confirm(`Remover o item “${item.name}”? O conteúdo dele é apagado.`)) {
-            e.preventDefault()
-          }
-        }}
+        fields={{ project_id: projectId, item_id: item.id }}
       >
-        <input type="hidden" name="project_id" value={projectId} />
-        <input type="hidden" name="item_id" value={item.id} />
-        <RowActions menuLabel={`Mais ações do item ${item.name}`}>
-          <RowMenuItem type="submit" disabled={pending} aria-busy={pending || undefined}>
-            {pending ? 'Removendo…' : 'Remover'}
-          </RowMenuItem>
-        </RowActions>
-      </form>
+        <DialogLines lines={['O conteúdo dele é apagado.']} />
+      </ConfirmDialog>
 
       {state && 'error' in state ? <Alert tone="error">{state.error}</Alert> : null}
     </>

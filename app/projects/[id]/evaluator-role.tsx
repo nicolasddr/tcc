@@ -13,6 +13,7 @@ import {
 } from '@/app/projects/evaluator-link'
 import { Button, ButtonLink } from '@/app/components/ui/button'
 import { Alert } from '@/app/components/ui/alert'
+import { ConfirmDialog, DialogLines } from '@/app/components/ui/confirm-dialog'
 
 const initialState: EvaluatorRoleState = null
 
@@ -53,27 +54,31 @@ export function EvaluatorRolePanel({
             ) : null}
 
             {canRevokeEvaluatorRole(view) ? (
-              <form
+              <ConfirmDialog
+                trigger={(open) => (
+                  <Button
+                    variant="danger"
+                    onClick={open}
+                    loading={revoking}
+                    loadingText="Desfazendo…"
+                  >
+                    Desfazer papel de avaliador
+                  </Button>
+                )}
+                title="Desfazer o papel de avaliador?"
+                confirmLabel="Desfazer papel"
+                pendingLabel="Desfazendo…"
+                tone="danger"
                 action={revoke}
-                onSubmit={(e) => {
-                  if (
-                    !confirm(
-                      'Desfazer o papel de avaliador? Você deixa de participar como avaliador e o consentimento e as respostas de perfil desse vínculo são apagados. Seu acesso de administrador não muda.',
-                    )
-                  )
-                    e.preventDefault()
-                }}
+                fields={{ project_id: projectId }}
               >
-                <input type="hidden" name="project_id" value={projectId} />
-                <Button
-                  type="submit"
-                  variant="danger"
-                  loading={revoking}
-                  loadingText="Desfazendo…"
-                >
-                  Desfazer papel de avaliador
-                </Button>
-              </form>
+                <DialogLines
+                  lines={[
+                    'Você deixa de participar como avaliador e o consentimento e as respostas de perfil desse vínculo são apagados.',
+                    'Seu acesso de administrador não muda.',
+                  ]}
+                />
+              </ConfirmDialog>
             ) : (
               <p className="m-0 text-[13px] text-muted">{REVOKE_EVALUATIONS_SUBMITTED}</p>
             )}

@@ -8,8 +8,8 @@ import {
   type QuestionState,
 } from './actions'
 import type { OnboardingQuestion } from '@/app/onboarding/questions'
-import { SubmitButton } from '@/app/components/submit-button'
 import { Button } from '@/app/components/ui/button'
+import { ConfirmDialog, DialogLines } from '@/app/components/ui/confirm-dialog'
 import { Field, Input, Textarea, Select } from '@/app/components/ui/field'
 import { Form, FormActions } from '@/app/components/ui/form'
 import { Card } from '@/app/components/ui/card'
@@ -132,24 +132,21 @@ function EditQuestionForm({
         </Button>
 
         {/* Remover cascateia as respostas — confirma antes de enviar. */}
-        <form
+        <ConfirmDialog
+          trigger={(open) => (
+            <Button variant="danger" onClick={open}>
+              Remover
+            </Button>
+          )}
+          title="Remover esta pergunta?"
+          confirmLabel="Remover pergunta"
+          pendingLabel="Removendo…"
+          tone="danger"
           action={removeQuestion}
-          onSubmit={(e) => {
-            if (
-              !confirm(
-                'Remover esta pergunta? As respostas já dadas a ela também serão apagadas.',
-              )
-            ) {
-              e.preventDefault()
-            }
-          }}
+          fields={{ project_id: projectId, question_id: question.id }}
         >
-          <input type="hidden" name="project_id" value={projectId} />
-          <input type="hidden" name="question_id" value={question.id} />
-          <SubmitButton variant="danger" pendingText="Removendo…">
-            Remover
-          </SubmitButton>
-        </form>
+          <DialogLines lines={['As respostas já dadas a ela também serão apagadas.']} />
+        </ConfirmDialog>
       </div>
     </Card>
   )

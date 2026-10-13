@@ -1,7 +1,8 @@
 'use client'
 
 import { deactivateMember, leaveProject } from '@/app/projects/actions'
-import { SubmitButton } from '@/app/components/submit-button'
+import { Button } from '@/app/components/ui/button'
+import { ConfirmDialog, DialogLines } from '@/app/components/ui/confirm-dialog'
 
 // HU-021: o Administrador desativa um avaliador (com confirmação). Botão inline na
 // lista de membros; confirma antes de enviar porque a desativação tira o acesso.
@@ -15,23 +16,27 @@ export function DeactivateMemberButton({
   memberName: string
 }) {
   return (
-    <form
+    <ConfirmDialog
+      trigger={(open) => (
+        <Button variant="dangerGhost" onClick={open}>
+          Desativar
+        </Button>
+      )}
+      title={`Desativar ${memberName}?`}
+      confirmLabel="Desativar"
+      pendingLabel="Desativando…"
+      tone="danger"
       action={deactivateMember}
-      onSubmit={(e) => {
-        if (
-          !confirm(
-            `Desativar ${memberName} neste projeto? A pessoa perde o acesso e deixa de participar como avaliadora. As avaliações que ela já enviou continuam gravadas e continuam entrando no cálculo de concordância — para tirar as notas dela do cálculo de uma rodada, marque-a como outlier naquela rodada. Convites pendentes dela são cancelados.`,
-          )
-        )
-          e.preventDefault()
-      }}
+      fields={{ project_id: projectId, member_user_id: memberUserId }}
     >
-      <input type="hidden" name="project_id" value={projectId} />
-      <input type="hidden" name="member_user_id" value={memberUserId} />
-      <SubmitButton variant="dangerGhost" pendingText="Desativando…">
-        Desativar
-      </SubmitButton>
-    </form>
+      <DialogLines
+        lines={[
+          'A pessoa perde o acesso a este projeto e deixa de participar como avaliadora.',
+          'As avaliações que ela já enviou continuam gravadas e continuam entrando no cálculo de concordância. Para tirar as notas dela do cálculo de uma rodada, marque-a como outlier naquela rodada.',
+          'Convites pendentes dela são cancelados.',
+        ]}
+      />
+    </ConfirmDialog>
   )
 }
 
@@ -39,21 +44,25 @@ export function DeactivateMemberButton({
 // porque a saída desativa a própria participação (a fatia 05 impede reativar-se depois).
 export function LeaveProjectButton({ projectId }: { projectId: string }) {
   return (
-    <form
+    <ConfirmDialog
+      trigger={(open) => (
+        <Button variant="danger" onClick={open}>
+          Sair do projeto
+        </Button>
+      )}
+      title="Sair deste projeto?"
+      confirmLabel="Sair do projeto"
+      pendingLabel="Saindo…"
+      tone="danger"
       action={leaveProject}
-      onSubmit={(e) => {
-        if (
-          !confirm(
-            'Sair deste projeto? Você deixa de participar como avaliador. Suas avaliações são preservadas, mas você não poderá reativar sozinho — só o administrador pode readmiti-lo.',
-          )
-        )
-          e.preventDefault()
-      }}
+      fields={{ project_id: projectId }}
     >
-      <input type="hidden" name="project_id" value={projectId} />
-      <SubmitButton variant="danger" pendingText="Saindo…">
-        Sair do projeto
-      </SubmitButton>
-    </form>
+      <DialogLines
+        lines={[
+          'Você deixa de participar como avaliador. Suas avaliações são preservadas.',
+          'Você não poderá reativar sozinho: só o administrador pode readmiti-lo.',
+        ]}
+      />
+    </ConfirmDialog>
   )
 }
