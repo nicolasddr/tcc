@@ -47,7 +47,7 @@ import {
   type DefinitionFixture,
 } from '@/test/helpers'
 
-type Cell = { definitionId: string; criterionId: string }
+type Cell = { definitionId: string | null; criterionId: string }
 
 const DUAS_CELULAS: DefinitionFixture[] = [
   {
@@ -68,7 +68,7 @@ function saveForm(
   form.set('project_id', projectId)
   form.set('round_id', roundId)
   form.set('response_id', responseId)
-  form.set('definition_id', cell.definitionId)
+  form.set('definition_id', cell.definitionId ?? '')
   form.set('criterion_id', cell.criterionId)
   form.set('text', text)
   return form
@@ -97,7 +97,7 @@ async function cellsOf(
 ): Promise<Cell[]> {
   const codebook = await loadCodebookVersion(project, codebookVersion, db)
   return resolveCells(codebook!.definitions, codebook!.criteria).map((cell) => ({
-    definitionId: cell.definition.id,
+    definitionId: cell.definition?.id ?? null,
     criterionId: cell.criterion.id,
   }))
 }

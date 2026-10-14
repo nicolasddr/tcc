@@ -158,7 +158,7 @@ function changesTextOf(tree: unknown): string {
 type CodebookShape = Parameters<typeof addCodebookVersion>[3]
 
 type SceneCell = {
-  definitionId: string
+  definitionId: string | null
   criterionId: string
   definitionTitle: string
   criterionName: string
@@ -207,7 +207,7 @@ function markOf(notes: readonly ReviewNote[], evaluatorName: string): OutlierNot
 function mineOf(tree: unknown, cell: SceneCell): ConsensusNote | null {
   const context = listOf(tree).consensus
   expect(context).toBeTruthy()
-  const key = consensusCellKey(cell.definitionId, cell.criterionId)
+  const key = consensusCellKey(cell.definitionId ?? '', cell.criterionId)
   return context!.byCell.get(key)?.mine ?? null
 }
 
@@ -341,9 +341,9 @@ describe('app/projects/[id]/rounds/[roundId] — a revisão de discordâncias', 
 
     const codebook = await loadCodebookVersion(project, codebookVersion)
     const cells = resolveCells(codebook!.definitions, codebook!.criteria).map((cell) => ({
-      definitionId: cell.definition.id,
+      definitionId: cell.definition?.id ?? null,
       criterionId: cell.criterion.id,
-      definitionTitle: cell.definition.title,
+      definitionTitle: cell.definition?.title ?? '',
       criterionName: cell.criterion.name,
     }))
 

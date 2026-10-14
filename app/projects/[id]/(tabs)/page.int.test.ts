@@ -472,7 +472,7 @@ describe('app/projects/[id]/page — escopo de visibilidade', () => {
       for (const [index, value] of values.entries()) {
         await addEvaluation(ownerDb, round, responses[index], evaluator, {
           cells: cells.map<CellFixture>((cell) => ({
-            definitionId: cell.definition.id,
+            definitionId: cell.definition?.id ?? null,
             criterionId: cell.criterion.id,
             value,
           })),

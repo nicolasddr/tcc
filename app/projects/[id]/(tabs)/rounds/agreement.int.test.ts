@@ -24,7 +24,7 @@ import {
   type DefinitionFixture,
 } from '@/test/helpers'
 
-type Cell = { definitionId: string; criterionId: string }
+type Cell = { definitionId: string | null; criterionId: string }
 
 const ONE_CELL: DefinitionFixture[] = [
   { title: 'Navegacional', type: 'category', criteria: [{ name: 'Clareza' }] },
@@ -69,7 +69,7 @@ async function seedRound(
 
   const codebook = await loadCodebookVersion(project, codebookVersion, tx)
   const cells: Cell[] = resolveCells(codebook!.definitions, codebook!.criteria).map(
-    (cell) => ({ definitionId: cell.definition.id, criterionId: cell.criterion.id }),
+    (cell) => ({ definitionId: cell.definition?.id ?? null, criterionId: cell.criterion.id }),
   )
 
   return { round, codebookVersion, responses, cells }

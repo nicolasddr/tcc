@@ -391,7 +391,7 @@ describe('app/projects/[id]/rounds — a rodada da Fase 4 ao lado da rodada de r
     const cells = resolveCells(codebook!.definitions, codebook!.criteria)
     const filled = (value: CellFixture['value']): CellFixture[] =>
       cells.map((cell) => ({
-        definitionId: cell.definition.id,
+        definitionId: cell.definition?.id ?? null,
         criterionId: cell.criterion.id,
         value,
       }))

@@ -603,7 +603,7 @@ describe('app/projects/[id]/rounds/actions — criar, fechar e travar o codebook
     const codebook = await loadCodebookVersion(project, codebookVersion)
     await addEvaluation(ownerDb, round, response, member, {
       cells: resolveCells(codebook!.definitions, codebook!.criteria).map((cell) => ({
-        definitionId: cell.definition.id,
+        definitionId: cell.definition?.id ?? null,
         criterionId: cell.criterion.id,
         value: 'high' as const,
       })),

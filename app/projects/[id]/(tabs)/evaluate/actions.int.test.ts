@@ -45,7 +45,7 @@ import {
   cleanup,
 } from '@/test/helpers'
 
-type Cell = { definitionId: string; criterionId: string }
+type Cell = { definitionId: string | null; criterionId: string }
 
 type Scenario = {
   project: string
@@ -121,7 +121,7 @@ describe('app/projects/[id]/evaluate/actions — enviar a avaliação de uma res
 
     const codebook = await loadCodebookVersion(project, codebookVersion)
     const cells = resolveCells(codebook!.definitions, codebook!.criteria).map((cell) => ({
-      definitionId: cell.definition.id,
+      definitionId: cell.definition?.id ?? null,
       criterionId: cell.criterion.id,
     }))
 

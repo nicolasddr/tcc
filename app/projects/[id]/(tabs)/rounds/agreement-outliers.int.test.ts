@@ -43,7 +43,7 @@ import {
   type DefinitionFixture,
 } from '@/test/helpers'
 
-type Cell = { definitionId: string; criterionId: string }
+type Cell = { definitionId: string | null; criterionId: string }
 
 const ONE_CELL: DefinitionFixture[] = [
   { title: 'Navegacional', type: 'category', criteria: [{ name: 'Clareza' }] },
@@ -133,7 +133,7 @@ describe('app/projects/[id]/rounds — a marca de outlier no coeficiente da roda
 
     const version = await loadCodebookVersion(project, codebook, ownerDb)
     const cells = resolveCells(version!.definitions, version!.criteria).map((cell) => ({
-      definitionId: cell.definition.id,
+      definitionId: cell.definition?.id ?? null,
       criterionId: cell.criterion.id,
     }))
 

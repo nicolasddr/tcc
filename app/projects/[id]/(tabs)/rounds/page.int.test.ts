@@ -213,7 +213,7 @@ function allTextOf(node: unknown): string {
 type CodebookShape = Parameters<typeof addCodebookVersion>[3]
 
 type SceneCell = {
-  definitionId: string
+  definitionId: string | null
   criterionId: string
   definitionTitle: string
   criterionName: string
@@ -532,9 +532,9 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
 
     const codebook = await loadCodebookVersion(project, codebookVersion)
     const cells = resolveCells(codebook!.definitions, codebook!.criteria).map((cell) => ({
-      definitionId: cell.definition.id,
+      definitionId: cell.definition?.id ?? null,
       criterionId: cell.criterion.id,
-      definitionTitle: cell.definition.title,
+      definitionTitle: cell.definition?.title ?? '',
       criterionName: cell.criterion.name,
     }))
 

@@ -2,12 +2,12 @@
 
 import { useActionState, useState } from 'react'
 import { submitEvaluation, type EvaluationState } from './actions'
-import { cellKey, isComplete, type Answer } from './completeness'
+import { cellKey, cellKeyOf, isComplete, type Answer } from './completeness'
 import { SCALE, isScaleValue, scaleLabel } from './scale'
 import { ScaleBadge, ScaleMarker } from './scale-marker'
 import type { SubmittedEvaluation } from './evaluation'
 import type { CodebookCriterion, CodebookDefinition } from '../../pipeline/codebook'
-import type { CodebookCell } from '../../pipeline/criteria'
+import { isDefinitionCell, type CodebookCell, type DefinitionCell } from '../../pipeline/criteria'
 import type { ResponseDetail } from '../../pipeline/responses'
 import { JUSTIFICATION_MAX } from '@/lib/limits'
 import { plural } from '@/lib/plural'
@@ -22,17 +22,13 @@ import { Textarea } from '@/app/components/ui/field'
 import { Form, FormActions } from '@/app/components/ui/form'
 import { preWrapClass, scrollBoxClass } from '@/app/components/ui/prose'
 
-type Cell = CodebookCell<CodebookDefinition, CodebookCriterion>
+type Cell = DefinitionCell<CodebookDefinition, CodebookCriterion>
 
 type Group = { definition: CodebookDefinition; cells: Cell[] }
 
 const initialState: EvaluationState = null
 
 const selected = 'border-brand! bg-brand-tint! text-brand-hover!'
-
-function keyOf(cell: Cell): string {
-  return cellKey({ definitionId: cell.definition.id, criterionId: cell.criterion.id })
-}
 
 function groupByDefinition(cells: readonly Cell[]): Group[] {
   const groups: Group[] = []
@@ -194,7 +190,7 @@ export function EvaluationForm({
   projectId,
   response,
   label,
-  cells,
+  cells: codebookCells,
   submitted,
   item,
   context,
@@ -202,7 +198,7 @@ export function EvaluationForm({
   projectId: string
   response: ResponseDetail
   label: string
-  cells: Cell[]
+  cells: CodebookCell<CodebookDefinition, CodebookCriterion>[]
   submitted: SubmittedEvaluation | null
   item?: React.ReactNode
   context?: React.ReactNode
@@ -213,9 +209,10 @@ export function EvaluationForm({
     storedJustifications(submitted),
   )
 
+  const cells = codebookCells.filter(isDefinitionCell)
   const groups = groupByDefinition(cells)
   const answers: Answer[] = cells.map((cell) => {
-    const key = keyOf(cell)
+    const key = cellKeyOf(cell)
     return {
       definitionId: cell.definition.id,
       criterionId: cell.criterion.id,
@@ -228,7 +225,7 @@ export function EvaluationForm({
   const reading = submitted !== null || sent
 
   function scoredIn(group: Group): number {
-    return group.cells.filter((cell) => isScaleValue(values[keyOf(cell)])).length
+    return group.cells.filter((cell) => isScaleValue(values[cellKeyOf(cell)])).length
   }
 
   if (reading) {
@@ -254,7 +251,7 @@ export function EvaluationForm({
 
                   <ul className="m-0 mt-3 flex list-none flex-col gap-3 border-t border-line p-0 pt-3">
                     {group.cells.map((cell) => {
-                      const key = keyOf(cell)
+                      const key = cellKeyOf(cell)
                       const value = values[key]
                       const justification = justifications[key] ?? ''
 
@@ -314,7 +311,7 @@ export function EvaluationForm({
 
                   <ul className="m-0 mt-3 flex list-none flex-col gap-4 border-t border-line p-0 pt-3">
                     {group.cells.map((cell) => {
-                      const key = keyOf(cell)
+                      const key = cellKeyOf(cell)
                       const value = values[key] ?? ''
 
                       return (

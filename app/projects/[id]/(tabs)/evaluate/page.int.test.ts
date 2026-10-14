@@ -320,7 +320,7 @@ describe('app/projects/[id]/evaluate — a tela do avaliador', () => {
     expect(headingOf(tree)).toContain('Avaliar na rodada 1')
 
     expect(
-      props.cells.map((cell) => `${cell.definition.title}/${cell.criterion.name}`),
+      props.cells.map((cell) => `${cell.definition?.title}/${cell.criterion.name}`),
     ).toEqual([
       'Informacional/Cita a fonte',
       'Informacional/Clareza',
@@ -433,7 +433,7 @@ describe('app/projects/[id]/evaluate — a tela do avaliador', () => {
     const cells = resolveCells(codebook!.definitions, codebook!.criteria)
     await addEvaluation(ownerDb, scene.round, scene.responses[0], member, {
       cells: cells.map((cell) => ({
-        definitionId: cell.definition.id,
+        definitionId: cell.definition?.id ?? null,
         criterionId: cell.criterion.id,
         value: 'high' as const,
       })),
@@ -506,7 +506,7 @@ describe('app/projects/[id]/evaluate — a tela do avaliador', () => {
     const cells = resolveCells(codebook!.definitions, codebook!.criteria)
     await addEvaluation(ownerDb, scene.round, scene.responses[0], member, {
       cells: cells.map((cell) => ({
-        definitionId: cell.definition.id,
+        definitionId: cell.definition?.id ?? null,
         criterionId: cell.criterion.id,
         value: 'medium' as const,
         justification: 'porque sim',
@@ -869,7 +869,7 @@ describe('app/projects/[id]/evaluate — a tela do avaliador', () => {
 
     const codebook = await loadCodebookVersion(scene.project, scene.codebookVersion)
     const cells = resolveCells(codebook!.definitions, codebook!.criteria).map((cell) => ({
-      definitionId: cell.definition.id,
+      definitionId: cell.definition?.id ?? null,
       criterionId: cell.criterion.id,
       value: 'high' as const,
     }))
@@ -920,7 +920,7 @@ describe('app/projects/[id]/evaluate — a tela do avaliador', () => {
 
     const codebook = await loadCodebookVersion(scene.project, scene.codebookVersion)
     const cells = resolveCells(codebook!.definitions, codebook!.criteria).map((cell) => ({
-      definitionId: cell.definition.id,
+      definitionId: cell.definition?.id ?? null,
       criterionId: cell.criterion.id,
       value: 'high' as const,
     }))

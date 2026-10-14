@@ -300,8 +300,48 @@ matriz), não de células: não mexer.
 
 ### 5.7 O que a Parte 2 herda
 
-(preencher ao fim da Parte 1: D1 e D2 confirmadas; nomes finais do D7; onde ficaram os dois
-descartes; testes antigos editados; divergências do plano)
+Feita em 2026-10-14, sem commit no momento da escrita. `npm run lint`, `npm run typecheck` e
+`npm test` (108 arquivos, 1601 testes) verdes.
+
+- **D1 = (a) e D2 = textos do plano, ⓘ do card no Plano 4**, confirmadas pelo usuário antes do
+  código.
+- **Nomes finais**, como no D5 e no D7: `DefinitionCell`, `isDefinitionCell` e `PER_RESPONSE_LABEL`
+  em `pipeline/criteria.ts` (o rótulo ainda sem uso); `PER_RESPONSE_KEY`, `CellKey`, `Cell<D, C>`,
+  `cellKeyOf` (o `keyOfCell` privado saiu), `perResponseIncomplete` e
+  `incompleteMessage(titles, criteria = [])` em `completeness.ts`. `Answer.definitionId` é
+  `string | null`.
+- **Descartes**: `evaluate/actions.ts` (~115, `resolveCells(...).filter(isDefinitionCell)`; a chave
+  ainda é `cellKey({ definitionId: cell.definition.id, ... })`, a Parte 2 troca por `cellKeyOf`);
+  `evaluate/evaluation-form.tsx` (a prop virou `cells: codebookCells`, e
+  `const cells = codebookCells.filter(isDefinitionCell)` no começo de `EvaluationForm`; o `keyOf`
+  local saiu, os usos chamam `cellKeyOf`).
+- **Testes novos**: em `criteria.unit.test.ts`, 8 `it` no `describe` "o critério por resposta"
+  (PoC, D4, conta 6 e 1, três de fórmula, `isDefinitionCell`); em `completeness.unit.test.ts`, o
+  `describe` "a célula do critério por resposta" (11 `it`).
+- **Testes antigos editados**:
+  - invertido (achado 4): "ainda não gera célula de definição" virou "gera uma célula só, sem
+    definição e fora dos gerais";
+  - o do D5 do Plano 1 ("não entra como específico na conta mostrada no card") passou ao PoC de
+    cinco definições, com a igualdade `5 definições × 1 critério geral + 1 por resposta`;
+  - só tipo, sem asserção mudada: os 19 de § 5.5, mais o `answer()` de `completeness.unit`
+    (aceita `null`); `type Cell` alargado em 9 arquivos e `SceneCell` em 2.
+- **Vermelhos**: § 5.1, 10 lidos, todos pelo motivo previsto (o de `isDefinitionCell` de import; no
+  do PoC, as asserções depois do `toHaveLength` não rodaram). Provados por mutação depois do verde:
+  ordem invertida das células (3 vermelhos), a célula por resposta com definição (o PoC cai no
+  `toBeNull`), `isDefinitionCell` sempre verdadeiro. § 5.2, 10 lidos: 5 de asserção (chave e
+  mensagens), 4 *Cannot read properties of null* e 1 de import, como previsto. Mutações: tirar o
+  `continue` da célula sem definição em `definitionsIncomplete` quebra só "nenhuma definição fica
+  incompleta", e **por exceção** (*Cannot read properties of null*), não por asserção;
+  `perResponseIncomplete` devolvendo `[]` dá 2 vermelhos de asserção; `isComplete` ignorando a
+  célula por resposta, 2.
+- **Divergências do plano**:
+  - Três testes de consenso passam `definitionId` onde a assinatura exige `string`; ficaram com
+    `?? ''`: `consensusCellKey(cell.definitionId ?? '', ...)` em `rounds/[roundId]/page.int`, e
+    `form.set('definition_id', cell.definitionId ?? '')` em `consensus-actions.int` e
+    `phase-4-round.int`. Nenhum desses cenários tem critério por resposta. **→ Plano 3**, quando o
+    consenso tratar a célula sem definição.
+  - O handoff do Plano 1 (§ 6.6) corrige o § 7.6 deste: `agreement.ts` tem **um** descarte só
+    (`toObservation`); corrigido lá embaixo.
 
 ---
 
@@ -445,7 +485,7 @@ A Parte 3 fecha o Plano 2, não a série: sem `Closes`.
   marcador).
 - Os testes que montam fixture por `resolveCells` já mandam `definitionId: null` na célula por
   resposta: um cenário do Plano 3 com critério por resposta já sai com a nota dele.
-- **Descartes que continuam**: `agreement.ts` (dois), `review.ts` e `consensus.ts`. Desde a Parte 2,
+- **Descartes que continuam**: `agreement.ts` (um, em `toObservation`), `review.ts` e `consensus.ts`. Desde a Parte 2,
   uma nota por resposta pode existir no banco (com critério montado à mão), e essas leituras a
   ignoram.
 - A receita da cena do § 7.3.

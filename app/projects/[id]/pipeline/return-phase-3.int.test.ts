@@ -77,7 +77,7 @@ const FROZEN = '2026-01-01T12:00:00.000Z'
 const RETURN_DENIED =
   'Não foi possível voltar de fase. Apenas o administrador do projeto pode fazê-lo.'
 
-type Cell = { definitionId: string; criterionId: string }
+type Cell = { definitionId: string | null; criterionId: string }
 
 type Artifacts = { codebook: string; prompt: string; cells: Cell[] }
 
@@ -133,7 +133,7 @@ describe('app/projects/[id]/pipeline/actions — retorno da Fase 4 para a Fase 3
   async function cellsOf(project: string, codebook: string): Promise<Cell[]> {
     const version = await loadCodebookVersion(project, codebook, ownerDb)
     return resolveCells(version!.definitions, version!.criteria).map((cell) => ({
-      definitionId: cell.definition.id,
+      definitionId: cell.definition?.id ?? null,
       criterionId: cell.criterion.id,
     }))
   }

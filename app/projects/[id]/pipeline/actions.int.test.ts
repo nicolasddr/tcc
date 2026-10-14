@@ -2552,7 +2552,7 @@ describe('app/projects/[id]/pipeline/actions — critérios do codebook', () => 
     const cells = resolveCells(codebook.definitions, codebook.criteria)
 
     expect(
-      cells.map((cell) => [cell.definition.title, cell.criterion.name, cell.isGeneral]),
+      cells.map((cell) => [cell.definition?.title, cell.criterion.name, cell.isGeneral]),
     ).toEqual([
       ['Informacional', 'Cita a fonte', false],
       ['Informacional', 'Clareza', true],

@@ -15,7 +15,7 @@ import {
 import { evaluatorMembershipId } from '@/lib/authz'
 import { JUSTIFICATION_MAX } from '@/lib/limits'
 import { loadCodebookVersion } from '../../pipeline/codebook'
-import { resolveCells } from '../../pipeline/criteria'
+import { isDefinitionCell, resolveCells } from '../../pipeline/criteria'
 import { listRoundResponses } from '../../pipeline/responses'
 import { isUuid } from '../../pipeline/versions'
 import { isOpen } from '../rounds/rounds'
@@ -112,7 +112,7 @@ export async function submitEvaluation(
       const codebook = await loadCodebookVersion(projectId, response.codebookVersionId, tx)
       if (!codebook) return { status: 'no_codebook' }
 
-      const cells = resolveCells(codebook.definitions, codebook.criteria)
+      const cells = resolveCells(codebook.definitions, codebook.criteria).filter(isDefinitionCell)
       const answers: Answer[] = []
 
       for (const cell of cells) {

@@ -72,7 +72,7 @@ import {
   cleanup,
 } from '@/test/helpers'
 
-type Cell = { definitionId: string; criterionId: string }
+type Cell = { definitionId: string | null; criterionId: string }
 
 type Evaluator = { user: string; member: string }
 
@@ -246,7 +246,7 @@ describe('app/projects/[id]/rounds — o ciclo completo de uma rodada da Fase 4'
 
     const codebook = await loadCodebookVersion(project, codebookVersion)
     const cells = resolveCells(codebook!.definitions, codebook!.criteria).map((cell) => ({
-      definitionId: cell.definition.id,
+      definitionId: cell.definition?.id ?? null,
       criterionId: cell.criterion.id,
     }))
 
@@ -476,7 +476,7 @@ describe('app/projects/[id]/rounds — o ciclo completo de uma rodada da Fase 4'
       function noteForm(text: string): FormData {
         const form = roundForm(s.project, round)
         form.set('response_id', responseIds[0])
-        form.set('definition_id', cell.definitionId)
+        form.set('definition_id', cell.definitionId ?? '')
         form.set('criterion_id', cell.criterionId)
         form.set('text', text)
         return form

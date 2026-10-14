@@ -7,9 +7,19 @@ export type CriterionScope = { definitionId: string | null; scope: Scope }
 export type DefinitionKey = { id: string }
 
 export type CodebookCell<D, C> = {
-  definition: D
+  definition: D | null
   criterion: C
   isGeneral: boolean
+}
+
+export type DefinitionCell<D, C> = CodebookCell<D, C> & { definition: D }
+
+export const PER_RESPONSE_LABEL = 'Por resposta'
+
+export function isDefinitionCell<D, C>(
+  cell: CodebookCell<D, C>,
+): cell is DefinitionCell<D, C> {
+  return cell.definition !== null
 }
 
 export function isScope(value: string): value is Scope {
@@ -54,13 +64,19 @@ export function resolveCells<D extends DefinitionKey, C extends CriterionScope>(
   definitions: readonly D[],
   criteria: readonly C[],
 ): CodebookCell<D, C>[] {
-  return definitions.flatMap((definition) =>
+  const definitionCells = definitions.flatMap((definition) =>
     criteriaOfDefinition(definition.id, criteria).map((criterion) => ({
       definition,
       criterion,
       isGeneral: isGeneral(criterion),
     })),
   )
+  const perResponseCells = perResponseCriteria(criteria).map((criterion) => ({
+    definition: null,
+    criterion,
+    isGeneral: false,
+  }))
+  return [...definitionCells, ...perResponseCells]
 }
 
 export function notesPerResponse(
@@ -79,17 +95,22 @@ export function notesPerResponseFormula(
 ): string {
   const general = generalCriteria(criteria).length
   const specific = criteria.filter((criterion) => criterion.scope === 'specific').length
+  const perResponse = perResponseCriteria(criteria).length
+  const perResponseTerm = perResponse === 0 ? '' : ` + ${perResponse} por resposta`
 
   if (general === 0) {
-    return specific === 0
+    if (specific > 0) {
+      return plural(specific, 'critério específico', 'critérios específicos') + perResponseTerm
+    }
+    return perResponse === 0
       ? plural(0, 'critério', 'critérios')
-      : plural(specific, 'critério específico', 'critérios específicos')
+      : plural(perResponse, 'critério por resposta', 'critérios por resposta')
   }
 
   const product = `${plural(definitions.length, 'definição', 'definições')} × ${plural(general, 'critério geral', 'critérios gerais')}`
-  return specific === 0
-    ? product
-    : `${product} + ${plural(specific, 'específico', 'específicos')}`
+  const withSpecific =
+    specific === 0 ? product : `${product} + ${plural(specific, 'específico', 'específicos')}`
+  return withSpecific + perResponseTerm
 }
 
 export function definitionsWithoutCriteria<D extends DefinitionKey>(

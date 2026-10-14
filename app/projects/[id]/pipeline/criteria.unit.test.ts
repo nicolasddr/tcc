@@ -4,6 +4,7 @@ import {
   definitionsWithoutCriteria,
   generalCriteria,
   isCodebookComplete,
+  isDefinitionCell,
   isGeneral,
   isPerResponse,
   isScope,
@@ -78,7 +79,7 @@ describe('app/projects/[id]/pipeline/criteria — herança dos critérios gerais
     )
 
     expect(
-      cells.map((cell) => [cell.definition.title, cell.criterion.id, cell.isGeneral]),
+      cells.map((cell) => [cell.definition?.title, cell.criterion.id, cell.isGeneral]),
     ).toEqual([
       ['Informacional', 'c1', false],
       ['Informacional', 'g1', true],
@@ -94,7 +95,7 @@ describe('app/projects/[id]/pipeline/criteria — herança dos critérios gerais
 
     expect(
       cells
-        .filter((cell) => cell.definition.id === 'd2')
+        .filter((cell) => cell.definition?.id === 'd2')
         .map((cell) => cell.criterion.id),
     ).toEqual(['c2'])
   })
@@ -105,7 +106,7 @@ describe('app/projects/[id]/pipeline/criteria — herança dos critérios gerais
       [criterion('c1', 'd1')],
     )
 
-    expect(cells.map((cell) => cell.definition.id)).toEqual(['d1'])
+    expect(cells.map((cell) => cell.definition?.id)).toEqual(['d1'])
   })
 })
 
@@ -251,6 +252,7 @@ describe('app/projects/[id]/pipeline/criteria — a definição sem régua nenhu
 })
 
 describe('app/projects/[id]/pipeline/criteria — o critério por resposta', () => {
+  const queries: Definition[] = [1, 2, 3, 4, 5].map((n) => ({ id: `q${n}`, title: `Query ${n}` }))
   const criteria = [criterion('c1', 'd1'), criterion('g1', null), perResponse('r1')]
 
   it('não é geral nem próprio de definição nenhuma, e está entre os critérios por resposta', () => {
@@ -275,10 +277,74 @@ describe('app/projects/[id]/pipeline/criteria — o critério por resposta', () 
     expect(isPerResponse(criterion('g1', null))).toBe(false)
   })
 
-  it('ainda não gera célula de definição', () => {
+  it('gera uma célula só, sem definição e fora dos gerais', () => {
     const cells = resolveCells([informacional, transacional], criteria)
 
-    expect(cells.map((cell) => cell.criterion.id)).toEqual(['c1', 'g1', 'g1'])
+    expect(
+      cells.map((cell) => [cell.definition?.id ?? null, cell.criterion.id, cell.isGeneral]),
+    ).toEqual([
+      ['d1', 'c1', false],
+      ['d1', 'g1', true],
+      ['d2', 'g1', true],
+      [null, 'r1', false],
+    ])
+  })
+
+  it('no PoC, as cinco definições com o geral vêm antes, e a célula por resposta fica por último', () => {
+    const cells = resolveCells(queries, [criterion('relevance', null), perResponse('diversity')])
+
+    expect(cells).toHaveLength(6)
+    expect(
+      cells.slice(0, 5).map((cell) => [cell.definition?.id, cell.criterion.id]),
+    ).toEqual(queries.map((query) => [query.id, 'relevance']))
+    expect(cells[5].definition).toBeNull()
+    expect(cells[5].criterion.id).toBe('diversity')
+  })
+
+  it('sem definição, o critério por resposta ainda gera a célula dele', () => {
+    const cells = resolveCells([], [perResponse('r1')])
+
+    expect(cells.map((cell) => [cell.definition, cell.criterion.id])).toEqual([[null, 'r1']])
+  })
+
+  it('a conta de notas do PoC dá 6', () => {
+    expect(
+      notesPerResponse(queries, [criterion('relevance', null), perResponse('diversity')]),
+    ).toBe(6)
+  })
+
+  it('só com o critério por resposta, a conta dá 1', () => {
+    expect(notesPerResponse([], [perResponse('r1')])).toBe(1)
+  })
+
+  it('a conta do card soma o por resposta ao específico', () => {
+    expect(
+      notesPerResponseFormula(
+        [informacional, transacional],
+        [criterion('g1', null), criterion('c1', 'd1'), perResponse('r1'), perResponse('r2')],
+      ),
+    ).toBe('2 definições × 1 critério geral + 1 específico + 2 por resposta')
+  })
+
+  it('sem geral, a conta do card soma o por resposta aos específicos', () => {
+    expect(
+      notesPerResponseFormula([informacional], [criterion('c1', 'd1'), perResponse('r1')]),
+    ).toBe('1 critério específico + 1 por resposta')
+  })
+
+  it('só com critério por resposta, a conta do card diz quantos são', () => {
+    expect(notesPerResponseFormula([informacional], [perResponse('r1')])).toBe(
+      '1 critério por resposta',
+    )
+    expect(
+      notesPerResponseFormula([informacional], [perResponse('r1'), perResponse('r2')]),
+    ).toBe('2 critérios por resposta')
+  })
+
+  it('isDefinitionCell separa a célula de definição da célula por resposta', () => {
+    const cells = resolveCells([informacional], [criterion('g1', null), perResponse('r1')])
+
+    expect(cells.map(isDefinitionCell)).toEqual([true, false])
   })
 
   it('não cobre definição: só com critérios por resposta, toda definição fica descoberta', () => {
@@ -307,13 +373,13 @@ describe('app/projects/[id]/pipeline/criteria — o critério por resposta', () 
   })
 
   it('não entra como específico na conta mostrada no card', () => {
-    const formula = notesPerResponseFormula(
-      [informacional, transacional],
-      [criterion('g1', null), perResponse('r1')],
-    )
+    const formula = notesPerResponseFormula(queries, [
+      criterion('relevance', null),
+      perResponse('diversity'),
+    ])
 
     expect(formula).not.toContain('específico')
-    expect(formula).toBe('2 definições × 1 critério geral')
+    expect(formula).toBe('5 definições × 1 critério geral + 1 por resposta')
   })
 
   it('isScope aceita os três tipos', () => {

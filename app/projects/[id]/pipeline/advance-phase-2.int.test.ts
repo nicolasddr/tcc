@@ -57,7 +57,7 @@ const ONE_CELL: DefinitionFixture[] = [
 
 const FROZEN = '2026-01-01T12:00:00.000Z'
 
-type Cell = { definitionId: string; criterionId: string }
+type Cell = { definitionId: string | null; criterionId: string }
 
 type Artifacts = { codebook: string; prompt: string; cells: Cell[] }
 
@@ -102,7 +102,7 @@ describe('app/projects/[id]/pipeline/actions — avanço da Fase 2 para a Fase 3
 
     const version = await loadCodebookVersion(project, codebook, ownerDb)
     const cells = resolveCells(version!.definitions, version!.criteria).map((cell) => ({
-      definitionId: cell.definition.id,
+      definitionId: cell.definition?.id ?? null,
       criterionId: cell.criterion.id,
     }))
 
