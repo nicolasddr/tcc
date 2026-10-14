@@ -53,7 +53,12 @@ export async function loadEvaluationOf(
     .where(eq(scores.evaluationId, evaluation.id))
     .orderBy(asc(scores.definitionId), asc(scores.criterionId))
 
-  return { ...evaluation, scores: cells }
+  return {
+    ...evaluation,
+    scores: cells.flatMap(({ definitionId, ...cell }) =>
+      definitionId === null ? [] : [{ ...cell, definitionId }],
+    ),
+  }
 }
 
 export async function loadEvaluatedResponseIds(

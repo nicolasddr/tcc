@@ -28,14 +28,14 @@ export type EvaluatorEffort = {
 
 type ScoreRow = {
   responseId: string
-  definitionId: string
+  definitionId: string | null
   criterionId: string
   projectMemberId: string
   value: string
 }
 
 function toObservation(row: ScoreRow): RoundObservation[] {
-  if (!isScaleValue(row.value)) return []
+  if (row.definitionId === null || !isScaleValue(row.value)) return []
 
   return [
     {

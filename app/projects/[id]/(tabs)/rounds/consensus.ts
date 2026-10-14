@@ -52,9 +52,16 @@ function selectNotes(db: DbExecutor) {
     .innerJoin(profiles, eq(profiles.id, projectMembers.userId))
 }
 
-function asNotes(rows: (Omit<ConsensusNote, 'visibility'> & { visibility: string })[]) {
-  return rows.flatMap((row) =>
-    isConsensusVisibility(row.visibility) ? [{ ...row, visibility: row.visibility }] : [],
+function asNotes(
+  rows: (Omit<ConsensusNote, 'definitionId' | 'visibility'> & {
+    definitionId: string | null
+    visibility: string
+  })[],
+) {
+  return rows.flatMap(({ definitionId, ...row }) =>
+    definitionId !== null && isConsensusVisibility(row.visibility)
+      ? [{ ...row, definitionId, visibility: row.visibility }]
+      : [],
   )
 }
 

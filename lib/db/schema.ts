@@ -274,6 +274,8 @@ export const codebookCriteria = pgTable("codebook_criteria", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	codebookVersionId: uuid("codebook_version_id").notNull(),
 	definitionId: uuid("definition_id"),
+	scope: text().notNull(),
+	perResponse: boolean("per_response").generatedAlwaysAs(sql`scope = 'per_response'`).notNull(),
 	name: text().notNull(),
 	description: text(),
 	orderIndex: integer("order_index").notNull(),
@@ -290,6 +292,9 @@ export const codebookCriteria = pgTable("codebook_criteria", {
 			foreignColumns: [codebookDefinitions.id],
 			name: "codebook_criteria_definition_id_fkey"
 		}).onDelete("cascade"),
+	unique("cc_unique_id_per_response").on(table.id, table.perResponse),
+	check("cc_scope_check", sql`scope = ANY (ARRAY['specific'::text, 'general'::text, 'per_response'::text])`),
+	check("cc_scope_definition", sql`(scope = 'specific') = (definition_id IS NOT NULL)`),
 	check("cc_name_len", sql`char_length(name) <= 200`),
 	check("cc_name_not_blank", sql`btrim(name) <> ''`),
 	check("cc_description_len", sql`description IS NULL OR char_length(description) <= 2000`),
@@ -472,8 +477,9 @@ export const evaluations = pgTable("evaluations", {
 export const scores = pgTable("scores", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	evaluationId: uuid("evaluation_id").notNull(),
-	definitionId: uuid("definition_id").notNull(),
+	definitionId: uuid("definition_id"),
 	criterionId: uuid("criterion_id").notNull(),
+	perResponse: boolean("per_response").generatedAlwaysAs(sql`definition_id IS NULL`).notNull(),
 	value: text().notNull(),
 	justification: text(),
 }, (table) => [
@@ -489,11 +495,11 @@ export const scores = pgTable("scores", {
 			name: "scores_definition_id_fkey"
 		}).onDelete("restrict"),
 	foreignKey({
-			columns: [table.criterionId],
-			foreignColumns: [codebookCriteria.id],
-			name: "scores_criterion_id_fkey"
+			columns: [table.criterionId, table.perResponse],
+			foreignColumns: [codebookCriteria.id, codebookCriteria.perResponse],
+			name: "scores_criterion_scope_fkey"
 		}).onDelete("restrict"),
-	unique("sc_unique_cell").on(table.evaluationId, table.definitionId, table.criterionId),
+	unique("sc_unique_cell").on(table.evaluationId, table.definitionId, table.criterionId).nullsNotDistinct(),
 	check("sc_value_check", sql`value = ANY (ARRAY['high'::text, 'medium'::text, 'low'::text])`),
 	check("sc_justification_len", sql`justification IS NULL OR char_length(justification) <= 2000`),
 ]);
@@ -539,8 +545,9 @@ export const consensusNotes = pgTable("consensus_notes", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	roundId: uuid("round_id").notNull(),
 	responseId: uuid("response_id").notNull(),
-	definitionId: uuid("definition_id").notNull(),
+	definitionId: uuid("definition_id"),
 	criterionId: uuid("criterion_id").notNull(),
+	perResponse: boolean("per_response").generatedAlwaysAs(sql`definition_id IS NULL`).notNull(),
 	projectMemberId: uuid("project_member_id").notNull(),
 	visibility: text().notNull(),
 	text: text().notNull(),
@@ -560,16 +567,16 @@ export const consensusNotes = pgTable("consensus_notes", {
 			name: "consensus_notes_definition_id_fkey"
 		}).onDelete("restrict"),
 	foreignKey({
-			columns: [table.criterionId],
-			foreignColumns: [codebookCriteria.id],
-			name: "consensus_notes_criterion_id_fkey"
+			columns: [table.criterionId, table.perResponse],
+			foreignColumns: [codebookCriteria.id, codebookCriteria.perResponse],
+			name: "consensus_notes_criterion_scope_fkey"
 		}).onDelete("restrict"),
 	foreignKey({
 			columns: [table.projectMemberId],
 			foreignColumns: [projectMembers.id],
 			name: "consensus_notes_project_member_id_fkey"
 		}).onDelete("restrict"),
-	unique("cn_unique_cell_author").on(table.responseId, table.definitionId, table.criterionId, table.projectMemberId),
+	unique("cn_unique_cell_author").on(table.responseId, table.definitionId, table.criterionId, table.projectMemberId).nullsNotDistinct(),
 	check("cn_visibility_check", sql`visibility = ANY (ARRAY['shared'::text, 'private'::text])`),
 	check("cn_text_len", sql`char_length("text") <= 5000`),
 	check("cn_text_not_blank", sql`btrim("text") <> ''`),

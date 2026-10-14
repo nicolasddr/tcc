@@ -226,6 +226,7 @@ export async function addCodebookVersion(
     usedAt?: string | null
     definitions?: DefinitionFixture[]
     generalCriteria?: CriterionFixture[]
+    perResponseCriteria?: CriterionFixture[]
   } = {},
 ): Promise<string> {
   const [row] = await tx
@@ -267,6 +268,7 @@ export async function addCodebookVersion(
       (definition.criteria ?? []).map((criterion, order) => ({
         codebookVersionId: row.id,
         definitionId: idByIndex.get(index)!,
+        scope: 'specific',
         name: criterion.name,
         description: criterion.description ?? null,
         orderIndex: order,
@@ -275,6 +277,15 @@ export async function addCodebookVersion(
     ...(opts.generalCriteria ?? []).map((criterion, order) => ({
       codebookVersionId: row.id,
       definitionId: null,
+      scope: 'general',
+      name: criterion.name,
+      description: criterion.description ?? null,
+      orderIndex: order,
+    })),
+    ...(opts.perResponseCriteria ?? []).map((criterion, order) => ({
+      codebookVersionId: row.id,
+      definitionId: null,
+      scope: 'per_response',
       name: criterion.name,
       description: criterion.description ?? null,
       orderIndex: order,
@@ -408,7 +419,7 @@ export async function addResponse(
 }
 
 export type CellFixture = {
-  definitionId: string
+  definitionId: string | null
   criterionId: string
   value?: 'high' | 'medium' | 'low'
   justification?: string | null
@@ -448,7 +459,7 @@ export async function addEvaluation(
 export async function addScore(
   tx: DbExecutor,
   evaluationId: string,
-  definitionId: string,
+  definitionId: string | null,
   criterionId: string,
   opts: { value?: 'high' | 'medium' | 'low'; justification?: string | null } = {},
 ): Promise<string> {
@@ -494,7 +505,7 @@ export async function addConsensusNote(
   opts: {
     roundId: string
     responseId: string
-    definitionId: string
+    definitionId: string | null
     criterionId: string
     projectMemberId: string
     visibility: 'shared' | 'private'

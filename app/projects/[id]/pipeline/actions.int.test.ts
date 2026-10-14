@@ -2478,6 +2478,34 @@ describe('app/projects/[id]/pipeline/actions — critérios do codebook', () => 
     ])
   })
 
+  it('grava o tipo do critério: específico e geral', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin)
+
+    auth.userId = admin
+    const result = await saveCodebook(
+      null,
+      fd(project, [{ title: 'Informacional', type: 'category' }], {
+        criteria: [
+          { name: 'Cita a fonte', scope: 0 },
+          { name: 'Clareza', scope: 'general' },
+        ],
+      }),
+    )
+    expect(result).toMatchObject({ ok: true })
+
+    const [version] = await versionsOf(project)
+    const rows = await ownerDb
+      .select({ name: codebookCriteria.name, scope: codebookCriteria.scope })
+      .from(codebookCriteria)
+      .where(eq(codebookCriteria.codebookVersionId, version.id))
+
+    expect(byName(rows)).toEqual([
+      { name: 'Cita a fonte', scope: 'specific' },
+      { name: 'Clareza', scope: 'general' },
+    ])
+  })
+
   it('o critério geral é lido dentro de cada definição, e o específico só na sua', async () => {
     const admin = await newUser('Admin')
     const project = await newProject(admin)
@@ -2938,6 +2966,7 @@ describe('app/projects/[id]/pipeline/actions — critérios do codebook', () => 
     const write = ownerDb.insert(codebookCriteria).values({
       codebookVersionId: versionId,
       definitionId: null,
+      scope: 'general',
       name: 'a'.repeat(CRITERION_NAME_MAX + 1),
       orderIndex: 0,
     })

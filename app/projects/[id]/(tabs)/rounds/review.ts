@@ -72,8 +72,10 @@ export async function loadResponseNotes(
     .innerJoin(profiles, eq(profiles.id, projectMembers.userId))
     .where(eq(evaluations.responseId, responseId))
 
-  return rows.flatMap((row) =>
-    isScaleValue(row.value) ? [{ ...row, value: row.value }] : [],
+  return rows.flatMap(({ definitionId, ...row }) =>
+    definitionId !== null && isScaleValue(row.value)
+      ? [{ ...row, definitionId, value: row.value }]
+      : [],
   )
 }
 

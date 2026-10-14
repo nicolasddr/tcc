@@ -120,6 +120,13 @@
       "when": 1790257414684,
       "tag": "0016_certain_baron_zemo",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1791937257553,
+      "tag": "0017_lively_giant_man",
+      "breakpoints": true
     }
   ]
 }

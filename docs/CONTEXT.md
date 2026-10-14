@@ -32,9 +32,10 @@ Uma de três naturezas:
 Regra que define como julgar a *resposta da LLM*, e não o dado em si, na *escala* da
 ferramenta. Faz parte do codebook: na Fase 2 é usado pelos avaliadores para validar o
 codebook e na Fase 3 vai também à LLM, como parte do codebook completo. É autorado na Fase 2.
-Um critério pode ser *específico*, quando pertence a uma definição, ou *geral*, quando vale
-para todas as definições da versão. O geral é avaliado uma vez por definição, e não uma vez
-por resposta, porque a mesma regra pode ser clara numa definição e ambígua em outra.
+Um critério pode ser *específico*, quando pertence a uma definição; *geral*, quando vale para
+todas as definições da versão; ou *por resposta*, quando julga a resposta como um todo.
+O geral é avaliado uma vez por definição. O por resposta é avaliado uma vez por resposta,
+sem definição, porque julga algo que nenhuma definição sozinha tem: o conjunto.
 
 **Escala**
 A régua com que o Avaliador julga um critério, ordinal e de três pontos: Alto, Médio e Baixo.

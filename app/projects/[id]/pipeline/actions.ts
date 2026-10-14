@@ -353,6 +353,7 @@ export async function saveCodebook(
             criterion.definitionIndex === null
               ? null
               : (definitionIdByIndex.get(criterion.definitionIndex) ?? null),
+          scope: criterion.definitionIndex === null ? 'general' : 'specific',
           name: criterion.name,
           description: criterion.description,
           orderIndex: criterion.orderIndex,
