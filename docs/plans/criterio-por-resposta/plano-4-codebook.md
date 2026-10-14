@@ -281,7 +281,37 @@ chamadores já passam o tipo (achado 12).
 
 ### 5.6 O que a Parte 2 herda
 
-(preencher ao fim da Parte 1: D1 e D2 confirmadas; o cabeçalho final; divergências do plano)
+Feita em 2026-10-14, sem commit no momento da escrita. `npm run lint`, `npm run typecheck` e
+`npm test` (108 arquivos, 1657 testes) verdes.
+
+- **D1 = (a) e D2 com o cabeçalho recomendado**, confirmadas pelo usuário antes do código; os
+  demais textos de D2 ficam como escritos em § 3.
+- **Cabeçalho final**: `PER_RESPONSE_CRITERIA_HEADING = 'Critérios por resposta, que valem para a
+  resposta inteira:'`, em `llm-input.ts`. Em `codebookBlock`, o bloco de `perResponseCriteria`
+  vem depois do de gerais, só quando não é vazio. Os chamadores não mudaram (achado 12 confirmado).
+- **Correção do topo pelos handoffs** (§ 5.10 e § 6.6 do Plano 1): o tipo gravado já não é derivado
+  em linha. `saveCodebook` usa `scopeOf(definitionIndex)` (privada em `pipeline/actions.ts`, ~108)
+  no `insert` e no `definitionsWithoutCriteria`; a chave da numeração em `parseCriteria` (~159) e
+  os dois `definitionId` (~277 e ~358) ainda comparam `definitionIndex === null`. D3 troca o
+  `scopeOf` pelo `criterion.scope`; o `grep` de § 7.7 continua achando os `definitionId`, que não
+  derivam tipo. `GENERAL_SCOPE` é privado, ~106.
+- **Testes novos**: em `llm-input.unit`, o `describe` "composeLlmInput com critério por resposta"
+  (8 `it`: PoC byte a byte, posição, dois critérios na ordem, sem geral, sem cabeçalho, sem
+  descrição e R7 nas Fases 1 e 2); em `prompt-test.int`, Fase 3 com o bloco e Fase 2 sem o nome;
+  em `generate-responses.int`, a rodada da Fase 3 com o bloco gravado em `sent_input`.
+- **Testes antigos editados**: só os helpers (`readyProject` e `openRound` aceitam
+  `perResponseCriteria`); nenhuma asserção mudou.
+- **Vermelhos**: 5 unitários e 2 de integração, todos por asserção (bloco ausente); a igualdade com
+  `expectedInput` passou antes do código, como o achado 8 previa. Guardas verdes desde o começo
+  (sem cabeçalho, R7, Fase 2). No "uma vez só", só a primeira asserção rodou antes do código.
+- **Mutações** (desfeitas por `cp`): bloco antes dos gerais derruba 6 (PoC, posição, os
+  literais); bloco duas vezes derruba 6 (as contagens e os literais); cabeçalho sempre derruba a
+  guarda "sem cabeçalho" e 4 antigos; o cabeçalho nos títulos da Fase 2 derruba os dois de R7, o
+  de `prompt-test.int` e os dois antigos byte a byte das Fases 1 e 2. A gravação em `sent_input` não foi mutada: é a mesma fiação que o caso da
+  Fase 4 já cobre.
+- **Divergências do plano**: nenhuma além da correção acima. O `NOTES_PER_RESPONSE_HELP` (que o
+  § 7.6 do Plano 2 mandou para "a Parte 2") e o "não salvar o codebook da cena" (que o § 7.9 do
+  Plano 3 dá por encerrado "depois da Parte 1") ficam na Parte 3, por D1 = (a).
 
 ---
 

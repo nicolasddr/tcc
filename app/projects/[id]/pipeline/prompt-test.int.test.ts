@@ -50,6 +50,7 @@ import {
   DEFINITIONS_HEADING,
   GENERAL_CRITERIA_HEADING,
   ITEM_HEADING,
+  PER_RESPONSE_CRITERIA_HEADING,
 } from '@/app/projects/[id]/pipeline/llm-input'
 import {
   PHASE_1,
@@ -105,6 +106,10 @@ const RICH_DEFINITIONS = [
 
 const RICH_GENERAL_CRITERIA = [
   { name: 'Critério geral do codebook', description: 'Vale para todas as definições.' },
+]
+
+const PER_RESPONSE_CRITERIA = [
+  { name: 'Diversity', description: 'As consultas cobrem ângulos diferentes.' },
 ]
 
 function fd(projectId: string, itemId?: string): FormData {
@@ -164,6 +169,7 @@ describe('app/projects/[id]/pipeline/actions — testar o prompt sem persistir n
       phase?: number
       definitions?: DefinitionFixture[]
       generalCriteria?: CriterionFixture[]
+      perResponseCriteria?: CriterionFixture[]
     } = {},
   ): Promise<{ project: string; item: string }> {
     const project = await seedProject(ownerDb, admin, 'Projeto de Teste', {
@@ -173,6 +179,7 @@ describe('app/projects/[id]/pipeline/actions — testar o prompt sem persistir n
     await addCodebookVersion(ownerDb, project, admin, {
       definitions: opts.definitions ?? DEFINITIONS,
       generalCriteria: opts.generalCriteria,
+      perResponseCriteria: opts.perResponseCriteria,
     })
     await addPromptVersion(ownerDb, project, admin, { text: PROMPT_TEXT })
     const item = await addInputItem(ownerDb, project, admin, {
@@ -344,6 +351,49 @@ describe('app/projects/[id]/pipeline/actions — testar o prompt sem persistir n
       }
     },
   )
+
+  it('na Fase 3 envia os critérios por resposta num bloco próprio, uma vez só, antes do item', async () => {
+    const admin = await newUser('Admin')
+    const { project, item } = await readyProject(admin, {
+      phase: PHASE_3,
+      definitions: RICH_DEFINITIONS,
+      generalCriteria: RICH_GENERAL_CRITERIA,
+      perResponseCriteria: PER_RESPONSE_CRITERIA,
+    })
+
+    auth.userId = admin
+    expect(await testPrompt(null, fd(project, item))).toMatchObject({ ok: true })
+
+    expect(llm.inputs).toEqual([await expectedInput(PHASE_3, project)])
+    const input = llm.inputs[0]
+    expect(input).toContain(
+      `${PER_RESPONSE_CRITERIA_HEADING}\n- Diversity: As consultas cobrem ângulos diferentes.\n\n${ITEM_HEADING}`,
+    )
+    expect(input.split(PER_RESPONSE_CRITERIA_HEADING)).toHaveLength(2)
+    expect(input.split('Diversity')).toHaveLength(2)
+    expect(input.indexOf(PER_RESPONSE_CRITERIA_HEADING)).toBeGreaterThan(
+      input.indexOf(GENERAL_CRITERIA_HEADING),
+    )
+  })
+
+  it('na Fase 2 não envia o critério por resposta, nem o nome dele', async () => {
+    const admin = await newUser('Admin')
+    const { project, item } = await readyProject(admin, {
+      phase: PHASE_2,
+      definitions: RICH_DEFINITIONS,
+      generalCriteria: RICH_GENERAL_CRITERIA,
+      perResponseCriteria: PER_RESPONSE_CRITERIA,
+    })
+
+    auth.userId = admin
+    expect(await testPrompt(null, fd(project, item))).toMatchObject({ ok: true })
+
+    const input = llm.inputs[0]
+    expect(input).toContain(DEFINITIONS_HEADING)
+    expect(input).not.toContain(PER_RESPONSE_CRITERIA_HEADING)
+    expect(input).not.toContain('Diversity')
+    expect(input).not.toContain(PER_RESPONSE_CRITERIA[0].description)
+  })
 
   it('na Fase 3 envia o codebook da versão VIGENTE, não o de uma versão anterior', async () => {
     const admin = await newUser('Admin')

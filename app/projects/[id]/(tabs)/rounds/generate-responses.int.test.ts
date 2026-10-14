@@ -52,6 +52,7 @@ import {
   DEFINITIONS_HEADING,
   GENERAL_CRITERIA_HEADING,
   ITEM_HEADING,
+  PER_RESPONSE_CRITERIA_HEADING,
 } from '@/app/projects/[id]/pipeline/llm-input'
 import { PHASE_2, PHASE_3, PHASE_4 } from '@/app/projects/[id]/pipeline/preconditions'
 import type { LlmFailure } from '@/lib/ai/failure'
@@ -68,6 +69,7 @@ import {
   addRound,
   addResponse,
   cleanup,
+  type CriterionFixture,
 } from '@/test/helpers'
 
 const PROMPT_TEXT = 'Classifique a consulta de busca abaixo.'
@@ -132,6 +134,7 @@ describe('app/projects/[id]/rounds/actions — gerar respostas na rodada aberta'
       status?: 'open' | 'closed'
       projectPhase?: number
       roundPhase?: number
+      perResponseCriteria?: CriterionFixture[]
     } = {},
   ) {
     const project = await seedProject(ownerDb, admin, 'Projeto de Teste', {
@@ -141,6 +144,7 @@ describe('app/projects/[id]/rounds/actions — gerar respostas na rodada aberta'
     const codebookVersion = await addCodebookVersion(ownerDb, project, admin, {
       definitions: DEFINITIONS,
       generalCriteria: GENERAL_CRITERIA,
+      perResponseCriteria: opts.perResponseCriteria,
     })
     const promptVersion = await addPromptVersion(ownerDb, project, admin, {
       text: PROMPT_TEXT,
@@ -473,6 +477,34 @@ describe('app/projects/[id]/rounds/actions — gerar respostas na rodada aberta'
     expect(input).not.toContain('Descrição da versão 2.')
     expect(input).not.toContain('Critério da versão 2')
     expect(input).not.toContain('Geral da versão 2')
+  })
+
+  it('a rodada da Fase 3 manda os critérios por resposta num bloco próprio e grava essa entrada', async () => {
+    const admin = await newUser('Admin')
+    const { project, round, items, codebookVersion } = await openRound(admin, {
+      projectPhase: PHASE_3,
+      roundPhase: PHASE_3,
+      perResponseCriteria: [
+        { name: 'Diversity', description: 'As consultas cobrem ângulos diferentes.' },
+      ],
+    })
+
+    auth.userId = admin
+    okOf(await generateResponses(null, fd(project, round, items)))
+
+    expect(llm.inputs).toEqual([
+      await expectedInput(PHASE_3, project, codebookVersion, 'conteúdo do item 1'),
+    ])
+    const input = llm.inputs[0]
+    expect(input).toContain(
+      `${PER_RESPONSE_CRITERIA_HEADING}\n- Diversity: As consultas cobrem ângulos diferentes.\n\n${ITEM_HEADING}`,
+    )
+    expect(input.split(PER_RESPONSE_CRITERIA_HEADING)).toHaveLength(2)
+    expect(input.indexOf(PER_RESPONSE_CRITERIA_HEADING)).toBeGreaterThan(
+      input.indexOf(GENERAL_CRITERIA_HEADING),
+    )
+
+    expect((await sentInputsOf(round)).get(items[0])).toBe(input)
   })
 
   it('a rodada da Fase 4 manda o codebook completo da versão congelada, não o da vigente', async () => {

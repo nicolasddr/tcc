@@ -216,7 +216,7 @@ para a Fase 3, e ele só exige que não haja rodada aberta.
 - *Fase 3, validar o prompt*: o codebook completo passa a ir à LLM junto com o prompt ("o
   codebook é o prompt"), e por isso as respostas mudam. O codebook completo, para a LLM, é o título
   e a descrição de cada definição com os critérios específicos dela, mais os critérios gerais uma
-  vez só; o tipo da definição e a escala não vão. Com ICR baixo, refina-se o codebook; com ICR alto,
+  vez só e, num bloco próprio, os critérios por resposta; o tipo da definição e a escala não vão. Com ICR baixo, refina-se o codebook; com ICR alto,
   olha-se a Qualidade, e é o Administrador quem julga se ela basta para seguir à Fase 4.
 - *Fase 4, testar a replicação*: repete a avaliação com itens de entrada novos e avaliadores
   novos, sobre codebook e prompt congelados. Responde se o codebook generaliza ou se só funcionava

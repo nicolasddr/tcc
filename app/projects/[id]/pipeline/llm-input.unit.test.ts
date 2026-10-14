@@ -7,6 +7,7 @@ import {
   GENERAL_CRITERIA_HEADING,
   ITEM_HEADING,
   OWN_CRITERIA_HEADING,
+  PER_RESPONSE_CRITERIA_HEADING,
   type LlmCriterion,
   type LlmDefinition,
   type LlmInputParts,
@@ -265,6 +266,134 @@ describe('composeLlmInput na Fase 3', () => {
     expect(input).toContain(`${DEFINITION_PREFIX}Navegacional\n${description}\n`)
     expect(input).toContain(`- Com recuo: ${criterionDescription}`)
   })
+})
+
+const POC_DEFINITIONS: LlmDefinition[] = ['1st', '2nd', '3rd', '4th', '5th'].map(
+  (ordinal, index) => ({
+    id: `q${index + 1}`,
+    title: `Query ${index + 1}`,
+    description: `The ${ordinal} generated query.`,
+  }),
+)
+
+const RELEVANCE: LlmCriterion = {
+  definitionId: null,
+  scope: 'general',
+  name: 'Relevance',
+  description: 'the query answers the question',
+}
+
+const DIVERSITY: LlmCriterion = {
+  definitionId: null,
+  scope: 'per_response',
+  name: 'Diversity',
+  description: 'the queries cover different angles',
+}
+
+const POC_PARTS: LlmInputParts = {
+  phase: PHASE_3,
+  promptText: 'Generate five search queries for the question below.',
+  definitions: POC_DEFINITIONS,
+  criteria: [RELEVANCE, DIVERSITY],
+  itemContent: 'Which major cities get more international arrivals than Paris?',
+}
+
+const POC_INPUT = [
+  'Generate five search queries for the question below.',
+  '',
+  'Codebook:',
+  '',
+  'Definição: Query 1',
+  'The 1st generated query.',
+  '',
+  'Definição: Query 2',
+  'The 2nd generated query.',
+  '',
+  'Definição: Query 3',
+  'The 3rd generated query.',
+  '',
+  'Definição: Query 4',
+  'The 4th generated query.',
+  '',
+  'Definição: Query 5',
+  'The 5th generated query.',
+  '',
+  'Critérios gerais, que valem para todas as definições:',
+  '- Relevance: the query answers the question',
+  '',
+  'Critérios por resposta, que valem para a resposta inteira:',
+  '- Diversity: the queries cover different angles',
+  '',
+  'Item de entrada:',
+  'Which major cities get more international arrivals than Paris?',
+].join('\n')
+
+describe('composeLlmInput com critério por resposta', () => {
+  it('na Fase 3, compõe o codebook do PoC byte a byte', () => {
+    expect(composeLlmInput(POC_PARTS)).toBe(POC_INPUT)
+  })
+
+  it('envia o bloco uma vez só, depois do de gerais e antes do item', () => {
+    const input = composeLlmInput(POC_PARTS)
+    expect(occurrences(input, PER_RESPONSE_CRITERIA_HEADING)).toBe(1)
+    expect(occurrences(input, 'Diversity')).toBe(1)
+    expect(input.indexOf(PER_RESPONSE_CRITERIA_HEADING)).toBeGreaterThan(
+      input.indexOf('- Relevance'),
+    )
+    expect(input.indexOf(ITEM_HEADING)).toBeGreaterThan(
+      input.indexOf(PER_RESPONSE_CRITERIA_HEADING),
+    )
+  })
+
+  it('com dois critérios por resposta, mantém a ordem recebida dentro do bloco', () => {
+    const coverage: LlmCriterion = {
+      definitionId: null,
+      scope: 'per_response',
+      name: 'Coverage',
+      description: 'the queries cover the whole question',
+    }
+    const input = composeLlmInput({
+      ...POC_PARTS,
+      criteria: [coverage, RELEVANCE, DIVERSITY],
+    })
+    expect(input).toContain(
+      `${PER_RESPONSE_CRITERIA_HEADING}\n- Coverage: the queries cover the whole question\n- Diversity: the queries cover different angles\n\n${ITEM_HEADING}`,
+    )
+    expect(occurrences(input, PER_RESPONSE_CRITERIA_HEADING)).toBe(1)
+  })
+
+  it('sem critério geral, o bloco vem logo depois da última definição, separado por linha vazia', () => {
+    const input = composeLlmInput({ ...POC_PARTS, criteria: [DIVERSITY] })
+    expect(input).not.toContain(GENERAL_CRITERIA_HEADING)
+    expect(input).toContain(
+      `${DEFINITION_PREFIX}Query 5\nThe 5th generated query.\n\n${PER_RESPONSE_CRITERIA_HEADING}\n- Diversity: the queries cover different angles\n\n${ITEM_HEADING}`,
+    )
+  })
+
+  it('sem critério por resposta, não envia o cabeçalho do bloco', () => {
+    expect(PHASE_3_INPUT).not.toContain(PER_RESPONSE_CRITERIA_HEADING)
+    expect(composeLlmInput(PHASE_3_PARTS)).not.toContain(PER_RESPONSE_CRITERIA_HEADING)
+  })
+
+  it('critério por resposta sem descrição vai só com o nome, sem os dois-pontos', () => {
+    const input = composeLlmInput({
+      ...POC_PARTS,
+      criteria: [RELEVANCE, { ...DIVERSITY, description: null }],
+    })
+    expect(input).toContain(`${PER_RESPONSE_CRITERIA_HEADING}\n- Diversity\n\n${ITEM_HEADING}`)
+  })
+
+  it.each([PHASE_1, PHASE_2])(
+    'na Fase %i, leva só os títulos: nem o nome nem a descrição do critério por resposta',
+    (phase) => {
+      const input = composeLlmInput({ ...POC_PARTS, phase })
+      expect(input).not.toContain(DIVERSITY.name)
+      expect(input).not.toContain(DIVERSITY.description!)
+      expect(input).not.toContain(PER_RESPONSE_CRITERIA_HEADING)
+      const lines = input.split('\n').filter((line) => line.startsWith('- '))
+      expect(lines).toEqual(POC_DEFINITIONS.map((definition) => `- ${definition.title}`))
+    },
+  )
 })
 
 describe('composeLlmInput nunca envia o tipo da definição nem a escala', () => {

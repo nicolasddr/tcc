@@ -1,4 +1,4 @@
-import { generalCriteria, ownCriteria, type Scope } from './criteria'
+import { generalCriteria, ownCriteria, perResponseCriteria, type Scope } from './criteria'
 import { PHASE_3 } from './preconditions'
 
 export const DEFINITIONS_HEADING = 'Definições:'
@@ -12,6 +12,9 @@ export const DEFINITION_PREFIX = 'Definição: '
 export const OWN_CRITERIA_HEADING = 'Critérios:'
 
 export const GENERAL_CRITERIA_HEADING = 'Critérios gerais, que valem para todas as definições:'
+
+export const PER_RESPONSE_CRITERIA_HEADING =
+  'Critérios por resposta, que valem para a resposta inteira:'
 
 export type LlmDefinition = { id: string; title: string; description: string | null }
 
@@ -66,6 +69,13 @@ function codebookBlock(
   const general = generalCriteria(criteria)
   if (general.length > 0) {
     paragraphs.push([GENERAL_CRITERIA_HEADING, ...general.map(criterionLine)].join('\n'))
+  }
+
+  const perResponse = perResponseCriteria(criteria)
+  if (perResponse.length > 0) {
+    paragraphs.push(
+      [PER_RESPONSE_CRITERIA_HEADING, ...perResponse.map(criterionLine)].join('\n'),
+    )
   }
 
   return paragraphs.join('\n\n')
