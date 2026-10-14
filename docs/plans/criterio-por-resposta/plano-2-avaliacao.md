@@ -408,7 +408,47 @@ A spec põe o verbete na Parte 3; ele vem para cá porque é esta Parte que grav
 
 ### 6.6 O que a Parte 3 herda
 
-(preencher ao fim da Parte 2: o descarte que sobrou, no formulário; a mensagem final; divergências)
+Feita em 2026-10-14, sem commit no momento da escrita. `npm run lint`, `npm run typecheck` e
+`npm test` (108 arquivos, 1607 testes) verdes.
+
+- **Descarte que sobrou**: só o do formulário, `const cells = codebookCells.filter(isDefinitionCell)`
+  no começo de `EvaluationForm` (`evaluate/evaluation-form.tsx` ~212). `grep -rn isDefinitionCell
+  app` acha a definição, o teste dela em `criteria.unit` e o formulário. O envio não filtra mais, e
+  `loadEvaluationOf` voltou a devolver as linhas como vêm do banco (`return { ...evaluation, scores:
+  cells }`, a forma de antes do Plano 1).
+- **Tipos**: `EvaluationScore.definitionId` é `string | null`. O formulário já indexava as notas
+  gravadas por `cellKey(score)`, então o `typecheck` não apontou nada fora de `evaluate/`; a nota
+  por resposta já chega às props do formulário em leitura, e só não aparece por causa do filtro.
+- **Envio**: a chave é `cellKeyOf(cell)`; `answers` leva `definitionId: cell.definition?.id ??
+  null`; o desfecho `incomplete` tem `titles` e `criteria`, e a recusa chama
+  `incompleteMessage(outcome.titles, outcome.criteria)`. O insert não mudou.
+- **Mensagem final**, conferida por igualdade exata nos testes: só por resposta, `O critério por
+  resposta “Diversity” ainda está sem nota. Dê uma nota nele para enviar a avaliação.`; nos dois,
+  `A definição “Query 1” ainda tem critério sem nota, e o critério por resposta “Diversity”
+  também. Dê uma nota em cada critério para enviar a avaliação.`
+- **Testes novos**: em `evaluate/actions.int.test.ts`, o `describe` "o critério por resposta"
+  (6 `it`), com a fábrica `poc(admin)` (cinco Queries, `Relevance` geral, `Diversity` por resposta,
+  e os ids dos dois critérios e da `Query 1`).
+- **Testes antigos editados**: só os de § 6.1 (`scenario` com `perResponseCriteria`; `form()` e o
+  teste da justificativa vazia montam a chave por `cellKey`). O arquivo inteiro rodou verde depois
+  disso e antes dos casos novos (20/20).
+- **Vermelhos** (6 lidos, com o descarte da Parte 1): o envio completo, o campo inexistente e o
+  loader por contagem (5 no lugar de 6; as asserções depois do `toHaveLength` não rodaram); o envio
+  sem a nota por resposta por `ok: true`. **Divergências do previsto**: o caso "faltando nas duas"
+  não deu `ok: true`, e sim a mensagem antiga (só a `Query 1`), porque a definição incompleta já
+  bastava para recusar; o caso da justificativa quebrou primeiro por `TypeError` (lia
+  `.justification` de `undefined`) e foi reescrito com `toMatchObject` antes do código, virando
+  vermelho de asserção (*expected undefined to match object*).
+- **Mutações depois do verde** (desfeitas por `cp`): o descarte de volta no loader derruba só o caso
+  do `loadEvaluationOf`, por asserção (5 no lugar de 6), o que prova o loader separado do envio;
+  `perResponseIncomplete` zerado no envio derruba dois: o da mensagem combinada por asserção, e o
+  de "sem a nota por resposta" **por exceção** (o insert falha com o valor vazio, o CHECK da escala
+  do achado 7), não por asserção. O caso "campo de célula inexistente não vira nota" (R11) falhou
+  pelo mesmo motivo do envio completo e não tem mutação barata que o separe: a garantia é
+  estrutural (achado 9), e o caso fica como guarda de regressão.
+- **Docs**: verbete *Nota* em `docs/CONTEXT.md` com o texto do § 6.4.
+- **Achado 8 em vigor**: até a Parte 3, com critério por resposta montado à mão, o servidor recusa
+  a avaliação que o formulário não deixa completar.
 
 ---
 

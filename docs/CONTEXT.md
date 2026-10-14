@@ -260,8 +260,9 @@ submissão e de imutabilidade: enviou, travou. Aponta para o vínculo de membro,
 usuário.
 
 **Nota**
-O valor da escala que uma Avaliação atribui a um critério dentro de uma definição, com
-justificativa opcional. Um critério geral rende uma nota em cada definição da versão.
+O valor da escala que uma Avaliação atribui a um critério, com justificativa opcional: dentro de
+uma definição, ou à resposta inteira, no critério por resposta. Um critério geral rende uma nota
+em cada definição da versão; um critério por resposta, uma nota só.
 
 **Outlier**
 Marca que o Administrador aplica a um avaliador **em uma rodada**, retirando as notas dele do

@@ -15,13 +15,19 @@ import {
 import { evaluatorMembershipId } from '@/lib/authz'
 import { JUSTIFICATION_MAX } from '@/lib/limits'
 import { loadCodebookVersion } from '../../pipeline/codebook'
-import { isDefinitionCell, resolveCells } from '../../pipeline/criteria'
+import { resolveCells } from '../../pipeline/criteria'
 import { listRoundResponses } from '../../pipeline/responses'
 import { isUuid } from '../../pipeline/versions'
 import { isOpen } from '../rounds/rounds'
 import { loadEvaluatedResponseIds } from './evaluation'
 import { buildQueue, nextPendingId } from './queue'
-import { cellKey, definitionsIncomplete, incompleteMessage, type Answer } from './completeness'
+import {
+  cellKeyOf,
+  definitionsIncomplete,
+  incompleteMessage,
+  perResponseIncomplete,
+  type Answer,
+} from './completeness'
 import { isScaleValue } from './scale'
 
 export type EvaluationState = { error: string } | { ok: true; nonce: number } | null
@@ -59,7 +65,7 @@ type SubmitOutcome =
   | { status: 'no_codebook' }
   | { status: 'out_of_scale' }
   | { status: 'too_long' }
-  | { status: 'incomplete'; titles: string[] }
+  | { status: 'incomplete'; titles: string[]; criteria: string[] }
   | { status: 'ok'; nextId: string | null }
 
 export async function submitEvaluation(
@@ -112,14 +118,11 @@ export async function submitEvaluation(
       const codebook = await loadCodebookVersion(projectId, response.codebookVersionId, tx)
       if (!codebook) return { status: 'no_codebook' }
 
-      const cells = resolveCells(codebook.definitions, codebook.criteria).filter(isDefinitionCell)
+      const cells = resolveCells(codebook.definitions, codebook.criteria)
       const answers: Answer[] = []
 
       for (const cell of cells) {
-        const key = cellKey({
-          definitionId: cell.definition.id,
-          criterionId: cell.criterion.id,
-        })
+        const key = cellKeyOf(cell)
         const value = String(formData.get(`score_${key}`) ?? '').trim()
         const justification = String(formData.get(`justification_${key}`) ?? '').trim()
 
@@ -127,7 +130,7 @@ export async function submitEvaluation(
         if (value !== '' && !isScaleValue(value)) return { status: 'out_of_scale' }
 
         answers.push({
-          definitionId: cell.definition.id,
+          definitionId: cell.definition?.id ?? null,
           criterionId: cell.criterion.id,
           value,
           justification,
@@ -135,8 +138,13 @@ export async function submitEvaluation(
       }
 
       const incomplete = definitionsIncomplete(cells, answers)
-      if (incomplete.length > 0) {
-        return { status: 'incomplete', titles: incomplete.map((d) => d.title) }
+      const missing = perResponseIncomplete(cells, answers)
+      if (incomplete.length > 0 || missing.length > 0) {
+        return {
+          status: 'incomplete',
+          titles: incomplete.map((d) => d.title),
+          criteria: missing.map((c) => c.name),
+        }
       }
 
       const [evaluation] = await tx
@@ -177,7 +185,9 @@ export async function submitEvaluation(
   if (outcome.status === 'no_codebook') return { error: CODEBOOK_MISSING }
   if (outcome.status === 'out_of_scale') return { error: OUT_OF_SCALE }
   if (outcome.status === 'too_long') return { error: JUSTIFICATION_TOO_LONG }
-  if (outcome.status === 'incomplete') return { error: incompleteMessage(outcome.titles) }
+  if (outcome.status === 'incomplete') {
+    return { error: incompleteMessage(outcome.titles, outcome.criteria) }
+  }
 
   revalidatePath(`/projects/${projectId}/evaluate`)
 

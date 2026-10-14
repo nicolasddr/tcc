@@ -20,6 +20,7 @@ import {
   loadEvaluatedResponseIds,
   loadEvaluationOf,
 } from '@/app/projects/[id]/(tabs)/evaluate/evaluation'
+import { cellKey } from '@/app/projects/[id]/(tabs)/evaluate/completeness'
 import { loadCodebookVersion } from '@/app/projects/[id]/pipeline/codebook'
 import { resolveCells } from '@/app/projects/[id]/pipeline/criteria'
 import { listRoundResponses } from '@/app/projects/[id]/pipeline/responses'
@@ -96,6 +97,7 @@ describe('app/projects/[id]/evaluate/actions — enviar a avaliação de uma res
     opts: {
       definitions?: { title: string; criteria?: { name: string }[] }[]
       generalCriteria?: { name: string }[]
+      perResponseCriteria?: { name: string }[]
       status?: 'open' | 'closed'
     } = {},
   ): Promise<Scenario> {
@@ -111,6 +113,7 @@ describe('app/projects/[id]/evaluate/actions — enviar a avaliação de uma res
         criteria: definition.criteria ?? [],
       })),
       generalCriteria: opts.generalCriteria,
+      perResponseCriteria: opts.perResponseCriteria,
     })
     const promptVersion = await addPromptVersion(ownerDb, project, admin)
     const round = await addRound(ownerDb, project, admin, codebookVersion, promptVersion, {
@@ -143,7 +146,7 @@ describe('app/projects/[id]/evaluate/actions — enviar a avaliação de uma res
     data.set('project_id', scene.project)
     data.set('response_id', scene.response)
     for (const cell of filled) {
-      const key = `${cell.definitionId}_${cell.criterionId}`
+      const key = cellKey(cell)
       data.set(`score_${key}`, opts.value ?? 'high')
       if (opts.justification !== undefined) {
         data.set(`justification_${key}`, opts.justification)
@@ -390,10 +393,7 @@ describe('app/projects/[id]/evaluate/actions — enviar a avaliação de uma res
 
     const data = form(scene, scene.cells, { justification: '   ' })
     const first = scene.cells[0]
-    data.set(
-      `justification_${first.definitionId}_${first.criterionId}`,
-      '  Resposta genérica demais.  ',
-    )
+    data.set(`justification_${cellKey(first)}`, '  Resposta genérica demais.  ')
 
     auth.userId = evaluator
     await submitEvaluation(null, data)
@@ -544,5 +544,133 @@ describe('app/projects/[id]/evaluate/actions — enviar a avaliação de uma res
     await expect(submitEvaluation(null, formOf(scene, myQueue[0]))).rejects.toThrow(
       `NEXT_REDIRECT:/projects/${scene.project}/evaluate?response=${myQueue[1]}&sent=1`,
     )
+  })
+
+  describe('o critério por resposta', () => {
+    async function poc(admin: string) {
+      const scene = await scenario(admin, {
+        definitions: [1, 2, 3, 4, 5].map((n) => ({ title: `Query ${n}` })),
+        generalCriteria: [{ name: 'Relevance' }],
+        perResponseCriteria: [{ name: 'Diversity' }],
+      })
+      const codebook = await loadCodebookVersion(scene.project, scene.codebookVersion)
+      const criterion = (name: string) =>
+        codebook!.criteria.find((c) => c.name === name)!.id
+      const query1 = codebook!.definitions.find((d) => d.title === 'Query 1')!.id
+
+      return {
+        ...scene,
+        relevance: criterion('Relevance'),
+        diversity: criterion('Diversity'),
+        query1,
+      }
+    }
+
+    it('o envio completo grava 6 notas, e só a do Diversity fica sem definição', async () => {
+      const admin = await newUser('Admin')
+      const scene = await poc(admin)
+      const evaluator = await newEvaluator(scene.project)
+
+      auth.userId = evaluator
+      expect(await submitEvaluation(null, form(scene))).toMatchObject({ ok: true })
+
+      const [evaluation] = await evaluationsOf(scene.response)
+      const rows = await scoresOf(evaluation.id)
+      expect(rows).toHaveLength(6)
+      const perResponse = rows.filter((row) => row.definitionId === null)
+      expect(perResponse).toHaveLength(1)
+      expect(perResponse[0].criterionId).toBe(scene.diversity)
+    })
+
+    it('o envio sem a nota por resposta é recusado com a mensagem dele, e nada é gravado', async () => {
+      const admin = await newUser('Admin')
+      const scene = await poc(admin)
+      const evaluator = await newEvaluator(scene.project)
+      const filled = scene.cells.filter((cell) => cell.definitionId !== null)
+
+      auth.userId = evaluator
+      expect(await submitEvaluation(null, form(scene, filled))).toEqual({
+        error:
+          'O critério por resposta “Diversity” ainda está sem nota. Dê uma nota nele para enviar a avaliação.',
+      })
+
+      expect(await evaluationsOf(scene.response)).toHaveLength(0)
+      expect(await ownerDb.select({ id: scores.id }).from(scores)).toHaveLength(0)
+    })
+
+    it('faltando nota numa definição e no critério por resposta, a mensagem junta os dois', async () => {
+      const admin = await newUser('Admin')
+      const scene = await poc(admin)
+      const evaluator = await newEvaluator(scene.project)
+      const filled = scene.cells.filter(
+        (cell) => cell.definitionId !== null && cell.definitionId !== scene.query1,
+      )
+
+      auth.userId = evaluator
+      expect(await submitEvaluation(null, form(scene, filled))).toEqual({
+        error:
+          'A definição “Query 1” ainda tem critério sem nota, e o critério por resposta “Diversity” também. Dê uma nota em cada critério para enviar a avaliação.',
+      })
+      expect(await evaluationsOf(scene.response)).toHaveLength(0)
+    })
+
+    it('campo de célula inexistente não vira nota', async () => {
+      const admin = await newUser('Admin')
+      const scene = await poc(admin)
+      const evaluator = await newEvaluator(scene.project)
+      const data = form(scene)
+      data.set(`score_${cellKey({ definitionId: null, criterionId: scene.relevance })}`, 'high')
+      data.set(
+        `score_${cellKey({ definitionId: scene.query1, criterionId: scene.diversity })}`,
+        'high',
+      )
+
+      auth.userId = evaluator
+      expect(await submitEvaluation(null, data)).toMatchObject({ ok: true })
+
+      const [evaluation] = await evaluationsOf(scene.response)
+      const rows = await scoresOf(evaluation.id)
+      expect(rows).toHaveLength(6)
+      expect(new Set(rows.map((row) => cellKey(row)))).toEqual(
+        new Set(scene.cells.map((cell) => cellKey(cell))),
+      )
+    })
+
+    it('a justificativa da célula por resposta grava o texto', async () => {
+      const admin = await newUser('Admin')
+      const scene = await poc(admin)
+      const evaluator = await newEvaluator(scene.project)
+      const data = form(scene)
+      data.set(
+        `justification_${cellKey({ definitionId: null, criterionId: scene.diversity })}`,
+        '  Repete a mesma ideia.  ',
+      )
+
+      auth.userId = evaluator
+      await submitEvaluation(null, data)
+
+      const [evaluation] = await evaluationsOf(scene.response)
+      const rows = await scoresOf(evaluation.id)
+      expect(rows.find((row) => row.definitionId === null)).toMatchObject({
+        criterionId: scene.diversity,
+        justification: 'Repete a mesma ideia.',
+      })
+    })
+
+    it('loadEvaluationOf devolve a nota por resposta, sem definição', async () => {
+      const admin = await newUser('Admin')
+      const scene = await poc(admin)
+      const evaluator = await newEvaluator(scene.project)
+      const member = await memberIdOf(ownerDb, scene.project, evaluator)
+
+      auth.userId = evaluator
+      await submitEvaluation(null, form(scene))
+
+      const evaluation = await loadEvaluationOf(scene.response, member)
+      expect(evaluation!.scores).toHaveLength(6)
+      expect(evaluation!.scores.filter((score) => score.definitionId === null)).toEqual([
+        { definitionId: null, criterionId: scene.diversity, value: 'high', justification: null },
+      ])
+    })
   })
 })

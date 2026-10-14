@@ -3,7 +3,7 @@ import { ownerDb, type DbExecutor, evaluations, scores } from '@/lib/db'
 import { isUuid } from '../../pipeline/versions'
 
 export type EvaluationScore = {
-  definitionId: string
+  definitionId: string | null
   criterionId: string
   value: string
   justification: string | null
@@ -53,12 +53,7 @@ export async function loadEvaluationOf(
     .where(eq(scores.evaluationId, evaluation.id))
     .orderBy(asc(scores.definitionId), asc(scores.criterionId))
 
-  return {
-    ...evaluation,
-    scores: cells.flatMap(({ definitionId, ...cell }) =>
-      definitionId === null ? [] : [{ ...cell, definitionId }],
-    ),
-  }
+  return { ...evaluation, scores: cells }
 }
 
 export async function loadEvaluatedResponseIds(
