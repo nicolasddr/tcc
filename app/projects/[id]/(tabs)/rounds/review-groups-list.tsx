@@ -291,7 +291,7 @@ function Group({
             <span className="text-sm font-semibold text-ink">
               {definition?.title ?? PER_RESPONSE_LABEL}
             </span>
-            {definition ? (
+            {definition?.type ? (
               <Badge tone="neutral">
                 {definitionTypeLabel(definition.type) ?? definition.type}
               </Badge>

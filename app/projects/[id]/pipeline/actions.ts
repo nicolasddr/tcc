@@ -71,7 +71,7 @@ export type CodebookState = { error: string } | { ok: true; nonce: number } | nu
 
 type ParsedDefinition = {
   title: string
-  type: DefinitionType
+  type: DefinitionType | null
   description: string | null
 }
 
@@ -200,8 +200,9 @@ function parseCodebookForm(formData: FormData): { error: string } | ParsedCodebo
         error: `O título da definição pode ter no máximo ${DEFINITION_TITLE_MAX} caracteres.`,
       }
     }
-    const type = normalizeDefinitionType(types[i])
-    if (!type) return { error: 'Escolha um tipo válido para cada definição.' }
+    const rawType = types[i].trim()
+    const type = normalizeDefinitionType(rawType)
+    if (rawType && !type) return { error: 'Escolha um tipo válido para cada definição.' }
 
     const description = (descriptions[i] ?? '').replace(/\r\n/g, '\n').trim()
     if (description.length > DEFINITION_DESCRIPTION_MAX) {

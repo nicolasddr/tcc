@@ -255,7 +255,7 @@ export const codebookDefinitions = pgTable("codebook_definitions", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	codebookVersionId: uuid("codebook_version_id").notNull(),
 	title: text().notNull(),
-	type: text().notNull(),
+	type: text(),
 	description: text(),
 	orderIndex: integer("order_index").notNull(),
 }, (table) => [
@@ -265,7 +265,7 @@ export const codebookDefinitions = pgTable("codebook_definitions", {
 			foreignColumns: [codebookVersions.id],
 			name: "codebook_definitions_codebook_version_id_fkey"
 		}).onDelete("cascade"),
-	check("codebook_definitions_type_check", sql`type = ANY (ARRAY['category'::text, 'quality_dimension'::text, 'guideline'::text])`),
+	check("codebook_definitions_type_check", sql`type = ANY (ARRAY['category'::text, 'quality_dimension'::text, 'generated_content'::text])`),
 	check("cd_title_len", sql`char_length(title) <= 200`),
 	check("cd_description_len", sql`description IS NULL OR char_length(description) <= 2000`),
 ]);

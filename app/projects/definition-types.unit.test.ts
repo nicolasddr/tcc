@@ -12,12 +12,12 @@ describe('DEFINITION_TYPE_OPTIONS', () => {
     expect(DEFINITION_TYPE_OPTIONS.map((o) => o.value)).toEqual([
       'category',
       'quality_dimension',
-      'guideline',
+      'generated_content',
     ])
     expect(DEFINITION_TYPE_OPTIONS.map((o) => o.label)).toEqual([
       'Categoria',
       'Dimensão de qualidade',
-      'Diretriz',
+      'Conteúdo gerado',
     ])
   })
 
@@ -32,7 +32,7 @@ describe('normalizeDefinitionType', () => {
   it('aceita os três tipos válidos', () => {
     expect(normalizeDefinitionType('category')).toBe('category')
     expect(normalizeDefinitionType('quality_dimension')).toBe('quality_dimension')
-    expect(normalizeDefinitionType('guideline')).toBe('guideline')
+    expect(normalizeDefinitionType('generated_content')).toBe('generated_content')
   })
 
   it('devolve null para valor ausente, vazio ou desconhecido', () => {
@@ -48,7 +48,7 @@ describe('definitionTypeLabel', () => {
   it('traduz o código salvo para o rótulo da UI', () => {
     expect(definitionTypeLabel('category')).toBe('Categoria')
     expect(definitionTypeLabel('quality_dimension')).toBe('Dimensão de qualidade')
-    expect(definitionTypeLabel('guideline')).toBe('Diretriz')
+    expect(definitionTypeLabel('generated_content')).toBe('Conteúdo gerado')
   })
 
   it('devolve null para código desconhecido ou ausente', () => {
@@ -61,7 +61,7 @@ describe('defaultDefinitionType', () => {
   it('pré-seleciona o tipo conforme o tipo de tarefa declarado no projeto', () => {
     expect(defaultDefinitionType('classification')).toBe('category')
     expect(defaultDefinitionType('quality_evaluation')).toBe('quality_dimension')
-    expect(defaultDefinitionType('generation')).toBe('guideline')
+    expect(defaultDefinitionType('generation')).toBe('generated_content')
   })
 
   it('abre sem pré-seleção em projeto sem tipo, misto ou outro', () => {

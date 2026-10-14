@@ -28,7 +28,7 @@ const DEFINITIONS: (LlmDefinition & { type: string })[] = [
     id: 'tra',
     title: 'Transacional',
     description: 'A pessoa quer concluir uma ação.',
-    type: 'guideline',
+    type: 'generated_content',
   },
 ]
 

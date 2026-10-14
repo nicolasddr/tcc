@@ -10,9 +10,9 @@ export const DEFINITION_TYPE_OPTIONS = [
     hint: 'Aspecto a avaliar em texto livre, como “Atomicidade” ou “Clareza”.',
   },
   {
-    value: 'guideline',
-    label: 'Diretriz',
-    hint: 'Característica que o conteúdo gerado deve ter, em tarefa de geração.',
+    value: 'generated_content',
+    label: 'Conteúdo gerado',
+    hint: 'Cada parte que a LLM deve gerar e que é avaliada separadamente.',
   },
 ] as const
 
@@ -23,7 +23,7 @@ const VALUES = DEFINITION_TYPE_OPTIONS.map((o) => o.value) as readonly string[]
 const BY_TASK_TYPE: Record<string, DefinitionType> = {
   classification: 'category',
   quality_evaluation: 'quality_dimension',
-  generation: 'guideline',
+  generation: 'generated_content',
 }
 
 export function normalizeDefinitionType(

@@ -32,7 +32,7 @@ export type CodebookVersionSummary = Summarized<
 export type CodebookDefinition = {
   id: string
   title: string
-  type: string
+  type: string | null
   description: string | null
   orderIndex: number
 }

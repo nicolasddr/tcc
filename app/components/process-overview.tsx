@@ -83,7 +83,7 @@ function ProcessGuide() {
             <div className="codebook-part-title">Definições</div>
             <p className="codebook-part-desc">
               Define os conceitos que estruturam a tarefa da LLM: as categorias,
-              dimensões ou diretrizes do domínio com seus significados precisos. A
+              dimensões ou partes do conteúdo gerado, com seus significados precisos. A
               LLM usará essas definições para produzir sua resposta, e os
               avaliadores as usarão como referência ao aplicar os critérios.
             </p>
@@ -91,8 +91,8 @@ function ProcessGuide() {
               Em tarefas de classificação, são as categorias possíveis (ex:
               Informacional, Transacional). Em tarefas de avaliação de qualidade,
               são as dimensões a avaliar (ex: Atomicidade, Clareza). Em tarefas de
-              geração, são as diretrizes que a LLM deve seguir ao gerar o conteúdo
-              (ex: definição de um bom commit atômico).
+              geração, são as partes que a LLM deve gerar, cada uma avaliada
+              separadamente (ex: título e corpo de uma mensagem de commit).
             </div>
           </div>
 

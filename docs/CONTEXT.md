@@ -22,11 +22,11 @@ nas Fases 1 e 2; o codebook completo, com descrições e critérios, só vai par
 Evitar: instrução, categoria (são casos ou sinônimos imprecisos; ver o tipo abaixo).
 
 **Tipo de definição**
-Uma de três naturezas:
+Opcional. Quando informado, é uma de três naturezas:
 
 - *Categoria*: rótulo nominal para tarefa de classificação (Informacional, Transacional).
 - *Dimensão de qualidade*: aspecto a avaliar em texto livre (Atomicidade, Clareza).
-- *Diretriz*: característica que o conteúdo gerado deve ter, em tarefa de geração.
+- *Conteúdo gerado*: cada parte que a LLM deve gerar e que é avaliada separadamente.
 
 **Critério**
 Regra que define como julgar a *resposta da LLM*, e não o dado em si, na *escala* da

@@ -259,13 +259,36 @@ describe('app/projects/[id]/pipeline/actions — definições salvas de forma ve
       fd(project, [
         { title: 'Informacional', type: 'category' },
         { title: 'Clareza', type: 'quality_dimension' },
-        { title: 'Tom formal', type: 'guideline' },
+        { title: 'Título do commit', type: 'generated_content' },
       ]),
     )
 
     const [version] = await versionsOf(project)
     const rows = await definitionsOf(version.id)
-    expect(rows.map((r) => r.type)).toEqual(['category', 'quality_dimension', 'guideline'])
+    expect(rows.map((r) => r.type)).toEqual([
+      'category',
+      'quality_dimension',
+      'generated_content',
+    ])
+  })
+
+  it('o tipo é opcional: definição sem tipo é salva com tipo nulo', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin)
+
+    auth.userId = admin
+    const result = await saveCodebook(
+      null,
+      fd(project, [
+        { title: 'Sem tipo', type: '' },
+        { title: 'Com tipo', type: 'category' },
+      ]),
+    )
+    expect(result).toMatchObject({ ok: true })
+
+    const [version] = await versionsOf(project)
+    const rows = await definitionsOf(version.id)
+    expect(rows.map((r) => r.type)).toEqual([null, 'category'])
   })
 
   it('salvar numa versão em aberto atualiza a própria versão, sem criar número novo', async () => {
@@ -282,7 +305,7 @@ describe('app/projects/[id]/pipeline/actions — definições salvas de forma ve
       fd(
         project,
         [
-          { title: 'Nova', type: 'guideline' },
+          { title: 'Nova', type: 'generated_content' },
           { title: 'Outra', type: 'category' },
         ],
         { note: 'corrigi o título', versionId },
@@ -329,7 +352,7 @@ describe('app/projects/[id]/pipeline/actions — definições salvas de forma ve
     auth.userId = admin
     const result = await saveCodebook(
       null,
-      fd(project, [{ title: 'Depois do congelamento', type: 'guideline' }], {
+      fd(project, [{ title: 'Depois do congelamento', type: 'generated_content' }], {
         note: 'refinei depois da rodada',
         versionId: frozenId,
       }),
@@ -414,6 +437,12 @@ describe('app/projects/[id]/pipeline/actions — definições salvas de forma ve
     )
     expect(badType).toEqual({ error: expect.stringContaining('tipo') })
 
+    const removedType = await saveCodebook(
+      null,
+      fd(project, [{ title: 'Tom formal', type: 'guideline' }]),
+    )
+    expect(removedType).toEqual({ error: expect.stringContaining('tipo') })
+
     expect(await versionsOf(project)).toHaveLength(0)
   })
 
@@ -491,7 +520,7 @@ describe('app/projects/[id]/pipeline/actions — definições salvas de forma ve
     const frozenNow = new Date().toISOString()
     await addCodebookVersion(ownerDb, project, admin, {
       versionNumber: 2,
-      definitions: [{ title: 'Vigente', type: 'guideline' }],
+      definitions: [{ title: 'Vigente', type: 'generated_content' }],
       usedAt: frozenNow,
     })
 
@@ -2387,7 +2416,7 @@ describe('app/projects/[id]/pipeline/actions — descrição das definições', 
       null,
       fd(
         project,
-        [{ title: 'Renomeada', type: 'guideline', description: 'cedo demais' }],
+        [{ title: 'Renomeada', type: 'generated_content', description: 'cedo demais' }],
         { note: 'depois da tentativa', versionId },
       ),
     )

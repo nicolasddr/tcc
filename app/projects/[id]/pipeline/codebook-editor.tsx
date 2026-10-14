@@ -608,20 +608,15 @@ export function CodebookFields({
                         />
                       </Field>
 
-                      <Field
-                        label="Tipo"
-                        required={expanded}
-                        className="min-w-[200px] flex-1"
-                      >
+                      <Field label="Tipo (opcional)" className="min-w-[200px] flex-1">
                         <Select
                           name="definition_type"
-                          required={expanded}
                           value={row.type}
                           onChange={(e) =>
                             update(row.key, { type: e.target.value as DefinitionType })
                           }
                         >
-                          <option value="">Escolha um tipo…</option>
+                          <option value="">Sem tipo</option>
                           {DEFINITION_TYPE_OPTIONS.map((option) => (
                             <option key={option.value} value={option.value}>
                               {option.label}

@@ -42,9 +42,11 @@ export function DefinitionList({
                   {own.length === 0 && applicable.length > 0 ? (
                     <Badge tone="warning">Sem critério próprio</Badge>
                   ) : null}
-                  <Badge tone="accent">
-                    {definitionTypeLabel(definition.type) ?? definition.type}
-                  </Badge>
+                  {definition.type ? (
+                    <Badge tone="accent">
+                      {definitionTypeLabel(definition.type) ?? definition.type}
+                    </Badge>
+                  ) : null}
                 </span>
               </div>
 
