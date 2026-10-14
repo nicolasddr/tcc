@@ -9,8 +9,11 @@ import {
   BAND_REFERENCE_LABEL,
   CELL_NOT_APPLICABLE,
   CELL_NOT_APPLICABLE_TITLE,
+  CELL_PER_RESPONSE_COLUMN_TITLE,
+  CELL_PER_RESPONSE_ROW_TITLE,
   CELL_UNRATED_LABEL,
   MATRIX_LEGEND,
+  MATRIX_PER_RESPONSE_LEGEND,
   OUTLIER_PAIR_POINTS,
   OUTLIER_PAIR_RESULT,
   OUTLIER_PAIR_SUMMARY,
@@ -28,6 +31,7 @@ import {
   sampleSize,
   smallSampleWarning,
 } from '@/app/projects/[id]/(tabs)/rounds/agreement-labels'
+import { PER_RESPONSE_LABEL } from '@/app/projects/[id]/pipeline/criteria'
 import * as labels from '@/app/projects/[id]/(tabs)/rounds/agreement-labels'
 
 function wordsOf(text: string): number {
@@ -219,6 +223,16 @@ describe('app/projects/[id]/rounds/agreement-labels — o coeficiente na tela', 
     expect(MATRIX_LEGEND).toContain(CELL_NOT_APPLICABLE)
     expect(MATRIX_LEGEND).toContain(CELL_NOT_APPLICABLE_TITLE)
     expect(MATRIX_LEGEND).toContain('zero')
+  })
+
+  it('o traço da linha por resposta e o da coluna por resposta dizem motivos próprios, explicados no parágrafo', () => {
+    expect(CELL_PER_RESPONSE_ROW_TITLE).not.toBe(CELL_NOT_APPLICABLE_TITLE)
+    expect(CELL_PER_RESPONSE_COLUMN_TITLE).not.toBe(CELL_NOT_APPLICABLE_TITLE)
+    expect(CELL_PER_RESPONSE_ROW_TITLE).not.toBe(CELL_PER_RESPONSE_COLUMN_TITLE)
+    expect(MATRIX_PER_RESPONSE_LEGEND).toContain(`“${PER_RESPONSE_LABEL}”`)
+    expect(MATRIX_PER_RESPONSE_LEGEND).toContain(`“${CELL_NOT_APPLICABLE}”`)
+    expect(MATRIX_PER_RESPONSE_LEGEND).toContain('critérios de definição')
+    expect(MATRIX_PER_RESPONSE_LEGEND).toContain('critério por resposta')
   })
 
   it('a versão da matriz tem rótulo curto e frase inteira, as duas com o número da rodada', () => {

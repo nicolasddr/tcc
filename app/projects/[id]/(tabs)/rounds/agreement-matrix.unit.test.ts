@@ -7,6 +7,7 @@ import {
   type MatrixRow,
 } from '@/app/projects/[id]/(tabs)/rounds/agreement-matrix'
 import type { RoundObservation } from '@/app/projects/[id]/(tabs)/rounds/agreement'
+import { PER_RESPONSE_KEY } from '@/app/projects/[id]/(tabs)/evaluate/completeness'
 import {
   CELL_NOT_APPLICABLE,
   cellNotCalculableLabel,
@@ -23,15 +24,19 @@ function criterion(id: string, definitionId: string | null, name = id): Criterio
   return { id, definitionId, scope: definitionId === null ? 'general' : 'specific', name }
 }
 
+function perResponse(id: string, name = id): Criterion {
+  return { id, definitionId: null, scope: 'per_response', name }
+}
+
 function score(
   responseId: string,
-  definitionId: string,
+  definitionId: string | null,
   criterionId: string,
   raterId: string,
   value: number,
 ): RoundObservation {
   return {
-    unitId: `${responseId}:${definitionId}:${criterionId}`,
+    unitId: `${responseId}:${definitionId ?? PER_RESPONSE_KEY}:${criterionId}`,
     raterId,
     value,
     responseId,
@@ -42,7 +47,7 @@ function score(
 }
 
 function ratings(
-  definitionId: string,
+  definitionId: string | null,
   criterionId: string,
   byRater: Record<string, readonly number[]>,
 ): RoundObservation[] {
@@ -236,7 +241,7 @@ describe('app/projects/[id]/rounds/agreement-matrix — coeficiente por célula'
 
     const rows = agreementMatrix([informacional, transacional], criteria, [])
 
-    expect(rows.map((row) => row.definition.id)).toEqual(['d1', 'd2'])
+    expect(rows.map((row) => row.definition?.id)).toEqual(['d1', 'd2'])
     expect(rows.map((row) => row.cells.length)).toEqual([2, 2])
   })
 
@@ -254,5 +259,77 @@ describe('app/projects/[id]/rounds/agreement-matrix — coeficiente por célula'
 
     expect(alphaOf(cellOf(row, 'g1'))).toBe(1)
     expect(alphaOf(cellOf(row, 'c1'))).toBeLessThan(0)
+  })
+})
+
+describe('app/projects/[id]/rounds/agreement-matrix — a linha por resposta', () => {
+  const queries: Definition[] = [1, 2, 3, 4, 5].map((n) => ({ id: `q${n}`, title: `Query ${n}` }))
+  const poc = [criterion('relevance', null, 'Relevance'), perResponse('diversity', 'Diversity')]
+
+  function perResponseRow(
+    rows: readonly MatrixRow<Definition, Criterion>[],
+  ): MatrixRow<Definition, Criterion> {
+    const found = rows.find((row) => row.definition === null)
+    if (!found) throw new Error('a linha por resposta não está na matriz')
+    return found
+  }
+
+  it('a coluna do critério por resposta vem depois das outras e mapeia só a chave nula', () => {
+    const columns = matrixColumns(queries, poc)
+
+    expect(columns.map((column) => column.name)).toEqual(['Relevance', 'Diversity'])
+    expect(columns.map((column) => column.isPerResponse)).toEqual([false, true])
+    expect(columns.map((column) => column.isGeneral)).toEqual([true, false])
+    expect([...columns[1].criteria.keys()]).toEqual([null])
+  })
+
+  it('a linha por resposta vem depois das definições, com uma célula por coluna', () => {
+    const rows = agreementMatrix(queries, poc, [])
+
+    expect(rows.map((row) => row.definition?.id ?? null)).toEqual([
+      'q1',
+      'q2',
+      'q3',
+      'q4',
+      'q5',
+      null,
+    ])
+    expect(rows.map((row) => row.cells.length)).toEqual([2, 2, 2, 2, 2, 2])
+  })
+
+  it('o critério por resposta não se aplica às definições, nem o geral à linha por resposta', () => {
+    const rows = agreementMatrix(queries, poc, [])
+
+    expect(rows.slice(0, 5).map((row) => cellOf(row, 'Diversity'))).toEqual(
+      Array(5).fill({ state: 'not_applicable' }),
+    )
+    expect(cellOf(perResponseRow(rows), 'Relevance')).toEqual({ state: 'not_applicable' })
+  })
+
+  it('a célula por resposta tem coeficiente próprio, sem vazar para as definições', () => {
+    const relevance = ratings('q1', 'relevance', { A: [3, 3, 3], B: [1, 1, 1] })
+    const diversity = ratings(null, 'diversity', { A: [1, 2, 3], B: [1, 2, 3] })
+
+    const alone = agreementMatrix(queries, poc, diversity)
+    const together = agreementMatrix(queries, poc, [...relevance, ...diversity])
+    const withoutPerResponse = agreementMatrix(queries, poc, relevance)
+
+    expect(alphaOf(cellOf(perResponseRow(alone), 'Diversity'))).toBe(1)
+    expect(alphaOf(cellOf(perResponseRow(together), 'Diversity'))).toBe(1)
+    expect(cellOf(together[0], 'Relevance')).toEqual(cellOf(withoutPerResponse[0], 'Relevance'))
+    expect(alphaOf(cellOf(together[0], 'Relevance'))).toBeLessThan(0)
+  })
+
+  it('nota sem definição num critério geral não cai em célula nenhuma', () => {
+    const rows = agreementMatrix(
+      queries,
+      poc,
+      ratings(null, 'relevance', { A: [1, 2, 3], B: [1, 2, 3] }),
+    )
+
+    expect(rows.map((row) => row.cells.map((entry) => entry.cell.state))).toEqual([
+      ...Array(5).fill(['unrated', 'not_applicable']),
+      ['not_applicable', 'unrated'],
+    ])
   })
 })

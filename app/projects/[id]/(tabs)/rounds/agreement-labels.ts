@@ -1,6 +1,7 @@
 import { plural } from '@/lib/plural'
 import type { Agreement, NotCalculableReason } from '@/lib/agreement'
 import { PHASE_2, PHASE_3, PHASE_4 } from '../../pipeline/preconditions'
+import { PER_RESPONSE_LABEL } from '../../pipeline/criteria'
 
 export type AgreementBand = 'questionable' | 'acceptable' | 'good'
 
@@ -26,6 +27,12 @@ export const CELL_NOT_APPLICABLE = '—'
 
 export const CELL_NOT_APPLICABLE_TITLE = 'critério específico de outra definição'
 
+export const CELL_PER_RESPONSE_ROW_TITLE =
+  'critério de definição, que não se avalia na resposta inteira'
+
+export const CELL_PER_RESPONSE_COLUMN_TITLE =
+  'critério por resposta, que se avalia na resposta inteira e não numa definição'
+
 export const CELL_UNRATED_LABEL = 'sem nota'
 
 export const MATRIX_LEGEND =
@@ -36,6 +43,12 @@ export const MATRIX_LEGEND =
   'respectivamente por um avaliador só, por nenhuma resposta avaliada por dois deles e ' +
   `por todas as notas no mesmo ponto da escala; e “${CELL_NOT_APPLICABLE}” é ` +
   `${CELL_NOT_APPLICABLE_TITLE}, que não se aplica a esta. Nenhum desses casos vale zero.`
+
+export const MATRIX_PER_RESPONSE_LEGEND =
+  `A linha “${PER_RESPONSE_LABEL}” traz os critérios que julgam a resposta inteira: uma ` +
+  `nota por resposta, sem definição. Por isso o “${CELL_NOT_APPLICABLE}” aparece nela nas ` +
+  'colunas dos critérios de definição, e nas linhas das definições na coluna do critério ' +
+  'por resposta.'
 
 export const OUTLIER_PAIR_SUMMARY =
   'Os dois valores saem do mesmo dado desta rodada, e o resultado da rodada continua ' +
@@ -72,6 +85,15 @@ export const BAND_REFERENCE =
   `${formatCut(AGREEMENT_BANDS.acceptable)}, questionável; de ` +
   `${formatCut(AGREEMENT_BANDS.acceptable)} a ${formatCut(AGREEMENT_BANDS.good)}, ` +
   `aceitável; ${formatCut(AGREEMENT_BANDS.good)} ou mais, boa. Ela não trava nada no projeto.`
+
+export function cellNotApplicableTitle(
+  isPerResponseRow: boolean,
+  isPerResponseColumn: boolean,
+): string {
+  if (isPerResponseRow) return CELL_PER_RESPONSE_ROW_TITLE
+  if (isPerResponseColumn) return CELL_PER_RESPONSE_COLUMN_TITLE
+  return CELL_NOT_APPLICABLE_TITLE
+}
 
 export function matrixVersionLabel(codebookVersionNumber: number): string {
   return `Codebook v${codebookVersionNumber} da rodada`

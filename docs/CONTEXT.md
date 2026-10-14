@@ -134,7 +134,8 @@ Grau em que avaliadores independentes chegam à mesma conclusão. Medida por Kri
 Alpha ordinal, calculado **por rodada**, sobre a versão de codebook que aquela rodada fixou,
 e nunca agregado entre versões diferentes. Cohen's Kappa não é usado: o Alpha cobre também o
 caso de dois avaliadores, sem a restrição de ser par a par. A unidade de análise é resposta ×
-célula: a mesma resposta avaliada em duas definições rende duas unidades, não uma. Avaliação que
+célula: a mesma resposta avaliada em duas definições rende duas unidades, não uma, e a célula de
+um critério por resposta rende uma unidade por resposta. Avaliação que
 não existe é dado faltante, nunca exclusão de avaliador — a unidade sem par sai do cálculo e a
 pessoa continua nele. E o coeficiente é **não calculável**, nunca zero e nunca 1, em três casos:
 menos de dois avaliadores, nenhuma unidade avaliada por dois deles, e nenhuma variação nas notas.
@@ -142,7 +143,8 @@ Não existe média, soma nem "ICR do projeto" em tela nenhuma: a leitura entre r
 ponto por rodada com a sua versão de codebook e a sua fase ao lado. A série é uma só para as Fases 2,
 3 e 4, porque a passagem de uma fase para a seguinte com a mesma versão de codebook é uma comparação
 legítima. E na matriz por célula, **não aplicável** é o
-par definição × critério que não existe naquela versão — critério específico de outra definição —, o
+par definição × critério que não existe naquela versão — critério específico de outra definição,
+critério de definição na linha por resposta, ou critério por resposta na linha de uma definição —, o
 que é diferente de **não calculável** (a célula existe, tem nota e não tem coeficiente) e de **sem
 nota** (a célula existe e ninguém a avaliou ainda).
 Evitar: confiabilidade, acurácia.

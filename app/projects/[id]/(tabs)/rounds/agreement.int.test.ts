@@ -5,6 +5,7 @@ import {
   loadRoundObservations,
   type RoundObservation,
 } from '@/app/projects/[id]/(tabs)/rounds/agreement'
+import { qualityOf } from '@/app/projects/[id]/(tabs)/rounds/quality'
 import { loadCodebookVersion } from '@/app/projects/[id]/pipeline/codebook'
 import { resolveCells } from '@/app/projects/[id]/pipeline/criteria'
 import { ordinalAlpha } from '@/lib/agreement'
@@ -44,6 +45,7 @@ async function seedRound(
     roundNumber?: number
     definitions?: DefinitionFixture[]
     generalCriteria?: { name: string }[]
+    perResponseCriteria?: { name: string }[]
     responses?: number
   } = {},
 ) {
@@ -52,6 +54,7 @@ async function seedRound(
     versionNumber,
     definitions: opts.definitions ?? ONE_CELL,
     generalCriteria: opts.generalCriteria,
+    perResponseCriteria: opts.perResponseCriteria,
   })
   const promptVersion = await addPromptVersion(tx, project, admin, { versionNumber })
   const round = await addRound(tx, project, admin, codebookVersion, promptVersion, {
@@ -293,6 +296,146 @@ describe('app/projects/[id]/rounds/agreement — das notas gravadas para a matri
       const agreement = ordinalAlpha(await loadRoundObservations(scene.round, tx))
 
       expect(agreement).toEqual({ calculable: true, alpha: 1, units: 3, raters: 2 })
+    })
+  })
+})
+
+describe('app/projects/[id]/rounds/agreement — a célula por resposta', () => {
+  const POC = {
+    definitions: [1, 2, 3, 4, 5].map(
+      (n): DefinitionFixture => ({ title: `Query ${n}`, type: 'category' }),
+    ),
+    generalCriteria: [{ name: 'Relevance' }],
+    perResponseCriteria: [{ name: 'Diversity' }],
+  }
+
+  function scored(
+    cells: Cell[],
+    relevance: CellFixture['value'],
+    diversity: CellFixture['value'],
+  ): CellFixture[] {
+    return cells.map((cell) => ({
+      ...cell,
+      value: cell.definitionId === null ? diversity : relevance,
+    }))
+  }
+
+  function diversityOf(cells: Cell[]): string {
+    const cell = cells.find((candidate) => candidate.definitionId === null)
+    if (!cell) throw new Error('a cena não tem célula por resposta')
+    return cell.criterionId
+  }
+
+  it('loadRoundObservations traz a nota por resposta, sem definição', async () => {
+    await inRollbackTx(async (tx) => {
+      const { admin, project } = await seedProject(tx)
+      const scene = await seedRound(tx, project, admin, POC)
+      const evaluator = await newEvaluator(tx, project, 'Avaliadora')
+
+      await addEvaluation(tx, scene.round, scene.responses[0], evaluator, {
+        cells: filled(scene.cells, 'high'),
+      })
+
+      const observations = await loadRoundObservations(scene.round, tx)
+      const perResponse = observations.filter((o) => o.definitionId === null)
+
+      expect(observations).toHaveLength(6)
+      expect(perResponse).toHaveLength(1)
+      expect(perResponse[0].criterionId).toBe(diversityOf(scene.cells))
+      expect(unitsOf(observations)).toHaveLength(6)
+    })
+  })
+
+  it('a célula por resposta rende uma unidade por resposta', async () => {
+    await inRollbackTx(async (tx) => {
+      const { admin, project } = await seedProject(tx)
+      const scene = await seedRound(tx, project, admin, { ...POC, responses: 2 })
+      const evaluator = await newEvaluator(tx, project, 'Avaliadora')
+
+      for (const response of scene.responses) {
+        await addEvaluation(tx, scene.round, response, evaluator, {
+          cells: filled(scene.cells, 'medium'),
+        })
+      }
+
+      const observations = await loadRoundObservations(scene.round, tx)
+      const perResponse = unitsOf(observations.filter((o) => o.definitionId === null))
+      const ofDefinitions = unitsOf(observations.filter((o) => o.definitionId !== null))
+
+      expect(perResponse).toHaveLength(2)
+      expect(ofDefinitions).toHaveLength(10)
+      expect(perResponse.some((unit) => ofDefinitions.includes(unit))).toBe(false)
+    })
+  })
+
+  it('o ICR conta a célula por resposta', async () => {
+    await inRollbackTx(async (tx) => {
+      const { admin, project } = await seedProject(tx)
+      const scene = await seedRound(tx, project, admin, { ...POC, responses: 2 })
+      const ana = await newEvaluator(tx, project, 'Ana')
+      const bruno = await newEvaluator(tx, project, 'Bruno')
+
+      await addEvaluation(tx, scene.round, scene.responses[0], ana, {
+        cells: scored(scene.cells, 'high', 'high'),
+      })
+      await addEvaluation(tx, scene.round, scene.responses[0], bruno, {
+        cells: scored(scene.cells, 'high', 'low'),
+      })
+      await addEvaluation(tx, scene.round, scene.responses[1], ana, {
+        cells: scored(scene.cells, 'low', 'low'),
+      })
+      await addEvaluation(tx, scene.round, scene.responses[1], bruno, {
+        cells: scored(scene.cells, 'low', 'high'),
+      })
+
+      const observations = await loadRoundObservations(scene.round, tx)
+      const all = ordinalAlpha(observations)
+      const withoutPerResponse = ordinalAlpha(observations.filter((o) => o.definitionId !== null))
+
+      expect(withoutPerResponse).toMatchObject({ calculable: true, alpha: 1, units: 10 })
+      expect(all).toMatchObject({ calculable: true, units: 12 })
+      expect(all.calculable && all.alpha).toBeLessThan(1)
+    })
+  })
+
+  it('a Qualidade conta a nota por resposta', async () => {
+    await inRollbackTx(async (tx) => {
+      const { admin, project } = await seedProject(tx)
+      const scene = await seedRound(tx, project, admin, POC)
+      const evaluator = await newEvaluator(tx, project, 'Avaliadora')
+
+      await addEvaluation(tx, scene.round, scene.responses[0], evaluator, {
+        cells: scored(scene.cells, 'low', 'high'),
+      })
+
+      const quality = qualityOf(await loadRoundObservations(scene.round, tx))
+
+      expect(quality).toMatchObject({
+        rated: true,
+        total: 6,
+        levels: [
+          { value: 'high', count: 1 },
+          { value: 'medium', count: 0 },
+          { value: 'low', count: 5 },
+        ],
+      })
+    })
+  })
+
+  it('loadProjectObservations também traz a nota por resposta', async () => {
+    await inRollbackTx(async (tx) => {
+      const { admin, project } = await seedProject(tx)
+      const scene = await seedRound(tx, project, admin, POC)
+      const evaluator = await newEvaluator(tx, project, 'Avaliadora')
+
+      await addEvaluation(tx, scene.round, scene.responses[0], evaluator, {
+        cells: filled(scene.cells, 'high'),
+      })
+
+      const observations = (await loadProjectObservations(project, tx)).get(scene.round) ?? []
+
+      expect(observations).toHaveLength(6)
+      expect(observations.filter((o) => o.definitionId === null)).toHaveLength(1)
     })
   })
 })

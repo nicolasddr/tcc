@@ -61,8 +61,11 @@ import {
   BAND_REFERENCE_LABEL,
   CELL_NOT_APPLICABLE,
   CELL_NOT_APPLICABLE_TITLE,
+  CELL_PER_RESPONSE_COLUMN_TITLE,
+  CELL_PER_RESPONSE_ROW_TITLE,
   CELL_UNRATED_LABEL,
   MATRIX_LEGEND,
+  MATRIX_PER_RESPONSE_LEGEND,
   MATRIX_SCOPE_NOTE,
   OUTLIER_PAIR_POINTS,
   OUTLIER_PAIR_RESULT,
@@ -80,7 +83,7 @@ import { ButtonLink, buttonClass } from '@/app/components/ui/button'
 import { InfoTooltip } from '@/app/components/ui/tooltip'
 import { LearnMore } from '@/app/components/ui/learn-more'
 import { loadCodebookVersion } from '@/app/projects/[id]/pipeline/codebook'
-import { resolveCells } from '@/app/projects/[id]/pipeline/criteria'
+import { PER_RESPONSE_LABEL, resolveCells } from '@/app/projects/[id]/pipeline/criteria'
 import { formatDate } from '@/app/notifications/labels'
 import {
   PHASE_1,
@@ -534,7 +537,7 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     const cells = resolveCells(codebook!.definitions, codebook!.criteria).map((cell) => ({
       definitionId: cell.definition?.id ?? null,
       criterionId: cell.criterion.id,
-      definitionTitle: cell.definition?.title ?? '',
+      definitionTitle: cell.definition?.title ?? PER_RESPONSE_LABEL,
       criterionName: cell.criterion.name,
     }))
 
@@ -638,6 +641,56 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
       cells: [note(scene, 'Informacional', 'Clareza', 'low')],
     })
     return { scene, carla }
+  }
+
+  const POC_SHAPE: CodebookShape = {
+    definitions: [1, 2, 3, 4, 5].map((n) => ({ title: `Query ${n}`, type: 'category' as const })),
+    generalCriteria: [{ name: 'Relevance' }],
+    perResponseCriteria: [{ name: 'Diversity' }],
+  }
+
+  async function perResponseScene(admin: string): Promise<Scene> {
+    const scene = await roundWith(admin, 2, {
+      shape: POC_SHAPE,
+      phase: PHASE_3,
+      status: 'closed',
+    })
+    const ana = await newEvaluator(scene.project, 'Ana')
+    const bruno = await newEvaluator(scene.project, 'Bruno')
+
+    const notes = [
+      [ana, 0, 'high', 'high'],
+      [ana, 1, 'low', 'low'],
+      [bruno, 0, 'high', 'medium'],
+      [bruno, 1, 'low', 'low'],
+    ] as const
+    for (const [evaluator, index, relevance, diversity] of notes) {
+      await addEvaluation(ownerDb, scene.round, scene.responses[index], evaluator, {
+        cells: [
+          ...[1, 2, 3, 4, 5].map((n) => note(scene, `Query ${n}`, 'Relevance', relevance)),
+          note(scene, PER_RESPONSE_LABEL, 'Diversity', diversity),
+        ],
+      })
+    }
+
+    return scene
+  }
+
+  function rowTitlesOf(markup: string): string[] {
+    return [...markup.matchAll(/<th scope="row"[^>]*>(.*?)<\/th>/g)].map((match) => match[1])
+  }
+
+  function columnTitlesOf(markup: string): string[] {
+    return [...markup.matchAll(/<th scope="col"[^>]*>(.*?)<\/th>/g)].map((match) =>
+      match[1]
+        .replace(/<[^>]*>/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim(),
+    )
+  }
+
+  function titleCountOf(markup: string, title: string): number {
+    return markup.split(`title="${title}"`).length - 1
   }
 
   const GUIDANCE_NOTES = {
@@ -2322,6 +2375,83 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     expect(renderToStaticMarkup(matrix)).toContain(`title="${CELL_NOT_APPLICABLE_TITLE}"`)
     expect(markupTextOf(matrix)).toContain(CELL_NOT_APPLICABLE)
     expect(markupTextOf(matrix)).toContain('Profundidade')
+  })
+
+  it('a matriz de Concordância traz a linha “Por resposta” por último, com os traços de cada motivo', async () => {
+    const admin = await newUser('Admin')
+    const scene = await perResponseScene(admin)
+
+    auth.userId = admin
+    const tree = await render(scene.project)
+    const markup = renderToStaticMarkup(createElement(AgreementMatrixTable, matrixOf(tree)))
+
+    expect(rowTitlesOf(markup)).toEqual([
+      'Query 1',
+      'Query 2',
+      'Query 3',
+      'Query 4',
+      'Query 5',
+      PER_RESPONSE_LABEL,
+    ])
+    expect(columnTitlesOf(markup)).toEqual([
+      'Definição',
+      'Relevance Geral',
+      `Diversity ${PER_RESPONSE_LABEL}`,
+    ])
+    expect(titleCountOf(markup, CELL_PER_RESPONSE_ROW_TITLE)).toBe(1)
+    expect(titleCountOf(markup, CELL_PER_RESPONSE_COLUMN_TITLE)).toBe(5)
+    expect(titleCountOf(markup, CELL_NOT_APPLICABLE_TITLE)).toBe(0)
+    expect(howToReadOf(AgreementMatrixTable(matrixOf(tree)))).toEqual([
+      [matrixVersionNote(1), MATRIX_SCOPE_NOTE, MATRIX_LEGEND, MATRIX_PER_RESPONSE_LEGEND],
+    ])
+  })
+
+  it('a matriz de Qualidade traz a linha “Por resposta” com a distribuição das notas por resposta', async () => {
+    const admin = await newUser('Admin')
+    const scene = await perResponseScene(admin)
+
+    auth.userId = admin
+    const tree = await render(scene.project)
+    const markup = renderToStaticMarkup(createElement(QualityMatrixTable, qualityMatrixOf(tree)))
+
+    expect(rowTitlesOf(markup).at(-1)).toBe(PER_RESPONSE_LABEL)
+    expect(rowTitlesOf(markup)).toHaveLength(6)
+    expect(columnTitlesOf(markup)).toEqual([
+      'Definição',
+      'Relevance Geral',
+      `Diversity ${PER_RESPONSE_LABEL}`,
+    ])
+
+    const cells = qualityCellsOf(tree)
+    expect(cells).toHaveLength(12)
+    expect(cells.slice(0, 2)).toEqual(['50 · 0 · 50', CELL_NOT_APPLICABLE])
+    expect(cells.slice(10)).toEqual([CELL_NOT_APPLICABLE, '25 · 25 · 50'])
+
+    expect(titleCountOf(markup, CELL_PER_RESPONSE_ROW_TITLE)).toBe(1)
+    expect(titleCountOf(markup, CELL_PER_RESPONSE_COLUMN_TITLE)).toBe(5)
+    expect(titleCountOf(markup, CELL_NOT_APPLICABLE_TITLE)).toBe(0)
+    expect(howToReadOf(QualityMatrixTable(qualityMatrixOf(tree)))).toEqual([
+      [matrixVersionNote(1), QUALITY_MATRIX_LEGEND, MATRIX_PER_RESPONSE_LEGEND],
+    ])
+  })
+
+  it('sem critério por resposta, as matrizes não ganham o parágrafo nem os traços novos', async () => {
+    const admin = await newUser('Admin')
+    const { scene } = await qualityMatrixScene(admin)
+
+    auth.userId = admin
+    const tree = await render(scene.project)
+
+    for (const table of [
+      createElement(AgreementMatrixTable, matrixOf(tree)),
+      createElement(QualityMatrixTable, qualityMatrixOf(tree)),
+    ]) {
+      const markup = renderToStaticMarkup(table)
+      expect(markupTextOf(table)).not.toContain(MATRIX_PER_RESPONSE_LEGEND)
+      expect(titleCountOf(markup, CELL_PER_RESPONSE_ROW_TITLE)).toBe(0)
+      expect(titleCountOf(markup, CELL_PER_RESPONSE_COLUMN_TITLE)).toBe(0)
+      expect(rowTitlesOf(markup)).not.toContain(PER_RESPONSE_LABEL)
+    }
   })
 
   it('numa rodada da Fase 3 abaixo da faixa, o Administrador lê que o caminho é refinar o codebook', async () => {

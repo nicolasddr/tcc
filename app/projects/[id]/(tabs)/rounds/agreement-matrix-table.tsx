@@ -4,16 +4,19 @@ import type {
   CodebookCriterion,
   CodebookDefinition,
 } from '../../pipeline/codebook'
+import { PER_RESPONSE_LABEL } from '../../pipeline/criteria'
+import { PER_RESPONSE_KEY } from '../evaluate/completeness'
 import type { RoundObservation } from './agreement'
 import { agreementMatrix, type MatrixCell } from './agreement-matrix'
 import {
   CELL_NOT_APPLICABLE,
-  CELL_NOT_APPLICABLE_TITLE,
   CELL_UNRATED_LABEL,
   MATRIX_LEGEND,
+  MATRIX_PER_RESPONSE_LEGEND,
   MATRIX_SCOPE_NOTE,
   agreementBand,
   bandTone,
+  cellNotApplicableTitle,
   cellNotCalculableLabel,
   formatAlpha,
   matrixVersionLabel,
@@ -22,10 +25,10 @@ import {
 } from './agreement-labels'
 import { HowToRead } from './how-to-read'
 
-function Cell({ cell }: { cell: MatrixCell }) {
+function Cell({ cell, notApplicableTitle }: { cell: MatrixCell; notApplicableTitle: string }) {
   if (cell.state === 'not_applicable') {
     return (
-      <span className="text-muted" title={CELL_NOT_APPLICABLE_TITLE}>
+      <span className="text-muted" title={notApplicableTitle}>
         {CELL_NOT_APPLICABLE}
       </span>
     )
@@ -98,6 +101,9 @@ export function AgreementMatrixTable({
                   <span className="flex items-center gap-1.5">
                     {column.name}
                     {column.isGeneral ? <Badge tone="neutral">Geral</Badge> : null}
+                    {column.isPerResponse ? (
+                      <Badge tone="neutral">{PER_RESPONSE_LABEL}</Badge>
+                    ) : null}
                   </span>
                 </th>
               ))}
@@ -105,19 +111,25 @@ export function AgreementMatrixTable({
           </thead>
           <tbody>
             {rows.map((row) => (
-              <tr key={row.definition.id}>
+              <tr key={row.definition?.id ?? PER_RESPONSE_KEY}>
                 <th
                   scope="row"
                   className="border-b border-line px-3 py-2 text-left font-semibold text-ink"
                 >
-                  {row.definition.title}
+                  {row.definition?.title ?? PER_RESPONSE_LABEL}
                 </th>
                 {row.cells.map((entry) => (
                   <td
                     key={entry.column.key}
                     className="border-b border-line px-3 py-2 whitespace-nowrap"
                   >
-                    <Cell cell={entry.cell} />
+                    <Cell
+                      cell={entry.cell}
+                      notApplicableTitle={cellNotApplicableTitle(
+                        row.definition === null,
+                        entry.column.isPerResponse,
+                      )}
+                    />
                   </td>
                 ))}
               </tr>
@@ -129,7 +141,12 @@ export function AgreementMatrixTable({
       <p className="m-0 text-xs text-muted">{matrixVersionLabel(codebookVersionNumber)}</p>
 
       <HowToRead
-        paragraphs={[matrixVersionNote(codebookVersionNumber), MATRIX_SCOPE_NOTE, MATRIX_LEGEND]}
+        paragraphs={[
+          matrixVersionNote(codebookVersionNumber),
+          MATRIX_SCOPE_NOTE,
+          MATRIX_LEGEND,
+          ...(rows.some((row) => row.definition === null) ? [MATRIX_PER_RESPONSE_LEGEND] : []),
+        ]}
       />
     </div>
   )

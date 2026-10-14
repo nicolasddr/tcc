@@ -11,10 +11,11 @@ import {
 import type { Observation } from '@/lib/agreement'
 import { isScaleValue, scaleRank } from '../evaluate/scale'
 import { isUuid } from '../../pipeline/versions'
+import { PER_RESPONSE_KEY } from '../evaluate/completeness'
 
 export type RoundObservation = Observation & {
   responseId: string
-  definitionId: string
+  definitionId: string | null
   criterionId: string
   projectMemberId: string
 }
@@ -35,11 +36,11 @@ type ScoreRow = {
 }
 
 function toObservation(row: ScoreRow): RoundObservation[] {
-  if (row.definitionId === null || !isScaleValue(row.value)) return []
+  if (!isScaleValue(row.value)) return []
 
   return [
     {
-      unitId: `${row.responseId}:${row.definitionId}:${row.criterionId}`,
+      unitId: `${row.responseId}:${row.definitionId ?? PER_RESPONSE_KEY}:${row.criterionId}`,
       raterId: row.projectMemberId,
       value: scaleRank(row.value),
       responseId: row.responseId,

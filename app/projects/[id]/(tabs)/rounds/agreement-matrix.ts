@@ -2,9 +2,11 @@ import { ordinalAlpha, type Agreement } from '@/lib/agreement'
 import {
   generalCriteria,
   ownCriteria,
+  perResponseCriteria,
   type CriterionScope,
   type DefinitionKey,
 } from '../../pipeline/criteria'
+import { PER_RESPONSE_KEY } from '../evaluate/completeness'
 import type { RoundObservation } from './agreement'
 
 export type CriterionKey = DefinitionKey & CriterionScope & { name: string }
@@ -18,16 +20,17 @@ export type MatrixColumn<C> = {
   key: string
   name: string
   isGeneral: boolean
-  criteria: ReadonlyMap<string, C>
+  isPerResponse: boolean
+  criteria: ReadonlyMap<string | null, C>
 }
 
 export type MatrixRow<D, C> = {
-  definition: D
+  definition: D | null
   cells: { column: MatrixColumn<C>; cell: MatrixCell }[]
 }
 
-function cellKey(definitionId: string, criterionId: string): string {
-  return `${definitionId}:${criterionId}`
+function cellKey(definitionId: string | null, criterionId: string): string {
+  return `${definitionId ?? PER_RESPONSE_KEY}:${criterionId}`
 }
 
 function groupByCell(
@@ -51,7 +54,10 @@ export function matrixColumns<C extends CriterionKey>(
     key: criterion.id,
     name: criterion.name,
     isGeneral: true,
-    criteria: new Map(definitions.map((definition) => [definition.id, criterion])),
+    isPerResponse: false,
+    criteria: new Map<string | null, C>(
+      definitions.map((definition) => [definition.id, criterion]),
+    ),
   }))
 
   const specific: { key: string; name: string; criteria: Map<string, C> }[] = []
@@ -72,7 +78,19 @@ export function matrixColumns<C extends CriterionKey>(
     }
   }
 
-  return [...general, ...specific.map((column) => ({ ...column, isGeneral: false }))]
+  const perResponse = perResponseCriteria(criteria).map((criterion) => ({
+    key: criterion.id,
+    name: criterion.name,
+    isGeneral: false,
+    isPerResponse: true,
+    criteria: new Map<string | null, C>([[null, criterion]]),
+  }))
+
+  return [
+    ...general,
+    ...specific.map((column) => ({ ...column, isGeneral: false, isPerResponse: false })),
+    ...perResponse,
+  ]
 }
 
 export type MeasuredCell<V> =
@@ -81,7 +99,7 @@ export type MeasuredCell<V> =
   | { state: 'measured'; value: V }
 
 export type MeasuredRow<D, C, V> = {
-  definition: D
+  definition: D | null
   cells: { column: MatrixColumn<C>; cell: MeasuredCell<V> }[]
 }
 
@@ -93,14 +111,18 @@ export function measuredMatrix<D extends DefinitionKey, C extends CriterionKey, 
 ): MeasuredRow<D, C, V>[] {
   const columns = matrixColumns(definitions, criteria)
   const byCell = groupByCell(observations)
+  const rows: (D | null)[] = columns.some((column) => column.isPerResponse)
+    ? [...definitions, null]
+    : [...definitions]
 
-  return definitions.map((definition) => ({
+  return rows.map((definition) => ({
     definition,
     cells: columns.map((column) => {
-      const criterion = column.criteria.get(definition.id)
+      const definitionId = definition?.id ?? null
+      const criterion = column.criteria.get(definitionId)
       if (!criterion) return { column, cell: { state: 'not_applicable' } as const }
 
-      const group = byCell.get(cellKey(definition.id, criterion.id))
+      const group = byCell.get(cellKey(definitionId, criterion.id))
       if (!group) return { column, cell: { state: 'unrated' } as const }
 
       return { column, cell: { state: 'measured', value: measure(group) } as const }

@@ -13,6 +13,7 @@ import {
 } from '@/app/projects/[id]/(tabs)/rounds/quality'
 import type { RoundObservation } from '@/app/projects/[id]/(tabs)/rounds/agreement'
 import { scaleRank, type ScaleValue } from '@/app/projects/[id]/(tabs)/evaluate/scale'
+import { PER_RESPONSE_KEY } from '@/app/projects/[id]/(tabs)/evaluate/completeness'
 
 type Definition = { id: string; title: string }
 type Criterion = { id: string; definitionId: string | null; scope: Scope; name: string }
@@ -27,15 +28,19 @@ function criterion(id: string, definitionId: string | null, name = id): Criterio
   return { id, definitionId, scope: definitionId === null ? 'general' : 'specific', name }
 }
 
+function perResponse(id: string, name = id): Criterion {
+  return { id, definitionId: null, scope: 'per_response', name }
+}
+
 function score(
   responseId: string,
-  definitionId: string,
+  definitionId: string | null,
   criterionId: string,
   raterId: string,
   value: ScaleValue,
 ): RoundObservation {
   return {
-    unitId: `${responseId}:${definitionId}:${criterionId}`,
+    unitId: `${responseId}:${definitionId ?? PER_RESPONSE_KEY}:${criterionId}`,
     raterId,
     value: scaleRank(value),
     responseId,
@@ -46,7 +51,7 @@ function score(
 }
 
 function ratings(
-  definitionId: string,
+  definitionId: string | null,
   criterionId: string,
   byRater: Record<string, readonly ScaleValue[]>,
 ): RoundObservation[] {
@@ -83,8 +88,8 @@ describe('qualityMatrix — a distribuição das notas por célula', () => {
     const quality = qualityMatrix(definitions, criteria, observations, NONE)
     const agreement = agreementMatrix(definitions, criteria, observations)
 
-    expect(quality.map((row) => row.definition.id)).toEqual(
-      agreement.map((row) => row.definition.id),
+    expect(quality.map((row) => row.definition?.id)).toEqual(
+      agreement.map((row) => row.definition?.id),
     )
     expect(quality.map((row) => row.cells.map((entry) => entry.column))).toEqual(
       agreement.map((row) => row.cells.map((entry) => entry.column)),
@@ -249,5 +254,48 @@ describe('qualityMatrix — a distribuição das notas por célula', () => {
     const pair = pairOf(row, 'g1')
     expect(pair.all).toMatchObject({ rated: true, total: 2 })
     expect(pair.withoutOutliers).toEqual({ rated: false, total: 0 })
+  })
+})
+
+describe('qualityMatrix — a linha por resposta', () => {
+  const queries: Definition[] = [1, 2, 3, 4, 5].map((n) => ({ id: `q${n}`, title: `Query ${n}` }))
+  const poc = [criterion('relevance', null, 'Relevance'), perResponse('diversity', 'Diversity')]
+
+  function perResponseRow(rows: readonly Row[]): Row {
+    const found = rows.find((row) => row.definition === null)
+    if (!found) throw new Error('a linha por resposta não está na matriz')
+    return found
+  }
+
+  it('a linha por resposta traz a distribuição das notas por resposta, e o par com e sem o marcado', () => {
+    const relevance = ratings('q1', 'relevance', { ana: ['low', 'low'], bruno: ['low', 'low'] })
+    const diversity = ratings(null, 'diversity', {
+      ana: ['high', 'high', 'medium'],
+      bruno: ['high', 'low', 'low'],
+    })
+
+    const rows = qualityMatrix(queries, poc, [...relevance, ...diversity], new Set(['bruno']))
+    const pair = pairOf(perResponseRow(rows), 'Diversity')
+
+    expect(pair.all).toEqual({
+      rated: true,
+      total: 6,
+      levels: [
+        { value: 'high', count: 3, share: 0.5 },
+        { value: 'medium', count: 1, share: 1 / 6 },
+        { value: 'low', count: 2, share: 2 / 6 },
+      ],
+    })
+    expect(pair.withoutOutliers).toEqual({
+      rated: true,
+      total: 3,
+      levels: [
+        { value: 'high', count: 2, share: 2 / 3 },
+        { value: 'medium', count: 1, share: 1 / 3 },
+        { value: 'low', count: 0, share: 0 },
+      ],
+    })
+    expect(pair.excluded).toBe(1)
+    expect(pairOf(rows[0], 'Relevance').all.total).toBe(4)
   })
 })

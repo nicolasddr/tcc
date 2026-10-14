@@ -351,8 +351,46 @@ Apagar a cena (§ 8) antes do `npm test`.
 
 ### 5.9 O que a Parte 2 herda
 
-(preencher ao fim da Parte 1: D1 e D2 confirmadas; nomes finais dos `title` e do parágrafo; a
-receita da cena, se mudou; divergências do plano)
+Feita em 2026-10-14, sem commit no momento da escrita.
+
+- **D1 = (a) e D2 como está**, confirmadas pelo usuário antes do código.
+- **Nomes finais** em `agreement-labels.ts`: `CELL_PER_RESPONSE_ROW_TITLE` (traço na linha por
+  resposta), `CELL_PER_RESPONSE_COLUMN_TITLE` (traço na coluna por resposta),
+  `MATRIX_PER_RESPONSE_LEGEND` (o parágrafo) e `cellNotApplicableTitle(isPerResponseRow,
+  isPerResponseColumn)`, usada pelas duas tabelas (`Cell` recebe `notApplicableTitle`).
+- **Correção do topo**: `agreement.ts` tinha **um** descarte (em `toObservation`, que serve aos dois
+  loaders), como o handoff do Plano 1 já dizia. Removido; o `grep` de § 5.8 não acha nada.
+- Matriz: `MatrixColumn.isPerResponse`, `criteria: ReadonlyMap<string | null, C>`,
+  `MatrixRow`/`MeasuredRow.definition: D | null`; a linha nula só existe com coluna por resposta.
+  `quality.ts` não mudou. Nenhum outro consumidor precisou de ajuste (`tsc` verde).
+- **Testes novos**: `agreement-matrix.unit` › "a linha por resposta" (5 `it`), `quality-matrix.unit`
+  › "a linha por resposta" (1), `agreement.int` › "a célula por resposta" (5), `page.int` (3:
+  concordância, Qualidade, guarda sem critério por resposta), `agreement-labels.unit` (1).
+- **Testes antigos editados** (só tipo/fábrica): `agreement-matrix.unit` e `quality-matrix.unit`
+  (`score`/`ratings` aceitam `null` e montam o `unitId` com `PER_RESPONSE_KEY`; `row.definition?.id`
+  em ~238 e ~85); `page.int`, título da célula de cena `?? PER_RESPONSE_LABEL` (achado 11);
+  `agreement.int`, `seedRound` repassa `perResponseCriteria`. Nenhuma asserção mudou.
+- **Vermelhos**: colunas, linhas e "nota sem definição num geral" por asserção; os 5 de
+  `agreement.int` por contagem (5 em vez de 6; o do ICR por `units: 10`); os 2 de página por "Por
+  resposta" ausente das linhas; o de rótulos, de import. "Não aplicável", coeficiente e Qualidade
+  quebravam ao procurar a linha/coluna: provados por mutação depois do verde.
+- **Mutações** (desfeitas por `cp`): coluna por resposta sem a chave `null` derruba colunas,
+  coeficiente, "nota sem definição" e Qualidade; o geral também na linha nula derruba "não aplicável"
+  e "nota sem definição"; o parágrafo sempre presente (em cada tabela) derruba a guarda; os dois
+  `title` trocados derrubam os 2 de página. **O marcador do `cellKey` da matriz trocado por `'null'`
+  não derruba nada**: a chave é interna e montada pela mesma função dos dois lados, então o marcador
+  não é observável ali (só importa contra colisão com um id de definição, que é UUID).
+- **Divergência**: o `agreement-labels.unit` não afirma que os dois `title` aparecem no parágrafo,
+  porque o texto aprovado do parágrafo (D2) descreve os motivos com outras palavras; afirma que os
+  `title` diferem entre si e do de hoje, e que o parágrafo cita "Por resposta", o traço, "critérios
+  de definição" e "critério por resposta".
+- **Conferência no navegador** com a cena do § 8 (receita sem mudança; o seed usou `resolveCells`
+  para montar as 6 células): as duas matrizes com seis linhas e "Por resposta" por último, selo na
+  coluna `Diversity`, os `title` certos em cada traço, o parágrafo no "Como ler" das duas; o
+  coeficiente da rodada com 24 unidades (20 + 4) e a Qualidade com 48 notas (40 + 8); a 375 px
+  (`iframe`) as tabelas (402 px) rolam dentro do quadro de 312 px e nada fora delas passa da
+  largura. Cena apagada, `scores` vazia.
+- R22/D7: sem código próprio; o teste de `loadProjectObservations` é a prova.
 
 ---
 
