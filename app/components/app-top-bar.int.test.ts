@@ -18,6 +18,7 @@ vi.mock('next/navigation', () => ({
 
 import { AppTopBar } from '@/app/components/app-top-bar'
 import { NotificationBell, type InboxItem } from '@/app/components/notification-bell'
+import { ProfileLink } from '@/app/components/profile-link'
 import { ownerDb } from '@/lib/db'
 import { createUser, addNotification, cleanup } from '@/test/helpers'
 
@@ -73,7 +74,7 @@ describe('app/components/app-top-bar — barra do topo das telas logadas', () =>
     expect(items).toHaveLength(1)
     expect(items[0].read).toBe(false)
 
-    const profile = find(tree, (el) => (el.props as { href?: string }).href === '/profile')
+    const profile = find(tree, (el) => el.type === ProfileLink)
     expect(propsOf(profile).title).toBe('Editar meu perfil')
     expect(textOf(profile)).toContain('Ana Lima')
   })

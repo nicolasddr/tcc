@@ -2,7 +2,7 @@
 
 import { useActionState } from 'react'
 import { updateProfile, type UpdateProfileState } from './actions'
-import { Button, ButtonLink } from '@/app/components/ui/button'
+import { Button } from '@/app/components/ui/button'
 import { Field, Input } from '@/app/components/ui/field'
 import { Form, FormActions } from '@/app/components/ui/form'
 import { Alert } from '@/app/components/ui/alert'
@@ -30,9 +30,6 @@ export function ProfileForm({ initialName }: { initialName: string }) {
       {state && 'ok' in state ? <Alert tone="success">{state.ok}</Alert> : null}
 
       <FormActions>
-        <ButtonLink href="/dashboard" variant="secondary">
-          Voltar
-        </ButtonLink>
         <Button type="submit" loading={pending} loadingText="Salvando…">
           Salvar
         </Button>

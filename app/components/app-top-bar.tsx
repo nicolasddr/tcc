@@ -4,6 +4,7 @@ import { requireUserId } from '@/lib/supabase/server'
 import { signOut } from '@/app/auth/actions'
 import { loadTopBar } from './app-top-bar-data'
 import { NotificationBell } from './notification-bell'
+import { ProfileLink } from './profile-link'
 import { SubmitButton } from './submit-button'
 import { Avatar } from './ui/avatar'
 import { cx } from './ui/cx'
@@ -72,8 +73,7 @@ export async function AppTopBar({ trail }: { trail: TrailItem[] }) {
 
       <div className="flex shrink-0 items-center gap-2">
         <NotificationBell items={inbox} />
-        <Link
-          href="/profile"
+        <ProfileLink
           title="Editar meu perfil"
           className="flex items-center gap-2.5 rounded-control p-0.5 text-inherit transition-colors hover:bg-canvas"
         >
@@ -82,7 +82,7 @@ export async function AppTopBar({ trail }: { trail: TrailItem[] }) {
             <span className="text-sm font-semibold text-ink-soft">{displayName}</span>
             <span className="text-xs text-muted">{email}</span>
           </span>
-        </Link>
+        </ProfileLink>
         <form action={signOut} className="contents">
           <SubmitButton variant="ghost" pendingText="Saindo…">
             <svg
