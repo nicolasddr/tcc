@@ -33,11 +33,13 @@ import { moveBy } from '@/lib/reorder'
 import { plural } from '@/lib/plural'
 import { PHASE_2 } from './preconditions'
 import {
+  PER_RESPONSE_CRITERIA_LABEL,
   criteriaOfDefinition,
   definitionsWithoutCriteria,
   generalCriteria,
   missingCriteriaMessage,
   ownCriteria,
+  perResponseCriteria,
   type CriterionScope,
 } from './criteria'
 import { codebookLockedMessage } from '../(tabs)/rounds/preconditions'
@@ -127,9 +129,10 @@ function countChanged(before: readonly string[], after: readonly string[]): numb
   return changed
 }
 
-function changesLabel(
+export function changesLabel(
   changedDefinitions: number,
   generalChanged: boolean,
+  perResponseChanged: boolean,
   noteChanged: boolean,
 ): string {
   const parts: string[] = []
@@ -141,6 +144,7 @@ function changesLabel(
     )
   }
   if (generalChanged) parts.push('critérios gerais alterados')
+  if (perResponseChanged) parts.push('critérios por resposta alterados')
   if (noteChanged) parts.push('observação alterada')
   return `Alterações não salvas: ${parts.join(' · ')}.`
 }
@@ -169,6 +173,9 @@ export const ORDER_HELP =
 const DESCRIPTION_HELP =
   'O texto que o avaliador lê para entender o que o título quis dizer. Salvar sem ' +
   'descrição é permitido.'
+
+const PER_RESPONSE_HELP =
+  'Valem para a resposta inteira, e não para uma definição: cada um rende uma nota só por resposta.'
 
 const NOTE_HELP =
   'Fica presa a esta versão e aparece no histórico. Salvar sem observação é permitido.'
@@ -436,10 +443,12 @@ export function CodebookFields({
   const [initial] = useState(() => ({
     rows: toRows(definitions, criteria, defaultType),
     general: toCriterionRows(generalCriteria(criteria)),
+    perResponse: toCriterionRows(perResponseCriteria(criteria)),
     note,
   }))
   const [rows, setRows] = useState<Row[]>(initial.rows)
   const [general, setGeneral] = useState<CriterionRow[]>(initial.general)
+  const [perResponse, setPerResponse] = useState<CriterionRow[]>(initial.perResponse)
   const [noteText, setNoteText] = useState(initial.note)
   const [expandedKey, setExpandedKey] = useState<number | null>(
     () => initial.rows.find((row) => row.title.trim() === '')?.key ?? null,
@@ -475,6 +484,7 @@ export function CodebookFields({
       row.criteria.map(() => ({ definitionId: String(row.key), scope: 'specific' as const })),
     ),
     ...general.map(() => ({ definitionId: null, scope: 'general' as const })),
+    ...perResponse.map(() => ({ definitionId: null, scope: 'per_response' as const })),
   ]
 
   const uncovered = definitionsWithoutCriteria(
@@ -488,8 +498,11 @@ export function CodebookFields({
   )
   const generalChanged =
     serializeCriteria(initial.general) !== serializeCriteria(general)
+  const perResponseChanged =
+    serializeCriteria(initial.perResponse) !== serializeCriteria(perResponse)
   const noteChanged = initial.note.trim() !== noteText.trim()
-  const dirty = changedDefinitions > 0 || generalChanged || noteChanged
+  const dirty =
+    changedDefinitions > 0 || generalChanged || perResponseChanged || noteChanged
 
   useEffect(() => {
     if (!dirty) return
@@ -503,6 +516,7 @@ export function CodebookFields({
   function discard() {
     setRows(initial.rows)
     setGeneral(initial.general)
+    setPerResponse(initial.perResponse)
     setNoteText(initial.note)
     onDone()
   }
@@ -695,6 +709,23 @@ export function CodebookFields({
         </div>
       ) : null}
 
+      {inPhase2 ? (
+        <Card padding="sm">
+          <SectionTitle title={PER_RESPONSE_CRITERIA_LABEL} help={PER_RESPONSE_HELP} />
+          <div className="mt-3">
+            <CriterionFields
+              scope="per_response"
+              criteria={perResponse}
+              label="Nome do critério por resposta"
+              addLabel="Adicionar critério por resposta"
+              emptyHint="Nenhum critério por resposta nesta versão."
+              required
+              onChange={setPerResponse}
+            />
+          </div>
+        </Card>
+      ) : null}
+
       <Field label="Observação desta versão (opcional)" tooltip={NOTE_HELP}>
         <Textarea
           name="note"
@@ -710,7 +741,12 @@ export function CodebookFields({
 
       <SaveBar
         dirty={dirty}
-        changes={changesLabel(changedDefinitions, generalChanged, noteChanged)}
+        changes={changesLabel(
+          changedDefinitions,
+          generalChanged,
+          perResponseChanged,
+          noteChanged,
+        )}
         onDiscard={discard}
         loading={pending}
         loadingText="Salvando…"

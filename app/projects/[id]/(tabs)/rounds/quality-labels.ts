@@ -21,8 +21,8 @@ export const QUALITY_HINT =
   `${scaleLabel('medium')} e ${scaleLabel('low')}.`
 
 export const QUALITY_POINTS: readonly string[] = [
-  'Cada nota é uma célula (definição × critério) avaliada por um avaliador numa resposta. ' +
-    'O total é o número de notas, não o de respostas.',
+  'Cada nota é uma célula avaliada por um avaliador numa resposta: definição × critério, ' +
+    'ou só o critério, quando ele é por resposta. O total é o número de notas, não o de respostas.',
   'Arredondadas, as porcentagens podem não somar 100%, e por isso a contagem vem ao lado.',
   'A ferramenta não fixa um alvo para essa distribuição nem diz se o valor basta: quem ' +
     'conhece a tarefa é quem lê o número.',

@@ -159,6 +159,7 @@ describe('app/projects/[id]/rounds/quality-labels — a Qualidade na tela', () =
   it('a explicação diz o que o número é, sem orientar a leitura pelo ICR nem por faixa', () => {
     expect(QUALITY_HINT).toContain('Alto, Médio e Baixo')
     const quality = QUALITY_POINTS.join(' ')
+    expect(quality).toContain('quando ele é por resposta')
     expect(quality).toContain('não o de respostas')
     expect(quality).toContain('a contagem vem ao lado')
     expect(quality.toLowerCase()).not.toContain(QUALITY_HINT.slice(0, -1).toLowerCase())

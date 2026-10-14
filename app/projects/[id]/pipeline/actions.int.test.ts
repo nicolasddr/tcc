@@ -39,6 +39,7 @@ import {
 } from '@/app/projects/[id]/pipeline/codebook'
 import {
   criteriaOfDefinition,
+  missingCriteriaMessage,
   notesPerResponse,
   resolveCells,
 } from '@/app/projects/[id]/pipeline/criteria'
@@ -85,7 +86,7 @@ type DefinitionInput = { title: string; type: string; description?: string }
 
 type CriterionInput = {
   name: string
-  scope?: number | 'general'
+  scope?: number | 'general' | 'per_response'
   description?: string
 }
 
@@ -152,6 +153,19 @@ function criteriaOf(versionId: string) {
     .from(codebookCriteria)
     .where(eq(codebookCriteria.codebookVersionId, versionId))
     .orderBy(asc(codebookCriteria.orderIndex))
+}
+
+function scopedCriteriaOf(versionId: string) {
+  return ownerDb
+    .select({
+      name: codebookCriteria.name,
+      scope: codebookCriteria.scope,
+      definitionId: codebookCriteria.definitionId,
+      orderIndex: codebookCriteria.orderIndex,
+    })
+    .from(codebookCriteria)
+    .where(eq(codebookCriteria.codebookVersionId, versionId))
+    .orderBy(asc(codebookCriteria.scope), asc(codebookCriteria.orderIndex))
 }
 
 function versionsOf(projectId: string) {
@@ -3137,6 +3151,201 @@ describe('app/projects/[id]/pipeline/actions — critérios do codebook', () => 
 
     const after = await loadCodebook(project)
     expect(notesPerResponse(after.definitions, after.criteria)).toBe(2)
+  })
+
+  it('grava o critério por resposta sem definição, e a conta de notas o soma uma vez', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin)
+
+    auth.userId = admin
+    const result = await saveCodebook(
+      null,
+      fd(project, [{ title: 'Informacional', type: 'category' }], {
+        criteria: [
+          { name: 'Cita a fonte', scope: 0 },
+          {
+            name: 'Diversity',
+            scope: 'per_response',
+            description: 'as consultas cobrem temas distintos',
+          },
+        ],
+      }),
+    )
+    expect(result).toMatchObject({ ok: true })
+
+    const [version] = await versionsOf(project)
+    const rows = await scopedCriteriaOf(version.id)
+    expect(rows.find((row) => row.name === 'Diversity')).toEqual({
+      name: 'Diversity',
+      scope: 'per_response',
+      definitionId: null,
+      orderIndex: 0,
+    })
+    expect(rows.find((row) => row.name === 'Cita a fonte')?.scope).toBe('specific')
+
+    const codebook = await loadCodebook(project)
+    expect(codebook.criteria.find((c) => c.name === 'Diversity')).toMatchObject({
+      scope: 'per_response',
+      definitionId: null,
+      description: 'as consultas cobrem temas distintos',
+    })
+    expect(notesPerResponse(codebook.definitions, codebook.criteria)).toBe(2)
+  })
+
+  it('o critério geral e o por resposta numeram cada um a partir de zero', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin)
+
+    auth.userId = admin
+    const result = await saveCodebook(
+      null,
+      fd(project, [{ title: 'Informacional', type: 'category' }], {
+        criteria: [
+          { name: 'Clareza', scope: 'general' },
+          { name: 'Diversity', scope: 'per_response' },
+          { name: 'Coverage', scope: 'per_response' },
+        ],
+      }),
+    )
+    expect(result).toMatchObject({ ok: true })
+
+    const [version] = await versionsOf(project)
+    const rows = await scopedCriteriaOf(version.id)
+    expect(
+      rows.filter((row) => row.scope === 'general').map((row) => [row.name, row.orderIndex]),
+    ).toEqual([['Clareza', 0]])
+    expect(
+      rows
+        .filter((row) => row.scope === 'per_response')
+        .map((row) => [row.name, row.orderIndex]),
+    ).toEqual([
+      ['Diversity', 0],
+      ['Coverage', 1],
+    ])
+  })
+
+  it('o critério por resposta não cobre definição: sem critério nelas, a recusa nomeia as duas', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin)
+
+    auth.userId = admin
+    const denied = await saveCodebook(
+      null,
+      fd(
+        project,
+        [
+          { title: 'Informacional', type: 'category' },
+          { title: 'Transacional', type: 'category' },
+        ],
+        { criteria: [{ name: 'Diversity', scope: 'per_response' }] },
+      ),
+    )
+
+    expect(denied).toEqual({
+      error: missingCriteriaMessage(['Informacional', 'Transacional']),
+    })
+    expect(await versionsOf(project)).toHaveLength(0)
+  })
+
+  it('recusa o critério por resposta enquanto o projeto está na Fase 1, e nada é gravado', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin, PHASE_1)
+
+    auth.userId = admin
+    const denied = await saveCodebook(
+      null,
+      fd(project, [{ title: 'Informacional', type: 'category' }], {
+        criteria: [{ name: 'Diversity', scope: 'per_response' }],
+      }),
+    )
+
+    expect(denied).toEqual({ error: expect.stringContaining('a partir da Fase 2') })
+    expect(await versionsOf(project)).toHaveLength(0)
+  })
+
+  it('acrescentar critério por resposta em versão congelada cria a seguinte, e a congelada fica com o seu', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin)
+    const frozenId = await addCodebookVersion(ownerDb, project, admin, {
+      usedAt: new Date().toISOString(),
+      definitions: [{ title: 'Informacional', type: 'category' }],
+      generalCriteria: [{ name: 'Clareza' }],
+      perResponseCriteria: [{ name: 'Diversity' }],
+    })
+
+    auth.userId = admin
+    const result = await saveCodebook(
+      null,
+      fd(project, [{ title: 'Informacional', type: 'category' }], {
+        versionId: frozenId,
+        criteria: [
+          { name: 'Clareza', scope: 'general' },
+          { name: 'Diversity', scope: 'per_response' },
+          { name: 'Coverage', scope: 'per_response' },
+        ],
+      }),
+    )
+    expect(result).toMatchObject({ ok: true })
+
+    const versions = await versionsOf(project)
+    expect(versions.map((v) => v.versionNumber)).toEqual([2, 1])
+    const created = versions.find((v) => v.id !== frozenId)!
+
+    expect(
+      (await scopedCriteriaOf(created.id))
+        .filter((row) => row.scope === 'per_response')
+        .map((row) => [row.name, row.definitionId]),
+    ).toEqual([
+      ['Diversity', null],
+      ['Coverage', null],
+    ])
+    expect(
+      (await scopedCriteriaOf(frozenId))
+        .filter((row) => row.scope === 'per_response')
+        .map((row) => row.name),
+    ).toEqual(['Diversity'])
+  })
+
+  it('salvar a versão em aberto sem o critério por resposta o remove', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin)
+    const versionId = await addCodebookVersion(ownerDb, project, admin, {
+      definitions: [{ title: 'Informacional', type: 'category' }],
+      generalCriteria: [{ name: 'Clareza' }],
+      perResponseCriteria: [{ name: 'Diversity' }],
+    })
+
+    auth.userId = admin
+    const result = await saveCodebook(
+      null,
+      fd(project, [{ title: 'Informacional', type: 'category' }], {
+        versionId,
+        criteria: [{ name: 'Clareza', scope: 'general' }],
+      }),
+    )
+    expect(result).toMatchObject({ ok: true })
+
+    expect(await versionsOf(project)).toHaveLength(1)
+    expect((await scopedCriteriaOf(versionId)).map((row) => row.name)).toEqual(['Clareza'])
+  })
+
+  it('recusa o tipo de critério desconhecido, nomeando os três tipos, e nada é gravado', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin)
+
+    auth.userId = admin
+    for (const scope of ['per-response', 'Por resposta']) {
+      const denied = await saveCodebook(
+        null,
+        fd(project, [{ title: 'Informacional', type: 'category' }], {
+          rawCriteria: { names: ['Diversity'], scopes: [scope] },
+        }),
+      )
+      expect(denied).toEqual({
+        error: 'Todo critério precisa pertencer a uma definição, ser geral ou ser por resposta.',
+      })
+    }
+    expect(await versionsOf(project)).toHaveLength(0)
   })
 
   it('o histórico traz a contagem de definições e de critérios de cada versão', async () => {

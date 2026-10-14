@@ -31,6 +31,7 @@ import {
   CodebookEditor,
   CodebookFields,
   ORDER_HELP,
+  changesLabel,
 } from '@/app/projects/[id]/pipeline/codebook-editor'
 import { VersionStatus } from '@/app/projects/[id]/pipeline/version-status'
 import { Button, buttonClass } from '@/app/components/ui/button'
@@ -953,6 +954,86 @@ describe('app/projects/[id]/codebook — a tela do codebook', () => {
 
     const text = textOf(DefinitionList(definitionsOf(await renderVersion(project, versionId))))
     expect(text).not.toContain('Critérios por resposta')
+  })
+
+  async function editingMarkup(project: string, inPhase2 = true): Promise<string> {
+    const editor = findElement(await renderCodebook(project), CodebookEditor)
+    expect(editor).toBeTruthy()
+    const props = editor!.props as Parameters<typeof CodebookEditor>[0]
+    return renderToStaticMarkup(
+      createElement(CodebookFields, {
+        definitions: props.definitions,
+        criteria: props.criteria,
+        defaultType: props.defaultType,
+        note: props.version?.note ?? '',
+        inPhase2,
+        pending: false,
+        status: null,
+        onDone: () => {},
+      }),
+    )
+  }
+
+  it('em edição, o critério por resposta tem bloco próprio entre os gerais e a observação', async () => {
+    const { project } = await perResponseScene()
+    const html = await editingMarkup(project)
+
+    const general = html.indexOf('>Critérios gerais<')
+    const title = html.indexOf('>Critérios por resposta<')
+    expect(general).toBeGreaterThan(-1)
+    expect(title).toBeGreaterThan(general)
+    expect(html.indexOf('Observação desta versão')).toBeGreaterThan(title)
+
+    expect(html.indexOf('value="Diversity"')).toBeGreaterThan(title)
+    expect(html.match(/name="criterion_scope" value="per_response"/g)).toHaveLength(1)
+    expect(html.match(/Diversity/g)).toHaveLength(1)
+    expect(html.match(/Herdados dos critérios gerais · 1/g)).toHaveLength(2)
+
+    const help = html
+      .slice(title)
+      .match(/<span [^>]*role="tooltip"[^>]*>([^<]*)<\/span>/)?.[1]
+    expect(help).toBe(
+      'Valem para a resposta inteira, e não para uma definição: cada um rende uma nota só por resposta.',
+    )
+    expect(help!.split(/\s+/).filter(Boolean).length).toBeLessThanOrEqual(25)
+  })
+
+  it('em edição, o card "Notas por resposta" conta o critério por resposta, como na leitura', async () => {
+    const { project } = await perResponseScene()
+    const html = await editingMarkup(project)
+
+    expect(html).toMatch(/Notas por resposta[\s\S]*?text-\[26px\][^>]*>3</)
+    expect(html).toContain('>2 definições × 1 critério geral + 1 por resposta<')
+  })
+
+  it('em edição, o bloco por resposta aparece vazio sem critério, e não aparece antes da Fase 2', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin, PHASE_2)
+    await addCodebookVersion(ownerDb, project, admin, {
+      definitions: [{ title: 'Informacional', type: 'category' }],
+      generalCriteria: [{ name: 'Clareza' }],
+    })
+
+    auth.userId = admin
+    const html = await editingMarkup(project)
+    expect(html.indexOf('Nenhum critério por resposta nesta versão.')).toBeGreaterThan(
+      html.indexOf('>Critérios por resposta<'),
+    )
+    expect(html).toContain('>Adicionar critério por resposta</button>')
+    expect(html).not.toContain('name="criterion_scope" value="per_response"')
+
+    const early = await editingMarkup(project, false)
+    expect(early).not.toContain('Critérios por resposta')
+    expect(early).not.toContain('critério por resposta')
+  })
+
+  it('a barra de salvar diz quando os critérios por resposta mudaram, depois dos gerais', () => {
+    expect(changesLabel(0, false, true, false)).toBe(
+      'Alterações não salvas: critérios por resposta alterados.',
+    )
+    expect(changesLabel(2, true, true, true)).toBe(
+      'Alterações não salvas: 2 definições alteradas · critérios gerais alterados · critérios por resposta alterados · observação alterada.',
+    )
   })
 
   it('cada linha do histórico traz a contagem de definições e de critérios', async () => {

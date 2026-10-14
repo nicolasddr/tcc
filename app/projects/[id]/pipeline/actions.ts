@@ -76,6 +76,7 @@ type ParsedDefinition = {
 }
 
 type ParsedCriterion = {
+  scope: Scope
   definitionIndex: number | null
   name: string
   description: string | null
@@ -105,9 +106,10 @@ const CRITERIA_TOO_EARLY =
 
 const GENERAL_SCOPE = 'general'
 
-function scopeOf(definitionIndex: number | null): Scope {
-  return definitionIndex === null ? 'general' : 'specific'
-}
+const PER_RESPONSE_SCOPE = 'per_response'
+
+const INVALID_SCOPE =
+  'Todo critério precisa pertencer a uma definição, ser geral ou ser por resposta.'
 
 function parseCriteria(
   formData: FormData,
@@ -136,16 +138,22 @@ function parseCriteria(
       }
     }
 
-    const scope = scopes[i]
+    const value = scopes[i]
+    let scope: Scope
     let definitionIndex: number | null = null
-    if (scope !== GENERAL_SCOPE) {
-      definitionIndex = Number(scope)
+    if (value === GENERAL_SCOPE) {
+      scope = 'general'
+    } else if (value === PER_RESPONSE_SCOPE) {
+      scope = 'per_response'
+    } else {
+      scope = 'specific'
+      definitionIndex = Number(value)
       if (
         !Number.isInteger(definitionIndex) ||
         definitionIndex < 0 ||
         definitionIndex >= definitionCount
       ) {
-        return { error: 'Todo critério precisa pertencer a uma definição ou ser geral.' }
+        return { error: INVALID_SCOPE }
       }
     }
 
@@ -156,11 +164,12 @@ function parseCriteria(
       }
     }
 
-    const key = definitionIndex === null ? GENERAL_SCOPE : String(definitionIndex)
+    const key = scope === 'specific' ? String(definitionIndex) : scope
     const orderIndex = nextOrder.get(key) ?? 0
     nextOrder.set(key, orderIndex + 1)
 
     criteria.push({
+      scope,
       definitionIndex,
       name,
       description: description || null,
@@ -277,7 +286,7 @@ export async function saveCodebook(
               criterion.definitionIndex === null
                 ? null
                 : String(criterion.definitionIndex),
-            scope: scopeOf(criterion.definitionIndex),
+            scope: criterion.scope,
           })),
         )
         if (uncovered.length > 0) {
@@ -358,7 +367,7 @@ export async function saveCodebook(
             criterion.definitionIndex === null
               ? null
               : (definitionIdByIndex.get(criterion.definitionIndex) ?? null),
-          scope: scopeOf(criterion.definitionIndex),
+          scope: criterion.scope,
           name: criterion.name,
           description: criterion.description,
           orderIndex: criterion.orderIndex,
