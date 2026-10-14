@@ -872,6 +872,89 @@ describe('app/projects/[id]/codebook — a tela do codebook', () => {
     expect(text).toContain('Geral')
   })
 
+  async function perResponseScene(usedAt?: string) {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin, PHASE_2)
+    const versionId = await addCodebookVersion(ownerDb, project, admin, {
+      usedAt,
+      definitions: [
+        { title: 'Informacional', type: 'category' },
+        { title: 'Transacional', type: 'category' },
+      ],
+      generalCriteria: [{ name: 'Clareza' }],
+      perResponseCriteria: [
+        { name: 'Diversity', description: 'as consultas cobrem temas distintos' },
+      ],
+    })
+    auth.userId = admin
+    return { project, versionId }
+  }
+
+  async function readingMarkup(project: string): Promise<string> {
+    const editor = findElement(await renderCodebook(project), CodebookEditor)
+    expect(editor).toBeTruthy()
+    const props = editor!.props as Parameters<typeof CodebookEditor>[0]
+    return renderToStaticMarkup(createElement(CodebookEditor, props))
+  }
+
+  it('em leitura, o critério por resposta vem num bloco próprio depois da última definição', async () => {
+    const { project } = await perResponseScene()
+    const html = await readingMarkup(project)
+
+    const title = html.indexOf('>Critérios por resposta<')
+    expect(title).toBeGreaterThan(html.lastIndexOf('Transacional'))
+    expect(html.match(/Diversity/g)).toHaveLength(1)
+    expect(html.match(/as consultas cobrem temas distintos/g)).toHaveLength(1)
+    expect(html.indexOf('Diversity')).toBeGreaterThan(title)
+    expect(html.indexOf('as consultas cobrem temas distintos')).toBeGreaterThan(title)
+    expect(html).toContain('Julgam a resposta inteira: uma nota por resposta, sem definição.')
+    expect(html.match(/>Geral</g)).toHaveLength(2)
+  })
+
+  it('a versão congelada mostra o bloco do critério por resposta', async () => {
+    const { project, versionId } = await perResponseScene(new Date().toISOString())
+
+    const text = textOf(DefinitionList(definitionsOf(await renderVersion(project, versionId))))
+    expect(text).toContain('Critérios por resposta')
+    expect(text.match(/Diversity/g)).toHaveLength(1)
+    expect(text).toContain('as consultas cobrem temas distintos')
+    expect(text.indexOf('Diversity')).toBeGreaterThan(text.indexOf('Critérios por resposta'))
+  })
+
+  it('o card "Critérios" conta o critério por resposta à parte, e não como próprio', async () => {
+    const { project } = await perResponseScene()
+    const html = await readingMarkup(project)
+
+    expect(html).toContain('>0 próprios · 1 geral · 1 por resposta<')
+    expect(html).toMatch(/Notas por resposta[\s\S]*?text-\[26px\][^>]*>3</)
+    expect(html).toContain('>2 definições × 1 critério geral + 1 por resposta<')
+  })
+
+  it('sem critério por resposta, a leitura não ganha bloco nem termo no card "Critérios"', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin, PHASE_2)
+    const versionId = await addCodebookVersion(ownerDb, project, admin, {
+      usedAt: new Date().toISOString(),
+      definitions: [
+        {
+          title: 'Informacional',
+          type: 'category',
+          criteria: [{ name: 'Cita a fonte', description: 'a fonte é verificável' }],
+        },
+        { title: 'Transacional', type: 'category' },
+      ],
+      generalCriteria: [{ name: 'Clareza' }],
+    })
+
+    auth.userId = admin
+    const html = await readingMarkup(project)
+    expect(html).not.toContain('Critérios por resposta')
+    expect(html).toContain('>1 próprio · 1 geral<')
+
+    const text = textOf(DefinitionList(definitionsOf(await renderVersion(project, versionId))))
+    expect(text).not.toContain('Critérios por resposta')
+  })
+
   it('cada linha do histórico traz a contagem de definições e de critérios', async () => {
     const admin = await newUser('Admin')
     const project = await newProject(admin, PHASE_2)

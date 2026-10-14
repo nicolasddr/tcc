@@ -369,7 +369,35 @@ Cena do § 8 (montada à mão). No `tcc-dev-local`, aba Codebook, logado como o 
 
 ### 6.5 O que a Parte 3 herda
 
-(preencher ao fim da Parte 2: o desenho final do bloco e onde ficou o rótulo; divergências)
+Feita em 2026-10-14, sem commit no momento da escrita. `npm run lint`, `npm run typecheck` e
+`npm test` (108 arquivos, 1661 testes) verdes.
+
+- **Rótulo**: `PER_RESPONSE_CRITERIA_LABEL = 'Critérios por resposta'` em `pipeline/criteria.ts`,
+  logo depois do `PER_RESPONSE_LABEL`. O editor da Parte 3 importa daí.
+- **Desenho do bloco** (`definition-list.tsx`): sem critério por resposta, `DefinitionList` devolve
+  o mesmo `<ul>` de antes (markup inalterado). Com ele, um `<div className="flex flex-col gap-4">`
+  com a lista e uma `<section>`: `<h3>` no estilo do `SectionTitle` do editor (sem ⓘ), a frase de D2
+  em `text-muted`, e um `Card padding="sm"` com os critérios. O `gap-4` é o do pai em `CodebookBody`.
+- **`criterionItem`**: o `<li>` de critério virou função comum (não componente), usada dentro das
+  definições e no bloco. É função de propósito: `textOf`/`collectText` só descem por `children` e não
+  executam componentes, e o teste da versão congelada lê `textOf(DefinitionList(props))`.
+- **Card "Critérios"** (`criteria-summary.tsx`): `own = criteria.length - general - perResponse`;
+  o termo `· N por resposta` só quando N > 0.
+- **Testes novos** em `(tabs)/codebook/page.int.test.ts`, com os helpers `perResponseScene(usedAt?)`
+  e `readingMarkup(project)` (a Parte 3 pode reusar a cena): leitura vigente (bloco depois da última
+  definição, `>Geral<` duas vezes), versão congelada, card "Critérios" (com "Notas por resposta" 3 e a
+  fórmula como guarda), e "sem critério por resposta, nada novo" (cena de "a versão em leitura traz o
+  critério geral…", lendo também a tela vigente para o hint `>1 próprio · 1 geral<`).
+- **Testes antigos editados**: nenhum.
+- **Vermelhos**: 3 por asserção (título ausente: `expected -1 to be greater than …`; versão congelada
+  sem o título; hint `1 próprio · 1 geral`, o achado 4). A guarda passou antes do código.
+- **Mutações** (desfeitas por `cp`): o bloco sempre e o termo do hint sempre derrubam a guarda, cada
+  um na sua asserção; o próprio sem descontar o por resposta derruba o teste do card.
+- **Navegador** (cena do § 8, apagada depois, `scores` e `projects` em zero): leitura vigente com o
+  bloco depois da Query 5, 6 notas, `0 próprios · 1 geral · 1 por resposta`; a versão 1 congelada
+  com o mesmo bloco; a 375 px (medido em `iframe`), a `<section>` vai de 24 a 336 px, nada passa.
+  O codebook não foi salvo.
+- **Divergências do plano**: nenhuma.
 
 ---
 

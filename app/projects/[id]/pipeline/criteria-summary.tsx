@@ -5,6 +5,7 @@ import {
   NOTES_PER_RESPONSE_HELP,
   notesPerResponse,
   notesPerResponseFormula,
+  perResponseCriteria,
   type CriterionScope,
   type DefinitionKey,
 } from './criteria'
@@ -37,7 +38,9 @@ export function CodebookSummary({
   criteria: readonly CriterionScope[]
 }) {
   const general = generalCriteria(criteria).length
-  const own = criteria.length - general
+  const perResponse = perResponseCriteria(criteria).length
+  const own = criteria.length - general - perResponse
+  const perResponseTerm = perResponse === 0 ? '' : ` · ${perResponse} por resposta`
 
   return (
     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -54,7 +57,7 @@ export function CodebookSummary({
         label="Critérios"
         value={criteria.length}
         suffix={criteria.length === 1 ? 'critério' : 'critérios'}
-        hint={`${plural(own, 'próprio', 'próprios')} · ${plural(general, 'geral', 'gerais')}`}
+        hint={`${plural(own, 'próprio', 'próprios')} · ${plural(general, 'geral', 'gerais')}${perResponseTerm}`}
       />
     </div>
   )

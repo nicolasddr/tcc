@@ -14,6 +14,8 @@ export type CodebookCell<D, C> = {
 
 export const PER_RESPONSE_LABEL = 'Por resposta'
 
+export const PER_RESPONSE_CRITERIA_LABEL = 'Critérios por resposta'
+
 export function isScope(value: string): value is Scope {
   return value === 'specific' || value === 'general' || value === 'per_response'
 }
