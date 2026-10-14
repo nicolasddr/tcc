@@ -19,6 +19,7 @@ import {
   addEvaluation,
   addConsensusNote,
   memberId,
+  type CriterionFixture,
   type DefinitionFixture,
 } from '@/test/helpers'
 
@@ -54,7 +55,10 @@ async function cellsOf(
   }))
 }
 
-async function scenario(tx: Transaction): Promise<Scenario> {
+async function scenario(
+  tx: Transaction,
+  opts: { perResponseCriteria?: CriterionFixture[] } = {},
+): Promise<Scenario> {
   const admin = await createUser(tx, 'Admin')
   const project = await createProject(tx, admin)
   const adminMember = await memberId(tx, project, admin)
@@ -62,6 +66,7 @@ async function scenario(tx: Transaction): Promise<Scenario> {
 
   const codebookVersion = await addCodebookVersion(tx, project, admin, {
     definitions: DUAS_CELULAS,
+    perResponseCriteria: opts.perResponseCriteria,
   })
   const prompt = await addPromptVersion(tx, project, admin)
   const item = await addInputItem(tx, project, admin)
@@ -334,6 +339,31 @@ describe('schema da anotação de consenso — consensus_notes', () => {
         (await loadRoundConsensus(segunda.round, [s.evaluator], tx)).map((n) => n.id),
       ).toEqual([naSegunda])
       expect(await loadRoundConsensus(segunda.round, [s.adminMember], tx)).toEqual([])
+    })
+  })
+
+  it('a ata da célula por resposta volta nas duas leituras, com a definição nula', async () => {
+    await inRollbackTx(async (tx) => {
+      const s = await scenario(tx, { perResponseCriteria: [{ name: 'Diversity' }] })
+      const porResposta = s.cells.find((cell) => cell.definitionId === null)!
+
+      const ata = await addConsensusNote(tx, {
+        roundId: s.round,
+        responseId: s.response,
+        ...porResposta,
+        projectMemberId: s.adminMember,
+        visibility: 'shared',
+        text: 'Diversidade discutida na reunião.',
+      })
+
+      const daResposta = await loadResponseConsensus(s.response, [s.evaluator], tx)
+      expect(daResposta.map((n) => [n.id, n.definitionId, n.criterionId])).toEqual([
+        [ata, null, porResposta.criterionId],
+      ])
+      expect(daResposta[0].authorName).toBe('Admin')
+
+      const daRodada = await loadRoundConsensus(s.round, [s.evaluator], tx)
+      expect(daRodada.map((n) => [n.id, n.definitionId])).toEqual([[ata, null]])
     })
   })
 })

@@ -458,8 +458,34 @@ sem mudança.
 
 ### 6.6 O que a Parte 3 herda
 
-(preencher ao fim da Parte 2: o formato do campo vazio; o descarte que sobrou, em `review.ts`;
-divergências)
+Feita em 2026-10-14, sem commit no momento da escrita.
+
+- **Campo vazio**: `definition_id` vazio é a célula por resposta (`null`); qualquer outro valor tem
+  que ser UUID, senão "Anotação inválida". O `ConsensusForm` da Parte 3 manda `definitionId ?? ''`.
+- **`cellExists`**: a checagem da definição saiu para `definitionExists`, chamada só quando há
+  definição; sem definição, o critério tem que ser da versão e `isPerResponse`. Com definição, como
+  deixou o Plano 1.
+- **Delete**: `isNull` quando a definição é nula. O upsert não mudou.
+- **Leitura**: `ConsensusNote.definitionId: string | null`; `asNotes` sem o descarte (só filtra a
+  visibilidade). `consensusCellKey(null, c)` é `per_response:c`; o formato `:` das chaves antigas
+  não mudou.
+- **O descarte que sobrou**: `review.ts` ~76, escrito `definitionId !== null && isScaleValue(...)`.
+  O `grep "definitionId === null"` do § 7.7 não o acharia; a Parte 3 confere pelo `!== null`.
+  Depois desta Parte, `consensus-actions.ts` tem dois `definitionId === null` que são regra (a
+  escolha do `cellExists` e a do delete), não descarte.
+- **Testes novos**: `consensus-cells.unit` (1), `consensus.int` (1: as duas leituras),
+  `consensus-actions.int` › "a célula por resposta" (6).
+- **Testes antigos editados**: `note()` de `consensus-cells.unit` aceita `null`; `scenario` de
+  `consensus.int` aceita `perResponseCriteria`; `scenario` de `consensus-actions.int` aceita
+  `generalCriteria`/`perResponseCriteria` e devolve o `codebook`. Nenhuma asserção mudou. O
+  `saveForm` já mandava `cell.definitionId ?? ''` desde o Plano 1.
+- **Vermelhos**: a chave por `null:c1`; a leitura por lista vazia; os quatro primeiros da action por
+  "Anotação inválida" (`isUuid('')`, lido na mensagem). Depois do parse, **o do apagar ficou
+  vermelho de novo**: a action respondeu "removida" e a linha continuou (`eq` com `null`); verde só
+  com o `isNull`. A recusa passou de "inválida" para `cell_missing` depois do parse.
+- **Mutações** (desfeitas por `cp`): `cellExists` sem definição devolvendo `true` derruba a recusa;
+  sem a guarda do UUID na definição, o "não é UUID nem vazio" cai com erro do Postgres.
+- `review-groups-list.tsx` compilou sem mudança (passa `string`).
 
 ---
 

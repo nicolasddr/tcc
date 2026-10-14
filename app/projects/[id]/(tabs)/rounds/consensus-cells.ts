@@ -1,9 +1,10 @@
+import { PER_RESPONSE_KEY } from '../evaluate/completeness'
 import { CONSENSUS_SHARED, type ConsensusNote } from './consensus'
 
 export type CellConsensus = { minutes: ConsensusNote[]; mine: ConsensusNote | null }
 
-export function consensusCellKey(definitionId: string, criterionId: string): string {
-  return `${definitionId}:${criterionId}`
+export function consensusCellKey(definitionId: string | null, criterionId: string): string {
+  return `${definitionId ?? PER_RESPONSE_KEY}:${criterionId}`
 }
 
 function byAuthor(a: ConsensusNote, b: ConsensusNote): number {

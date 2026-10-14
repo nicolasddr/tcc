@@ -1,7 +1,7 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { and, eq, sql } from 'drizzle-orm'
+import { and, eq, isNull, sql } from 'drizzle-orm'
 import { requireUserId } from '@/lib/supabase/server'
 import {
   transaction,
@@ -14,7 +14,7 @@ import {
 } from '@/lib/db'
 import { CONSENSUS_NOTE_MAX } from '@/lib/limits'
 import { isUuid } from '../../pipeline/versions'
-import { isGeneral, isScope } from '../../pipeline/criteria'
+import { isGeneral, isPerResponse, isScope } from '../../pipeline/criteria'
 import { CONSENSUS_PRIVATE, CONSENSUS_SHARED } from './consensus'
 import { loadReviewMemberships } from './review-access'
 import { listEvaluatedRoundIds } from './review'
@@ -52,7 +52,7 @@ function textTooLongMessage(length: number): string {
   )
 }
 
-type Cell = { definitionId: string; criterionId: string }
+type Cell = { definitionId: string | null; criterionId: string }
 
 type Outcome =
   | { status: 'saved' }
@@ -65,23 +65,36 @@ type Outcome =
   | { status: 'round_denied' }
   | { status: 'cell_missing' }
 
-async function cellExists(
+async function definitionExists(
   tx: Transaction,
   codebookVersionId: string,
-  cell: Cell,
+  definitionId: string,
 ): Promise<boolean> {
   const [definition] = await tx
     .select({ id: codebookDefinitions.id })
     .from(codebookDefinitions)
     .where(
       and(
-        eq(codebookDefinitions.id, cell.definitionId),
+        eq(codebookDefinitions.id, definitionId),
         eq(codebookDefinitions.codebookVersionId, codebookVersionId),
       ),
     )
     .limit(1)
 
-  if (!definition) return false
+  return definition !== undefined
+}
+
+async function cellExists(
+  tx: Transaction,
+  codebookVersionId: string,
+  cell: Cell,
+): Promise<boolean> {
+  if (
+    cell.definitionId !== null &&
+    !(await definitionExists(tx, codebookVersionId, cell.definitionId))
+  ) {
+    return false
+  }
 
   const [criterion] = await tx
     .select({ definitionId: codebookCriteria.definitionId, scope: codebookCriteria.scope })
@@ -99,6 +112,8 @@ async function cellExists(
   const { definitionId, scope } = criterion
   if (!isScope(scope)) return false
 
+  if (cell.definitionId === null) return isPerResponse({ definitionId, scope })
+
   return isGeneral({ definitionId, scope }) || definitionId === cell.definitionId
 }
 
@@ -111,10 +126,12 @@ export async function saveConsensusNote(
   const projectId = String(formData.get('project_id') ?? '')
   const roundId = String(formData.get('round_id') ?? '')
   const responseId = String(formData.get('response_id') ?? '')
-  const definitionId = String(formData.get('definition_id') ?? '')
+  const definitionField = String(formData.get('definition_id') ?? '')
+  const definitionId = definitionField === '' ? null : definitionField
   const criterionId = String(formData.get('criterion_id') ?? '')
-  const ids = [projectId, roundId, responseId, definitionId, criterionId]
+  const ids = [projectId, roundId, responseId, criterionId]
   if (!ids.every(isUuid)) return { error: INVALID }
+  if (definitionId !== null && !isUuid(definitionId)) return { error: INVALID }
 
   const text = String(formData.get('text') ?? '').trim()
 
@@ -156,7 +173,9 @@ export async function saveConsensusNote(
 
     const key = and(
       eq(consensusNotes.responseId, responseId),
-      eq(consensusNotes.definitionId, definitionId),
+      definitionId === null
+        ? isNull(consensusNotes.definitionId)
+        : eq(consensusNotes.definitionId, definitionId),
       eq(consensusNotes.criterionId, criterionId),
       eq(consensusNotes.projectMemberId, projectMemberId),
     )

@@ -1,10 +1,13 @@
 import { describe, it, expect } from 'vitest'
-import { consensusByCell } from '@/app/projects/[id]/(tabs)/rounds/consensus-cells'
+import {
+  consensusByCell,
+  consensusCellKey,
+} from '@/app/projects/[id]/(tabs)/rounds/consensus-cells'
 import type { ConsensusNote } from '@/app/projects/[id]/(tabs)/rounds/consensus'
 
 function note(
   id: string,
-  definitionId: string,
+  definitionId: string | null,
   criterionId: string,
   projectMemberId: string,
   visibility: ConsensusNote['visibility'],
@@ -73,5 +76,22 @@ describe('consensusByCell', () => {
     )
 
     expect(byCell.get('d1:c1')!.minutes.map((n) => n.id)).toEqual(['a', 'b'])
+  })
+
+  it('a anotação por resposta fica em `per_response:c1` e não se mistura com a da definição', () => {
+    const byCell = consensusByCell(
+      [
+        note('porResposta', null, 'c1', 'admin', 'shared'),
+        note('daDefinicao', 'd1', 'c1', 'admin', 'shared'),
+      ],
+      null,
+    )
+
+    expect(consensusCellKey(null, 'c1')).toBe('per_response:c1')
+    expect([...byCell.keys()]).toEqual(['per_response:c1', 'd1:c1'])
+    expect(byCell.get(consensusCellKey(null, 'c1'))!.minutes.map((n) => n.id)).toEqual([
+      'porResposta',
+    ])
+    expect(byCell.get('d1:c1')!.minutes.map((n) => n.id)).toEqual(['daDefinicao'])
   })
 })

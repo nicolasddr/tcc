@@ -44,6 +44,7 @@ import {
   addEvaluation,
   memberId,
   cleanup,
+  type CriterionFixture,
   type DefinitionFixture,
 } from '@/test/helpers'
 
@@ -120,11 +121,17 @@ describe('app/projects/[id]/rounds/consensus-actions — salvar a anotação de 
     response: string
     evaluator: string
     evaluatorUser: string
+    codebook: string
     cells: Cell[]
   }
 
   async function scenario(
-    opts: { roundNumber?: number; status?: 'open' | 'closed' } = {},
+    opts: {
+      roundNumber?: number
+      status?: 'open' | 'closed'
+      generalCriteria?: CriterionFixture[]
+      perResponseCriteria?: CriterionFixture[]
+    } = {},
   ): Promise<Scenario> {
     const admin = await newUser('Admin')
     const project = await seedProject(ownerDb, admin, 'Projeto de Teste', {
@@ -138,6 +145,8 @@ describe('app/projects/[id]/rounds/consensus-actions — salvar a anotação de 
 
     const codebook = await addCodebookVersion(ownerDb, project, admin, {
       definitions: DUAS_CELULAS,
+      generalCriteria: opts.generalCriteria,
+      perResponseCriteria: opts.perResponseCriteria,
     })
     const prompt = await addPromptVersion(ownerDb, project, admin)
     const item = await addInputItem(ownerDb, project, admin)
@@ -156,8 +165,25 @@ describe('app/projects/[id]/rounds/consensus-actions — salvar a anotação de 
       response,
       evaluator,
       evaluatorUser,
+      codebook,
       cells: await cellsOf(ownerDb, project, codebook),
     }
+  }
+
+  function perResponseScenario(): Promise<Scenario> {
+    return scenario({
+      generalCriteria: [{ name: 'Relevance' }],
+      perResponseCriteria: [{ name: 'Diversity' }],
+    })
+  }
+
+  function perResponseCell(s: Scenario): Cell {
+    return s.cells.find((cell) => cell.definitionId === null)!
+  }
+
+  async function criterionNamed(s: Scenario, name: string): Promise<string> {
+    const codebook = await loadCodebookVersion(s.project, s.codebook, ownerDb)
+    return codebook!.criteria.find((criterion) => criterion.name === name)!.id
   }
 
   beforeEach(() => {
@@ -563,5 +589,120 @@ describe('app/projects/[id]/rounds/consensus-actions — salvar a anotação de 
       error: expect.stringContaining('participa deste projeto'),
     })
     expect(await notesOf(s.response)).toHaveLength(0)
+  })
+
+  describe('a célula por resposta', () => {
+    it('o Administrador grava ata na célula por resposta, sem definição', async () => {
+      const s = await perResponseScenario()
+      const cell = perResponseCell(s)
+      auth.userId = s.admin
+
+      const result = await saveConsensusNote(
+        null,
+        saveForm(s.project, s.round, s.response, cell, 'Diversidade aceitável nesta resposta.'),
+      )
+      expect(result).toMatchObject({ ok: true, saved: true })
+
+      const notas = await notesOf(s.response)
+      expect(notas).toHaveLength(1)
+      expect(notas[0].definitionId).toBeNull()
+      expect(notas[0].criterionId).toBe(cell.criterionId)
+      expect(notas[0].visibility).toBe('shared')
+      expect(notas[0].projectMemberId).toBe(s.adminMember)
+    })
+
+    it('o Avaliador grava rascunho na célula por resposta, com o próprio vínculo', async () => {
+      const s = await perResponseScenario()
+      auth.userId = s.evaluatorUser
+
+      const result = await saveConsensusNote(
+        null,
+        saveForm(s.project, s.round, s.response, perResponseCell(s), 'Rever a diversidade.'),
+      )
+      expect(result).toMatchObject({ ok: true, saved: true })
+
+      const notas = await notesOf(s.response)
+      expect(notas).toHaveLength(1)
+      expect(notas[0].definitionId).toBeNull()
+      expect(notas[0].visibility).toBe('private')
+      expect(notas[0].projectMemberId).toBe(s.evaluator)
+    })
+
+    it('salvar duas vezes na célula por resposta edita no lugar', async () => {
+      const s = await perResponseScenario()
+      const cell = perResponseCell(s)
+      auth.userId = s.admin
+
+      await saveConsensusNote(
+        null,
+        saveForm(s.project, s.round, s.response, cell, 'Primeira redação.'),
+      )
+      const [antes] = await notesOf(s.response)
+
+      const result = await saveConsensusNote(
+        null,
+        saveForm(s.project, s.round, s.response, cell, 'Redação revisada.'),
+      )
+      expect(result).toMatchObject({ ok: true, saved: true })
+
+      const depois = await notesOf(s.response)
+      expect(depois).toHaveLength(1)
+      expect(depois[0].id).toBe(antes.id)
+      expect(depois[0].text).toBe('Redação revisada.')
+    })
+
+    it('texto vazio apaga a anotação da célula por resposta', async () => {
+      const s = await perResponseScenario()
+      const cell = perResponseCell(s)
+      auth.userId = s.admin
+
+      await saveConsensusNote(
+        null,
+        saveForm(s.project, s.round, s.response, cell, 'Ata a ser desfeita.'),
+      )
+      expect(await notesOf(s.response)).toHaveLength(1)
+
+      const apagou = await saveConsensusNote(
+        null,
+        saveForm(s.project, s.round, s.response, cell, ''),
+      )
+      expect(apagou).toMatchObject({ ok: true, saved: false })
+      expect(await notesOf(s.response)).toHaveLength(0)
+    })
+
+    it('sem definição, o critério tem que ser por resposta: geral e específico são recusados', async () => {
+      const s = await perResponseScenario()
+      auth.userId = s.admin
+
+      for (const name of ['Relevance', 'Clareza']) {
+        const result = await saveConsensusNote(
+          null,
+          saveForm(
+            s.project,
+            s.round,
+            s.response,
+            { definitionId: null, criterionId: await criterionNamed(s, name) },
+            'Critério de definição sem definição.',
+          ),
+        )
+        expect(result).toMatchObject({
+          error: expect.stringContaining('versão de codebook'),
+        })
+      }
+
+      expect(await notesOf(s.response)).toHaveLength(0)
+    })
+
+    it('definition_id que não é UUID nem vazio é anotação inválida', async () => {
+      const s = await perResponseScenario()
+      auth.userId = s.admin
+
+      const form = saveForm(s.project, s.round, s.response, perResponseCell(s), 'Lixo no campo.')
+      form.set('definition_id', 'null')
+      const result = await saveConsensusNote(null, form)
+
+      expect(result).toMatchObject({ error: expect.stringContaining('Anotação inválida') })
+      expect(await notesOf(s.response)).toHaveLength(0)
+    })
   })
 })
