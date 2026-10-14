@@ -22,7 +22,12 @@ import { loadEvaluatorParticipation } from './participation'
 import { participationBefore } from './participation-labels'
 import { hasQuality, qualityPair, type QualityPair } from './quality'
 import { QUALITY_HINT, QUALITY_POINTS } from './quality-labels'
-import { evaluatorsNotFinished, isActiveEvaluator, roundBlockers } from './preconditions'
+import {
+  evaluatorsNotFinished,
+  isActiveEvaluator,
+  roundBlockers,
+  SELECTION_MAX,
+} from './preconditions'
 import { NewRound } from './new-round'
 import { CloseRound } from './close-round'
 import { GenerateResponses } from './generate-responses'
@@ -287,7 +292,7 @@ export default async function ProjectRoundsPage({
           id={GENERATE_PANEL_ID}
           className="scroll-mt-6"
           title={`Gerar respostas na rodada ${openRound.roundNumber}`}
-          hint="De 1 a 5 itens por geração, e cada item produz exatamente uma resposta."
+          hint={`De 1 a ${SELECTION_MAX} itens por geração, e cada item produz exatamente uma resposta.`}
           help="Cada resposta grava origem, modelo, versão do modelo e as versões de codebook e de prompt que esta rodada fixou."
           action={
             <ButtonLink href={roundsHref} variant="secondary" size="sm">

@@ -189,7 +189,7 @@ function versionChangesSubject(changes: readonly VersionChange[]): string {
   return subjects.has('codebook') ? 'O codebook mudou' : 'O prompt mudou'
 }
 
-export const SELECTION_MAX = 5
+export const SELECTION_MAX = 10
 
 export type SelectionInputs = {
   available: readonly string[]

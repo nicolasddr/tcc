@@ -231,7 +231,7 @@ describe('app/projects/[id]/rounds/preconditions — o que trava a abertura de u
   })
 })
 
-const POOL = ['i1', 'i2', 'i3', 'i4', 'i5', 'i6']
+const POOL = Array.from({ length: SELECTION_MAX + 1 }, (_, i) => `i${i + 1}`)
 
 function selection(patch: Partial<SelectionInputs> = {}): SelectionInputs {
   return { available: POOL, usedInRound: [], ...patch }
@@ -261,11 +261,11 @@ describe('app/projects/[id]/rounds/preconditions — o que trava a seleção de 
     expect(selectionKeys(selected)).toEqual(['too_many'])
 
     const [blocker] = selectionBlockers(selected, selection())
-    expect(blocker).toEqual({ key: 'too_many', count: 6, max: SELECTION_MAX })
+    expect(blocker).toEqual({ key: 'too_many', count: SELECTION_MAX + 1, max: SELECTION_MAX })
 
     const message = selectionBlockerMessage(blocker)
     expect(message).toContain(`máximo ${SELECTION_MAX}`)
-    expect(message).toContain('vieram 6')
+    expect(message).toContain(`vieram ${SELECTION_MAX + 1}`)
   })
 
   it('trava o mesmo item repetido na seleção, porque um item é uma resposta só', () => {
@@ -296,7 +296,7 @@ describe('app/projects/[id]/rounds/preconditions — o que trava a seleção de 
 
   it('acumula tudo o que trava, em vez de parar no primeiro problema', () => {
     const inputs = selection({ usedInRound: ['i2'] })
-    expect(selectionKeys(['i1', 'i1', 'i2', 'i3', 'i4', 'x'], inputs)).toEqual([
+    expect(selectionKeys([...POOL.slice(0, SELECTION_MAX - 1), 'i1', 'x'], inputs)).toEqual([
       'too_many',
       'repeated',
       'foreign',

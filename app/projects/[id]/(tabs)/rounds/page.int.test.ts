@@ -1362,7 +1362,7 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     expect(props.className).toContain('scroll-mt-6')
     expect(textOf(props.title)).toBe('Gerar respostas na rodada 1')
     expect(props.hint).toBe(
-      'De 1 a 5 itens por geração, e cada item produz exatamente uma resposta.',
+      'De 1 a 10 itens por geração, e cada item produz exatamente uma resposta.',
     )
     expect(props.help).toContain('Cada resposta grava origem')
 
