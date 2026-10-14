@@ -95,7 +95,6 @@ function EditProjectForm({
           disabled={!editing || pending}
           value={values.description}
           onChange={(e) => setValues((v) => ({ ...v, description: e.target.value }))}
-          placeholder="Opcional — o objetivo do projeto, o contexto da tarefa…"
         />
       </Field>
 

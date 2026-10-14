@@ -32,7 +32,6 @@ export function NewProjectForm() {
           name="description"
           rows={4}
           maxLength={PROJECT_DESCRIPTION_MAX}
-          placeholder="Opcional — o objetivo do projeto, o contexto da tarefa…"
         />
       </Field>
 
