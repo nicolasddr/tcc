@@ -63,6 +63,14 @@ describe('askLlm', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1)
   })
 
+  it('a chamada pede temperatura 0 e raciocínio none', async () => {
+    const fetchMock = respondWith(jsonResponse(200, ANSWER))
+    await askLlm('Classifique isto.')
+
+    const body = JSON.parse(String(fetchMock.mock.calls[0][1].body))
+    expect(body).toMatchObject({ temperature: 0, reasoning: { effort: 'none' } })
+  })
+
   it('a versão do modelo é a que o provedor resolveu, e não a que foi pedida', async () => {
     respondWith(jsonResponse(200, { ...ANSWER, model: 'modelo-de-teste-2026-05-01' }))
 

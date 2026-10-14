@@ -67,7 +67,7 @@ export async function askLlm(input: string): Promise<LlmAnswer> {
         authorization: `Bearer ${apiKey}`,
         'content-type': 'application/json',
       },
-      body: JSON.stringify({ model, input }),
+      body: JSON.stringify({ model, input, temperature: 0, reasoning: { effort: 'none' } }),
       signal: AbortSignal.timeout(llmTimeoutMs()),
     })
   } catch (cause) {
