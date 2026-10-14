@@ -39,7 +39,7 @@ export function InviteEvaluatorForm({ projectId }: { projectId: string }) {
       </div>
 
       <p className="text-xs text-muted">
-        Pode convidar mesmo quem ainda não tem conta: o convite aparece no primeiro
+        Pode convidar mesmo quem ainda não tem conta, o convite aparece no primeiro
         acesso com o Google.
       </p>
 

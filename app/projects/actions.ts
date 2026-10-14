@@ -211,7 +211,7 @@ export async function inviteEvaluator(
   revalidatePath(`/projects/${projectId}`)
   return invitee
     ? { ok: `Convite enviado para ${invitee.name}.` }
-    : { ok: `Convite enviado para ${email}. A pessoa verá o convite ao entrar com o Google.` }
+    : { ok: `Convite enviado para ${email}.` }
 }
 
 

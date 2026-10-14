@@ -13,7 +13,7 @@ import { MemberList } from '../../member-list'
 import { EvaluatorRolePanel } from '../../evaluator-role'
 import { InviteEvaluatorForm } from '../../invite-evaluator-form'
 import { OutlierPanel, type OutlierPanelData } from './outlier-panel'
-import { TEAM_HINT, TEAM_MORE } from './team-help'
+import { TEAM_MORE } from './team-help'
 import { EmptyState } from '@/app/components/ui/empty-state'
 import { Section } from '@/app/components/ui/section'
 
@@ -110,8 +110,7 @@ export default async function ProjectMembersPage({
       ) : null}
 
       <Section
-        title="Equipe do projeto"
-        hint={TEAM_HINT}
+        title="Membros do projeto"
         more={isAdmin ? TEAM_MORE : undefined}
       >
         {members.length > 0 ? (
@@ -140,7 +139,7 @@ export default async function ProjectMembersPage({
       {isAdmin ? (
         <Section
           title="Avaliar neste projeto"
-          hint="Como Administrador, você pode se dar também o papel de Avaliador."
+          hint="Mesmo sendo Administrador, você também pode assumir o papel de Avaliador no projeto."
           help="O vínculo novo passa pelo mesmo consentimento e questionário de perfil dos demais. Para separar suas notas, marque-se como outlier na rodada."
         >
           <EvaluatorRolePanel

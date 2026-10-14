@@ -125,9 +125,7 @@ export function OutlierPanel({
   if (!round) {
     return (
       <EmptyState>
-        Nenhuma rodada deste projeto recebeu avaliação ainda. A marca de outlier tira do
-        cálculo as notas de uma pessoa em uma rodada, então ela só existe onde já há nota
-        para tirar.
+        Nenhuma rodada deste projeto recebeu avaliação ainda.
       </EmptyState>
     )
   }

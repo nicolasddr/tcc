@@ -29,10 +29,7 @@ import ProjectMembersPage from '@/app/projects/[id]/(tabs)/members/page'
 import { EvaluatorRolePanel } from '@/app/projects/[id]/evaluator-role'
 import { MemberList } from '@/app/projects/[id]/member-list'
 import { Section } from '@/app/components/ui/section'
-import {
-  TEAM_HINT,
-  TEAM_MORE,
-} from '@/app/projects/[id]/(tabs)/members/team-help'
+import { TEAM_MORE } from '@/app/projects/[id]/(tabs)/members/team-help'
 import { ownerDb } from '@/lib/db'
 import {
   createUser,
@@ -174,16 +171,16 @@ describe('app/projects/[id]/members — só quem participa ativamente entra', ()
     auth.userId = admin
     expect(await sectionTitlesOf(project)).toEqual([
       'Convidar avaliador',
-      'Equipe do projeto',
+      'Membros do projeto',
       'Outliers por rodada',
       'Avaliar neste projeto',
     ])
 
     auth.userId = evaluator
-    expect(await sectionTitlesOf(project)).toEqual(['Equipe do projeto'])
+    expect(await sectionTitlesOf(project)).toEqual(['Membros do projeto'])
   })
 
-  it('a Equipe do projeto mostra uma frase, e o Administrador tem o "Saiba mais" em vez do ⓘ', async () => {
+  it('Membros do projeto não tem frase, e o Administrador tem o "Saiba mais" em vez do ⓘ', async () => {
     const admin = await newUser('Admin')
     const evaluator = await newUser('Avaliador')
     const project = await newProject(admin)
@@ -191,7 +188,7 @@ describe('app/projects/[id]/members — só quem participa ativamente entra', ()
 
     async function teamOf() {
       const team = findAll(await render(project), Section).find(
-        (section) => (section.props as { title: unknown }).title === 'Equipe do projeto',
+        (section) => (section.props as { title: unknown }).title === 'Membros do projeto',
       )
       expect(team).toBeTruthy()
       return team!.props as Parameters<typeof Section>[0]
@@ -199,15 +196,15 @@ describe('app/projects/[id]/members — só quem participa ativamente entra', ()
 
     auth.userId = admin
     const forAdmin = await teamOf()
-    expect(forAdmin.hint).toBe('Quem participa e em que papel.')
+    expect(forAdmin.hint).toBeUndefined()
     expect(forAdmin.help).toBeUndefined()
     expect(forAdmin.more).toEqual(TEAM_MORE)
     expect(TEAM_MORE.summary).toBe('Desativar ou marcar como outlier?')
-    expect(TEAM_MORE.points).toHaveLength(3)
+    expect(TEAM_MORE.points).toHaveLength(2)
 
     auth.userId = evaluator
     const forEvaluator = await teamOf()
-    expect(forEvaluator.hint).toBe(TEAM_HINT)
+    expect(forEvaluator.hint).toBeUndefined()
     expect(forEvaluator.help).toBeUndefined()
     expect(forEvaluator.more).toBeUndefined()
   })

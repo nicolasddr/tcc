@@ -263,7 +263,7 @@ describe('app/projects/actions — autorização explícita', () => {
     // existe → o convite cai no ramo "sem conta" (invitee_id NULL), sem vazar que há perfil.
     auth.userId = admin
     const asStranger = await inviteEvaluator(null, fd({ project_id: project, email }))
-    expect(asStranger).toEqual({ ok: expect.stringContaining('ao entrar com o Google') })
+    expect(asStranger).toEqual({ ok: `Convite enviado para ${email}.` })
     const [unresolved] = await ownerDb
       .select({ inviteeId: projectInvitations.inviteeId })
       .from(projectInvitations)
