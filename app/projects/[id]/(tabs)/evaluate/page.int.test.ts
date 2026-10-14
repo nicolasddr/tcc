@@ -220,6 +220,7 @@ describe('app/projects/[id]/evaluate — a tela do avaliador', () => {
         criteria?: { name: string; description?: string }[]
       }[]
       generalCriteria?: { name: string; description?: string }[]
+      perResponseCriteria?: { name: string; description?: string }[]
       responses?: number
       phase?: number
       openRound?: boolean
@@ -244,6 +245,7 @@ describe('app/projects/[id]/evaluate — a tela do avaliador', () => {
         criteria: definition.criteria ?? [],
       })),
       generalCriteria: opts.generalCriteria,
+      perResponseCriteria: opts.perResponseCriteria,
     })
     const promptVersion = await addPromptVersion(ownerDb, project, admin, {
       text: opts.prompt?.text,
@@ -529,6 +531,69 @@ describe('app/projects/[id]/evaluate — a tela do avaliador', () => {
     expect(html).not.toContain('Editar')
     expect(html).not.toContain('Apagar')
     expect(html).not.toContain('Excluir')
+  })
+
+  it('o critério por resposta vira o grupo "Por resposta", depois das definições, com o campo dele', async () => {
+    const admin = await newUser('Admin')
+    const scene = await scenario(admin, {
+      definitions: [{ title: 'Informacional' }, { title: 'Transacional' }],
+      generalCriteria: [{ name: 'Clareza' }],
+      perResponseCriteria: [{ name: 'Diversity', description: 'varia as fontes' }],
+    })
+    const evaluator = await newEvaluator(scene.project)
+
+    auth.userId = evaluator
+    const props = formOf(await open(scene.project))
+    const diversity = props.cells.find((cell) => cell.criterion.name === 'Diversity')!
+    const html = markupOf(props)
+
+    expect(html).toContain('0 de 3 notas')
+    expect(html).toContain('>Por resposta</')
+    expect(html.indexOf('>Por resposta</')).toBeGreaterThan(html.indexOf('>Transacional</'))
+    expect(html.indexOf('>Por resposta</')).toBeLessThan(html.indexOf('Enviar avaliação'))
+
+    const group = html.slice(html.indexOf('>Por resposta</'), html.indexOf('Enviar avaliação'))
+    expect(group).toContain('>Diversity</')
+    expect(group).toContain('>varia as fontes</')
+    expect(group).toContain(`name="score_per_response_${diversity.criterion.id}"`)
+    expect(group).not.toContain('>Geral<')
+  })
+
+  it('em leitura, o grupo "Por resposta" mostra a nota e a justificativa do critério por resposta', async () => {
+    const admin = await newUser('Admin')
+    const scene = await scenario(admin, {
+      definitions: [{ title: 'Informacional' }, { title: 'Transacional' }],
+      generalCriteria: [{ name: 'Clareza' }],
+      perResponseCriteria: [{ name: 'Diversity', description: 'varia as fontes' }],
+    })
+    const evaluator = await newEvaluator(scene.project)
+    const member = await memberIdOf(ownerDb, scene.project, evaluator)
+
+    const codebook = await loadCodebookVersion(scene.project, scene.codebookVersion)
+    const cells = resolveCells(codebook!.definitions, codebook!.criteria)
+    await addEvaluation(ownerDb, scene.round, scene.responses[0], member, {
+      cells: cells.map((cell) => ({
+        definitionId: cell.definition?.id ?? null,
+        criterionId: cell.criterion.id,
+        value: cell.definition ? ('high' as const) : ('low' as const),
+        justification: cell.definition ? null : 'repete a mesma fonte',
+      })),
+    })
+
+    auth.userId = evaluator
+    const props = formOf(await open(scene.project))
+    expect(props.submitted).not.toBeNull()
+
+    const html = markupOf(props)
+    expect(html).toContain('>Por resposta</')
+    expect(html.indexOf('>Por resposta</')).toBeGreaterThan(html.indexOf('>Transacional</'))
+
+    const group = html.slice(html.indexOf('>Por resposta</'))
+    expect(group).toContain('>Diversity</')
+    expect(group).toContain('>varia as fontes</')
+    expect(group).toContain('Baixo')
+    expect(group).not.toContain('Alto')
+    expect(group).toContain('repete a mesma fonte')
   })
 
   it('sem ?response= na rota, a página redireciona para a primeira DA MINHA fila', async () => {

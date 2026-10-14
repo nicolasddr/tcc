@@ -2,12 +2,18 @@
 
 import { useActionState, useState } from 'react'
 import { submitEvaluation, type EvaluationState } from './actions'
-import { cellKey, cellKeyOf, isComplete, type Answer } from './completeness'
+import {
+  PER_RESPONSE_KEY,
+  cellKey,
+  cellKeyOf,
+  isComplete,
+  type Answer,
+} from './completeness'
 import { SCALE, isScaleValue, scaleLabel } from './scale'
 import { ScaleBadge, ScaleMarker } from './scale-marker'
 import type { SubmittedEvaluation } from './evaluation'
 import type { CodebookCriterion, CodebookDefinition } from '../../pipeline/codebook'
-import { isDefinitionCell, type CodebookCell, type DefinitionCell } from '../../pipeline/criteria'
+import { PER_RESPONSE_LABEL, type CodebookCell } from '../../pipeline/criteria'
 import type { ResponseDetail } from '../../pipeline/responses'
 import { JUSTIFICATION_MAX } from '@/lib/limits'
 import { plural } from '@/lib/plural'
@@ -22,9 +28,9 @@ import { Textarea } from '@/app/components/ui/field'
 import { Form, FormActions } from '@/app/components/ui/form'
 import { preWrapClass, scrollBoxClass } from '@/app/components/ui/prose'
 
-type Cell = DefinitionCell<CodebookDefinition, CodebookCriterion>
+type Cell = CodebookCell<CodebookDefinition, CodebookCriterion>
 
-type Group = { definition: CodebookDefinition; cells: Cell[] }
+type Group = { definition: CodebookDefinition | null; cells: Cell[] }
 
 const initialState: EvaluationState = null
 
@@ -35,11 +41,19 @@ function groupByDefinition(cells: readonly Cell[]): Group[] {
 
   for (const cell of cells) {
     const last = groups[groups.length - 1]
-    if (last && last.definition.id === cell.definition.id) last.cells.push(cell)
+    if (last && last.definition?.id === cell.definition?.id) last.cells.push(cell)
     else groups.push({ definition: cell.definition, cells: [cell] })
   }
 
   return groups
+}
+
+function titleOf(group: Group): string {
+  return group.definition?.title ?? PER_RESPONSE_LABEL
+}
+
+function groupKeyOf(group: Group): string {
+  return group.definition?.id ?? PER_RESPONSE_KEY
 }
 
 function storedValues(submitted: SubmittedEvaluation | null): Record<string, string> {
@@ -82,17 +96,17 @@ function CriterionName({
 }
 
 function DefinitionSummary({
-  definition,
+  title,
   scored,
   total,
 }: {
-  definition: CodebookDefinition
+  title: string
   scored: number
   total: number
 }) {
   return (
     <span className="flex flex-wrap items-center gap-2">
-      <span className="text-sm font-semibold text-ink">{definition.title}</span>
+      <span className="text-sm font-semibold text-ink">{title}</span>
       <Badge tone={scored === total ? 'success' : 'neutral'}>
         {scored} de {total}
       </Badge>
@@ -190,7 +204,7 @@ export function EvaluationForm({
   projectId,
   response,
   label,
-  cells: codebookCells,
+  cells,
   submitted,
   item,
   context,
@@ -209,12 +223,11 @@ export function EvaluationForm({
     storedJustifications(submitted),
   )
 
-  const cells = codebookCells.filter(isDefinitionCell)
   const groups = groupByDefinition(cells)
   const answers: Answer[] = cells.map((cell) => {
     const key = cellKeyOf(cell)
     return {
-      definitionId: cell.definition.id,
+      definitionId: cell.definition?.id ?? null,
       criterionId: cell.criterion.id,
       value: values[key] ?? '',
       justification: justifications[key] ?? '',
@@ -242,12 +255,13 @@ export function EvaluationForm({
 
           <ul className="m-0 flex list-none flex-col gap-2 p-0">
             {groups.map((group) => (
-              <li key={group.definition.id}>
+              <li key={groupKeyOf(group)}>
                 <Card padding="sm">
-                  <span className="text-sm font-semibold text-ink">
-                    {group.definition.title}
-                  </span>
-                  <Description text={group.definition.description} className="mt-0.5" />
+                  <span className="text-sm font-semibold text-ink">{titleOf(group)}</span>
+                  <Description
+                    text={group.definition?.description ?? null}
+                    className="mt-0.5"
+                  />
 
                   <ul className="m-0 mt-3 flex list-none flex-col gap-3 border-t border-line p-0 pt-3">
                     {group.cells.map((cell) => {
@@ -294,20 +308,23 @@ export function EvaluationForm({
 
         <ul className="m-0 flex list-none flex-col gap-2 p-0">
           {groups.map((group) => (
-            <li key={group.definition.id}>
+            <li key={groupKeyOf(group)}>
               <Card padding="sm">
                 <Disclosure
                   defaultOpen
                   summaryClassName=""
                   summary={
                     <DefinitionSummary
-                      definition={group.definition}
+                      title={titleOf(group)}
                       scored={scoredIn(group)}
                       total={group.cells.length}
                     />
                   }
                 >
-                  <Description text={group.definition.description} className="mt-1" />
+                  <Description
+                    text={group.definition?.description ?? null}
+                    className="mt-1"
+                  />
 
                   <ul className="m-0 mt-3 flex list-none flex-col gap-4 border-t border-line p-0 pt-3">
                     {group.cells.map((cell) => {

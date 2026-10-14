@@ -4,7 +4,6 @@ import {
   definitionsWithoutCriteria,
   generalCriteria,
   isCodebookComplete,
-  isDefinitionCell,
   isGeneral,
   isPerResponse,
   isScope,
@@ -339,12 +338,6 @@ describe('app/projects/[id]/pipeline/criteria — o critério por resposta', () 
     expect(
       notesPerResponseFormula([informacional], [perResponse('r1'), perResponse('r2')]),
     ).toBe('2 critérios por resposta')
-  })
-
-  it('isDefinitionCell separa a célula de definição da célula por resposta', () => {
-    const cells = resolveCells([informacional], [criterion('g1', null), perResponse('r1')])
-
-    expect(cells.map(isDefinitionCell)).toEqual([true, false])
   })
 
   it('não cobre definição: só com critérios por resposta, toda definição fica descoberta', () => {

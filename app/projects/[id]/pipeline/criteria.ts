@@ -12,15 +12,7 @@ export type CodebookCell<D, C> = {
   isGeneral: boolean
 }
 
-export type DefinitionCell<D, C> = CodebookCell<D, C> & { definition: D }
-
 export const PER_RESPONSE_LABEL = 'Por resposta'
-
-export function isDefinitionCell<D, C>(
-  cell: CodebookCell<D, C>,
-): cell is DefinitionCell<D, C> {
-  return cell.definition !== null
-}
 
 export function isScope(value: string): value is Scope {
   return value === 'specific' || value === 'general' || value === 'per_response'

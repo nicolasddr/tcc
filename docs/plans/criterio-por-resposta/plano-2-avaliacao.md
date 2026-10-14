@@ -516,8 +516,25 @@ A Parte 3 fecha o Plano 2, não a série: sem `Closes`.
 
 ### 7.6 O que o Plano 3 herda
 
-(preencher ao fim da Parte 3; incluir pelo menos:)
+Feita em 2026-10-14, sem commit no momento da escrita. `npm run lint`, `npm run typecheck` e
+`npm test` (108 arquivos, 1608 testes) verdes.
 
+- **Formulário**: sem filtro; `Group.definition: CodebookDefinition | null`, título por
+  `definition?.title ?? PER_RESPONSE_LABEL` e `key` por `definition?.id ?? PER_RESPONSE_KEY`, nos
+  dois modos; `DefinitionSummary` recebe `title`. O contador, `isComplete` e o envio não mudaram.
+- **A guarda saiu**: `DefinitionCell`/`isDefinitionCell` ficaram sem uso e foram removidos de
+  `criteria.ts`, junto com o `it` dela em `criteria.unit.test.ts` (por isso 1608 = 1607 + 2 − 1).
+  `grep -rn isDefinitionCell app` não acha nada.
+- **Testes novos** em `evaluate/page.int.test.ts` (o `scenario` aceita `perResponseCriteria`): o
+  grupo em curso (ordem, nome, descrição, campo `score_per_response_<id>`, `0 de 3 notas`, sem
+  `>Geral<`) e o grupo em leitura (ordem, `Baixo` sem `Alto`, justificativa). Vermelhos lidos: o
+  primeiro pelo contador (`0 de 2 notas`; nada depois rodou), o segundo por "Por resposta" ausente.
+  Mutações depois do verde (desfeitas por `cp`): grupos em ordem inversa derrubam os dois pela
+  ordem; a leitura sem justificativa derruba só o segundo; o rótulo trocado derruba os dois.
+- **Conferência no navegador** feita com a cena abaixo: grupo depois da Query 5 com a descrição do
+  `Diversity`; `5 de 6` travado, `6 de 6` destrava; enviado, o banco tem 6 notas (a do `Diversity`
+  com `definition_id` nulo e a justificativa); a leitura mostra a nota e a justificativa; a 375 px
+  (medido em `iframe`), nada do card passa da largura. Cena apagada, `scores` vazia.
 - `CodebookCell.definition: D | null`, e a célula por resposta no fim de `resolveCells`.
 - `PER_RESPONSE_LABEL` ("Por resposta") em `criteria.ts`, para a linha das matrizes e o grupo da
   revisão; `PER_RESPONSE_KEY` em `completeness.ts` (é a chave do formulário; as chaves de
@@ -528,7 +545,12 @@ A Parte 3 fecha o Plano 2, não a série: sem `Closes`.
 - **Descartes que continuam**: `agreement.ts` (um, em `toObservation`), `review.ts` e `consensus.ts`. Desde a Parte 2,
   uma nota por resposta pode existir no banco (com critério montado à mão), e essas leituras a
   ignoram.
-- A receita da cena do § 7.3.
+- A receita da cena do § 7.3: `test/zz-seed-preview.int.test.ts` descartável com `createUser`
+  (admin), `createProject` na Fase 2, `addActiveEvaluator` com o id do `dev@test.local`,
+  `addCodebookVersion` com cinco `Query N`, `generalCriteria: [Relevance]` e
+  `perResponseCriteria: [Diversity]`, `addPromptVersion`, `addRound` na Fase 2, `addInputItem` e
+  `addResponse`. Limpeza numa transação: `scores` → `consensus_notes` → `round_outliers` →
+  `evaluations` → `responses` → `rounds` → `projects` → `profiles`/`auth.users` de teste.
 
 **→ Plano 4:** o `NOTES_PER_RESPONSE_HELP` ficou para a Parte 2 dele (D2), com o texto proposto.
 
