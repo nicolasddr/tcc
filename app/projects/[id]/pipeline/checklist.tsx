@@ -1,5 +1,4 @@
 import Link from '@/app/components/app-link'
-import { Badge } from '@/app/components/ui/badge'
 import { ButtonLink } from '@/app/components/ui/button'
 import { ArrowRightIcon, CheckCircleIcon, CircleIcon } from '@/app/components/ui/icons'
 
@@ -25,14 +24,6 @@ export type ChecklistStep =
   | { key: string; status: 'done'; title: string }
   | { key: string; status: 'waiting'; title: string; note: string; help: string }
   | PendingStep
-
-export function PendingBadge({ count }: { count: number }) {
-  return count === 0 ? (
-    <Badge tone="success">Tudo pronto</Badge>
-  ) : (
-    <Badge tone="warning">{count === 1 ? 'Falta 1' : `Faltam ${count}`}</Badge>
-  )
-}
 
 export function PhaseChecklist({
   title,

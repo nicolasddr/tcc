@@ -33,8 +33,9 @@ export const PIPELINE_REQUIREMENTS: readonly PipelineRequirement[] = [
   {
     key: 'definition',
     title: 'Definição',
-    action: 'Cadastrar uma definição',
-    pending: 'Cadastre ao menos uma definição para estruturar a tarefa da LLM.',
+    action: 'Cadastrar definições no codebook',
+    pending:
+      'Cadastre ao menos uma definição. As definições vão à LLM junto com o prompt e dão a ela o contexto mínimo para realizar a tarefa.',
     route: 'codebook',
   },
   {

@@ -12,7 +12,6 @@ import { PipelineChecklist } from '../pipeline/pipeline-checklist'
 import { Phase2Checklist } from '../pipeline/phase-2-checklist'
 import { Phase3Checklist } from '../pipeline/phase-3-checklist'
 import { Phase4Return } from '../pipeline/phase-4-return'
-import { PendingBadge } from '../pipeline/checklist'
 import type { LastClosedRound } from '../pipeline/last-round-summary'
 import {
   EMPTY_PIPELINE,
@@ -20,9 +19,6 @@ import {
   PHASE_2,
   PHASE_3,
   PHASE_4,
-  pendingRequirements,
-  phase2Blockers,
-  phase3Blockers,
   type PipelineInputs,
   type Phase2Inputs,
   type ReturnInputs,
@@ -329,15 +325,6 @@ export default async function ProjectPage({
       ].filter((checklist) => checklist !== null)
     : []
   const currentChecklist = phase4 ? null : (checklists.at(-1) ?? null)
-  const currentPending = !currentChecklist
-    ? null
-    : project.phase === PHASE_1 && phase1Inputs
-      ? pendingRequirements(phase1Inputs).length
-      : project.phase === PHASE_2 && phase2
-        ? phase2Blockers(phase2.inputs).length
-        : project.phase === PHASE_3 && phase3
-          ? phase3Blockers(phase3.inputs).length
-          : null
   const completedChecklists = phase4 ? checklists : checklists.slice(0, -1)
 
   const canSteerPhase = isAdmin && project.status === 'active'
@@ -402,8 +389,6 @@ export default async function ProjectPage({
                   <Badge>{FROZEN_BADGE_LABEL}</Badge>
                   <InfoTooltip text={FROZEN_BADGE_HELP} />
                 </span>
-              ) : currentPending !== null ? (
-                <PendingBadge count={currentPending} />
               ) : null
             }
             action={

@@ -101,7 +101,6 @@ export default async function ProjectTabsLayout({
           >
             <Badge>
               {`Fase ${project.phase} de ${TOTAL_PHASES} · ${PROJECT_PHASES[project.phase - 1].name}`}
-              <span aria-hidden> →</span>
             </Badge>
           </Link>
           {project.status !== 'active' ? (

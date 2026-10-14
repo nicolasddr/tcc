@@ -568,18 +568,16 @@ describe('app/projects/[id]/page — escopo de visibilidade', () => {
     const text = glanceTextOf(markup)
     expect(text).toContain('Para avançar para a Fase 2')
     expect(text).toContain('Próximo passo')
-    expect(text).toContain('Cadastrar uma definição')
+    expect(text).toContain('Cadastrar definições no codebook')
     expect(text).toContain(first.pending)
     expect(text).not.toContain(second.pending)
     expect(text).toContain('Escrever o texto do prompt')
     expect(text).not.toContain('Cadastrar um item de entrada')
     expect(text).toContain('Item de entrada pronto')
     expect(text.match(/Ir para/g)).toHaveLength(1)
-    expect(text).not.toContain('Faltam 2')
-    expect(text).toContain(
-      'Faltam definição e texto do prompt para liberar o avanço. ' +
-        '“Avançar para a Fase 2” aparece aqui quando tudo estiver pronto.',
-    )
+    expect(text).not.toContain('Faltam')
+    expect(text).not.toContain('para liberar o avanço')
+    expect(text).not.toContain('aparece aqui quando tudo estiver pronto')
 
     expect(primaryActionsOf(markup)).toEqual([
       { href: `/projects/${project}/codebook`, text: 'Ir para Codebook' },
@@ -589,11 +587,12 @@ describe('app/projects/[id]/page — escopo de visibilidade', () => {
     expect(markup.match(/aria-current="step"/g)).toHaveLength(1)
     expect(markup).not.toContain('<button')
     expect(tooltipTextsOf(createElement(PipelineChecklist, props))).toEqual([])
+    expect(advanceOf(tree)).toBeNull()
 
-    expect(barBadgeTextOf(tree)).toBe('Faltam 2')
+    expect(barBadgeTextOf(tree)).toBe('')
   })
 
-  it('na Fase 1, o selo da barra conta as pendências, e sem pendência o único primário é o Avançar', async () => {
+  it('na Fase 1, a barra fica sem selo de pendências, e sem pendência o único primário é o Avançar', async () => {
     const admin = await newUser('Admin')
     const none = await newProject(admin)
     const one = await newProject(admin)
@@ -606,13 +605,13 @@ describe('app/projects/[id]/page — escopo de visibilidade', () => {
 
     auth.userId = admin
     const noneTree = await render(none)
-    expect(barBadgeTextOf(noneTree)).toBe('Faltam 3')
+    expect(barBadgeTextOf(noneTree)).toBe('')
     expect(primaryActionsOf(checklistMarkupOf(noneTree, PipelineChecklist))).toEqual([
       { href: `/projects/${none}/codebook`, text: 'Ir para Codebook' },
     ])
 
     const oneTree = await render(one)
-    expect(barBadgeTextOf(oneTree)).toBe('Falta 1')
+    expect(barBadgeTextOf(oneTree)).toBe('')
     const oneMarkup = checklistMarkupOf(oneTree, PipelineChecklist)
     expect(primaryActionsOf(oneMarkup)).toEqual([
       { href: `/projects/${one}/items`, text: 'Ir para Itens' },
@@ -622,7 +621,7 @@ describe('app/projects/[id]/page — escopo de visibilidade', () => {
     )
 
     const allTree = await render(all)
-    expect(barBadgeTextOf(allTree)).toBe('Tudo pronto')
+    expect(barBadgeTextOf(allTree)).toBe('')
     const allMarkup = checklistMarkupOf(allTree, PipelineChecklist)
     const allText = glanceTextOf(allMarkup)
     expect(allText).not.toContain('Próximo passo')
@@ -655,14 +654,15 @@ describe('app/projects/[id]/page — escopo de visibilidade', () => {
     expect(text).toContain(phase2BlockerMessage({ key: 'open_round', roundNumber: 1 }))
     expect(text).toContain('Fechar ao menos uma rodada')
     expect(text).not.toContain(phase2BlockerMessage({ key: 'no_closed_round' }))
-    expect(text).toContain('“Avançar para a Fase 3” aparece aqui quando tudo estiver pronto.')
+    expect(text).not.toContain('aparece aqui quando tudo estiver pronto')
+    expect(text).not.toContain('para liberar o avanço')
     expect(text.match(/Ir para/g)).toHaveLength(1)
 
     expect(primaryActionsOf(markup)).toEqual([
       { href: `/projects/${project}/rounds`, text: 'Ir para Rodadas' },
     ])
     expect(markup).not.toContain('<button')
-    expect(barBadgeTextOf(tree)).toBe('Faltam 2')
+    expect(barBadgeTextOf(tree)).toBe('')
   })
 
   it('na Fase 3, a rodada aberta vira o Próximo passo "Fechar a rodada N", e o item das versões fica aguardando a rodada de referência', async () => {
@@ -701,7 +701,7 @@ describe('app/projects/[id]/page — escopo de visibilidade', () => {
     ])
     expect(markup).not.toContain('<button')
     expect(tooltipTextsOf(createElement(Phase3Checklist, props))).toEqual([])
-    expect(barBadgeTextOf(tree)).toBe('Faltam 2')
+    expect(barBadgeTextOf(tree)).toBe('')
   })
 
   it('com os três insumos o avanço fica disponível, e some depois da Fase 1', async () => {
@@ -721,7 +721,6 @@ describe('app/projects/[id]/page — escopo de visibilidade', () => {
 
     const liberado = advanceOf(tree)!.props as AdvanceProps
     expect(liberado.target).toBe(PHASE_2)
-    expect(liberado.blocked).toBe(false)
 
     expect(advanceOf(await render(phase2))).toBeNull()
   })
@@ -789,19 +788,19 @@ describe('app/projects/[id]/page — escopo de visibilidade', () => {
     const first = await barOf(pending1)
     expect(first.action).toBeNull()
     expect(pendingRequirements(checklistOf(first.tree)!.inputs)).toHaveLength(3)
-    expect((advanceOf(first.tree)!.props as AdvanceProps).blocked).toBe(true)
+    expect(advanceOf(first.tree)).toBeNull()
 
     const second = await barOf(pending2)
     expect(second.action).toBeNull()
-    expect(phase2AdvanceOf(second.tree)!.blocked).toBe(true)
+    expect(phase2AdvanceOf(second.tree)).toBeNull()
 
     const third = await barOf(ready1)
     expect(third.action).toBeNull()
-    expect((advanceOf(third.tree)!.props as AdvanceProps).blocked).toBe(false)
+    expect(advanceOf(third.tree)).toBeTruthy()
 
     const fourth = await barOf(ready2)
     expect(fourth.action).toBeNull()
-    expect(phase2AdvanceOf(fourth.tree)!.blocked).toBe(false)
+    expect(phase2AdvanceOf(fourth.tree)).toBeTruthy()
   })
 
   it('a ação da fase fica no cartão da fase (na Fase 4, logo abaixo dele), antes dos cartões de números e dos gráficos', async () => {
@@ -1018,7 +1017,6 @@ describe('app/projects/[id]/page — escopo de visibilidade', () => {
     const advance = phase2AdvanceOf(tree)
     expect(advance).toBeTruthy()
     expect(advance!.target).toBe(PHASE_3)
-    expect(advance!.blocked).toBe(false)
 
     const last = phase2Of(tree)!.lastRound
     expect(last?.roundNumber).toBe(1)
@@ -1051,7 +1049,7 @@ describe('app/projects/[id]/page — escopo de visibilidade', () => {
     const tree = await render(project)
 
     expect(phase2Of(tree)!.inputs).toEqual({ openRoundNumber: 2, closedRounds: 1 })
-    expect(phase2AdvanceOf(tree)!.blocked).toBe(true)
+    expect(phase2AdvanceOf(tree)).toBeNull()
 
     const text = phase2TextOf(tree)
     expect(text).toContain('A rodada 2 ainda está aberta')
@@ -1066,7 +1064,7 @@ describe('app/projects/[id]/page — escopo de visibilidade', () => {
     const tree = await render(project)
 
     expect(phase2Of(tree)!.lastRound).toBeNull()
-    expect(phase2AdvanceOf(tree)!.blocked).toBe(true)
+    expect(phase2AdvanceOf(tree)).toBeNull()
     expect(phase2TextOf(tree)).toContain('Nenhuma rodada foi fechada nesta fase')
   })
 
@@ -1086,7 +1084,7 @@ describe('app/projects/[id]/page — escopo de visibilidade', () => {
     const tree = await render(project)
 
     expect(phase2Of(tree)!.lastRound!.pair.all.calculable).toBe(false)
-    expect(phase2AdvanceOf(tree)!.blocked).toBe(false)
+    expect(phase2AdvanceOf(tree)).toBeTruthy()
     expect(phase2TextOf(tree)).toContain(NOT_CALCULABLE_LABEL)
   })
 
@@ -1113,7 +1111,7 @@ describe('app/projects/[id]/page — escopo de visibilidade', () => {
     if (!all.calculable) throw new Error('a rodada deveria ter coeficiente')
     expect(all.alpha).toBeLessThan(AGREEMENT_BANDS.acceptable)
 
-    expect(phase2AdvanceOf(tree)!.blocked).toBe(false)
+    expect(phase2AdvanceOf(tree)).toBeTruthy()
 
     const text = phase2TextOf(tree)
     expect(text).toContain(formatAlpha(all.alpha))
@@ -1181,7 +1179,6 @@ describe('app/projects/[id]/page — escopo de visibilidade', () => {
     const advance = phase3AdvanceOf(tree)
     expect(advance).toBeTruthy()
     expect(advance!.target).toBe(PHASE_4)
-    expect(advance!.blocked).toBe(false)
     expect(advance!.lines).toEqual(phase4ConfirmationLines())
 
     expect(phase2Of(tree)!.lastRound?.roundNumber).toBe(1)
@@ -1249,7 +1246,7 @@ describe('app/projects/[id]/page — escopo de visibilidade', () => {
         current: { codebook: 3, prompt: 1 },
       },
     })
-    expect(phase3AdvanceOf(tree)!.blocked).toBe(true)
+    expect(phase3AdvanceOf(tree)).toBeNull()
 
     const text = phase3TextOf(tree)
     expect(text).toContain(phase3BlockerMessage({ key: 'open_round', roundNumber: 3 }))
@@ -1273,7 +1270,7 @@ describe('app/projects/[id]/page — escopo de visibilidade', () => {
       versions: null,
     })
     expect(phase3Of(tree)!.lastRound).toBeNull()
-    expect(phase3AdvanceOf(tree)!.blocked).toBe(true)
+    expect(phase3AdvanceOf(tree)).toBeNull()
     expect(phase3TextOf(tree)).toContain(phase3BlockerMessage({ key: 'no_closed_round' }))
   })
 
@@ -1291,11 +1288,11 @@ describe('app/projects/[id]/page — escopo de visibilidade', () => {
     auth.userId = admin
     const tree = await render(project)
 
-    expect(phase3AdvanceOf(tree)!.blocked).toBe(false)
+    expect(phase3AdvanceOf(tree)).toBeTruthy()
 
     const text = phase3TextOf(tree)
     expect(text).toContain('Codebook e prompt iguais aos da rodada de referência pronto')
-    expect(barBadgeTextOf(tree)).toBe('Tudo pronto')
+    expect(barBadgeTextOf(tree)).toBe('')
     expect(text).not.toContain('Próximo passo')
     expect(text).not.toContain('Ir para')
     expect(primaryActionsOf(checklistMarkupOf(tree, Phase3Checklist))).toEqual([
@@ -1337,7 +1334,7 @@ describe('app/projects/[id]/page — escopo de visibilidade', () => {
       auth.userId = admin
       const tree = await render(project)
 
-      expect(phase3AdvanceOf(tree)!.blocked).toBe(true)
+      expect(phase3AdvanceOf(tree)).toBeNull()
 
       const props = phase3Of(tree)!
       expect(props.inputs.versions?.referenceRound).toBe(2)
@@ -1349,7 +1346,7 @@ describe('app/projects/[id]/page — escopo de visibilidade', () => {
         phase3BlockerMessage({ key: 'versions_changed', referenceRound: 2, changes }),
       )
       expect(tooltipTextsOf(createElement(Phase3Checklist, props))).toEqual([])
-      expect(barBadgeTextOf(tree)).toBe('Falta 1')
+      expect(barBadgeTextOf(tree)).toBe('')
       expect(text).toContain(`Abrir e fechar mais uma rodada da Fase ${PHASE_3}`)
       expect(primaryActionsOf(markup)).toEqual([
         { href: `/projects/${project}/rounds`, text: 'Ir para Rodadas' },
@@ -1367,7 +1364,7 @@ describe('app/projects/[id]/page — escopo de visibilidade', () => {
     const tree = await render(project)
 
     expect(phase3Of(tree)!.inputs.versions).toBeNull()
-    expect(phase3AdvanceOf(tree)!.blocked).toBe(true)
+    expect(phase3AdvanceOf(tree)).toBeNull()
 
     const markup = checklistMarkupOf(tree, Phase3Checklist)
     const text = glanceTextOf(markup)
@@ -1377,8 +1374,8 @@ describe('app/projects/[id]/page — escopo de visibilidade', () => {
     expect(text).toContain('aguardando a rodada de referência')
     expect(text).not.toContain('Codebook e prompt iguais aos da rodada de referência pronto')
     expect(text).toContain(phase3BlockerMessage({ key: 'no_closed_round' }))
-    expect(barBadgeTextOf(tree)).toBe('Falta 1')
-    expect(text).toContain('Falta 1 pendência')
+    expect(barBadgeTextOf(tree)).toBe('')
+    expect(text).not.toContain('Falta 1 pendência')
     expect(primaryActionsOf(markup)).toEqual([
       { href: `/projects/${project}/rounds`, text: 'Ir para Rodadas' },
     ])
@@ -1412,7 +1409,7 @@ describe('app/projects/[id]/page — escopo de visibilidade', () => {
 
       auth.userId = admin
       trees[key] = await render(project)
-      expect(phase3AdvanceOf(trees[key])!.blocked).toBe(false)
+      expect(phase3AdvanceOf(trees[key])).toBeTruthy()
     }
 
     const lowAgreement = phase3Of(trees.lowAgreement)!.lastRound!.pair.all
