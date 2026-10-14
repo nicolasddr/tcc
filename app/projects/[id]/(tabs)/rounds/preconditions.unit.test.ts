@@ -46,7 +46,7 @@ function inputs(patch: Partial<RoundInputs> = {}): RoundInputs {
   return {
     phase: PHASE_2,
     definitions: [{ id: 'd1', title: 'Informacional' }],
-    criteria: [{ definitionId: 'd1' }],
+    criteria: [{ definitionId: 'd1', scope: 'specific' }],
     hasPromptVersion: true,
     openRoundNumber: null,
     versions: null,
@@ -93,7 +93,7 @@ describe('app/projects/[id]/rounds/preconditions — o que trava a abertura de u
         { id: 'd1', title: 'Informacional' },
         { id: 'd2', title: 'Transacional' },
       ],
-      criteria: [{ definitionId: 'd1' }],
+      criteria: [{ definitionId: 'd1', scope: 'specific' }],
     })
 
     const [blocker] = roundBlockers(input)
@@ -111,7 +111,7 @@ describe('app/projects/[id]/rounds/preconditions — o que trava a abertura de u
         { id: 'd2', title: 'Transacional' },
         { id: 'd3', title: 'Navegacional' },
       ],
-      criteria: [{ definitionId: 'd2' }],
+      criteria: [{ definitionId: 'd2', scope: 'specific' }],
     })
 
     const [blocker] = roundBlockers(input)
@@ -128,7 +128,7 @@ describe('app/projects/[id]/rounds/preconditions — o que trava a abertura de u
         { id: 'd1', title: 'Informacional' },
         { id: 'd2', title: 'Transacional' },
       ],
-      criteria: [{ definitionId: null }],
+      criteria: [{ definitionId: null, scope: 'general' }],
     })
     expect(roundBlockers(input)).toEqual([])
   })

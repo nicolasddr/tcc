@@ -5,22 +5,30 @@ import {
   generalCriteria,
   isCodebookComplete,
   isGeneral,
+  isPerResponse,
+  isScope,
   missingCriteriaMessage,
   NOTES_PER_RESPONSE_HELP,
   notesPerResponse,
   notesPerResponseFormula,
   ownCriteria,
+  perResponseCriteria,
   resolveCells,
+  type Scope,
 } from '@/app/projects/[id]/pipeline/criteria'
 
 type Definition = { id: string; title: string }
-type Criterion = { id: string; definitionId: string | null; name: string }
+type Criterion = { id: string; definitionId: string | null; scope: Scope; name: string }
 
 const informacional: Definition = { id: 'd1', title: 'Informacional' }
 const transacional: Definition = { id: 'd2', title: 'Transacional' }
 
 function criterion(id: string, definitionId: string | null, name = id): Criterion {
-  return { id, definitionId, name }
+  return { id, definitionId, scope: definitionId === null ? 'general' : 'specific', name }
+}
+
+function perResponse(id: string, name = id): Criterion {
+  return { id, definitionId: null, scope: 'per_response', name }
 }
 
 describe('app/projects/[id]/pipeline/criteria — herança dos critérios gerais', () => {
@@ -239,6 +247,84 @@ describe('app/projects/[id]/pipeline/criteria — a definição sem régua nenhu
 
   it('sem definição descoberta não há mensagem', () => {
     expect(missingCriteriaMessage([])).toBe('')
+  })
+})
+
+describe('app/projects/[id]/pipeline/criteria — o critério por resposta', () => {
+  const criteria = [criterion('c1', 'd1'), criterion('g1', null), perResponse('r1')]
+
+  it('não é geral nem próprio de definição nenhuma, e está entre os critérios por resposta', () => {
+    expect(generalCriteria(criteria).map((c) => c.id)).toEqual(['g1'])
+    expect(perResponseCriteria(criteria).map((c) => c.id)).toEqual(['r1'])
+  })
+
+  it('não entra nos critérios próprios nem nos aplicáveis de nenhuma definição', () => {
+    for (const definition of [informacional, transacional]) {
+      expect(ownCriteria(definition.id, criteria).map((c) => c.id)).not.toContain('r1')
+      expect(criteriaOfDefinition(definition.id, criteria).map((c) => c.id)).not.toContain('r1')
+    }
+  })
+
+  it('isGeneral é falso e isPerResponse é verdadeiro', () => {
+    expect(isGeneral(perResponse('r1'))).toBe(false)
+    expect(isPerResponse(perResponse('r1'))).toBe(true)
+  })
+
+  it('o específico e o geral não são por resposta', () => {
+    expect(isPerResponse(criterion('c1', 'd1'))).toBe(false)
+    expect(isPerResponse(criterion('g1', null))).toBe(false)
+  })
+
+  it('ainda não gera célula de definição', () => {
+    const cells = resolveCells([informacional, transacional], criteria)
+
+    expect(cells.map((cell) => cell.criterion.id)).toEqual(['c1', 'g1', 'g1'])
+  })
+
+  it('não cobre definição: só com critérios por resposta, toda definição fica descoberta', () => {
+    const onlyPerResponse = [perResponse('r1'), perResponse('r2')]
+
+    expect(
+      definitionsWithoutCriteria([informacional, transacional], onlyPerResponse).map(
+        (d) => d.title,
+      ),
+    ).toEqual(['Informacional', 'Transacional'])
+  })
+
+  it('só com critérios por resposta o codebook está incompleto', () => {
+    expect(
+      isCodebookComplete([informacional, transacional], [perResponse('r1')]),
+    ).toBe(false)
+  })
+
+  it('com um geral a mais o codebook fica completo', () => {
+    expect(
+      isCodebookComplete(
+        [informacional, transacional],
+        [perResponse('r1'), criterion('g1', null)],
+      ),
+    ).toBe(true)
+  })
+
+  it('não entra como específico na conta mostrada no card', () => {
+    const formula = notesPerResponseFormula(
+      [informacional, transacional],
+      [criterion('g1', null), perResponse('r1')],
+    )
+
+    expect(formula).not.toContain('específico')
+    expect(formula).toBe('2 definições × 1 critério geral')
+  })
+
+  it('isScope aceita os três tipos', () => {
+    expect(isScope('specific')).toBe(true)
+    expect(isScope('general')).toBe(true)
+    expect(isScope('per_response')).toBe(true)
+  })
+
+  it('isScope recusa o que não é tipo', () => {
+    expect(isScope('')).toBe(false)
+    expect(isScope('geral')).toBe(false)
   })
 })
 

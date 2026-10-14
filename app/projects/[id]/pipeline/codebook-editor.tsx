@@ -35,6 +35,7 @@ import { PHASE_2 } from './preconditions'
 import {
   criteriaOfDefinition,
   definitionsWithoutCriteria,
+  generalCriteria,
   missingCriteriaMessage,
   ownCriteria,
   type CriterionScope,
@@ -363,8 +364,8 @@ function definitionScopes(
   general: readonly CriterionRow[],
 ): CriterionScope[] {
   return [
-    ...own.map(() => ({ definitionId })),
-    ...general.map(() => ({ definitionId: null })),
+    ...own.map(() => ({ definitionId, scope: 'specific' as const })),
+    ...general.map(() => ({ definitionId: null, scope: 'general' as const })),
   ]
 }
 
@@ -434,9 +435,7 @@ export function CodebookFields({
 }) {
   const [initial] = useState(() => ({
     rows: toRows(definitions, criteria, defaultType),
-    general: toCriterionRows(
-      criteria.filter((criterion) => criterion.definitionId === null),
-    ),
+    general: toCriterionRows(generalCriteria(criteria)),
     note,
   }))
   const [rows, setRows] = useState<Row[]>(initial.rows)
@@ -471,12 +470,16 @@ export function CodebookFields({
     setRows((current) => moveBy(current, index, offset))
   }
 
+  const summaryCriteria: CriterionScope[] = [
+    ...rows.flatMap((row) =>
+      row.criteria.map(() => ({ definitionId: String(row.key), scope: 'specific' as const })),
+    ),
+    ...general.map(() => ({ definitionId: null, scope: 'general' as const })),
+  ]
+
   const uncovered = definitionsWithoutCriteria(
     rows.map((row) => ({ id: String(row.key), title: row.title })),
-    [
-      ...rows.flatMap((row) => row.criteria.map(() => ({ definitionId: String(row.key) }))),
-      ...general.map(() => ({ definitionId: null })),
-    ],
+    summaryCriteria,
   )
 
   const changedDefinitions = countChanged(
@@ -505,12 +508,6 @@ export function CodebookFields({
   }
 
   const summaryDefinitions = rows.map((row) => ({ id: String(row.key) }))
-  const summaryCriteria = [
-    ...rows.flatMap((row) =>
-      row.criteria.map(() => ({ definitionId: String(row.key) })),
-    ),
-    ...general.map(() => ({ definitionId: null })),
-  ]
 
   return (
     <>

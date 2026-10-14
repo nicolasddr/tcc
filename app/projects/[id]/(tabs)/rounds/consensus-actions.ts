@@ -14,7 +14,7 @@ import {
 } from '@/lib/db'
 import { CONSENSUS_NOTE_MAX } from '@/lib/limits'
 import { isUuid } from '../../pipeline/versions'
-import { isGeneral } from '../../pipeline/criteria'
+import { isGeneral, isScope } from '../../pipeline/criteria'
 import { CONSENSUS_PRIVATE, CONSENSUS_SHARED } from './consensus'
 import { loadReviewMemberships } from './review-access'
 import { listEvaluatedRoundIds } from './review'
@@ -84,7 +84,7 @@ async function cellExists(
   if (!definition) return false
 
   const [criterion] = await tx
-    .select({ definitionId: codebookCriteria.definitionId })
+    .select({ definitionId: codebookCriteria.definitionId, scope: codebookCriteria.scope })
     .from(codebookCriteria)
     .where(
       and(
@@ -96,7 +96,10 @@ async function cellExists(
 
   if (!criterion) return false
 
-  return isGeneral(criterion) || criterion.definitionId === cell.definitionId
+  const { definitionId, scope } = criterion
+  if (!isScope(scope)) return false
+
+  return isGeneral({ definitionId, scope }) || definitionId === cell.definitionId
 }
 
 export async function saveConsensusNote(

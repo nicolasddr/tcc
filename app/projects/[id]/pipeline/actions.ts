@@ -28,7 +28,7 @@ import {
   type DefinitionType,
 } from '@/app/projects/definition-types'
 import { loadCodebook } from './codebook'
-import { definitionsWithoutCriteria, missingCriteriaMessage } from './criteria'
+import { definitionsWithoutCriteria, missingCriteriaMessage, type Scope } from './criteria'
 import { loadPrompt, type PromptMetadata } from './prompt'
 import { composeLlmInput } from './llm-input'
 import {
@@ -104,6 +104,10 @@ const CRITERIA_TOO_EARLY =
   'Os critérios do codebook são criados a partir da Fase 2, e este projeto ainda está na Fase 1. Recarregue a página para ver a fase atual.'
 
 const GENERAL_SCOPE = 'general'
+
+function scopeOf(definitionIndex: number | null): Scope {
+  return definitionIndex === null ? 'general' : 'specific'
+}
 
 function parseCriteria(
   formData: FormData,
@@ -273,6 +277,7 @@ export async function saveCodebook(
               criterion.definitionIndex === null
                 ? null
                 : String(criterion.definitionIndex),
+            scope: scopeOf(criterion.definitionIndex),
           })),
         )
         if (uncovered.length > 0) {
@@ -353,7 +358,7 @@ export async function saveCodebook(
             criterion.definitionIndex === null
               ? null
               : (definitionIdByIndex.get(criterion.definitionIndex) ?? null),
-          scope: criterion.definitionIndex === null ? 'general' : 'specific',
+          scope: scopeOf(criterion.definitionIndex),
           name: criterion.name,
           description: criterion.description,
           orderIndex: criterion.orderIndex,

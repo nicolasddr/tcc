@@ -369,6 +369,72 @@ describe('app/projects/[id]/rounds/consensus-actions — salvar a anotação de 
     expect(await notesOf(response)).toHaveLength(0)
   })
 
+  it('a célula de critério geral existe em cada definição e grava a anotação', async () => {
+    const s = await scenario()
+    const codebook = await addCodebookVersion(ownerDb, s.project, s.admin, {
+      versionNumber: 2,
+      definitions: [
+        { title: 'A', type: 'category' },
+        { title: 'B', type: 'category' },
+      ],
+      generalCriteria: [{ name: 'Clareza' }],
+    })
+    const prompt = await addPromptVersion(ownerDb, s.project, s.admin, { versionNumber: 2 })
+    const item = await addInputItem(ownerDb, s.project, s.admin, { name: 'Item 2' })
+    const round = await addRound(ownerDb, s.project, s.admin, codebook, prompt, {
+      roundNumber: 2,
+      status: 'closed',
+    })
+    const response = await addResponse(ownerDb, round, item, s.admin)
+    const cells = await cellsOf(ownerDb, s.project, codebook)
+
+    auth.userId = s.admin
+    const result = await saveConsensusNote(
+      null,
+      saveForm(s.project, round, response, cells[1], 'Clareza na segunda definição.'),
+    )
+
+    expect(result).toMatchObject({ ok: true })
+    expect((await notesOf(response)).map((note) => [note.definitionId, note.criterionId])).toEqual([
+      [cells[1].definitionId, cells[1].criterionId],
+    ])
+  })
+
+  it('a célula tem que existir de verdade: critério por resposta numa célula de definição é recusado', async () => {
+    const s = await scenario()
+    const codebook = await addCodebookVersion(ownerDb, s.project, s.admin, {
+      versionNumber: 2,
+      definitions: [{ title: 'A', type: 'category', criteria: [{ name: 'Clareza' }] }],
+      perResponseCriteria: [{ name: 'Fluência' }],
+    })
+    const prompt = await addPromptVersion(ownerDb, s.project, s.admin, { versionNumber: 2 })
+    const item = await addInputItem(ownerDb, s.project, s.admin, { name: 'Item 2' })
+    const round = await addRound(ownerDb, s.project, s.admin, codebook, prompt, {
+      roundNumber: 2,
+      status: 'closed',
+    })
+    const response = await addResponse(ownerDb, round, item, s.admin)
+    const loaded = await loadCodebookVersion(s.project, codebook, ownerDb)
+    const fluencia = loaded!.criteria.find((criterion) => criterion.name === 'Fluência')!
+
+    auth.userId = s.admin
+    const result = await saveConsensusNote(
+      null,
+      saveForm(
+        s.project,
+        round,
+        response,
+        { definitionId: loaded!.definitions[0].id, criterionId: fluencia.id },
+        'Critério por resposta preso a uma definição.',
+      ),
+    )
+
+    expect(result).toMatchObject({
+      error: expect.stringContaining('versão de codebook'),
+    })
+    expect(await notesOf(response)).toHaveLength(0)
+  })
+
   it('salvar duas vezes edita no lugar: uma linha só, texto novo e updatedAt maior', async () => {
     const s = await scenario()
     auth.userId = s.admin

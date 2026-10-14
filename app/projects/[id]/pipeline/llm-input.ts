@@ -1,4 +1,4 @@
-import { generalCriteria, ownCriteria } from './criteria'
+import { generalCriteria, ownCriteria, type Scope } from './criteria'
 import { PHASE_3 } from './preconditions'
 
 export const DEFINITIONS_HEADING = 'Definições:'
@@ -17,6 +17,7 @@ export type LlmDefinition = { id: string; title: string; description: string | n
 
 export type LlmCriterion = {
   definitionId: string | null
+  scope: Scope
   name: string
   description: string | null
 }

@@ -9,6 +9,7 @@ import {
 } from '@/lib/db'
 import { isVersionOpen } from '@/lib/versioning'
 import { isUuid, summarize, type Summarized } from './versions'
+import { isScope, type Scope } from './criteria'
 
 export type CodebookVersion = {
   id: string
@@ -39,6 +40,7 @@ export type CodebookDefinition = {
 export type CodebookCriterion = {
   id: string
   definitionId: string | null
+  scope: Scope
   name: string
   description: string | null
   orderIndex: number
@@ -97,14 +99,15 @@ function loadDefinitions(
     .orderBy(asc(codebookDefinitions.orderIndex))
 }
 
-function loadCriteria(
+async function loadCriteria(
   versionId: string,
   db: DbExecutor,
 ): Promise<CodebookCriterion[]> {
-  return db
+  const rows = await db
     .select({
       id: codebookCriteria.id,
       definitionId: codebookCriteria.definitionId,
+      scope: codebookCriteria.scope,
       name: codebookCriteria.name,
       description: codebookCriteria.description,
       orderIndex: codebookCriteria.orderIndex,
@@ -112,6 +115,8 @@ function loadCriteria(
     .from(codebookCriteria)
     .where(eq(codebookCriteria.codebookVersionId, versionId))
     .orderBy(asc(codebookCriteria.orderIndex), asc(codebookCriteria.id))
+
+  return rows.flatMap(({ scope, ...row }) => (isScope(scope) ? [{ ...row, scope }] : []))
 }
 
 export async function loadCodebook(

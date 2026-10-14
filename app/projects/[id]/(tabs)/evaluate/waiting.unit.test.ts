@@ -7,7 +7,10 @@ import {
 import { PHASE_1, PHASE_2 } from '@/app/projects/[id]/pipeline/preconditions'
 
 const definitions = [{ id: 'd1' }, { id: 'd2' }]
-const criteria = [{ definitionId: 'd1' }, { definitionId: 'd2' }]
+const criteria: WaitingInputs['criteria'] = [
+  { definitionId: 'd1', scope: 'specific' },
+  { definitionId: 'd2', scope: 'specific' },
+]
 
 function inputs(overrides: Partial<WaitingInputs> = {}): WaitingInputs {
   return {
@@ -28,7 +31,9 @@ describe('app/projects/[id]/evaluate/waiting — o que a tela espera', () => {
 
   it('sem rodada e com codebook incompleto, espera o codebook', () => {
     expect(
-      waitingState(inputs({ openRound: null, criteria: [{ definitionId: 'd1' }] })),
+      waitingState(
+        inputs({ openRound: null, criteria: [{ definitionId: 'd1', scope: 'specific' }] }),
+      ),
     ).toEqual({ key: 'codebook' })
     expect(waitingState(inputs({ openRound: null, definitions: [], criteria: [] }))).toEqual(
       { key: 'codebook' },
@@ -43,7 +48,9 @@ describe('app/projects/[id]/evaluate/waiting — o que a tela espera', () => {
 
   it('um critério geral basta para o codebook contar como completo', () => {
     expect(
-      waitingState(inputs({ openRound: null, criteria: [{ definitionId: null }] })),
+      waitingState(
+        inputs({ openRound: null, criteria: [{ definitionId: null, scope: 'general' }] }),
+      ),
     ).toEqual({ key: 'round' })
   })
 

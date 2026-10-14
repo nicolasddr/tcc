@@ -486,6 +486,26 @@ describe('app/projects/[id]/pipeline/actions — definições salvas de forma ve
     expect(codebook.definitions.map((d) => d.title)).toEqual(['Vigente'])
     expect(codebook.isOpen).toBe(false)
   })
+
+  it('loadCodebook devolve o tipo de cada critério', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin)
+
+    await addCodebookVersion(ownerDb, project, admin, {
+      definitions: [
+        { title: 'Informacional', type: 'category', criteria: [{ name: 'Cita a fonte' }] },
+      ],
+      generalCriteria: [{ name: 'Clareza' }],
+      perResponseCriteria: [{ name: 'Fluência' }],
+    })
+
+    const { criteria } = await loadCodebook(project)
+    expect(byName(criteria).map((c) => [c.name, c.scope])).toEqual([
+      ['Cita a fonte', 'specific'],
+      ['Clareza', 'general'],
+      ['Fluência', 'per_response'],
+    ])
+  })
 })
 
 function promptFd(

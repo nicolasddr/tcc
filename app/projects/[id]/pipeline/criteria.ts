@@ -1,6 +1,8 @@
 import { plural } from '@/lib/plural'
 
-export type CriterionScope = { definitionId: string | null }
+export type Scope = 'specific' | 'general' | 'per_response'
+
+export type CriterionScope = { definitionId: string | null; scope: Scope }
 
 export type DefinitionKey = { id: string }
 
@@ -10,14 +12,28 @@ export type CodebookCell<D, C> = {
   isGeneral: boolean
 }
 
+export function isScope(value: string): value is Scope {
+  return value === 'specific' || value === 'general' || value === 'per_response'
+}
+
 export function isGeneral(criterion: CriterionScope): boolean {
-  return criterion.definitionId === null
+  return criterion.scope === 'general'
+}
+
+export function isPerResponse(criterion: CriterionScope): boolean {
+  return criterion.scope === 'per_response'
 }
 
 export function generalCriteria<C extends CriterionScope>(
   criteria: readonly C[],
 ): C[] {
   return criteria.filter(isGeneral)
+}
+
+export function perResponseCriteria<C extends CriterionScope>(
+  criteria: readonly C[],
+): C[] {
+  return criteria.filter(isPerResponse)
 }
 
 export function ownCriteria<C extends CriterionScope>(
@@ -62,7 +78,7 @@ export function notesPerResponseFormula(
   criteria: readonly CriterionScope[],
 ): string {
   const general = generalCriteria(criteria).length
-  const specific = criteria.length - general
+  const specific = criteria.filter((criterion) => criterion.scope === 'specific').length
 
   if (general === 0) {
     return specific === 0

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { resolveCells } from '@/app/projects/[id]/pipeline/criteria'
+import { resolveCells, type Scope } from '@/app/projects/[id]/pipeline/criteria'
 import {
   cellKey,
   definitionsIncomplete,
@@ -9,7 +9,7 @@ import {
 } from '@/app/projects/[id]/(tabs)/evaluate/completeness'
 
 type Definition = { id: string; title: string }
-type Criterion = { id: string; definitionId: string | null; name: string }
+type Criterion = { id: string; definitionId: string | null; scope: Scope; name: string }
 
 const informacional: Definition = { id: 'd1', title: 'Informacional' }
 const transacional: Definition = { id: 'd2', title: 'Transacional' }
@@ -17,9 +17,9 @@ const transacional: Definition = { id: 'd2', title: 'Transacional' }
 const definitions = [informacional, transacional]
 
 const criteria: Criterion[] = [
-  { id: 'c1', definitionId: 'd1', name: 'Clareza' },
-  { id: 'c2', definitionId: 'd2', name: 'Precisão' },
-  { id: 'g1', definitionId: null, name: 'Aderência' },
+  { id: 'c1', definitionId: 'd1', scope: 'specific', name: 'Clareza' },
+  { id: 'c2', definitionId: 'd2', scope: 'specific', name: 'Precisão' },
+  { id: 'g1', definitionId: null, scope: 'general', name: 'Aderência' },
 ]
 
 const cells = resolveCells(definitions, criteria)

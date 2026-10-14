@@ -32,9 +32,19 @@ const DEFINITIONS: (LlmDefinition & { type: string })[] = [
 ]
 
 const CRITERIA: LlmCriterion[] = [
-  { definitionId: 'nav', name: 'Cita o destino', description: 'a consulta nomeia o site' },
-  { definitionId: 'inf', name: 'Pede explicação', description: null },
-  { definitionId: null, name: 'Uma intenção só', description: 'a consulta tem um objetivo' },
+  {
+    definitionId: 'nav',
+    scope: 'specific',
+    name: 'Cita o destino',
+    description: 'a consulta nomeia o site',
+  },
+  { definitionId: 'inf', scope: 'specific', name: 'Pede explicação', description: null },
+  {
+    definitionId: null,
+    scope: 'general',
+    name: 'Uma intenção só',
+    description: 'a consulta tem um objetivo',
+  },
 ]
 
 const PARTS: LlmInputParts = {
@@ -159,8 +169,8 @@ describe('composeLlmInput na Fase 3', () => {
 
   it('mantém a ordem recebida de definições e critérios, com os gerais depois da última definição e o item por último', () => {
     const criteria: LlmCriterion[] = [
-      { definitionId: 'nav', name: 'Segundo', description: 'vem depois' },
-      { definitionId: 'nav', name: 'Primeiro', description: 'vem antes' },
+      { definitionId: 'nav', scope: 'specific', name: 'Segundo', description: 'vem depois' },
+      { definitionId: 'nav', scope: 'specific', name: 'Primeiro', description: 'vem antes' },
       ...CRITERIA,
     ]
     const definitions = [...DEFINITIONS].reverse()
@@ -243,7 +253,14 @@ describe('composeLlmInput na Fase 3', () => {
     const input = composeLlmInput({
       ...PHASE_3_PARTS,
       definitions: [{ ...DEFINITIONS[0], description }],
-      criteria: [{ definitionId: 'nav', name: 'Com recuo', description: criterionDescription }],
+      criteria: [
+        {
+          definitionId: 'nav',
+          scope: 'specific',
+          name: 'Com recuo',
+          description: criterionDescription,
+        },
+      ],
     })
     expect(input).toContain(`${DEFINITION_PREFIX}Navegacional\n${description}\n`)
     expect(input).toContain(`- Com recuo: ${criterionDescription}`)

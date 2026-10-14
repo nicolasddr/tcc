@@ -387,16 +387,62 @@ O `tsc` aponta; os conhecidos:
 
 ### 6.6 O que o Plano 2 herda
 
-(preencher ao fim da Parte 2; incluir pelo menos:)
+Feita em 2026-10-13, sem commit no momento da escrita.
 
-- Nomes finais de D4 e onde `GENERAL_SCOPE` de `actions.ts` ficou.
-- **Descartes de D3 a remover**: `evaluation.ts` no Plano 2; `agreement.ts` (dois), `review.ts` e
-  `consensus.ts` no Plano 3.
-- `perResponseCriteria` pronto para `resolveCells` (R9) e para a fórmula (R3).
+- **Nomes finais de D4**, em `pipeline/criteria.ts`, como escritos em § 3: `Scope`,
+  `CriterionScope = { definitionId; scope }`, `isScope`, `isGeneral` (agora `scope === 'general'`),
+  `isPerResponse`, `perResponseCriteria`. `CodebookCriterion` e `LlmCriterion` ganharam `scope:
+  Scope`; `loadCriteria` seleciona `scope` e descarta com `isScope`.
+- **`GENERAL_SCOPE`** ficou em `pipeline/actions.ts`, privado, só como valor do formulário
+  (`criterion_scope`). O tipo gravado sai de uma função nova, `scopeOf(definitionIndex)`, usada no
+  `insert` e no `definitionsWithoutCriteria` de `saveCodebook`. O Plano 4 troca as duas peças quando
+  o formulário ganhar o valor novo.
+- **Descartes de D3 a remover**: `evaluation.ts` (`loadEvaluationOf`) no Plano 2; `agreement.ts`
+  (**um** só, em `toObservation`, que serve aos dois loaders; o "dois" do rascunho deste item
+  estava errado), `review.ts` (`loadResponseNotes`) e `consensus.ts` (`asNotes`, que serve aos dois
+  loaders) no Plano 3. O `grep` de § 6.5 só acha os dois primeiros (os outros não comparam com
+  `=== null` literal).
+- `perResponseCriteria` pronto para `resolveCells` (R9) e para a fórmula (R3). Hoje
+  `notesPerResponseFormula` conta específico pelo tipo e ignora o por resposta.
 - Fixtures prontas: `perResponseCriteria` em `addCodebookVersion`; `definitionId: null` em
   `CellFixture`, `addScore` e `addConsensusNote`.
 - Upsert com definição nula já conferido (achado 7); o Plano 3 só testa.
 - Cena de conferência: não salvar o codebook (achado 8); limpar antes do `npm test`.
+- **Ainda contam "próprio" por subtração** (mesma forma do achado 5, fora da lista de 6.4):
+  `CodebookSummary` (`pipeline/criteria-summary.tsx`, `own = criteria.length - general`). Hoje só
+  recebe específico e geral, vindos do editor; **→ Plano 4** conta pelo tipo quando o editor montar
+  o por resposta.
+- **O por resposta some, por ora, de quem lê o codebook pelos filtros**: `llm-input.ts`
+  (`generalCriteria`/`ownCriteria`) e `definition-list.tsx` (`criteriaOfDefinition`) não o mostram
+  nem o mandam à LLM. É o esperado até o **Plano 4**.
+- **Testes novos**: em `criteria.unit.test.ts`, o `describe` "o critério por resposta" (11 `it`);
+  em `pipeline/actions.int.test.ts`, "loadCodebook devolve o tipo de cada critério"; em
+  `consensus-actions.int.test.ts`, "critério por resposta numa célula de definição é recusado" e
+  "a célula de critério geral existe em cada definição e grava a anotação" (este fora do plano, ver
+  abaixo).
+- **Testes antigos editados**: só os de 6.4 (`criteria.unit` na fábrica, `llm-input.unit`,
+  `completeness.unit`, `waiting.unit`, `agreement-matrix.unit`, `quality-matrix.unit`,
+  `review-groups.unit`, `preconditions.unit`), acrescentando o tipo; nenhuma asserção mudou. Em
+  `waiting.unit`, a constante `criteria` ganhou a anotação `WaitingInputs['criteria']` para o literal
+  do tipo não alargar.
+- **Divergências do plano**:
+  - 6.1: o critério por resposta tem fábrica própria (`perResponse(id)`), em vez de um parâmetro em
+    `criterion`. Para o vermelho sair por asserção e não por import, `criteria.ts` ganhou antes o
+    esqueleto com a lógica velha (`isPerResponse` falso, `isScope` falso). 8 vermelhos lidos, todos
+    pelo motivo previsto; o do D5 foi visto duas vezes (antes: "2 critérios gerais"; depois de
+    trocar só o `isGeneral`: "+ 1 específico"). As asserções depois da primeira falha
+    (`perResponseCriteria`, `isPerResponse` verdadeiro, `isScope` de `general` e `per_response`)
+    foram provadas por mutação depois do verde.
+  - 6.3: o teste do plano **passou antes** da mudança em `cellExists`. Com o `isGeneral` novo, a
+    consulta sem `scope` passa `undefined` e recusa todo critério sem definição, inclusive o geral;
+    nenhum teste de `consensus-actions` anotava célula de critério geral. O vermelho previsto (23503
+    na `consensus_notes_criterion_scope_fkey`, lançado em vez de `cell_missing`) foi visto
+    voltando o `isGeneral` antigo por um instante. Acrescentado o teste do critério geral, vermelho
+    antes da consulta trazer `scope` (erro em vez de `ok`).
+  - Editor: `uncovered` e `summaryCriteria` montavam a mesma lista duas vezes; viraram uma só
+    (`summaryCriteria`, com o tipo).
+  - O descarte por `isScope` em `loadCriteria` (e em `cellExists`) não tem teste: o
+    `cc_scope_check` impede a linha.
 
 ---
 

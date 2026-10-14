@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest'
+import type { Scope } from '@/app/projects/[id]/pipeline/criteria'
 import {
   agreementMatrix,
   matrixColumns,
@@ -12,14 +13,14 @@ import {
 } from '@/app/projects/[id]/(tabs)/rounds/agreement-labels'
 
 type Definition = { id: string; title: string }
-type Criterion = { id: string; definitionId: string | null; name: string }
+type Criterion = { id: string; definitionId: string | null; scope: Scope; name: string }
 
 const informacional: Definition = { id: 'd1', title: 'Informacional' }
 const transacional: Definition = { id: 'd2', title: 'Transacional' }
 const navegacional: Definition = { id: 'd3', title: 'Navegacional' }
 
 function criterion(id: string, definitionId: string | null, name = id): Criterion {
-  return { id, definitionId, name }
+  return { id, definitionId, scope: definitionId === null ? 'general' : 'specific', name }
 }
 
 function score(
