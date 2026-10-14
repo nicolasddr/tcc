@@ -1,8 +1,10 @@
 import {
   criteriaOfDefinition,
   isGeneral,
+  perResponseCriteria,
   type DefinitionKey,
 } from '../../pipeline/criteria'
+import { PER_RESPONSE_KEY } from '../evaluate/completeness'
 import type { ScaleValue } from '../evaluate/scale'
 import type { CriterionKey } from './agreement-matrix'
 import { classifyDivergence, isDivergent, type CellDivergence } from './divergence'
@@ -19,7 +21,7 @@ export type ReviewNote = {
   justification: string | null
 } & OutlierNote
 
-export type CellNote = ReviewNote & { definitionId: string; criterionId: string }
+export type CellNote = ReviewNote & { definitionId: string | null; criterionId: string }
 
 export type ReviewCell<C> = {
   criterion: C
@@ -29,13 +31,13 @@ export type ReviewCell<C> = {
 }
 
 export type ReviewGroup<D, C> = {
-  definition: D
+  definition: D | null
   cells: ReviewCell<C>[]
   divergent: number
 }
 
-function cellKey(definitionId: string, criterionId: string): string {
-  return `${definitionId}:${criterionId}`
+function cellKey(definitionId: string | null, criterionId: string): string {
+  return `${definitionId ?? PER_RESPONSE_KEY}:${criterionId}`
 }
 
 function groupByCell(notes: readonly CellNote[]): Map<string, ReviewNote[]> {
@@ -65,9 +67,9 @@ export function reviewGroups<D extends DefinitionKey, C extends CriterionKey>(
 ): ReviewGroup<D, C>[] {
   const byCell = groupByCell(notes)
 
-  return definitions.map((definition) => {
-    const cells = criteriaOfDefinition(definition.id, criteria).map((criterion) => {
-      const found = byCell.get(cellKey(definition.id, criterion.id)) ?? []
+  function group(definition: D | null, groupCriteria: readonly C[]): ReviewGroup<D, C> {
+    const cells = groupCriteria.map((criterion) => {
+      const found = byCell.get(cellKey(definition?.id ?? null, criterion.id)) ?? []
       const cellNotes = [...found].sort(byEvaluator)
 
       return {
@@ -83,7 +85,16 @@ export function reviewGroups<D extends DefinitionKey, C extends CriterionKey>(
       cells,
       divergent: cells.filter((cell) => isDivergent(cell.divergence)).length,
     }
-  })
+  }
+
+  const definitionGroups = definitions.map((definition) =>
+    group(definition, criteriaOfDefinition(definition.id, criteria)),
+  )
+  const perResponse = perResponseCriteria(criteria)
+
+  return perResponse.length === 0
+    ? definitionGroups
+    : [...definitionGroups, group(null, perResponse)]
 }
 
 export function divergentCells(

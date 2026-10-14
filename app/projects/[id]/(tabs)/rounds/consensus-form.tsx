@@ -27,7 +27,7 @@ export function ConsensusForm({
   projectId: string
   roundId: string
   responseId: string
-  definitionId: string
+  definitionId: string | null
   criterionId: string
   note: ConsensusNote | null
   label: string
@@ -44,7 +44,7 @@ export function ConsensusForm({
       <input type="hidden" name="project_id" value={projectId} />
       <input type="hidden" name="round_id" value={roundId} />
       <input type="hidden" name="response_id" value={responseId} />
-      <input type="hidden" name="definition_id" value={definitionId} />
+      <input type="hidden" name="definition_id" value={definitionId ?? ''} />
       <input type="hidden" name="criterion_id" value={criterionId} />
 
       <Field label={label} hint={hint}>

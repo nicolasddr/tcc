@@ -155,7 +155,8 @@ uma distância na escala (Alto com Médio, Médio com Baixo), e costuma indicar 
 entre os pontos da escala: as pessoas entenderam a mesma coisa e discordaram de grau. É *extrema*
 quando Alto e Baixo aparecem na mesma célula — inclusive quando as três notas aparecem —, e
 costuma indicar definição ambígua: duas pessoas leram coisas opostas no mesmo texto, com o mesmo
-codebook. Refinar um caso e o outro é trabalho diferente, e por isso a tela os distingue por
+codebook. Na célula de um critério por resposta não há definição, e a divergência extrema
+costuma apontar para o próprio critério. Refinar um caso e o outro é trabalho diferente, e por isso a tela os distingue por
 escrito. Célula com uma nota só não é divergência nem unanimidade: não há com quem discordar.
 Evitar: erro, acerto, e qualquer palavra que trate a divergência como falha de alguém.
 

@@ -34,9 +34,11 @@ import type {
 import { consensusCellKey } from '@/app/projects/[id]/(tabs)/rounds/consensus-cells'
 import {
   DIVERGENCE_LEGEND,
+  DIVERGENCE_PER_RESPONSE_LEGEND,
   NO_JUSTIFICATION_HINT,
   NO_JUSTIFICATION_MARK,
   divergenceLabel,
+  divergenceMeaning,
 } from '@/app/projects/[id]/(tabs)/rounds/divergence'
 import { AgreementPanel } from '@/app/projects/[id]/(tabs)/rounds/agreement-panel'
 import { AgreementMatrixTable } from '@/app/projects/[id]/(tabs)/rounds/agreement-matrix-table'
@@ -52,7 +54,7 @@ import { QueueNav } from '@/app/components/ui/queue-nav'
 import { Disclosure } from '@/app/components/ui/disclosure'
 import { HowToRead } from '@/app/projects/[id]/(tabs)/rounds/how-to-read'
 import { loadCodebookVersion } from '@/app/projects/[id]/pipeline/codebook'
-import { resolveCells } from '@/app/projects/[id]/pipeline/criteria'
+import { PER_RESPONSE_LABEL, resolveCells } from '@/app/projects/[id]/pipeline/criteria'
 import { PHASE_2, PHASE_3, PHASE_4 } from '@/app/projects/[id]/pipeline/preconditions'
 import { roundInputSummary } from '@/app/projects/[id]/(tabs)/rounds/preconditions'
 import { RoundChangeChips } from '@/app/projects/[id]/(tabs)/rounds/round-changes-note'
@@ -190,7 +192,7 @@ function cellNotesOf(
   criterion: string,
 ): ReviewNote[] {
   const group = listOf(tree).groups.find(
-    (candidate) => candidate.definition.title === definition,
+    (candidate) => (candidate.definition?.title ?? PER_RESPONSE_LABEL) === definition,
   )
   expect(group).toBeTruthy()
   const cell = group!.cells.find((candidate) => candidate.criterion.name === criterion)
@@ -207,7 +209,7 @@ function markOf(notes: readonly ReviewNote[], evaluatorName: string): OutlierNot
 function mineOf(tree: unknown, cell: SceneCell): ConsensusNote | null {
   const context = listOf(tree).consensus
   expect(context).toBeTruthy()
-  const key = consensusCellKey(cell.definitionId ?? '', cell.criterionId)
+  const key = consensusCellKey(cell.definitionId, cell.criterionId)
   return context!.byCell.get(key)?.mine ?? null
 }
 
@@ -343,7 +345,7 @@ describe('app/projects/[id]/rounds/[roundId] — a revisão de discordâncias', 
     const cells = resolveCells(codebook!.definitions, codebook!.criteria).map((cell) => ({
       definitionId: cell.definition?.id ?? null,
       criterionId: cell.criterion.id,
-      definitionTitle: cell.definition?.title ?? '',
+      definitionTitle: cell.definition?.title ?? PER_RESPONSE_LABEL,
       criterionName: cell.criterion.name,
     }))
 
@@ -521,7 +523,7 @@ describe('app/projects/[id]/rounds/[roundId] — a revisão de discordâncias', 
 
     const kindOf = (definition: string, criterion: string) =>
       groups
-        .find((group) => group.definition.title === definition)!
+        .find((group) => group.definition?.title === definition)!
         .cells.find((cell) => cell.criterion.name === criterion)!.divergence
 
     expect(kindOf('Informacional', 'Precisão')).toBe('adjacent')
@@ -1695,5 +1697,177 @@ describe('app/projects/[id]/rounds/[roundId] — a revisão de discordâncias', 
     const text = listTextOf(await render(mine.project, mine.round))
     expect(text).not.toContain('Ata da rodada 2, que a Ana não avaliou.')
     expect(text).not.toContain('Rascunho da Ana na rodada 2.')
+  })
+
+  describe('o grupo por resposta', () => {
+    const POC_SHAPE: CodebookShape = {
+      definitions: [1, 2, 3, 4, 5].map((n) => ({
+        title: `Query ${n}`,
+        type: 'category' as const,
+      })),
+      generalCriteria: [{ name: 'Relevance' }],
+      perResponseCriteria: [{ name: 'Diversity' }],
+    }
+
+    async function perResponseScene(admin: string) {
+      const scene = await roundWith(admin, 1, { shape: POC_SHAPE, phase: PHASE_3 })
+      const ana = await newSignedEvaluator(scene.project, 'Ana Avaliadora')
+      const bruno = await newEvaluator(scene.project, 'Bruno Avaliador')
+
+      const notes = [
+        [ana.member, 'high', 'Ana: cobre ângulos diferentes da pergunta.'],
+        [bruno, 'low', 'Bruno: repete o mesmo ângulo em todas.'],
+      ] as const
+      for (const [evaluator, diversity, justification] of notes) {
+        await addEvaluation(ownerDb, scene.round, scene.responses[0], evaluator, {
+          cells: [
+            ...[1, 2, 3, 4, 5].map((n) => note(scene, `Query ${n}`, 'Relevance', 'high')),
+            note(scene, PER_RESPONSE_LABEL, 'Diversity', diversity, justification),
+          ],
+        })
+      }
+
+      return { scene, ana }
+    }
+
+    it('vem depois da Query 5, com o critério, as notas, as justificativas e a divergência', async () => {
+      const admin = await newUser('Admin')
+      const { scene } = await perResponseScene(admin)
+
+      auth.userId = admin
+      const tree = await render(scene.project, scene.round)
+      const text = listTextOf(tree)
+
+      expect(text.indexOf(`${PER_RESPONSE_LABEL} 1 de 1 célula diverge`)).toBeGreaterThan(
+        text.indexOf('Query 5'),
+      )
+      expect(text.indexOf('Query 5')).toBeGreaterThan(-1)
+      expect(
+        cellNotesOf(tree, PER_RESPONSE_LABEL, 'Diversity').map((entry) => [
+          entry.evaluatorName,
+          entry.value,
+        ]),
+      ).toEqual([
+        ['Ana Avaliadora', 'high'],
+        ['Bruno Avaliador', 'low'],
+      ])
+      expect(text).toContain('Diversity')
+      expect(text).toContain('Ana: cobre ângulos diferentes da pergunta.')
+      expect(text).toContain('Bruno: repete o mesmo ângulo em todas.')
+      expect(text).toContain(divergenceLabel('extreme'))
+      expect(textOf(tree)).toContain('1 de 6 células diverge')
+    })
+
+    it('o sentido da extrema e o parágrafo do “Como ler” são os da célula por resposta', async () => {
+      const admin = await newUser('Admin')
+      const { scene } = await perResponseScene(admin)
+
+      auth.userId = admin
+      const tree = await render(scene.project, scene.round)
+      const markup = listMarkupOf(tree)
+
+      expect(markup).toContain(`title="${divergenceMeaning('extreme', true)}"`)
+      expect(markup).not.toContain(divergenceMeaning('extreme'))
+
+      const legend = findElement(ReviewGroupsList(listOf(tree)), HowToRead)
+      expect(legend!.props).toEqual({
+        summary: 'Como ler as divergências',
+        paragraphs: [DIVERGENCE_LEGEND, DIVERGENCE_PER_RESPONSE_LEGEND],
+      })
+    })
+
+    it('sem critério por resposta, nem o sentido nem o parágrafo do grupo por resposta', async () => {
+      const admin = await newUser('Admin')
+      const scene = await roundWith(admin, 1)
+      const ana = await newEvaluator(scene.project, 'Ana Avaliadora')
+      const bruno = await newEvaluator(scene.project, 'Bruno Avaliador')
+
+      await addEvaluation(ownerDb, scene.round, scene.responses[0], ana, {
+        cells: [note(scene, 'Transacional', 'Acionabilidade', 'high')],
+      })
+      await addEvaluation(ownerDb, scene.round, scene.responses[0], bruno, {
+        cells: [note(scene, 'Transacional', 'Acionabilidade', 'low')],
+      })
+
+      auth.userId = admin
+      const tree = await render(scene.project, scene.round)
+      const markup = listMarkupOf(tree)
+
+      expect(markup).toContain(divergenceMeaning('extreme'))
+      expect(markup).not.toContain(divergenceMeaning('extreme', true))
+      expect(markup).not.toContain(DIVERGENCE_PER_RESPONSE_LEGEND)
+      expect(listOf(tree).groups.every((group) => group.definition !== null)).toBe(true)
+    })
+
+    it('o Avaliador da rodada também vê o grupo, sem coeficiente', async () => {
+      const admin = await newUser('Admin')
+      const { scene, ana } = await perResponseScene(admin)
+
+      auth.userId = ana.user
+      const tree = await render(scene.project, scene.round)
+      const text = `${textOf(tree)} ${listTextOf(tree)}`
+
+      expect(listTextOf(tree)).toContain(`${PER_RESPONSE_LABEL} 1 de 1 célula diverge`)
+      expect(text).toContain('Bruno: repete o mesmo ângulo em todas.')
+      for (const word of ['Krippendorff', 'ICR', 'Alpha', 'Concordância']) {
+        expect(text).not.toContain(word)
+      }
+    })
+
+    it('a ata da célula por resposta aparece com o autor, e o formulário manda a definição vazia', async () => {
+      const admin = await newUser('Admin')
+      const { scene, ana } = await perResponseScene(admin)
+      const diversity = cellOf(scene, PER_RESPONSE_LABEL, 'Diversity')
+
+      await minutes(
+        scene,
+        admin,
+        0,
+        PER_RESPONSE_LABEL,
+        'Diversity',
+        'Ficamos com médio: dois ângulos, não três.',
+      )
+
+      for (const viewer of [admin, ana.user]) {
+        auth.userId = viewer
+        const text = listTextOf(await render(scene.project, scene.round))
+
+        expect(text).toContain(MINUTES_LABEL)
+        expect(text).toContain('Ficamos com médio: dois ângulos, não três.')
+        expect(text).toContain('por Admin,')
+      }
+
+      auth.userId = admin
+      const markup = listMarkupOf(await render(scene.project, scene.round))
+
+      expect(markup.match(/name="definition_id" value=""/g)).toHaveLength(1)
+      expect(markup).toContain(
+        `name="definition_id" value=""/><input type="hidden" name="criterion_id" value="${diversity.criterionId}"/>`,
+      )
+    })
+
+    it('o próprio Avaliador vê o seu rascunho por resposta preenchido', async () => {
+      const admin = await newUser('Admin')
+      const { scene, ana } = await perResponseScene(admin)
+
+      await draft(
+        scene,
+        ana.member,
+        0,
+        PER_RESPONSE_LABEL,
+        'Diversity',
+        'Perguntar se ângulo repetido em outra língua conta.',
+      )
+
+      auth.userId = ana.user
+      const tree = await render(scene.project, scene.round)
+
+      expect(mineOf(tree, cellOf(scene, PER_RESPONSE_LABEL, 'Diversity'))?.text).toBe(
+        'Perguntar se ângulo repetido em outra língua conta.',
+      )
+      expect(listTextOf(tree)).toContain(
+        'Perguntar se ângulo repetido em outra língua conta.',
+      )
+    })
   })
 })

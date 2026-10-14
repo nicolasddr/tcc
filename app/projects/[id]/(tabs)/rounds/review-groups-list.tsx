@@ -7,6 +7,8 @@ import { definitionTypeLabel } from '@/app/projects/definition-types'
 import { formatDate } from '@/app/notifications/labels'
 import { CONSENSUS_NOTE_MAX } from '@/lib/limits'
 import type { CodebookCriterion, CodebookDefinition } from '../../pipeline/codebook'
+import { PER_RESPONSE_LABEL } from '../../pipeline/criteria'
+import { PER_RESPONSE_KEY } from '../evaluate/completeness'
 import { ScaleBadge } from '../evaluate/scale-marker'
 import type { ConsensusNote } from './consensus'
 import { consensusCellKey, type CellConsensus } from './consensus-cells'
@@ -14,6 +16,7 @@ import { ConsensusForm } from './consensus-form'
 import { HowToRead } from './how-to-read'
 import {
   DIVERGENCE_LEGEND,
+  DIVERGENCE_PER_RESPONSE_LEGEND,
   NO_JUSTIFICATION_HINT,
   NO_JUSTIFICATION_MARK,
   divergenceLabel,
@@ -160,7 +163,7 @@ function ConsensusCell({
   criterionId,
 }: {
   consensus: ConsensusContext
-  definitionId: string
+  definitionId: string | null
   criterionId: string
 }) {
   const cell = consensus.byCell.get(consensusCellKey(definitionId, criterionId))
@@ -232,9 +235,11 @@ function Cell({
   consensus,
 }: {
   cell: ReviewCell<CodebookCriterion>
-  definitionId: string
+  definitionId: string | null
   consensus: ConsensusContext | null
 }) {
+  const meaning = divergenceMeaning(cell.divergence, definitionId === null)
+
   return (
     <li>
       <Card padding="sm" tone={isDivergent(cell.divergence) ? 'accent' : 'default'}>
@@ -243,7 +248,7 @@ function Cell({
             {cell.criterion.name}
           </span>
           {cell.isGeneral ? <Badge tone="neutral">Geral</Badge> : null}
-          <span title={divergenceMeaning(cell.divergence)}>
+          <span title={meaning}>
             <Badge tone={divergenceTone(cell.divergence)}>
               {divergenceLabel(cell.divergence)}
             </Badge>
@@ -251,9 +256,7 @@ function Cell({
         </div>
 
         {cell.notes.length === 0 ? (
-          <p className="m-0 mt-2 text-[12.5px] text-muted">
-            {divergenceMeaning(cell.divergence)}
-          </p>
+          <p className="m-0 mt-2 text-[12.5px] text-muted">{meaning}</p>
         ) : (
           <Notes notes={cell.notes} />
         )}
@@ -285,10 +288,14 @@ function Group({
         defaultOpen={group.divergent > 0}
         summary={
           <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
-            <span className="text-sm font-semibold text-ink">{definition.title}</span>
-            <Badge tone="neutral">
-              {definitionTypeLabel(definition.type) ?? definition.type}
-            </Badge>
+            <span className="text-sm font-semibold text-ink">
+              {definition?.title ?? PER_RESPONSE_LABEL}
+            </span>
+            {definition ? (
+              <Badge tone="neutral">
+                {definitionTypeLabel(definition.type) ?? definition.type}
+              </Badge>
+            ) : null}
             <span className="text-[12.5px] font-normal text-muted">
               {divergenceSummary(group.divergent, group.cells.length)}
             </span>
@@ -306,7 +313,7 @@ function Group({
               <Cell
                 key={cell.criterion.id}
                 cell={cell}
-                definitionId={definition.id}
+                definitionId={definition?.id ?? null}
                 consensus={consensus}
               />
             ))}
@@ -328,11 +335,23 @@ export function ReviewGroupsList({
     <div className="flex flex-col gap-3">
       <ul className="m-0 flex list-none flex-col gap-3 p-0">
         {groups.map((group) => (
-          <Group key={group.definition.id} group={group} consensus={consensus} />
+          <Group
+            key={group.definition?.id ?? PER_RESPONSE_KEY}
+            group={group}
+            consensus={consensus}
+          />
         ))}
       </ul>
 
-      <HowToRead summary="Como ler as divergências" paragraphs={[DIVERGENCE_LEGEND]} />
+      <HowToRead
+        summary="Como ler as divergências"
+        paragraphs={[
+          DIVERGENCE_LEGEND,
+          ...(groups.some((group) => group.definition === null)
+            ? [DIVERGENCE_PER_RESPONSE_LEGEND]
+            : []),
+        ]}
+      />
     </div>
   )
 }

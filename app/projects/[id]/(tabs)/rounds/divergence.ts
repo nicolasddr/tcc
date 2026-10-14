@@ -1,3 +1,4 @@
+import { PER_RESPONSE_LABEL } from '../../pipeline/criteria'
 import { scaleLabel, scaleRank, type ScaleValue } from '../evaluate/scale'
 
 export type CellDivergence = 'unrated' | 'single' | 'unanimous' | 'adjacent' | 'extreme'
@@ -21,6 +22,10 @@ export const DIVERGENCE_LEGEND =
   'pessoas leram coisas opostas no mesmo texto, com o mesmo codebook, o que pede ' +
   `descrição mais precisa na definição. “${divergenceLabel('single')}” não é nem uma ` +
   'coisa nem outra — com um avaliador só não há com quem discordar.'
+
+export const DIVERGENCE_PER_RESPONSE_LEGEND =
+  `No grupo “${PER_RESPONSE_LABEL}” não há definição: ali a divergência extrema costuma ` +
+  'apontar para o próprio critério, e pede descrição mais precisa nele.'
 
 export function classifyDivergence(values: readonly ScaleValue[]): CellDivergence {
   if (values.length === 0) return 'unrated'
@@ -66,7 +71,7 @@ export function divergenceTone(kind: CellDivergence): DivergenceTone {
   }
 }
 
-export function divergenceMeaning(kind: CellDivergence): string {
+export function divergenceMeaning(kind: CellDivergence, isPerResponse = false): string {
   switch (kind) {
     case 'unrated':
       return 'Nenhum avaliador deu nota nesta célula.'
@@ -85,10 +90,12 @@ export function divergenceMeaning(kind: CellDivergence): string {
         'na régua.'
       )
     case 'extreme':
-      return (
-        `As notas foram de ${scaleLabel('high')} a ${scaleLabel('low')} na mesma ` +
-        'célula: costuma ser definição ambígua, e pede descrição mais precisa na ' +
-        'definição.'
-      )
+      return isPerResponse
+        ? `As notas foram de ${scaleLabel('high')} a ${scaleLabel('low')} na mesma ` +
+            'célula: sem definição em jogo, costuma ser o próprio critério que admite ' +
+            'leituras opostas, e pede descrição mais precisa nele.'
+        : `As notas foram de ${scaleLabel('high')} a ${scaleLabel('low')} na mesma ` +
+            'célula: costuma ser definição ambígua, e pede descrição mais precisa na ' +
+            'definição.'
   }
 }

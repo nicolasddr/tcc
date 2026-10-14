@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   DIVERGENCE_LEGEND,
+  DIVERGENCE_PER_RESPONSE_LEGEND,
   NO_JUSTIFICATION_HINT,
   NO_JUSTIFICATION_MARK,
   classifyDivergence,
@@ -10,7 +11,8 @@ import {
   isDivergent,
   type CellDivergence,
 } from '@/app/projects/[id]/(tabs)/rounds/divergence'
-import { SCALE } from '@/app/projects/[id]/(tabs)/evaluate/scale'
+import { SCALE, scaleLabel } from '@/app/projects/[id]/(tabs)/evaluate/scale'
+import { PER_RESPONSE_LABEL } from '@/app/projects/[id]/pipeline/criteria'
 
 const STATES: CellDivergence[] = [
   'unrated',
@@ -90,7 +92,7 @@ describe('app/projects/[id]/rounds/divergence — a divergência de uma célula'
     for (const state of STATES) {
       expect(divergenceMeaning(state).length).toBeGreaterThan(0)
     }
-    expect(new Set(STATES.map(divergenceMeaning)).size).toBe(STATES.length)
+    expect(new Set(STATES.map((state) => divergenceMeaning(state))).size).toBe(STATES.length)
   })
 
   it('a legenda distingue adjacente de extrema e cita a escala inteira', () => {
@@ -113,5 +115,29 @@ describe('app/projects/[id]/rounds/divergence — a divergência de uma célula'
       expect(classifyDivergence([value])).toBe('single')
       expect(classifyDivergence([value, value])).toBe('unanimous')
     }
+  })
+
+  it('na célula por resposta, a extrema aponta para o critério, e não para a definição', () => {
+    const meaning = divergenceMeaning('extreme', true)
+
+    expect(meaning).not.toBe(divergenceMeaning('extreme'))
+    expect(meaning).toContain(`${scaleLabel('high')} a ${scaleLabel('low')}`)
+    expect(meaning).toContain('critério')
+    expect(meaning).toContain('descrição mais precisa nele')
+    expect(meaning).not.toContain('definição ambígua')
+    expect(meaning).not.toContain('na definição')
+  })
+
+  it('na célula por resposta, os outros estados explicam o mesmo de sempre', () => {
+    for (const state of STATES.filter((state) => state !== 'extreme')) {
+      expect(divergenceMeaning(state, true)).toBe(divergenceMeaning(state))
+    }
+  })
+
+  it('a legenda do grupo por resposta diz que ali não há definição e aponta para o critério', () => {
+    expect(DIVERGENCE_PER_RESPONSE_LEGEND).toContain(`“${PER_RESPONSE_LABEL}”`)
+    expect(DIVERGENCE_PER_RESPONSE_LEGEND).toContain('não há definição')
+    expect(DIVERGENCE_PER_RESPONSE_LEGEND).toContain('próprio critério')
+    expect(DIVERGENCE_PER_RESPONSE_LEGEND).not.toContain(DIVERGENCE_LEGEND)
   })
 })

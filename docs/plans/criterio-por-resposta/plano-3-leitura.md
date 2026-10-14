@@ -486,6 +486,11 @@ Feita em 2026-10-14, sem commit no momento da escrita.
 - **Mutações** (desfeitas por `cp`): `cellExists` sem definição devolvendo `true` derruba a recusa;
   sem a guarda do UUID na definição, o "não é UUID nem vazio" cai com erro do Postgres.
 - `review-groups-list.tsx` compilou sem mudança (passa `string`).
+- **Armadilha para § 7.2**: `[roundId]/page.int` ~210 ainda faz `consensusCellKey(cell.definitionId
+  ?? '', …)`, herança do Plano 2. Com a chave aceitando `null`, o `?? ''` monta `:c` em vez de
+  `per_response:c`, e o rascunho por resposta não seria achado. Trocar por `cell.definitionId`. Os
+  dois `form.set('definition_id', cell.definitionId ?? '')` (`consensus-actions.int`,
+  `phase-4-round.int`) ficam: vazio é o formato do campo.
 
 ---
 
@@ -590,9 +595,35 @@ A Parte 3 fecha o Plano 3, não a série: sem `Closes`.
 
 ### 7.9 O que o Plano 4 herda
 
-(preencher ao fim da Parte 3; incluir pelo menos:)
+Parte 3 feita em 2026-10-14, sem commit no momento da escrita.
 
 - Nenhum descarte de leitor sobrou na série; toda leitura da rodada trata a célula por resposta.
+  O `grep` do § 7.7 (com `!== null` também) só acha regra: o sentido da divergência em
+  `review-groups-list.tsx` e as escolhas de `consensus-actions.ts`.
+- **Nomes finais**: `divergenceMeaning(kind, isPerResponse = false)` (parâmetro, não função irmã;
+  só a extrema muda) e `DIVERGENCE_PER_RESPONSE_LEGEND` em `divergence.ts`. `reviewGroups` monta os
+  grupos por uma função interna `group(definition | null, criteria)`; o grupo nulo só existe com
+  critério por resposta. `ConsensusForm.definitionId: string | null`, campo oculto `?? ''`.
+- **Testes novos**: `review-groups.unit` › "o grupo por resposta" (6), `divergence.unit` (3),
+  `[roundId]/page.int` › "o grupo por resposta" (6).
+- **Testes antigos editados** (só tipo): `review-groups.unit` (`note()` aceita `null`, `cellOf`
+  aceita grupo ausente, `group.definition?.id`); `divergence.unit` ~95, `STATES.map(divergenceMeaning)`
+  virou `map((state) => divergenceMeaning(state))` (o índice do `map` caía no parâmetro novo);
+  `[roundId]/page.int`: título de cena `?? PER_RESPONSE_LABEL`, `cellNotesOf` e o `kindOf` de ~524
+  com `?.`, `mineOf` com `consensusCellKey(cell.definitionId, …)`. Nenhuma asserção mudou.
+- **Vermelhos**: o grupo por último pela contagem de grupos; a extrema por resposta por igualdade
+  (a função ignorava o parâmetro); a legenda nova, de import; os 6 de página pela ausência de "Por
+  resposta" (o da guarda, porque o texto novo ainda não existia). Divergência, adjacente e "não
+  vaza" quebravam ao procurar o grupo; "nota sem definição num geral" verde desde o começo.
+- **Mutações** (desfeitas por `cp`): `cellKey` ignorando a definição derruba "não vaza", "nota sem
+  definição num geral" e dois antigos; o grupo nulo lendo outra chave derruba divergência,
+  adjacente e "não vaza"; o parágrafo sempre presente derruba a guarda; o sentido sempre o de
+  definição derruba o do `title`; o campo oculto com outro valor derruba o da ata.
+- **Conferência no navegador** com a cena do § 8 (receita sem mudança): grupo "Por resposta" depois
+  da Query 5, aberto, sem selo de tipo, "1 de 1 célula diverge", `title` da extrema por resposta,
+  o parágrafo novo no "Como ler", topo "1 de 6 células diverge"; ata registrada, editada no lugar
+  (uma linha) e apagada com o campo vazio (`count(*) … definition_id is null` = 0); a 375 px
+  (`iframe`) nada do grupo passa de 375. Cena apagada, `scores` vazia.
 - **→ Plano 4, textos que aparecem em todo projeto**: `QUALITY_POINTS` ("Cada nota é uma célula
   (definição × critério)", achado 5), além do `NOTES_PER_RESPONSE_HELP` que o Plano 2 deixou.
 - A receita da cena do § 8, para a conferência do editor.
