@@ -12,6 +12,7 @@ import {
 import { SCALE, isScaleValue, scaleLabel } from './scale'
 import { ScaleBadge, ScaleMarker } from './scale-marker'
 import type { SubmittedEvaluation } from './evaluation'
+import { ContextCard } from './context-panel'
 import type { CodebookCriterion, CodebookDefinition } from '../../pipeline/codebook'
 import { PER_RESPONSE_LABEL, type CodebookCell } from '../../pipeline/criteria'
 import type { ResponseDetail } from '../../pipeline/responses'
@@ -21,12 +22,12 @@ import { formatDate } from '@/app/notifications/labels'
 import { Alert } from '@/app/components/ui/alert'
 import { Badge } from '@/app/components/ui/badge'
 import { Button, buttonClass } from '@/app/components/ui/button'
-import { Card } from '@/app/components/ui/card'
+import { Card, cardClassName } from '@/app/components/ui/card'
 import { cx } from '@/app/components/ui/cx'
 import { Disclosure } from '@/app/components/ui/disclosure'
 import { Textarea } from '@/app/components/ui/field'
 import { Form, FormActions } from '@/app/components/ui/form'
-import { preWrapClass, scrollBoxClass } from '@/app/components/ui/prose'
+import { preWrapClass } from '@/app/components/ui/prose'
 
 type Cell = CodebookCell<CodebookDefinition, CodebookCriterion>
 
@@ -114,22 +115,6 @@ function DefinitionSummary({
   )
 }
 
-function ResponseCard({ response, label }: { response: ResponseDetail; label: string }) {
-  return (
-    <Card tone="subtle" padding="sm">
-      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
-        <span className="text-[13px] font-semibold text-label">
-          {`Resposta da LLM · ${label}`}
-        </span>
-        <span className="text-[13px] text-muted">{formatDate(response.createdAt)}</span>
-      </div>
-      <p className={`m-0 mt-2 text-sm ${scrollBoxClass} ${preWrapClass} text-ink`}>
-        {response.text}
-      </p>
-    </Card>
-  )
-}
-
 function Justification({
   criterion,
   name,
@@ -179,21 +164,21 @@ function Columns({
   response,
   label,
   item,
-  context,
+  prompt,
   children,
 }: {
   response: ResponseDetail
   label: string
   item: React.ReactNode
-  context: React.ReactNode
+  prompt: React.ReactNode
   children: React.ReactNode
 }) {
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
       <div className="flex min-w-0 flex-col gap-3 lg:sticky lg:top-4 lg:max-h-[calc(100dvh-2rem)] lg:self-start lg:overflow-y-auto">
+        {prompt}
         {item}
-        <ResponseCard response={response} label={label} />
-        {context}
+        <ContextCard label={`Resposta da LLM · ${label}`} text={response.text} />
       </div>
       <div className="min-w-0">{children}</div>
     </div>
@@ -207,7 +192,7 @@ export function EvaluationForm({
   cells,
   submitted,
   item,
-  context,
+  prompt,
 }: {
   projectId: string
   response: ResponseDetail
@@ -215,7 +200,7 @@ export function EvaluationForm({
   cells: CodebookCell<CodebookDefinition, CodebookCriterion>[]
   submitted: SubmittedEvaluation | null
   item?: React.ReactNode
-  context?: React.ReactNode
+  prompt?: React.ReactNode
 }) {
   const [state, action, pending] = useActionState(submitEvaluation, initialState)
   const [values, setValues] = useState(() => storedValues(submitted))
@@ -243,7 +228,7 @@ export function EvaluationForm({
 
   if (reading) {
     return (
-      <Columns response={response} label={label} item={item} context={context}>
+      <Columns response={response} label={label} item={item} prompt={prompt}>
         <div className="flex flex-col gap-4">
           {sent ? <Alert tone="success">Avaliação enviada.</Alert> : null}
 
@@ -297,7 +282,7 @@ export function EvaluationForm({
   const error = state !== null && 'error' in state ? state.error : null
 
   return (
-    <Columns response={response} label={label} item={item} context={context}>
+    <Columns response={response} label={label} item={item} prompt={prompt}>
       <Form action={action} gap="sm">
         <input type="hidden" name="project_id" value={projectId} />
         <input type="hidden" name="response_id" value={response.id} />
@@ -390,7 +375,10 @@ export function EvaluationForm({
 
         <FormActions
           align="start"
-          className="sticky bottom-0 z-10 gap-y-2 border-t border-line bg-surface py-3"
+          className={cardClassName({
+            padding: 'sm',
+            className: 'sticky bottom-0 z-10 gap-y-2',
+          })}
         >
           <span className="text-[13px] font-semibold text-ink tabular-nums">
             {scored} de {plural(cells.length, 'nota', 'notas')}

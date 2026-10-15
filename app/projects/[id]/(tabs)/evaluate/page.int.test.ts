@@ -22,6 +22,7 @@ vi.mock('next/navigation', () => ({
 import ProjectEvaluatePage from '@/app/projects/[id]/(tabs)/evaluate/page'
 import { EvaluationForm } from '@/app/projects/[id]/(tabs)/evaluate/evaluation-form'
 import { ItemPanel, PromptPanel } from '@/app/projects/[id]/(tabs)/evaluate/context-panel'
+import { formatDate } from '@/app/notifications/labels'
 import { QueueNav } from '@/app/components/ui/queue-nav'
 import {
   AgreementPanel,
@@ -726,7 +727,7 @@ describe('app/projects/[id]/evaluate — a tela do avaliador', () => {
     expect(url).not.toContain('sent')
   })
 
-  it('o painel do prompt traz o prompt recolhido em "Ver o prompt (versão N)", sem o item', async () => {
+  it('o painel do prompt fica aberto, fora de <details>, com o rótulo "Prompt · versão N" quando sem nome', async () => {
     const admin = await newUser('Admin')
     const scene = await scenario(admin, {
       prompt: { text: 'Classifique a intenção de busca.' },
@@ -738,7 +739,9 @@ describe('app/projects/[id]/evaluate — a tela do avaliador', () => {
     const tree = await open(scene.project)
     const html = panelMarkupOf(tree)
 
-    expect(html).toMatch(/<summary[^>]*>.*Ver o prompt \(versão 1\)<\/summary>/)
+    expect(html).toContain('Prompt · versão 1')
+    expect(html).not.toContain('<details')
+    expect(html).not.toContain('Ver o prompt')
     expect(html).toContain('Classifique a inten')
     expect(html).not.toContain('O que foi pedido')
     expect(html).not.toContain('como plantar manjeric')
@@ -765,7 +768,7 @@ describe('app/projects/[id]/evaluate — a tela do avaliador', () => {
     expect(markupOf(formOf(tree)).split('como plantar manjericão').length - 1).toBe(1)
   })
 
-  it('o nome e a descrição do prompt aparecem quando preenchidos e somem quando nulos', async () => {
+  it('o nome do prompt vai no rótulo no lugar da versão, e a descrição aparece só quando preenchida', async () => {
     const admin = await newUser('Admin')
     const named = await scenario(admin, {
       prompt: { name: 'Classificador v1', description: 'Sem exemplos ainda.' },
@@ -776,12 +779,13 @@ describe('app/projects/[id]/evaluate — a tela do avaliador', () => {
 
     auth.userId = evaluator
     const withMetadata = panelMarkupOf(await open(named.project))
-    expect(withMetadata).toContain('Classificador v1')
+    expect(withMetadata).toContain('Prompt · Classificador v1')
+    expect(withMetadata).not.toContain('versão')
     expect(withMetadata).toContain('Sem exemplos ainda')
 
     const without = panelMarkupOf(await open(bare.project))
-    expect(without).not.toContain('Nome do prompt')
-    expect(without).not.toContain('Descrição do prompt')
+    expect(without).toContain('Prompt · versão 1')
+    expect(without).not.toContain('text-muted')
   })
 
   it('o painel fica FORA do formulário, para o preenchido não se perder ao abri-lo', async () => {
@@ -792,21 +796,19 @@ describe('app/projects/[id]/evaluate — a tela do avaliador', () => {
     auth.userId = evaluator
     const tree = await open(scene.project)
 
-    expect(findElement(formOf(tree).context, PromptPanel)).toBeTruthy()
+    expect(findElement(formOf(tree).prompt, PromptPanel)).toBeTruthy()
     expect(findElement(formOf(tree).item, ItemPanel)).toBeTruthy()
 
     const html = markupOf(formOf(tree))
     const form = html.slice(html.indexOf('<form'), html.indexOf('</form>'))
-    expect(html).toContain('Ver o prompt')
+    expect(html).toContain('Prompt · ')
     expect(html).toContain('Item de entrada')
     expect(form).toContain('Enviar avalia')
-    expect(form).not.toContain('Ver o prompt')
+    expect(form).not.toContain('Prompt · ')
     expect(form).not.toContain('Item de entrada')
-    expect(panelMarkupOf(tree)).toContain('<details')
-    expect(panelMarkupOf(tree)).not.toContain('open=""')
   })
 
-  it('a coluna da esquerda empilha item, resposta e prompt, na mesma ordem em toda largura', async () => {
+  it('a coluna da esquerda empilha prompt, item e resposta, na mesma ordem em toda largura', async () => {
     const admin = await newUser('Admin')
     const scene = await scenario(admin)
     const evaluator = await newEvaluator(scene.project)
@@ -814,15 +816,50 @@ describe('app/projects/[id]/evaluate — a tela do avaliador', () => {
     auth.userId = evaluator
     const html = markupOf(formOf(await open(scene.project)))
 
+    const prompt = html.indexOf('Prompt · ')
     const item = html.indexOf('Item de entrada')
     const response = html.indexOf('Resposta da LLM')
-    const prompt = html.indexOf('Ver o prompt')
     const form = html.indexOf('<form')
-    expect(item).toBeGreaterThan(-1)
+    expect(prompt).toBeGreaterThan(-1)
+    expect(prompt).toBeLessThan(item)
     expect(item).toBeLessThan(response)
-    expect(response).toBeLessThan(prompt)
-    expect(prompt).toBeLessThan(form)
+    expect(response).toBeLessThan(form)
     expect(html).not.toContain('order-first')
+  })
+
+  it('o prompt, o item e a resposta usam o mesmo cartão, e a resposta não mostra data', async () => {
+    const admin = await newUser('Admin')
+    const scene = await scenario(admin)
+    const evaluator = await newEvaluator(scene.project)
+
+    auth.userId = evaluator
+    const tree = await open(scene.project)
+    const props = formOf(tree)
+
+    expect(findElement(props.prompt, PromptPanel)).toBeTruthy()
+    expect(findElement(props.item, ItemPanel)).toBeTruthy()
+    const html = markupOf(props)
+    const left = html.slice(0, html.indexOf('<form'))
+    const cardClass = /<div class="([^"]*)"><div class="flex flex-col gap-0.5"><span[^>]*>(Prompt|Item de entrada|Resposta da LLM) · /g
+    const classes = [...left.matchAll(cardClass)].map((match) => match[1])
+    expect(classes).toHaveLength(3)
+    expect(new Set(classes).size).toBe(1)
+    expect(classes[0]).toContain('rounded-card')
+    expect(html).not.toContain(formatDate(props.response.createdAt))
+  })
+
+  it('a barra de envio é um cartão arredondado com respiro nas laterais', async () => {
+    const admin = await newUser('Admin')
+    const scene = await scenario(admin)
+    const evaluator = await newEvaluator(scene.project)
+
+    auth.userId = evaluator
+    const html = markupOf(formOf(await open(scene.project)))
+    const bar = /<div class="([^"]*\bsticky bottom-0[^"]*)">/.exec(html)?.[1] ?? ''
+
+    expect(bar).toContain('rounded-card')
+    expect(bar).toContain('border ')
+    expect(bar).toMatch(/px-\[14px\]/)
   })
 
   it('o texto da resposta e o do prompt preservam a formatação', async () => {

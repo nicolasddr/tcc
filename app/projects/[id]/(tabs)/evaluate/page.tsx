@@ -202,7 +202,7 @@ export default async function ProjectEvaluatePage({
             cells={cells}
             submitted={submitted}
             item={context ? <ItemPanel item={context.item} /> : null}
-            context={context ? <PromptPanel prompt={context.prompt} /> : null}
+            prompt={context ? <PromptPanel prompt={context.prompt} /> : null}
           />
         </div>
       )}

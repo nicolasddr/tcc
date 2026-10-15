@@ -1,54 +1,41 @@
 import type { EvaluationContext } from './context'
 import { Card } from '@/app/components/ui/card'
-import { Disclosure } from '@/app/components/ui/disclosure'
 import { preWrapClass, scrollBoxClass } from '@/app/components/ui/prose'
 
 const textClass = `m-0 text-[13px] leading-[1.6] ${scrollBoxClass} ${preWrapClass} text-ink`
 
-function Block({ label, children }: { label: string; children: React.ReactNode }) {
+export function ContextCard({
+  label,
+  description,
+  text,
+}: {
+  label: string
+  description?: string | null
+  text: string
+}) {
   return (
-    <div className="flex flex-col gap-0.5">
-      <span className="text-[13px] font-semibold text-label">{label}</span>
-      {children}
-    </div>
+    <Card tone="subtle" padding="sm" className="flex flex-col gap-2">
+      <div className="flex flex-col gap-0.5">
+        <span className="text-[13px] font-semibold text-label">{label}</span>
+        {description ? (
+          <p className={`m-0 text-xs text-muted ${preWrapClass}`}>{description}</p>
+        ) : null}
+      </div>
+      <p className={textClass}>{text}</p>
+    </Card>
   )
 }
 
 export function ItemPanel({ item }: { item: EvaluationContext['item'] }) {
-  return (
-    <Card tone="subtle" padding="sm" className="flex flex-col gap-2">
-      <span className="text-[13px] font-semibold text-label">
-        {`Item de entrada · ${item.name}`}
-      </span>
-      <p className={textClass}>{item.content}</p>
-    </Card>
-  )
+  return <ContextCard label={`Item de entrada · ${item.name}`} text={item.content} />
 }
 
 export function PromptPanel({ prompt }: { prompt: EvaluationContext['prompt'] }) {
   return (
-    <Card tone="subtle" padding="sm">
-      <Disclosure summary={`Ver o prompt (versão ${prompt.versionNumber})`}>
-        <div className="mt-3 flex flex-col gap-3 border-t border-line pt-3">
-          {prompt.name ? (
-            <Block label="Nome do prompt">
-              <p className={`m-0 text-[13px] ${preWrapClass} text-ink`}>{prompt.name}</p>
-            </Block>
-          ) : null}
-
-          {prompt.description ? (
-            <Block label="Descrição do prompt">
-              <p className={`m-0 text-[13px] ${preWrapClass} text-ink`}>
-                {prompt.description}
-              </p>
-            </Block>
-          ) : null}
-
-          <Block label={`Prompt · versão ${prompt.versionNumber}`}>
-            <p className={textClass}>{prompt.text}</p>
-          </Block>
-        </div>
-      </Disclosure>
-    </Card>
+    <ContextCard
+      label={`Prompt · ${prompt.name ?? `versão ${prompt.versionNumber}`}`}
+      description={prompt.description}
+      text={prompt.text}
+    />
   )
 }
