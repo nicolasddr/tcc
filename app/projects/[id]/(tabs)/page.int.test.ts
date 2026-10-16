@@ -2008,6 +2008,30 @@ describe('app/projects/[id]/page — escopo de visibilidade', () => {
     }
   })
 
+  it('só com uma rodada aberta da Fase 2, a visão geral não mostra a Concordância por rodada nem "Abrir rodadas →"', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin, PHASE_2)
+    const ana = await addActiveEvaluator(ownerDb, project, await newUser('Ana'))
+    const bruno = await addActiveEvaluator(ownerDb, project, await newUser('Bruno'))
+    const promptVersion = await addPromptVersion(ownerDb, project, admin)
+
+    await roundWith(project, admin, promptVersion, {
+      roundNumber: 1,
+      versionNumber: 1,
+      phase: PHASE_2,
+      status: 'open',
+      byEvaluator: { [ana]: QUALITY_NOTES.ana, [bruno]: QUALITY_NOTES.bruno },
+    })
+
+    auth.userId = admin
+    const tree = await render(project)
+
+    expect(findElement(tree, StatCard)).toBeTruthy()
+    expect(findElement(tree, AgreementSeriesChart)).toBeNull()
+    expect(roundsLinksOf(tree, project)).toHaveLength(0)
+    expect(deepText(tree)).not.toContain('Concordância por rodada')
+  })
+
   async function phaseSeriesScene(admin: string): Promise<string> {
     const project = await newProject(admin, PHASE_3)
     const promptVersion = await addPromptVersion(ownerDb, project, admin)

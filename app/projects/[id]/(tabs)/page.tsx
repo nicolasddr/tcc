@@ -272,6 +272,9 @@ export default async function ProjectPage({
     ? qualitySeries(agreement.rounds, agreement.observations, agreement.outliers)
     : []
 
+  const showSeries = series.some((point) => point.closedAt !== null)
+  const showRoundsLink = showSeries || Boolean(focusQuality) || qualityPoints.length > 1
+
   const phase2 = agreement ? phase2ChecklistData(agreement) : null
   const phase3 =
     agreement && artifacts
@@ -482,7 +485,7 @@ export default async function ProjectPage({
             </div>
           ) : null}
 
-          {series.length > 0 ? (
+          {showSeries ? (
             <Section
               title="Concordância por rodada"
               hint="Um ponto por rodada, em ordem cronológica."
@@ -516,7 +519,7 @@ export default async function ProjectPage({
             </Section>
           ) : null}
 
-          {series.length > 0 ? (
+          {showRoundsLink ? (
             <p className="m-0 mt-4 text-xs">
               <OpenLink href={`/projects/${project.id}/rounds`}>Abrir rodadas →</OpenLink>
             </p>
