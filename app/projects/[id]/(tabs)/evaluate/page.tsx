@@ -182,10 +182,6 @@ export default async function ProjectEvaluatePage({
             </span>
 
             <ProgressBar value={progress.evaluated} max={progress.total} />
-
-            {waiting?.key === 'finished' ? (
-              <p className="m-0 text-[13px] text-muted">{waitingMessage(waiting)}</p>
-            ) : null}
           </div>
 
           {justSent ? (
@@ -203,6 +199,11 @@ export default async function ProjectEvaluatePage({
             submitted={submitted}
             item={context ? <ItemPanel item={context.item} /> : null}
             prompt={context ? <PromptPanel prompt={context.prompt} /> : null}
+            footer={
+              waiting?.key === 'finished' ? (
+                <p className="m-0 text-[13px] text-muted">{waitingMessage(waiting)}</p>
+              ) : null
+            }
           />
         </div>
       )}

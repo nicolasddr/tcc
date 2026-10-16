@@ -525,7 +525,8 @@ describe('app/projects/[id]/evaluate — a tela do avaliador', () => {
     expect(html).toMatch(/<span aria-hidden="true"[^>]*>(?:<span [^>]*><\/span>){3}<\/span>Médio</)
     expect(html).not.toMatch(/(?:bg|text)-(?:success|warning|danger)/)
     expect(html).toContain('porque sim')
-    expect(html).toContain('definitivo')
+    expect(html).not.toContain('definitivo')
+    expect(html).not.toContain('Enviada em')
     expect(html).not.toContain('<textarea')
     expect(html).not.toContain('<button')
     expect(html).not.toContain('Enviar avalia')
@@ -658,7 +659,8 @@ describe('app/projects/[id]/evaluate — a tela do avaliador', () => {
     expect(props.submitted).not.toBeNull()
 
     const html = markupOf(props)
-    expect(html).toContain('definitivo')
+    expect(html).toContain('Sem justificativa.')
+    expect(html).not.toContain('definitivo')
     expect(html).not.toContain('<textarea')
   })
 
@@ -1158,9 +1160,15 @@ describe('app/projects/[id]/evaluate — a tela do avaliador', () => {
 
     expect(formOf(tree).response.id).toBe(scene.responses[1])
     expect(formOf(tree).submitted).not.toBeNull()
-    expect(text).toContain('Você terminou')
-    expect(text).toContain('aguarda o fechamento')
+    expect(text).not.toContain('Você terminou')
     expect(text).toContain('2 de 2 respostas avaliadas')
+
+    const footer = textOf(formOf(tree).footer)
+    expect(footer).toContain('Você terminou')
+    expect(footer).toContain('aguarda o fechamento')
+
+    const html = markupOf(formOf(tree))
+    expect(html.indexOf('Você terminou')).toBeGreaterThan(html.lastIndexOf('Sem justificativa.'))
   })
 
   it('a barra de progresso conta só as MINHAS avaliações', async () => {

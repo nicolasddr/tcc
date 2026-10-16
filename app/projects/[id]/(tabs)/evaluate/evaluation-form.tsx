@@ -18,7 +18,6 @@ import { PER_RESPONSE_LABEL, type CodebookCell } from '../../pipeline/criteria'
 import type { ResponseDetail } from '../../pipeline/responses'
 import { JUSTIFICATION_MAX } from '@/lib/limits'
 import { plural } from '@/lib/plural'
-import { formatDate } from '@/app/notifications/labels'
 import { Alert } from '@/app/components/ui/alert'
 import { Badge } from '@/app/components/ui/badge'
 import { Button, buttonClass } from '@/app/components/ui/button'
@@ -165,12 +164,14 @@ function Columns({
   label,
   item,
   prompt,
+  footer,
   children,
 }: {
   response: ResponseDetail
   label: string
   item: React.ReactNode
   prompt: React.ReactNode
+  footer: React.ReactNode
   children: React.ReactNode
 }) {
   return (
@@ -180,7 +181,10 @@ function Columns({
         {item}
         <ContextCard label={`Resposta da LLM · ${label}`} text={response.text} />
       </div>
-      <div className="min-w-0">{children}</div>
+      <div className="flex min-w-0 flex-col gap-4">
+        {children}
+        {footer}
+      </div>
     </div>
   )
 }
@@ -193,6 +197,7 @@ export function EvaluationForm({
   submitted,
   item,
   prompt,
+  footer,
 }: {
   projectId: string
   response: ResponseDetail
@@ -201,6 +206,7 @@ export function EvaluationForm({
   submitted: SubmittedEvaluation | null
   item?: React.ReactNode
   prompt?: React.ReactNode
+  footer?: React.ReactNode
 }) {
   const [state, action, pending] = useActionState(submitEvaluation, initialState)
   const [values, setValues] = useState(() => storedValues(submitted))
@@ -228,15 +234,15 @@ export function EvaluationForm({
 
   if (reading) {
     return (
-      <Columns response={response} label={label} item={item} prompt={prompt}>
+      <Columns
+        response={response}
+        label={label}
+        item={item}
+        prompt={prompt}
+        footer={footer}
+      >
         <div className="flex flex-col gap-4">
           {sent ? <Alert tone="success">Avaliação enviada.</Alert> : null}
-
-          <p className="m-0 text-[13px] text-muted">
-            {submitted ? `Enviada em ${formatDate(submitted.submittedAt)}. ` : null}
-            O envio é definitivo: as notas e as justificativas desta resposta não mudam
-            mais.
-          </p>
 
           <ul className="m-0 flex list-none flex-col gap-2 p-0">
             {groups.map((group) => (
@@ -282,7 +288,13 @@ export function EvaluationForm({
   const error = state !== null && 'error' in state ? state.error : null
 
   return (
-    <Columns response={response} label={label} item={item} prompt={prompt}>
+    <Columns
+        response={response}
+        label={label}
+        item={item}
+        prompt={prompt}
+        footer={footer}
+      >
       <Form action={action} gap="sm">
         <input type="hidden" name="project_id" value={projectId} />
         <input type="hidden" name="response_id" value={response.id} />
