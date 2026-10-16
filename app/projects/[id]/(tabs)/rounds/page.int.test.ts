@@ -1299,7 +1299,9 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     expect(visible).toContain(
       `Codebook v1 · Prompt v1 · aberta em ${formatDate(card.round.createdAt)}`,
     )
-    expect(visible).toContain('1 resposta nesta rodada · 1 item do pool ainda sem resposta')
+    expect(visible).toContain(
+      '1 resposta nesta rodada · 1 item do pool ainda sem resposta gerada pela LLM',
+    )
     expect(visible).toContain('Respostas da rodada 1 (1)')
     expect(visible).toContain('Item 1')
     expect(glanceTextOf(element)).not.toContain(roundInputSummary(PHASE_2))

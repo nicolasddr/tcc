@@ -8,7 +8,6 @@ import { EffortList } from './effort-list'
 import { Badge } from '@/app/components/ui/badge'
 import { ButtonLink } from '@/app/components/ui/button'
 import { Card } from '@/app/components/ui/card'
-import { Chip } from '@/app/components/ui/chip'
 import { Disclosure } from '@/app/components/ui/disclosure'
 import { InfoTooltip } from '@/app/components/ui/tooltip'
 import { LearnMore } from '@/app/components/ui/learn-more'
@@ -54,7 +53,7 @@ export function OpenRoundCard({
         <h2 className="m-0 flex flex-wrap items-center gap-2 text-[16px] font-bold text-ink">
           Rodada {round.roundNumber}
           <Badge tone="info">Aberta</Badge>
-          <Chip>Fase {round.phase}</Chip>
+          <Badge tone="info">Fase {round.phase}</Badge>
           <InfoTooltip
             text={openRoundSummary(
               round.roundNumber,
@@ -86,8 +85,8 @@ export function OpenRoundCard({
           {plural(generated.length, 'resposta nesta rodada', 'respostas nesta rodada')} ·{' '}
           {plural(
             unanswered,
-            'item do pool ainda sem resposta',
-            'itens do pool ainda sem resposta',
+            'item do pool ainda sem resposta gerada pela LLM',
+            'itens do pool ainda sem resposta gerada pela LLM',
           )}
         </p>
       </div>
