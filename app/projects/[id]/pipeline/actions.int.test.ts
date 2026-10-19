@@ -50,6 +50,7 @@ import { composeLlmInput } from '@/app/projects/[id]/pipeline/llm-input'
 import {
   readItemFile,
   readItemBatch,
+  removeFromBatch,
   ITEM_FILE_LIMIT_LABEL,
 } from '@/app/projects/[id]/pipeline/item-content'
 import {
@@ -1846,6 +1847,38 @@ describe('app/projects/[id]/pipeline/actions — lote de arquivos', () => {
     expect(Object.fromEntries(first.ready.map((e) => [e.content, e.key]))).toEqual(
       Object.fromEntries(second.ready.map((e) => [e.content, e.key])),
     )
+  })
+
+  it('tirar um arquivo do lote refaz a soma de bytes e a marca de repetido no lote', async () => {
+    const batch = await readItemBatch(
+      [
+        textFile('Dup.txt', 'um'),
+        textFile('dup.md', 'dois'),
+        textFile('Velho.txt', 'três'),
+        textFile('velho.md', 'quatro'),
+        textFile('foto.png', 'x'),
+      ],
+      ['Velho'],
+    )
+    const dupMd = batch.ready.find((e) => e.content === 'dois')!
+    const velhoMd = batch.ready.find((e) => e.content === 'quatro')!
+
+    const semDup = removeFromBatch(batch, dupMd.key)
+    expect(Object.fromEntries(semDup.ready.map((e) => [e.content, e.duplicate]))).toEqual({
+      um: null,
+      três: 'pool',
+      quatro: 'pool',
+    })
+    expect(semDup.bytes).toBe(3 + 2 + 5 + 5 + 5 + 6)
+    expect(semDup.refused).toEqual(batch.refused)
+
+    const semVelho = removeFromBatch(semDup, velhoMd.key)
+    expect(Object.fromEntries(semVelho.ready.map((e) => [e.content, e.duplicate]))).toEqual({
+      um: null,
+      três: 'pool',
+    })
+    expect(semVelho.bytes).toBe(3 + 2 + 5 + 5)
+    expect(batch.ready).toHaveLength(4)
   })
 })
 

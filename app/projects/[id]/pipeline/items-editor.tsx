@@ -1,7 +1,20 @@
 'use client'
 
-import { useActionState, useState, type DragEvent } from 'react'
-import { createItem, updateItem, deleteItem, type ItemState } from './actions'
+import {
+  startTransition,
+  useActionState,
+  useState,
+  type DragEvent,
+  type FormEvent,
+} from 'react'
+import {
+  createItem,
+  createItems,
+  updateItem,
+  deleteItem,
+  type ItemState,
+  type ItemsState,
+} from './actions'
 import type { InputItem } from './items'
 import { itemPreviewLines } from './item-preview'
 import { itemUsageMark } from '../round-usage'
@@ -15,6 +28,7 @@ import { Panel } from '@/app/components/ui/panel'
 import { SaveBar } from '@/app/components/ui/save-bar'
 import { ConfirmDialog, DialogLines } from '@/app/components/ui/confirm-dialog'
 import { Alert } from '@/app/components/ui/alert'
+import { Badge } from '@/app/components/ui/badge'
 import { EmptyState } from '@/app/components/ui/empty-state'
 import { InfoTooltip } from '@/app/components/ui/tooltip'
 import { preWrapClass } from '@/app/components/ui/prose'
@@ -22,9 +36,21 @@ import { LockIcon, PlusIcon, SearchIcon } from '@/app/components/ui/icons'
 import { cx } from '@/app/components/ui/cx'
 import { plural } from '@/lib/plural'
 import { ITEM_CONTENT_MAX, ITEM_NAME_MAX } from '@/lib/limits'
-import { baseName, readItemFile, ITEM_FILE_FORMATS, TEXT_FILE_ACCEPT } from './item-content'
+import {
+  baseName,
+  itemBatchLimitError,
+  readItemBatch,
+  readItemFile,
+  removeFromBatch,
+  ITEM_FILE_FORMATS,
+  TEXT_FILE_ACCEPT,
+  type ItemBatch,
+  type ItemBatchReady,
+} from './item-content'
 
 const initialState: ItemState = null
+
+const initialBatchState: ItemsState = null
 
 const contentClass =
   'max-h-[50vh] min-h-[180px] overflow-auto font-mono text-[13px] leading-[1.6]'
@@ -35,28 +61,42 @@ const pickerClass =
 
 const editFileHint = `${ITEM_FILE_FORMATS} O conteúdo entra no campo abaixo e continua editável; o arquivo em si não é guardado.`
 
-const ONE_FILE =
-  'Nesta fase, um arquivo por vez: arraste um arquivo só, ou repita o envio para cada item.'
+const DUPLICATE_LABEL: Record<NonNullable<ItemBatchReady['duplicate']>, string> = {
+  pool: 'Já existe no pool',
+  batch: 'Repetido no lote',
+}
 
 const FROZEN =
   'Já usado em uma rodada: editar ou remover mudaria o que os avaliadores viram, então este item não muda mais.'
 
-function useItemFile(onLoad: (name: string, text: string) => void) {
+function readingLabel(count: number): string | null {
+  if (count === 0) return null
+  return count > 1 ? `Lendo ${count} arquivos…` : 'Lendo o arquivo…'
+}
+
+function useItemFile(
+  onLoad: (name: string, text: string) => void,
+  batch?: { poolNames: string[]; onBatch: (batch: ItemBatch) => void },
+) {
   const [error, setError] = useState<string | null>(null)
-  const [reading, setReading] = useState(false)
+  const [reading, setReading] = useState(0)
 
   async function load(files: File[]) {
     if (files.length === 0) return
-    if (files.length > 1) {
-      setError(ONE_FILE)
+    setError(null)
+
+    if (batch && files.length > 1) {
+      setReading(files.length)
+      const result = await readItemBatch(files, batch.poolNames)
+      setReading(0)
+      batch.onBatch(result)
       return
     }
 
     const file = files[0]
-    setError(null)
-    setReading(true)
+    setReading(1)
     const result = await readItemFile(file)
-    setReading(false)
+    setReading(0)
 
     if ('error' in result) {
       setError(result.error)
@@ -65,7 +105,7 @@ function useItemFile(onLoad: (name: string, text: string) => void) {
     onLoad(baseName(file.name), result.text)
   }
 
-  return { error, reading, load }
+  return { error, reading: readingLabel(reading), load }
 }
 
 function useFileDrop(onFiles: (files: File[]) => void) {
@@ -93,15 +133,18 @@ function useFileDrop(onFiles: (files: File[]) => void) {
 
 function HiddenFileInput({
   disabled,
+  multiple,
   onFiles,
 }: {
   disabled: boolean
+  multiple?: boolean
   onFiles: (files: File[]) => void
 }) {
   return (
     <input
       type="file"
       accept={TEXT_FILE_ACCEPT}
+      multiple={multiple}
       disabled={disabled}
       onChange={(event) => {
         const files = Array.from(event.target.files ?? [])
@@ -117,18 +160,14 @@ function ItemFileField({ onText }: { onText: (text: string) => void }) {
   const { error, reading, load } = useItemFile((_name, text) => onText(text))
 
   return (
-    <Field
-      label="Carregar de um arquivo"
-      hint={reading ? 'Lendo o arquivo…' : editFileHint}
-      error={error}
-    >
+    <Field label="Carregar de um arquivo" hint={reading ?? editFileHint} error={error}>
       <span
         className={buttonClass('secondary', {
           size: 'sm',
           className: cx(pickerClass, 'self-start'),
         })}
       >
-        <HiddenFileInput disabled={reading} onFiles={(files) => void load(files)} />
+        <HiddenFileInput disabled={reading !== null} onFiles={(files) => void load(files)} />
         Escolher arquivo
       </span>
     </Field>
@@ -139,7 +178,7 @@ function ItemDropZone({
   reading,
   onFiles,
 }: {
-  reading: boolean
+  reading: string | null
   onFiles: (files: File[]) => void
 }) {
   const { over, dropProps } = useFileDrop(onFiles)
@@ -154,11 +193,11 @@ function ItemDropZone({
       )}
     >
       <p className="m-0 text-sm font-semibold text-ink">
-        {reading ? 'Lendo o arquivo…' : 'Arraste um arquivo de texto aqui'}
+        {reading ?? 'Arraste arquivos de texto aqui'}
       </p>
 
       <label className={buttonClass('secondary', { className: pickerClass })}>
-        <HiddenFileInput disabled={reading} onFiles={onFiles} />
+        <HiddenFileInput disabled={reading !== null} multiple onFiles={onFiles} />
         Escolher arquivo
       </label>
 
@@ -293,6 +332,130 @@ function NewItemForm({
         <FormActions align="start">
           <Button type="submit" loading={pending} loadingText="Cadastrando…">
             Cadastrar item
+          </Button>
+        </FormActions>
+      </Form>
+    </Panel>
+  )
+}
+
+export function ItemBatchPanel({
+  projectId,
+  batch: initial,
+  onClose,
+}: {
+  projectId: string
+  batch: ItemBatch
+  onClose: () => void
+}) {
+  const [state, submit, pending] = useActionState(createItems, initialBatchState)
+  const [batch, setBatch] = useState(initial)
+
+  if (state && 'ok' in state) {
+    return (
+      <Alert tone="success">
+        {`${plural(state.count, 'item cadastrado', 'itens cadastrados')}.`}
+      </Alert>
+    )
+  }
+
+  const { ready, refused } = batch
+  const limitError = itemBatchLimitError(batch)
+
+  function onSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const data = new FormData()
+    data.set('project_id', projectId)
+    for (const entry of ready) {
+      data.append('name', entry.name)
+      data.append('content', entry.content)
+    }
+    startTransition(() => submit(data))
+  }
+
+  return (
+    <Panel
+      tone="accent"
+      title={`Importar ${plural(ready.length + refused.length, 'arquivo', 'arquivos')}`}
+      action={
+        <Button variant="secondary" size="sm" onClick={onClose} disabled={pending}>
+          Cancelar
+        </Button>
+      }
+    >
+      <Form onSubmit={onSubmit} gap="sm">
+        <div className="flex flex-col gap-1">
+          <p className="m-0 text-[13px] font-semibold text-ink">
+            {plural(ready.length, 'item pronto para cadastrar', 'itens prontos para cadastrar')}
+            {refused.length > 0
+              ? ` · ${plural(refused.length, 'arquivo recusado', 'arquivos recusados')}`
+              : null}
+          </p>
+          <p className="m-0 text-xs text-muted">
+            Cada arquivo vira um item com o nome do arquivo como título. Para renomear, use
+            “Editar” no item depois de cadastrar.
+          </p>
+        </div>
+
+        {ready.length > 0 ? (
+          <ul
+            className={cx(
+              'm-0 flex list-none flex-col divide-y divide-line p-0',
+              'rounded-control border border-line bg-surface',
+              'max-h-[50vh] overflow-y-auto',
+            )}
+          >
+            {ready.map((entry) => (
+              <li key={entry.key} className="flex items-center gap-3 px-3 py-2">
+                <span className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1">
+                  <span className="min-w-0 text-sm font-semibold break-words text-ink">
+                    {entry.name}
+                  </span>
+                  {entry.duplicate ? (
+                    <Badge tone="warning">{DUPLICATE_LABEL[entry.duplicate]}</Badge>
+                  ) : null}
+                </span>
+                <Button
+                  variant="quiet"
+                  className="shrink-0"
+                  disabled={pending}
+                  aria-label={`Tirar “${entry.name}” do lote`}
+                  onClick={() => setBatch(removeFromBatch(batch, entry.key))}
+                >
+                  Tirar
+                </Button>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+
+        {refused.length > 0 ? (
+          <div className="flex flex-col gap-1.5">
+            <p className="m-0 text-[13px] font-semibold text-label">
+              Recusados (ficam de fora do cadastro)
+            </p>
+            <ul className="m-0 flex list-none flex-col gap-1 p-0 text-[13px] text-muted">
+              {refused.map((entry) => (
+                <li key={entry.key} className="flex flex-wrap gap-x-2">
+                  <span className="min-w-0 break-words">{entry.name}</span>
+                  <span>{`· ${entry.reason}`}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+
+        {limitError !== null ? <Alert tone="error">{limitError}</Alert> : null}
+        {state && 'error' in state ? <Alert tone="error">{state.error}</Alert> : null}
+
+        <FormActions align="start">
+          <Button
+            type="submit"
+            disabled={ready.length === 0 || limitError !== null}
+            loading={pending}
+            loadingText="Cadastrando…"
+          >
+            {`Cadastrar ${plural(ready.length, 'item', 'itens')}`}
           </Button>
         </FormActions>
       </Form>
@@ -462,14 +625,24 @@ export function ItemsEditor({
   items: InputItem[]
 }) {
   const [draft, setDraft] = useState<Draft | null>(null)
+  const [batch, setBatch] = useState<{ key: number; batch: ItemBatch } | null>(null)
   const [query, setQuery] = useState('')
   const [expandedId, setExpandedId] = useState<string | null>(null)
 
   function openDraft(name: string, content: string) {
+    setBatch(null)
     setDraft({ key: Date.now(), name, content })
   }
 
-  const { error, reading, load } = useItemFile(openDraft)
+  function openBatch(next: ItemBatch) {
+    setDraft(null)
+    setBatch({ key: Date.now(), batch: next })
+  }
+
+  const { error, reading, load } = useItemFile(openDraft, {
+    poolNames: items.map((item) => item.name),
+    onBatch: openBatch,
+  })
   const loadFiles = (files: File[]) => void load(files)
   const { over, dropProps } = useFileDrop(loadFiles)
 
@@ -524,8 +697,8 @@ export function ItemsEditor({
 
               {empty ? null : (
                 <label className={buttonClass('secondary', { className: pickerClass })}>
-                  <HiddenFileInput disabled={reading} onFiles={loadFiles} />
-                  {reading ? 'Lendo o arquivo…' : 'Importar arquivo'}
+                  <HiddenFileInput disabled={reading !== null} multiple onFiles={loadFiles} />
+                  {reading ?? 'Importar arquivo'}
                 </label>
               )}
 
@@ -540,6 +713,15 @@ export function ItemsEditor({
         )}
 
         {empty ? null : fileError}
+
+        {batch ? (
+          <ItemBatchPanel
+            key={batch.key}
+            projectId={projectId}
+            batch={batch.batch}
+            onClose={() => setBatch(null)}
+          />
+        ) : null}
 
         {draft ? (
           <NewItemPanel
@@ -585,3 +767,4 @@ export function ItemsEditor({
     </div>
   )
 }
+

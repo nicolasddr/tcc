@@ -1,4 +1,10 @@
-import { ITEM_CONTENT_MAX, ITEM_FILE_BYTES_MAX, ITEM_NAME_MAX } from '@/lib/limits'
+import {
+  ITEM_BATCH_BYTES_MAX,
+  ITEM_BATCH_MAX,
+  ITEM_CONTENT_MAX,
+  ITEM_FILE_BYTES_MAX,
+  ITEM_NAME_MAX,
+} from '@/lib/limits'
 
 const TEXT_EXTENSIONS = [
   '.txt',
@@ -79,8 +85,7 @@ export const ITEM_FILE_LIMIT_LABEL = `${megabytes(ITEM_FILE_BYTES_MAX)} MB`
 export const ITEM_FILE_FORMATS = `Formatos de texto (${TEXT_FILE_EXAMPLES}) e arquivos de código, até ${ITEM_FILE_LIMIT_LABEL}.`
 
 export const ITEM_FILE_NOTE =
-  'O conteúdo entra no formulário e continua editável antes de cadastrar; o arquivo em si não é guardado.'
-
+  'Um arquivo só entra no formulário e continua editável antes de cadastrar. Vários arquivos de uma vez viram um item cada, com o nome do arquivo como título. O arquivo em si não é guardado.'
 
 const FORMAT_REFUSED =
   `Este formato de arquivo não é aceito. Envie um arquivo de texto (${TEXT_FILE_EXAMPLES}) ` +
@@ -210,11 +215,7 @@ export async function readItemBatch(files: File[], poolNames: string[]): Promise
   }
 
   const inPool = new Set(poolNames.map(nameKey))
-  const timesInBatch = new Map<string, number>()
-  for (const entry of read) {
-    const key = nameKey(entry.name)
-    timesInBatch.set(key, (timesInBatch.get(key) ?? 0) + 1)
-  }
+  const timesInBatch = countNames(read)
 
   const ready: ItemBatchReady[] = read.map((entry) => {
     const key = nameKey(entry.name)
@@ -222,12 +223,45 @@ export async function readItemBatch(files: File[], poolNames: string[]): Promise
     return { ...entry, duplicate }
   })
 
+  return { ready: ready.sort(byName), refused: refused.sort(byName), bytes: batchBytes(ready) }
+}
+
+function countNames(entries: { name: string }[]): Map<string, number> {
+  const counts = new Map<string, number>()
+  for (const entry of entries) {
+    const key = nameKey(entry.name)
+    counts.set(key, (counts.get(key) ?? 0) + 1)
+  }
+  return counts
+}
+
+function batchBytes(entries: { name: string; content: string }[]): number {
   const encoder = new TextEncoder()
-  const bytes = ready.reduce(
+  return entries.reduce(
     (sum, entry) =>
       sum + encoder.encode(entry.name).length + encoder.encode(entry.content).length,
     0,
   )
+}
 
-  return { ready: ready.sort(byName), refused: refused.sort(byName), bytes }
+export function removeFromBatch(batch: ItemBatch, key: string): ItemBatch {
+  const rest = batch.ready.filter((entry) => entry.key !== key)
+  const counts = countNames(rest)
+  const ready = rest.map((entry) =>
+    entry.duplicate === 'batch' && counts.get(nameKey(entry.name)) === 1
+      ? { ...entry, duplicate: null }
+      : entry,
+  )
+  return { ready, refused: batch.refused, bytes: batchBytes(ready) }
+}
+
+export function itemBatchLimitError(batch: ItemBatch): string | null {
+  const count = batch.ready.length
+  if (count > ITEM_BATCH_MAX) {
+    return `O lote tem ${count} itens, e um lote pode ter no máximo ${ITEM_BATCH_MAX}. Tire alguns arquivos do lote e cadastre o restante em outro.`
+  }
+  if (batch.bytes > ITEM_BATCH_BYTES_MAX) {
+    return `Os ${count} itens somam ${megabytes(batch.bytes)} MB, e um lote pode ter no máximo ${megabytes(ITEM_BATCH_BYTES_MAX)} MB. Tire alguns arquivos do lote e cadastre o restante em outro.`
+  }
+  return null
 }
