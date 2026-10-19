@@ -1,4 +1,3 @@
-import { plural } from '@/lib/plural'
 import {
   isCodebookComplete,
   type CriterionScope,
@@ -10,7 +9,6 @@ export type WaitingState =
   | { key: 'codebook' }
   | { key: 'round' }
   | { key: 'responses'; roundNumber: number }
-  | { key: 'finished'; roundNumber: number; total: number }
 
 export type WaitingInputs = {
   phase: number
@@ -18,7 +16,6 @@ export type WaitingInputs = {
   criteria: readonly CriterionScope[]
   openRound: { roundNumber: number } | null
   total: number
-  evaluated: number
 }
 
 export function waitingState(inputs: WaitingInputs): WaitingState | null {
@@ -29,12 +26,8 @@ export function waitingState(inputs: WaitingInputs): WaitingState | null {
     return complete ? { key: 'round' } : { key: 'codebook' }
   }
 
-  const { roundNumber } = inputs.openRound
-
-  if (inputs.total === 0) return { key: 'responses', roundNumber }
-
-  if (inputs.evaluated >= inputs.total) {
-    return { key: 'finished', roundNumber, total: inputs.total }
+  if (inputs.total === 0) {
+    return { key: 'responses', roundNumber: inputs.openRound.roundNumber }
   }
 
   return null
@@ -56,12 +49,6 @@ export function waitingMessage(state: WaitingState): string {
       return (
         `A rodada ${state.roundNumber} foi aberta e ainda não tem resposta gerada. ` +
         'Está aguardando o administrador gerar as respostas.'
-      )
-    case 'finished':
-      return (
-        `Você terminou: ${plural(state.total, 'resposta avaliada', 'respostas avaliadas')} ` +
-        `na rodada ${state.roundNumber}. Agora a rodada aguarda o fechamento pelo ` +
-        'administrador.'
       )
   }
 }

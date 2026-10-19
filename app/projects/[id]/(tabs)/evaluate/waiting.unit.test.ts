@@ -19,7 +19,6 @@ function inputs(overrides: Partial<WaitingInputs> = {}): WaitingInputs {
     criteria,
     openRound: { roundNumber: 1 },
     total: 3,
-    evaluated: 1,
     ...overrides,
   }
 }
@@ -59,28 +58,15 @@ describe('app/projects/[id]/evaluate/waiting — o que a tela espera', () => {
   })
 
   it('com rodada aberta e nenhuma resposta, espera as respostas', () => {
-    expect(waitingState(inputs({ total: 0, evaluated: 0 }))).toEqual({
+    expect(waitingState(inputs({ total: 0 }))).toEqual({
       key: 'responses',
       roundNumber: 1,
     })
-  })
-
-  it('com tudo avaliado por mim, a espera é o fechamento da rodada', () => {
-    expect(waitingState(inputs({ total: 3, evaluated: 3, openRound: { roundNumber: 4 } }))).toEqual(
-      { key: 'finished', roundNumber: 4, total: 3 },
-    )
   })
 
   it('rodada aberta com codebook incompleto NÃO cai na espera do codebook', () => {
     expect(waitingState(inputs({ definitions: [], criteria: [] }))).toBeNull()
     expect(waitingState(inputs({ definitions: [], criteria: [], total: 0 }))).toEqual({
-      key: 'responses',
-      roundNumber: 1,
-    })
-  })
-
-  it('a rodada aberta e vazia vem antes de dizer que terminei', () => {
-    expect(waitingState(inputs({ total: 0, evaluated: 0 }))).toEqual({
       key: 'responses',
       roundNumber: 1,
     })
@@ -95,17 +81,5 @@ describe('app/projects/[id]/evaluate/waiting — a redação de cada espera', ()
       'gerar as respostas',
     )
     expect(waitingMessage({ key: 'responses', roundNumber: 2 })).toContain('rodada 2')
-  })
-
-  it('o fim da fila conta o que eu avaliei e diz que a rodada aguarda fechamento', () => {
-    expect(waitingMessage({ key: 'finished', roundNumber: 3, total: 1 })).toContain(
-      '1 resposta avaliada',
-    )
-    expect(waitingMessage({ key: 'finished', roundNumber: 3, total: 5 })).toContain(
-      '5 respostas avaliadas',
-    )
-    expect(waitingMessage({ key: 'finished', roundNumber: 3, total: 5 })).toContain(
-      'fechamento',
-    )
   })
 })

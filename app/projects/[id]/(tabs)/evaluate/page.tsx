@@ -37,7 +37,6 @@ import { InfoTooltip } from '@/app/components/ui/tooltip'
 
 type EvaluateView = {
   waiting: WaitingState | null
-  memberName: string
   roundNumber: number | null
   response: ResponseDetail | null
   label: string
@@ -45,18 +44,20 @@ type EvaluateView = {
   submitted: SubmittedEvaluation | null
   context: EvaluationContext | null
   progress: Progress
+  position: number
   prev: string | null
   next: string | null
   lastReview: ReviewableRound | null
 }
 
-const empty: Omit<EvaluateView, 'waiting' | 'memberName' | 'roundNumber'> = {
+const empty: Omit<EvaluateView, 'waiting' | 'roundNumber'> = {
   response: null,
   label: '',
   cells: [],
   submitted: null,
   context: null,
   progress: { evaluated: 0, total: 0 },
+  position: 0,
   prev: null,
   next: null,
   lastReview: null,
@@ -76,7 +77,7 @@ export default async function ProjectEvaluatePage({
   const userId = await requireUserId()
 
   const view = await transaction<EvaluateView>(async (tx) => {
-    const { project, memberId, memberName } = await requireEvaluator(id, userId, tx)
+    const { project, memberId } = await requireEvaluator(id, userId, tx)
 
     const round = await loadOpenRound(id, tx)
 
@@ -90,9 +91,7 @@ export default async function ProjectEvaluatePage({
           criteria: codebook.criteria,
           openRound: null,
           total: 0,
-          evaluated: 0,
         }),
-        memberName,
         roundNumber: null,
         ...empty,
         lastReview: (await listReviewableRounds(id, memberId, tx)).at(-1) ?? null,
@@ -110,24 +109,23 @@ export default async function ProjectEvaluatePage({
       criteria: codebook?.criteria ?? [],
       openRound: round,
       total: queue.length,
-      evaluated: evaluated.length,
     })
     const progress = { evaluated: evaluated.length, total: queue.length }
 
     const currentId = pickResponseId(queue, requested)
     if (!currentId) {
-      return { waiting, memberName, roundNumber: round.roundNumber, ...empty, progress }
+      return { waiting, roundNumber: round.roundNumber, ...empty, progress }
     }
 
     if (currentId !== requested) {
       redirect(`/projects/${id}/evaluate?response=${currentId}`)
     }
 
-    const current = queue.find((response) => response.id === currentId)!
+    const position = queue.findIndex((response) => response.id === currentId)
+    const current = queue[position]
 
     return {
       waiting,
-      memberName,
       roundNumber: round.roundNumber,
       response: await loadRoundResponse(round.id, currentId, tx),
       label: current.label,
@@ -135,34 +133,34 @@ export default async function ProjectEvaluatePage({
       submitted: await loadEvaluationOf(currentId, memberId, tx),
       context: await loadEvaluationContext(id, currentId, tx),
       progress,
+      position: position + 1,
       lastReview: null,
       ...neighbours(queue, currentId),
     }
   })
 
-  const { waiting, memberName, roundNumber, response, label, cells } = view
-  const { submitted, context, progress, prev, next, lastReview } = view
+  const { waiting, roundNumber, response, label, cells } = view
+  const { submitted, context, progress, position, prev, next, lastReview } = view
 
-  const held = waiting && waiting.key !== 'finished' ? waiting : null
   const route = `/projects/${id}/evaluate?response=`
-  const evaluating = !held && response !== null && cells.length > 0
+  const evaluating = !waiting && response !== null && cells.length > 0
 
   return (
     <Section
       title={roundNumber ? `Avaliar na rodada ${roundNumber}` : 'Avaliar respostas'}
-      help={`Avaliando como ${memberName}. Cada critério de cada definição do codebook desta rodada recebe nota; o envio é definitivo e não volta para edição.`}
       action={
         evaluating ? (
           <QueueNav
             prev={prev ? `${route}${prev}` : null}
             next={next ? `${route}${next}` : null}
+            position={{ current: position, total: progress.total }}
           />
         ) : null
       }
     >
-      {held ? (
+      {waiting ? (
         <div className="flex flex-col gap-3">
-          <EmptyState>{waitingMessage(held)}</EmptyState>
+          <EmptyState>{waitingMessage(waiting)}</EmptyState>
           {lastReview ? (
             <p className="m-0 text-center text-[13px] text-muted">
               <OpenLink href={`/projects/${id}/rounds/${lastReview.id}`}>
@@ -199,11 +197,6 @@ export default async function ProjectEvaluatePage({
             submitted={submitted}
             item={context ? <ItemPanel item={context.item} /> : null}
             prompt={context ? <PromptPanel prompt={context.prompt} /> : null}
-            footer={
-              waiting?.key === 'finished' ? (
-                <p className="m-0 text-[13px] text-muted">{waitingMessage(waiting)}</p>
-              ) : null
-            }
           />
         </div>
       )}

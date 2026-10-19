@@ -127,10 +127,17 @@ function render(id: string, response?: string, sent?: boolean) {
   })
 }
 
-function navOf(tree: unknown): { prev: string | null; next: string | null } {
+type NavProps = Parameters<typeof QueueNav>[0]
+
+function navPropsOf(tree: unknown): NavProps {
   const nav = findElement(tree, QueueNav)
   expect(nav).toBeTruthy()
-  return nav!.props as { prev: string | null; next: string | null }
+  return nav!.props as NavProps
+}
+
+function navOf(tree: unknown): { prev: string | null; next: string | null } {
+  const { prev, next } = navPropsOf(tree)
+  return { prev, next }
 }
 
 type SectionProps = Parameters<typeof Section>[0]
@@ -576,7 +583,7 @@ describe('app/projects/[id]/evaluate — a tela do avaliador', () => {
     const section = findElement(tree, Section)!.props as { hint?: unknown; help?: string }
 
     expect(section.hint).toBeUndefined()
-    expect(section.help).toContain('definitivo')
+    expect(section.help).toBeUndefined()
     expect(textOf(tree)).toContain('0 de 2 respostas avaliadas por você nesta rodada')
     expect(textOf(tree)).not.toContain('pode crescer')
     expect(findElement(tree, InfoTooltip)?.props).toEqual({ text: PROGRESS_HELP })
@@ -807,6 +814,26 @@ describe('app/projects/[id]/evaluate — a tela do avaliador', () => {
     })
   })
 
+  it('o controle diz em que posição da MINHA fila estou', async () => {
+    const admin = await newUser('Admin')
+    const scene = await scenario(admin, { responses: 5 })
+    const evaluator = await newEvaluator(scene.project)
+    const queue = await queueOf(scene, evaluator)
+
+    auth.userId = evaluator
+    expect(navPropsOf(await render(scene.project, queue[0])).position).toEqual({
+      current: 1,
+      total: 5,
+    })
+    expect(navPropsOf(await render(scene.project, queue[3])).position).toEqual({
+      current: 4,
+      total: 5,
+    })
+
+    const nav = navPropsOf(await render(scene.project, queue[2]))
+    expect(renderToStaticMarkup(createElement(QueueNav, nav))).toMatch(/>3 de 5</)
+  })
+
   it('com uma resposta só, nenhum controle leva a lugar nenhum', async () => {
     const admin = await newUser('Admin')
     const scene = await scenario(admin)
@@ -992,19 +1019,16 @@ describe('app/projects/[id]/evaluate — a tela do avaliador', () => {
     expect(panelMarkupOf(tree)).toMatch(/class="[^"]*whitespace-pre-wrap[^"]*"[^>]*>Linha 1/)
   })
 
-  it('o cabeçalho diz em nome de quem a avaliação está sendo feita', async () => {
+  it('o título da rodada não tem ⓘ', async () => {
     const admin = await newUser('Admin')
     const scene = await scenario(admin)
     const evaluator = await newEvaluator(scene.project, 'Marta Ribeiro')
 
     auth.userId = evaluator
     const tree = await open(scene.project)
-    expect(headingOf(tree)).not.toContain('Avaliando como')
-    const help = sectionOf(tree).help!
-    expect(help).toContain('Avaliando como Marta Ribeiro')
-    expect(help).toContain('Cada critério de cada definição do codebook desta rodada recebe nota')
-    expect(help).toContain('o envio é definitivo e não volta para edição')
-    expect(help.split(/\s+/).filter(Boolean).length).toBeLessThanOrEqual(25)
+    expect(headingOf(tree)).toBe('Avaliar na rodada 1')
+    expect(sectionOf(tree).help).toBeUndefined()
+    expect(textOf(tree)).not.toContain('Avaliando como')
   })
 
   it('anterior e próxima ficam na linha do título', async () => {
@@ -1256,7 +1280,7 @@ describe('app/projects/[id]/evaluate — a tela do avaliador', () => {
     expect(textOf(tree)).toContain('ainda não tem resposta gerada')
   })
 
-  it('com tudo avaliado, a faixa diz que terminei SEM esconder a última resposta', async () => {
+  it('com tudo avaliado, a última resposta continua à mostra, sem aviso de que terminei', async () => {
     const admin = await newUser('Admin')
     const scene = await scenario(admin, { responses: 2 })
     const evaluator = await newEvaluator(scene.project)
@@ -1271,15 +1295,10 @@ describe('app/projects/[id]/evaluate — a tela do avaliador', () => {
 
     expect(formOf(tree).response.id).toBe(scene.responses[1])
     expect(formOf(tree).submitted).not.toBeNull()
-    expect(text).not.toContain('Você terminou')
     expect(text).toContain('2 de 2 respostas avaliadas')
-
-    const footer = textOf(formOf(tree).footer)
-    expect(footer).toContain('Você terminou')
-    expect(footer).toContain('aguarda o fechamento')
-
-    const html = markupOf(formOf(tree))
-    expect(html.indexOf('Você terminou')).toBeGreaterThan(html.lastIndexOf('Sem justificativa.'))
+    expect(deepText(tree)).not.toContain('Você terminou')
+    expect(deepText(tree)).not.toContain('aguarda o fechamento')
+    expect(markupOf(formOf(tree))).not.toContain('Você terminou')
   })
 
   it('a barra de progresso conta só as MINHAS avaliações', async () => {

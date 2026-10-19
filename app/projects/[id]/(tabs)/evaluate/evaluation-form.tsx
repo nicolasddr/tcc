@@ -163,14 +163,12 @@ function Columns({
   label,
   item,
   prompt,
-  footer,
   children,
 }: {
   response: ResponseDetail
   label: string
   item: React.ReactNode
   prompt: React.ReactNode
-  footer: React.ReactNode
   children: React.ReactNode
 }) {
   return (
@@ -182,7 +180,6 @@ function Columns({
       </div>
       <div className="flex min-w-0 flex-col gap-4">
         {children}
-        {footer}
       </div>
     </div>
   )
@@ -196,7 +193,6 @@ export function EvaluationForm({
   submitted,
   item,
   prompt,
-  footer,
 }: {
   projectId: string
   response: ResponseDetail
@@ -205,7 +201,6 @@ export function EvaluationForm({
   submitted: SubmittedEvaluation | null
   item?: React.ReactNode
   prompt?: React.ReactNode
-  footer?: React.ReactNode
 }) {
   const [state, action, pending] = useActionState(submitEvaluation, initialState)
   const [values, setValues] = useState(() => storedValues(submitted))
@@ -238,7 +233,6 @@ export function EvaluationForm({
         label={label}
         item={item}
         prompt={prompt}
-        footer={footer}
       >
         <div className="flex flex-col gap-4">
           {sent ? <Alert tone="success">Avaliação enviada.</Alert> : null}
@@ -292,7 +286,6 @@ export function EvaluationForm({
         label={label}
         item={item}
         prompt={prompt}
-        footer={footer}
       >
       <Form action={action} gap="sm">
         <input type="hidden" name="project_id" value={projectId} />

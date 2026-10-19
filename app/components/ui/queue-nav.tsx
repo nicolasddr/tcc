@@ -22,11 +22,27 @@ function NavLink({ href, children }: { href: string | null; children: React.Reac
   )
 }
 
-export function QueueNav({ prev, next }: { prev: string | null; next: string | null }) {
+export function QueueNav({
+  prev,
+  next,
+  position,
+}: {
+  prev: string | null
+  next: string | null
+  position?: { current: number; total: number }
+}) {
   return (
-    <div className="flex flex-wrap gap-2">
+    <nav aria-label="Navegação entre respostas" className="flex flex-wrap items-center gap-2">
       <NavLink href={prev}>Resposta anterior</NavLink>
+      {position ? (
+        <span
+          aria-live="polite"
+          className="min-w-[4.5rem] text-center text-[13px] font-semibold whitespace-nowrap text-ink tabular-nums"
+        >
+          {`${position.current} de ${position.total}`}
+        </span>
+      ) : null}
       <NavLink href={next}>Próxima resposta</NavLink>
-    </div>
+    </nav>
   )
 }
