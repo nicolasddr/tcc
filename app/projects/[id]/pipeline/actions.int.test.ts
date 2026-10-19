@@ -20,6 +20,7 @@ import {
   savePrompt,
   savePromptMetadata,
   createItem,
+  createItems,
   updateItem,
   deleteItem,
   advancePhase,
@@ -48,6 +49,7 @@ import { loadItems } from '@/app/projects/[id]/pipeline/items'
 import { composeLlmInput } from '@/app/projects/[id]/pipeline/llm-input'
 import {
   readItemFile,
+  readItemBatch,
   ITEM_FILE_LIMIT_LABEL,
 } from '@/app/projects/[id]/pipeline/item-content'
 import {
@@ -64,6 +66,7 @@ import {
   CRITERION_DESCRIPTION_MAX,
   CRITERION_NAME_MAX,
   DEFINITION_DESCRIPTION_MAX,
+  ITEM_BATCH_MAX,
   ITEM_CONTENT_MAX,
   ITEM_FILE_BYTES_MAX,
   ITEM_NAME_MAX,
@@ -494,6 +497,7 @@ describe('app/projects/[id]/pipeline/actions — definições salvas de forma ve
       'savePrompt',
       'savePromptMetadata',
       'createItem',
+      'createItems',
       'updateItem',
       'deleteItem',
       'testPrompt',
@@ -1517,6 +1521,12 @@ describe('app/projects/[id]/pipeline/actions — item cadastrado a partir de arq
     return result.error
   }
 
+  async function readReason(file: File): Promise<string> {
+    const result = await readItemFile(file)
+    if ('text' in result) throw new Error('esperava recusa, veio texto')
+    return result.reason
+  }
+
   beforeEach(() => {
     users = []
     projs = []
@@ -1679,6 +1689,372 @@ describe('app/projects/[id]/pipeline/actions — item cadastrado a partir de arq
       ok: true,
     })
     expect((await itemsOf(project))[0].content).toHaveLength(ITEM_CONTENT_MAX)
+  })
+
+  it('cada recusa traz também um motivo curto, além da mensagem do arquivo', async () => {
+    expect(await readReason(textFile('foto.png', 'conteúdo'))).toBe('Formato não aceito')
+    expect(await readReason(textFile('README', 'conteúdo'))).toBe('Formato não aceito')
+    expect(await readReason(textFile('artigo.pdf', 'conteúdo'))).toBe('PDF e Word não são aceitos')
+    expect(await readReason(textFile('carta.docx', 'conteúdo'))).toBe('PDF e Word não são aceitos')
+    expect(await readReason(binaryFile('disfarcado.txt', [0xff, 0xfe, 0xc3, 0x28]))).toBe(
+      'Não é texto puro',
+    )
+    expect(await readReason(binaryFile('disfarcado.csv', [0x41, 0x00, 0x42]))).toBe(
+      'Não é texto puro',
+    )
+    expect(
+      await readReason(new File([new Uint8Array(ITEM_FILE_BYTES_MAX + 1)], 'grande.txt')),
+    ).toBe('Maior que 2 MB')
+    expect(await readReason(textFile('longo.txt', 'a'.repeat(ITEM_CONTENT_MAX + 1)))).toBe(
+      'Mais de 50.000 caracteres',
+    )
+    expect(await readReason(textFile('vazio.txt', ' \n\t '))).toBe('Arquivo vazio')
+  })
+})
+
+describe('app/projects/[id]/pipeline/actions — lote de arquivos', () => {
+  function textFile(name: string, content: string): File {
+    return new File([content], name, { type: 'text/plain' })
+  }
+
+  it('lê cada arquivo como no envio de um só e dá ao item o nome do arquivo sem extensão', async () => {
+    const batch = await readItemBatch(
+      [
+        textFile('consulta.md', '\uFEFF# Título\r\ncorpo'),
+        textFile('notas.v2.txt', 'notas'),
+        textFile(' Com espaços .txt', 'x'),
+      ],
+      [],
+    )
+
+    expect(batch.refused).toEqual([])
+    expect(batch.ready.map((e) => [e.name, e.content])).toEqual([
+      ['Com espaços', 'x'],
+      ['consulta', '# Título\ncorpo'],
+      ['notas.v2', 'notas'],
+    ])
+  })
+
+  it('ordena os prontos pelo nome, com os números em ordem numérica', async () => {
+    const batch = await readItemBatch(
+      ['Consulta 10.txt', 'consulta 2.txt', 'Bola.txt', 'Consulta 1.txt', 'Ábaco.txt'].map(
+        (nome) => textFile(nome, `conteúdo de ${nome}`),
+      ),
+      [],
+    )
+
+    expect(batch.ready.map((e) => e.name)).toEqual([
+      'Ábaco',
+      'Bola',
+      'Consulta 1',
+      'consulta 2',
+      'Consulta 10',
+    ])
+  })
+
+  it('separa os recusados com o motivo curto, sem derrubar os outros', async () => {
+    const batch = await readItemBatch(
+      [
+        textFile('b.txt', 'bê'),
+        textFile('artigo.pdf', 'conteúdo'),
+        textFile('foto.png', 'conteúdo'),
+        textFile('a.txt', 'á'),
+        textFile('vazio.txt', '  '),
+      ],
+      [],
+    )
+
+    expect(batch.ready.map((e) => e.name)).toEqual(['a', 'b'])
+    expect(batch.refused.map((e) => [e.name, e.reason])).toEqual([
+      ['artigo.pdf', 'PDF e Word não são aceitos'],
+      ['foto.png', 'Formato não aceito'],
+      ['vazio.txt', 'Arquivo vazio'],
+    ])
+  })
+
+  it('recusa o arquivo cujo nome sem extensão passa do limite ou fica em branco', async () => {
+    const longo = `${'a'.repeat(ITEM_NAME_MAX + 1)}.txt`
+    const noLimite = `${'b'.repeat(ITEM_NAME_MAX)}.txt`
+    const branco = '   .txt'
+
+    const batch = await readItemBatch(
+      [textFile(longo, 'x'), textFile(noLimite, 'y'), textFile(branco, 'z')],
+      [],
+    )
+
+    expect(batch.ready.map((e) => e.name)).toEqual(['b'.repeat(ITEM_NAME_MAX)])
+    expect(batch.refused.find((e) => e.name === longo)?.reason).toBe(
+      `Nome com mais de ${ITEM_NAME_MAX} caracteres`,
+    )
+    expect(batch.refused.find((e) => e.name === branco)?.reason).toBe('Nome em branco')
+    expect(batch.refused).toHaveLength(2)
+  })
+
+  it('marca o título que já existe no pool ou se repete no lote, sem recusar', async () => {
+    const batch = await readItemBatch(
+      [
+        'consulta 1.txt',
+        'Consulta 1.md',
+        'relatório.md',
+        'Nova.txt',
+        'Dup.txt',
+        'dup.md',
+        'Única.txt',
+      ].map((nome) => textFile(nome, 'conteúdo')),
+      ['Consulta 1', '  RELATÓRIO  '],
+    )
+
+    expect(batch.refused).toEqual([])
+    expect(
+      Object.fromEntries(batch.ready.map((e) => [`${e.name}|${e.content}`, e.duplicate])),
+    ).toEqual({
+      'consulta 1|conteúdo': 'pool',
+      'Consulta 1|conteúdo': 'pool',
+      'relatório|conteúdo': 'pool',
+      'Nova|conteúdo': null,
+      'Dup|conteúdo': 'batch',
+      'dup|conteúdo': 'batch',
+      'Única|conteúdo': null,
+    })
+  })
+
+  it('soma em bytes UTF-8 o nome e o conteúdo só dos prontos', async () => {
+    const batch = await readItemBatch(
+      [textFile('ação.txt', 'é'), textFile('b.txt', 'abc'), textFile('foto.png', 'x'.repeat(1000))],
+      [],
+    )
+
+    expect(batch.bytes).toBe(6 + 2 + 1 + 3)
+  })
+
+  it('dá a cada arquivo uma chave única e estável, mesmo com nomes iguais', async () => {
+    const files = [
+      textFile('a.txt', 'um'),
+      textFile('a.md', 'dois'),
+      textFile('a.txt', 'três'),
+      textFile('a.pdf', 'quatro'),
+      textFile('a.pdf', 'cinco'),
+    ]
+
+    const first = await readItemBatch(files, [])
+    const second = await readItemBatch(files, [])
+
+    const keys = [...first.ready, ...first.refused].map((e) => e.key)
+    expect(new Set(keys).size).toBe(5)
+    expect(second.ready.map((e) => e.key)).toEqual(first.ready.map((e) => e.key))
+    expect(second.refused.map((e) => e.key)).toEqual(first.refused.map((e) => e.key))
+    expect(Object.fromEntries(first.ready.map((e) => [e.content, e.key]))).toEqual(
+      Object.fromEntries(second.ready.map((e) => [e.content, e.key])),
+    )
+  })
+})
+
+function batchFd(
+  projectId: string,
+  items: { name?: string; content?: string }[],
+): FormData {
+  const form = new FormData()
+  form.set('project_id', projectId)
+  for (const item of items) {
+    if (item.name !== undefined) form.append('name', item.name)
+    if (item.content !== undefined) form.append('content', item.content)
+  }
+  return form
+}
+
+describe('app/projects/[id]/pipeline/actions — itens cadastrados em lote', () => {
+  let users: string[]
+  let projs: string[]
+
+  async function newUser(name?: string): Promise<string> {
+    const id = await createUser(ownerDb, name)
+    users.push(id)
+    return id
+  }
+  async function newProject(admin: string, opts: { phase?: number } = {}): Promise<string> {
+    const id = await seedProject(ownerDb, admin, 'Projeto de Teste', opts)
+    projs.push(id)
+    return id
+  }
+
+  beforeEach(() => {
+    users = []
+    projs = []
+    auth.userId = null
+  })
+  afterEach(async () => {
+    await cleanup(projs, users)
+  })
+
+  it('cadastra todos com o autor, na ordem enviada, depois dos que já estavam no pool', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin)
+    await addInputItem(ownerDb, project, admin, { name: 'Antigo' })
+
+    auth.userId = admin
+    const nomes = Array.from({ length: 20 }, (_, i) => `Consulta ${(i * 7) % 20}`)
+    const result = await createItems(
+      null,
+      batchFd(
+        project,
+        nomes.map((name) => ({ name, content: `conteúdo de ${name}` })),
+      ),
+    )
+    expect(result).toMatchObject({ ok: true, count: 20 })
+
+    await createItem(null, itemFd(project, { name: 'Depois', content: 'conteúdo' }))
+
+    const loaded = await loadItems(project)
+    expect(loaded.map((i) => i.name)).toEqual(['Antigo', ...nomes, 'Depois'])
+    expect(loaded[1].content).toBe(`conteúdo de ${nomes[0]}`)
+
+    const lote = (await itemsOf(project)).filter((i) => nomes.includes(i.name))
+    expect(lote.every((i) => i.createdBy === admin)).toBe(true)
+    expect(new Set(lote.map((i) => i.createdAt)).size).toBe(20)
+  })
+
+  it('normaliza CRLF e BOM de cada conteúdo', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin)
+
+    auth.userId = admin
+    await createItems(
+      null,
+      batchFd(project, [
+        { name: 'Um', content: '\uFEFFa\r\nb' },
+        { name: 'Dois', content: 'c\r\nd' },
+      ]),
+    )
+
+    expect((await itemsOf(project)).map((i) => i.content)).toEqual(['a\nb', 'c\nd'])
+  })
+
+  it('aceita nomes repetidos entre si e com o pool', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin)
+    await addInputItem(ownerDb, project, admin, { name: 'Repetido' })
+
+    auth.userId = admin
+    const result = await createItems(
+      null,
+      batchFd(project, [
+        { name: 'Repetido', content: 'um' },
+        { name: 'Repetido', content: 'dois' },
+      ]),
+    )
+    expect(result).toMatchObject({ ok: true, count: 2 })
+    expect((await itemsOf(project)).map((i) => i.name)).toEqual([
+      'Repetido',
+      'Repetido',
+      'Repetido',
+    ])
+  })
+
+  it('um item inválido recusa o lote inteiro, nada é gravado, e a mensagem nomeia o item', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin)
+    const bom = { name: 'Bom', content: 'conteúdo' }
+
+    auth.userId = admin
+    const semNome = await createItems(
+      null,
+      batchFd(project, [bom, { name: '  ', content: 'conteúdo' }]),
+    )
+    expect(semNome).toEqual({ error: 'Item 2: O nome do item é obrigatório.' })
+
+    const semConteudo = await createItems(
+      null,
+      batchFd(project, [bom, bom, { name: 'Vazio', content: ' \n\t ' }]),
+    )
+    expect(semConteudo).toEqual({ error: 'Item 3 (“Vazio”): O conteúdo do item é obrigatório.' })
+
+    const nomeLongo = await createItems(
+      null,
+      batchFd(project, [{ name: 'a'.repeat(ITEM_NAME_MAX + 1), content: 'conteúdo' }, bom]),
+    )
+    expect(nomeLongo).toEqual({ error: expect.stringContaining('Item 1') })
+    expect(nomeLongo).toEqual({ error: expect.stringContaining('máximo') })
+
+    const conteudoLongo = await createItems(
+      null,
+      batchFd(project, [bom, { name: 'Gigante', content: 'a'.repeat(ITEM_CONTENT_MAX + 1) }]),
+    )
+    expect(conteudoLongo).toEqual({ error: expect.stringContaining('Item 2 (“Gigante”)') })
+    expect(conteudoLongo).toEqual({
+      error: expect.stringContaining(String(ITEM_CONTENT_MAX + 1)),
+    })
+
+    expect(await itemsOf(project)).toHaveLength(0)
+  })
+
+  it('recusa lote vazio e lote com quantidades diferentes de nomes e conteúdos', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin)
+
+    auth.userId = admin
+    expect(await createItems(null, batchFd(project, []))).toEqual({
+      error: expect.stringContaining('Nenhum item'),
+    })
+    expect(
+      await createItems(
+        null,
+        batchFd(project, [{ name: 'Um', content: 'um' }, { name: 'Dois' }]),
+      ),
+    ).toEqual({ error: expect.stringContaining('incompleto') })
+
+    expect(await itemsOf(project)).toHaveLength(0)
+  })
+
+  it('recusa lote acima do limite de itens, dizendo o limite, e aceita exatamente o limite', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin)
+    const itens = (n: number) =>
+      Array.from({ length: n }, (_, i) => ({ name: `Item ${i}`, content: 'x' }))
+
+    auth.userId = admin
+    const acima = await createItems(null, batchFd(project, itens(ITEM_BATCH_MAX + 1)))
+    expect(acima).toEqual({ error: expect.stringContaining(`no máximo ${ITEM_BATCH_MAX} itens`) })
+    expect(acima).toEqual({ error: expect.stringContaining(String(ITEM_BATCH_MAX + 1)) })
+    expect(await itemsOf(project)).toHaveLength(0)
+
+    expect(await createItems(null, batchFd(project, itens(ITEM_BATCH_MAX)))).toMatchObject({
+      ok: true,
+      count: ITEM_BATCH_MAX,
+    })
+    expect(await itemsOf(project)).toHaveLength(ITEM_BATCH_MAX)
+  })
+
+  it('o Avaliador e quem não é do projeto recebem a recusa do cadastro, e nada é gravado', async () => {
+    const admin = await newUser('Admin')
+    const evaluator = await newUser('Avaliador')
+    const outsider = await newUser('De Fora')
+    const project = await newProject(admin)
+    await addActiveEvaluator(ownerDb, project, evaluator)
+
+    for (const user of [evaluator, outsider]) {
+      auth.userId = user
+      const denied = await createItems(
+        null,
+        batchFd(project, [{ name: 'Pirata', content: 'x' }]),
+      )
+      expect(denied).toEqual({ error: expect.stringContaining('administrador') })
+      expect(denied).toEqual(
+        await createItem(null, itemFd(project, { name: 'Pirata', content: 'x' })),
+      )
+    }
+
+    expect(await itemsOf(project)).toHaveLength(0)
+  })
+
+  it('na Fase 4 o lote é aceito, porque o pool continua aberto', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin, { phase: 4 })
+
+    auth.userId = admin
+    expect(
+      await createItems(null, batchFd(project, [{ name: 'Tardio', content: 'conteúdo' }])),
+    ).toMatchObject({ ok: true, count: 1 })
+    expect((await itemsOf(project)).map((i) => i.name)).toEqual(['Tardio'])
   })
 })
 

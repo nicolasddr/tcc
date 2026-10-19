@@ -22,7 +22,7 @@ import { LockIcon, PlusIcon, SearchIcon } from '@/app/components/ui/icons'
 import { cx } from '@/app/components/ui/cx'
 import { plural } from '@/lib/plural'
 import { ITEM_CONTENT_MAX, ITEM_NAME_MAX } from '@/lib/limits'
-import { readItemFile, ITEM_FILE_FORMATS, TEXT_FILE_ACCEPT } from './item-content'
+import { baseName, readItemFile, ITEM_FILE_FORMATS, TEXT_FILE_ACCEPT } from './item-content'
 
 const initialState: ItemState = null
 
@@ -40,11 +40,6 @@ const ONE_FILE =
 
 const FROZEN =
   'Já usado em uma rodada: editar ou remover mudaria o que os avaliadores viram, então este item não muda mais.'
-
-function baseName(fileName: string): string {
-  const dot = fileName.lastIndexOf('.')
-  return dot > 0 ? fileName.slice(0, dot) : fileName
-}
 
 function useItemFile(onLoad: (name: string, text: string) => void) {
   const [error, setError] = useState<string | null>(null)

@@ -60,6 +60,7 @@ import {
   CRITERION_NAME_MAX,
   DEFINITION_DESCRIPTION_MAX,
   DEFINITION_TITLE_MAX,
+  ITEM_BATCH_MAX,
   ITEM_NAME_MAX,
   PROMPT_CHANGE_LOG_MAX,
   PROMPT_DESCRIPTION_MAX,
@@ -616,19 +617,23 @@ const ITEM_USED =
 const ITEM_MISSING =
   'Este item não existe mais neste projeto. Recarregue a página para ver a lista atual.'
 
-function parseItemForm(formData: FormData): { error: string } | ParsedItem {
-  const name = String(formData.get('name') ?? '').trim()
+function parseItem(rawName: string, rawContent: string): { error: string } | ParsedItem {
+  const name = rawName.trim()
   if (!name) return { error: 'O nome do item é obrigatório.' }
   if (name.length > ITEM_NAME_MAX) {
     return { error: `O nome do item pode ter no máximo ${ITEM_NAME_MAX} caracteres.` }
   }
 
-  const content = normalizeItemContent(String(formData.get('content') ?? ''))
+  const content = normalizeItemContent(rawContent)
   if (!content.trim()) return { error: 'O conteúdo do item é obrigatório.' }
   const tooLong = itemContentError(content)
   if (tooLong) return { error: tooLong }
 
   return { name, content }
+}
+
+function parseItemForm(formData: FormData): { error: string } | ParsedItem {
+  return parseItem(String(formData.get('name') ?? ''), String(formData.get('content') ?? ''))
 }
 
 export async function createItem(
@@ -657,6 +662,74 @@ export async function createItem(
   revalidatePath(`/projects/${projectId}/items`)
   revalidatePath(`/projects/${projectId}`)
   return { ok: true, nonce: Date.now() }
+}
+
+export type ItemsState = { error: string } | { ok: true; nonce: number; count: number } | null
+
+const ITEM_BATCH_EMPTY = 'Nenhum item para cadastrar. Escolha os arquivos de novo.'
+
+const ITEM_BATCH_INCOMPLETE =
+  'O lote chegou incompleto: cada item precisa de um nome e de um conteúdo. Recarregue a página e escolha os arquivos de novo.'
+
+function batchTooLarge(count: number): string {
+  return `Um lote pode ter no máximo ${ITEM_BATCH_MAX} itens, e este tem ${count}. Cadastre o restante em outro lote.`
+}
+
+function batchItemLabel(position: number, name: string): string {
+  const trimmed = name.trim()
+  if (!trimmed) return `Item ${position}`
+  const shown = trimmed.length > 60 ? `${trimmed.slice(0, 60)}…` : trimmed
+  return `Item ${position} (“${shown}”)`
+}
+
+function parseItemBatch(formData: FormData): { error: string } | ParsedItem[] {
+  const names = formData.getAll('name').map(String)
+  const contents = formData.getAll('content').map(String)
+
+  if (names.length === 0 && contents.length === 0) return { error: ITEM_BATCH_EMPTY }
+  if (names.length !== contents.length) return { error: ITEM_BATCH_INCOMPLETE }
+  if (names.length > ITEM_BATCH_MAX) return { error: batchTooLarge(names.length) }
+
+  const items: ParsedItem[] = []
+  for (const [index, name] of names.entries()) {
+    const parsed = parseItem(name, contents[index])
+    if ('error' in parsed) {
+      return { error: `${batchItemLabel(index + 1, name)}: ${parsed.error}` }
+    }
+    items.push(parsed)
+  }
+  return items
+}
+
+export async function createItems(
+  _prev: ItemsState,
+  formData: FormData,
+): Promise<ItemsState> {
+  const userId = await requireUserId()
+
+  const projectId = String(formData.get('project_id') ?? '')
+  if (!projectId) return { error: 'Projeto inválido.' }
+
+  const parsed = parseItemBatch(formData)
+  if ('error' in parsed) return parsed
+
+  if (!(await isProjectAdmin(userId, projectId))) return { error: ITEM_CREATE_DENIED }
+
+  await transaction((tx) =>
+    tx.insert(inputItems).values(
+      parsed.map((item, index) => ({
+        projectId,
+        name: item.name,
+        content: item.content,
+        createdBy: userId,
+        createdAt: sql`now() + ${index}::integer * interval '1 microsecond'`,
+      })),
+    ),
+  )
+
+  revalidatePath(`/projects/${projectId}/items`)
+  revalidatePath(`/projects/${projectId}`)
+  return { ok: true, nonce: Date.now(), count: parsed.length }
 }
 
 type ItemOutcome = 'ok' | 'missing' | 'used'
