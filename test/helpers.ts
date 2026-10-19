@@ -207,7 +207,19 @@ export async function addOnboardingQuestion(
   return row.id
 }
 
-export type CriterionFixture = { name: string; description?: string | null }
+export type CriterionFixture = {
+  name: string
+  description?: string | null
+  levels?: Partial<Record<'high' | 'medium' | 'low', string>>
+}
+
+function levelColumns(criterion: CriterionFixture) {
+  return {
+    highDescription: criterion.levels?.high ?? null,
+    mediumDescription: criterion.levels?.medium ?? null,
+    lowDescription: criterion.levels?.low ?? null,
+  }
+}
 
 export type DefinitionFixture = {
   title: string
@@ -271,6 +283,7 @@ export async function addCodebookVersion(
         scope: 'specific',
         name: criterion.name,
         description: criterion.description ?? null,
+        ...levelColumns(criterion),
         orderIndex: order,
       })),
     ),
@@ -280,6 +293,7 @@ export async function addCodebookVersion(
       scope: 'general',
       name: criterion.name,
       description: criterion.description ?? null,
+      ...levelColumns(criterion),
       orderIndex: order,
     })),
     ...(opts.perResponseCriteria ?? []).map((criterion, order) => ({
@@ -288,6 +302,7 @@ export async function addCodebookVersion(
       scope: 'per_response',
       name: criterion.name,
       description: criterion.description ?? null,
+      ...levelColumns(criterion),
       orderIndex: order,
     })),
   ]

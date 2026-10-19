@@ -32,6 +32,7 @@ import {
   CodebookFields,
   ORDER_HELP,
   changesLabel,
+  serializeCriteria,
 } from '@/app/projects/[id]/pipeline/codebook-editor'
 import { VersionStatus } from '@/app/projects/[id]/pipeline/version-status'
 import { Button, buttonClass } from '@/app/components/ui/button'
@@ -1034,6 +1035,156 @@ describe('app/projects/[id]/codebook — a tela do codebook', () => {
     expect(changesLabel(2, true, true, true)).toBe(
       'Alterações não salvas: 2 definições alteradas · critérios gerais alterados · critérios por resposta alterados · observação alterada.',
     )
+  })
+
+  async function levelsScene(usedAt?: string) {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin, PHASE_2)
+    const versionId = await addCodebookVersion(ownerDb, project, admin, {
+      usedAt,
+      definitions: [
+        {
+          title: 'Informacional',
+          type: 'category',
+          criteria: [
+            {
+              name: 'Relevância',
+              levels: { high: 'mantém a intenção da pergunta', low: 'muda de assunto' },
+            },
+          ],
+        },
+      ],
+      generalCriteria: [{ name: 'Clareza', levels: { medium: 'às vezes confusa' } }],
+      perResponseCriteria: [{ name: 'Diversity' }],
+    })
+    auth.userId = admin
+    return { project, versionId }
+  }
+
+  function levelValues(html: string, level: string): string[] {
+    return [
+      ...html.matchAll(
+        new RegExp(`<textarea[^>]*name="criterion_level_${level}"[^>]*>([^<]*)</textarea>`, 'g'),
+      ),
+    ].map((match) => match[1])
+  }
+
+  function levelBlocks(html: string): string[] {
+    return html.split('<details').filter((chunk) => chunk.includes('criterion_level_high'))
+  }
+
+  function plainText(html: string): string {
+    return html
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+  }
+
+  it('em edição, cada critério traz os três campos de nível com os valores gravados', async () => {
+    const { project } = await levelsScene()
+    const html = await editingMarkup(project)
+
+    expect(levelValues(html, 'high')).toEqual(['mantém a intenção da pergunta', '', ''])
+    expect(levelValues(html, 'medium')).toEqual(['', 'às vezes confusa', ''])
+    expect(levelValues(html, 'low')).toEqual(['muda de assunto', '', ''])
+    expect(html.match(/name="criterion_name"/g)).toHaveLength(3)
+
+    for (const level of ['high', 'medium', 'low']) {
+      const tags = html.match(
+        new RegExp(`<textarea[^>]*name="criterion_level_${level}"[^>]*>`, 'g'),
+      )
+      for (const tag of tags!) expect(tag.toLowerCase()).toContain('maxlength="500"')
+    }
+  })
+
+  it('em edição, o bloco dos níveis diz quantos estão preenchidos e só abre se houver algum', async () => {
+    const { project } = await levelsScene()
+    const blocks = levelBlocks(await editingMarkup(project))
+
+    expect(blocks).toHaveLength(3)
+    expect(blocks.map((block) => / open=""/.test(block.slice(0, block.indexOf('>'))))).toEqual(
+      [true, true, false],
+    )
+    expect(blocks.map((block) => plainText(block).match(/Descrição dos níveis \(opcional\) · (\d) de 3/)?.[1])).toEqual(
+      ['2', '1', '0'],
+    )
+
+    const closed = blocks[2]
+    expect(closed).toContain('name="criterion_level_high"')
+    expect(closed).toContain('name="criterion_level_medium"')
+    expect(closed).toContain('name="criterion_level_low"')
+  })
+
+  it('em edição, cada campo de nível tem o rótulo da escala, e o ⓘ diz onde a descrição aparece', async () => {
+    const { project } = await levelsScene()
+    const [block] = levelBlocks(await editingMarkup(project))
+
+    const text = plainText(block)
+    expect(text.indexOf('Alto')).toBeGreaterThan(-1)
+    expect(text.indexOf('Médio')).toBeGreaterThan(text.indexOf('Alto'))
+    expect(text.indexOf('Baixo')).toBeGreaterThan(text.indexOf('Médio'))
+
+    const help = block.match(/<span [^>]*role="tooltip"[^>]*>([^<]*)<\/span>/)?.[1]
+    expect(help).toBe('Aparece para o avaliador ao passar o mouse no botão do nível.')
+  })
+
+  it('em edição, os critérios herdados não repetem a descrição dos níveis', async () => {
+    const { project } = await levelsScene()
+    const html = await editingMarkup(project)
+
+    expect(html).toContain('Herdados dos critérios gerais · 1')
+    expect(html.match(/às vezes confusa/g)).toHaveLength(1)
+  })
+
+  it('o exemplo da descrição do critério não sugere mais a âncora de um nível', async () => {
+    const { project } = await levelsScene()
+    const html = await editingMarkup(project)
+
+    expect(html).not.toContain('vale Alto quando a fonte é citada e verificável')
+    expect(html.match(/placeholder="Ex.: a resposta indica de onde veio a informação."/g)).toHaveLength(3)
+  })
+
+  it('mudar só a descrição de um nível conta como alteração do critério', () => {
+    const row = {
+      key: 0,
+      name: 'Relevância',
+      description: '',
+      levels: { high: 'mantém a intenção', medium: '', low: '' },
+    }
+
+    expect(serializeCriteria([row])).toBe(serializeCriteria([{ ...row, key: 1 }]))
+    expect(
+      serializeCriteria([{ ...row, levels: { ...row.levels, high: '  mantém a intenção \n' } }]),
+    ).toBe(serializeCriteria([row]))
+    for (const level of ['high', 'medium', 'low'] as const) {
+      expect(
+        serializeCriteria([{ ...row, levels: { ...row.levels, [level]: 'outro texto' } }]),
+      ).not.toBe(serializeCriteria([row]))
+    }
+  })
+
+  it('a leitura mostra a descrição só dos níveis preenchidos, no formato "Alto: …"', async () => {
+    const { project, versionId } = await levelsScene(new Date().toISOString())
+
+    const text = plainText(
+      renderToStaticMarkup(
+        createElement(DefinitionList, definitionsOf(await renderVersion(project, versionId))),
+      ),
+    )
+    expect(text).toContain('Relevância Alto: mantém a intenção da pergunta Baixo: muda de assunto')
+    expect(text.match(/Médio: às vezes confusa/g)).toHaveLength(1)
+    expect(text).not.toContain('Alto: muda')
+    expect(text.match(/Alto:/g)).toHaveLength(1)
+    expect(text.match(/Baixo:/g)).toHaveLength(1)
+    expect(text.match(/Médio:/g)).toHaveLength(1)
+  })
+
+  it('a leitura do codebook vigente também mostra os níveis', async () => {
+    const { project } = await levelsScene()
+    const text = plainText(await readingMarkup(project))
+
+    expect(text).toContain('Alto: mantém a intenção da pergunta')
+    expect(text).toContain('Baixo: muda de assunto')
   })
 
   it('cada linha do histórico traz a contagem de definições e de critérios', async () => {

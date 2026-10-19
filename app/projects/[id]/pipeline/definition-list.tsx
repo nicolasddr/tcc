@@ -10,6 +10,8 @@ import {
   perResponseCriteria,
 } from './criteria'
 import { preWrapClass } from '@/app/components/ui/prose'
+import { SCALE, scaleLabel } from '../(tabs)/evaluate/scale'
+import { ScaleMarker } from '../(tabs)/evaluate/scale-marker'
 
 export function DefinitionList({
   definitions,
@@ -93,6 +95,11 @@ export function DefinitionList({
 }
 
 function criterionItem(criterion: CodebookCriterion) {
+  const levels = SCALE.flatMap((level) => {
+    const text = criterion.levels[level]
+    return text ? [{ level, text }] : []
+  })
+
   return (
     <li key={criterion.id}>
       <span className="flex flex-wrap items-center gap-2">
@@ -103,6 +110,18 @@ function criterionItem(criterion: CodebookCriterion) {
         <p className={`m-0 mt-1 text-[13px] ${preWrapClass} text-muted`}>
           {criterion.description}
         </p>
+      ) : null}
+      {levels.length > 0 ? (
+        <ul className="m-0 mt-1.5 flex list-none flex-col gap-1 p-0">
+          {levels.map(({ level, text }) => (
+            <li key={level} className="flex items-baseline gap-2 text-[13px] text-muted">
+              <ScaleMarker value={level} />
+              <span className={preWrapClass}>
+                <span className="font-semibold text-label">{scaleLabel(level)}:</span> {text}
+              </span>
+            </li>
+          ))}
+        </ul>
       ) : null}
     </li>
   )

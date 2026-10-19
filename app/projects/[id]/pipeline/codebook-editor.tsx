@@ -46,12 +46,15 @@ import { codebookLockedMessage } from '../(tabs)/rounds/preconditions'
 import { isFrozen } from './freeze'
 import { FrozenNotice } from './frozen-notice'
 import { CodebookSummary } from './criteria-summary'
+import { SCALE, scaleLabel, type ScaleValue } from '../(tabs)/evaluate/scale'
+import { ScaleMarker } from '../(tabs)/evaluate/scale-marker'
 import {
   CODEBOOK_NOTE_MAX,
   CRITERION_DESCRIPTION_MAX,
   CRITERION_NAME_MAX,
   DEFINITION_DESCRIPTION_MAX,
   DEFINITION_TITLE_MAX,
+  LEVEL_DESCRIPTION_MAX,
 } from '@/lib/limits'
 
 const initialState: CodebookState = null
@@ -60,6 +63,7 @@ type CriterionRow = {
   key: number
   name: string
   description: string
+  levels: Record<ScaleValue, string>
 }
 
 type Row = {
@@ -73,7 +77,12 @@ type Row = {
 let nextKey = 0
 
 function newCriterion(): CriterionRow {
-  return { key: nextKey++, name: '', description: '' }
+  return {
+    key: nextKey++,
+    name: '',
+    description: '',
+    levels: { high: '', medium: '', low: '' },
+  }
 }
 
 function toCriterionRows(criteria: CodebookCriterion[]): CriterionRow[] {
@@ -81,6 +90,11 @@ function toCriterionRows(criteria: CodebookCriterion[]): CriterionRow[] {
     key: nextKey++,
     name: criterion.name,
     description: criterion.description ?? '',
+    levels: {
+      high: criterion.levels.high ?? '',
+      medium: criterion.levels.medium ?? '',
+      low: criterion.levels.low ?? '',
+    },
   }))
 }
 
@@ -105,9 +119,13 @@ function toRows(
   }))
 }
 
-function serializeCriteria(criteria: readonly CriterionRow[]): string {
+export function serializeCriteria(criteria: readonly CriterionRow[]): string {
   return JSON.stringify(
-    criteria.map((criterion) => [criterion.name.trim(), criterion.description.trim()]),
+    criteria.map((criterion) => [
+      criterion.name.trim(),
+      criterion.description.trim(),
+      ...SCALE.map((level) => criterion.levels[level].trim()),
+    ]),
   )
 }
 
@@ -176,6 +194,8 @@ const DESCRIPTION_HELP =
 
 const PER_RESPONSE_HELP =
   'Valem para a resposta inteira, e não para uma definição: cada um rende uma nota só por resposta.'
+
+const LEVELS_HELP = 'Aparece para o avaliador ao passar o mouse no botão do nível.'
 
 const NOTE_HELP =
   'Fica presa a esta versão e aparece no histórico. Salvar sem observação é permitido.'
@@ -250,6 +270,51 @@ function CodebookBody({
         <DefinitionList definitions={definitions} criteria={criteria} />
       )}
     </>
+  )
+}
+
+function LevelFields({
+  levels,
+  onChange,
+}: {
+  levels: Record<ScaleValue, string>
+  onChange: (next: Record<ScaleValue, string>) => void
+}) {
+  const filled = SCALE.filter((level) => levels[level].trim() !== '').length
+
+  return (
+    <Disclosure
+      className="mt-2.5"
+      defaultOpen={filled > 0}
+      summary={
+        <>
+          Descrição dos níveis (opcional) · {filled} de {SCALE.length}
+          <InfoTooltip text={LEVELS_HELP} />
+        </>
+      }
+    >
+      <div className="mt-2 flex flex-col gap-2.5">
+        {SCALE.map((level) => (
+          <Field
+            key={level}
+            label={
+              <span className="inline-flex items-center gap-1.5">
+                <ScaleMarker value={level} />
+                {scaleLabel(level)}
+              </span>
+            }
+          >
+            <Textarea
+              name={`criterion_level_${level}`}
+              rows={2}
+              maxLength={LEVEL_DESCRIPTION_MAX}
+              value={levels[level]}
+              onChange={(e) => onChange({ ...levels, [level]: e.target.value })}
+            />
+          </Field>
+        ))}
+      </div>
+    </Disclosure>
   )
 }
 
@@ -340,10 +405,15 @@ function CriterionFields({
                       onChange={(e) =>
                         update(criterion.key, { description: e.target.value })
                       }
-                      placeholder="Ex.: vale Alto quando a fonte é citada e verificável."
+                      placeholder="Ex.: a resposta indica de onde veio a informação."
                     />
                   </Field>
                 </div>
+
+                <LevelFields
+                  levels={criterion.levels}
+                  onChange={(levels) => update(criterion.key, { levels })}
+                />
               </Card>
             </li>
           ))}
