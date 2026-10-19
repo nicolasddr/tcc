@@ -39,6 +39,9 @@ import { listReviewableRounds } from './review'
 import { requireReviewAccess } from './review-access'
 import { AgreementPanel } from './agreement-panel'
 import { AgreementMatrixTable } from './agreement-matrix-table'
+import { matrixColumns } from './agreement-matrix'
+import { byDefinitionSummary } from './agreement-labels'
+import { CriterionAgreementTable } from './criterion-agreement-table'
 import { QualityPanel } from './quality-panel'
 import { QualityMatrixTable } from './quality-matrix-table'
 import {
@@ -66,6 +69,7 @@ import { llmModel } from '@/lib/ai'
 import { projectResponsesLeft, projectResponsesMax } from '@/lib/ai/quota'
 import { Section } from '@/app/components/ui/section'
 import { ButtonLink } from '@/app/components/ui/button'
+import { Disclosure } from '@/app/components/ui/disclosure'
 
 const EMPTY_SET: ReadonlySet<string> = new Set<string>()
 
@@ -194,6 +198,16 @@ export default async function ProjectRoundsPage({
   const focusExcluded = focusRound
     ? (outliers.get(focusRound.id) ?? EMPTY_SET)
     : EMPTY_SET
+  const focusDefinitions = focusCodebook?.definitions ?? []
+  const focusCriteria = focusCodebook?.criteria ?? []
+  const focusMatrix = focusRound ? (
+    <AgreementMatrixTable
+      definitions={focusDefinitions}
+      criteria={focusCriteria}
+      observations={focusObservations}
+      codebookVersionNumber={focusRound.codebookVersionNumber}
+    />
+  ) : null
   const responses = {
     all: evaluatedResponses(focusObservations),
     withoutOutliers: evaluatedResponses(
@@ -360,12 +374,26 @@ export default async function ProjectRoundsPage({
                 : {})}
             />
 
-            <AgreementMatrixTable
-              definitions={focusCodebook?.definitions ?? []}
-              criteria={focusCodebook?.criteria ?? []}
-              observations={focusObservations}
-              codebookVersionNumber={focusRound.codebookVersionNumber}
-            />
+            {focusDefinitions.length > 0 && focusCriteria.length > 0 ? (
+              <>
+                <CriterionAgreementTable
+                  definitions={focusDefinitions}
+                  criteria={focusCriteria}
+                  observations={focusObservations}
+                />
+
+                <Disclosure
+                  summary={byDefinitionSummary(
+                    focusDefinitions.length,
+                    matrixColumns(focusDefinitions, focusCriteria).length,
+                  )}
+                >
+                  <div className="mt-2">{focusMatrix}</div>
+                </Disclosure>
+              </>
+            ) : (
+              focusMatrix
+            )}
           </div>
         </Section>
       ) : null}

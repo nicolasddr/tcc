@@ -38,6 +38,7 @@ import {
   AgreementValue,
 } from '@/app/projects/[id]/(tabs)/rounds/agreement-panel'
 import { AgreementMatrixTable } from '@/app/projects/[id]/(tabs)/rounds/agreement-matrix-table'
+import { CriterionAgreementTable } from '@/app/projects/[id]/(tabs)/rounds/criterion-agreement-table'
 import { QualityMatrixTable } from '@/app/projects/[id]/(tabs)/rounds/quality-matrix-table'
 import { HOW_TO_READ_TABLE, HowToRead } from '@/app/projects/[id]/(tabs)/rounds/how-to-read'
 import {
@@ -57,10 +58,6 @@ import {
   AGREEMENT_WITHOUT_OUTLIERS_LABEL,
   BAND_REFERENCE,
   BAND_REFERENCE_LABEL,
-  ALL_DEFINITIONS_LABEL,
-  ALL_DEFINITIONS_LEGEND,
-  ALL_DEFINITIONS_NOTE,
-  CELL_ALL_DEFINITIONS_PER_RESPONSE_TITLE,
   CELL_NOT_APPLICABLE,
   CELL_NOT_APPLICABLE_TITLE,
   CELL_PER_RESPONSE_COLUMN_TITLE,
@@ -72,10 +69,13 @@ import {
   OUTLIER_PAIR_SUMMARY,
   SMALL_SAMPLE_HELP,
   CONCENTRATION_HELP,
+  CRITERION_TABLE_HELP,
+  CRITERION_TABLE_NOTE,
   matrixVersionNote,
 } from '@/app/projects/[id]/(tabs)/rounds/agreement-labels'
 import { Section } from '@/app/components/ui/section'
 import { Alert } from '@/app/components/ui/alert'
+import { Disclosure } from '@/app/components/ui/disclosure'
 import {
   DEACTIVATED_HELP,
   EFFORT_MORE_SUMMARY,
@@ -236,6 +236,7 @@ type GenerateProps = Parameters<typeof GenerateResponses>[0]
 type CardProps = Parameters<typeof OpenRoundCard>[0]
 type PanelProps = Parameters<typeof AgreementPanel>[0]
 type MatrixProps = Parameters<typeof AgreementMatrixTable>[0]
+type CriterionTableProps = Parameters<typeof CriterionAgreementTable>[0]
 type EvaluatorProps = Parameters<typeof EvaluatorRounds>[0]
 type QualityProps = Parameters<typeof QualityPanel>[0]
 type QualityMatrixProps = Parameters<typeof QualityMatrixTable>[0]
@@ -302,6 +303,24 @@ function matrixOf(tree: unknown): MatrixProps {
   const element = findElement(tree, AgreementMatrixTable)
   expect(element).toBeTruthy()
   return element!.props as MatrixProps
+}
+
+function criterionTableOf(tree: unknown): CriterionTableProps {
+  const element = findElement(tree, CriterionAgreementTable)
+  expect(element).toBeTruthy()
+  return element!.props as CriterionTableProps
+}
+
+function typeOrderOf(node: unknown, types: readonly unknown[]): unknown[] {
+  if (Array.isArray(node)) return node.flatMap((child) => typeOrderOf(child, types))
+  if (!isValidElement(node)) return []
+  const own = types.includes(node.type) ? [node.type] : []
+  return [
+    ...own,
+    ...Object.values(node.props as Record<string, unknown>).flatMap((value) =>
+      typeOrderOf(value, types),
+    ),
+  ]
 }
 
 function evaluatorRoundsOf(tree: unknown): EvaluatorProps {
@@ -413,6 +432,16 @@ function classNamesOf(element: ReactElement): string[] {
 
 function matrixTextOf(tree: unknown): string {
   return markupTextOf(createElement(AgreementMatrixTable, matrixOf(tree)))
+}
+
+function byDefinitionOf(tree: unknown): ReactElement {
+  const element = findElement(findSection(tree, AgreementMatrixTable), Disclosure)
+  expect(element).toBeTruthy()
+  return element!
+}
+
+function criterionTableTextOf(tree: unknown): string {
+  return markupTextOf(createElement(CriterionAgreementTable, criterionTableOf(tree)))
 }
 
 function qualityMatrixTextOf(tree: unknown): string {
@@ -2446,8 +2475,7 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     expect(text).toContain('-0,667')
   })
 
-  it('a linha “Todas as definições” traz o α sobre as notas das definições juntas, e não a média das células', async () => {
-    const admin = await newUser('Admin')
+  async function twoDefinitionsScene(admin: string): Promise<Scene> {
     const scene = await roundWith(admin, 3, { shape: TWO_DEFINITIONS })
     const ana = await newEvaluator(scene.project, 'Ana')
     const bruno = await newEvaluator(scene.project, 'Bruno')
@@ -2466,56 +2494,80 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
       })
     }
 
+    return scene
+  }
+
+  it('a Concordância abre com a tabela por critério, e a matriz por definição vem depois, recolhida', async () => {
+    const admin = await newUser('Admin')
+    const scene = await twoDefinitionsScene(admin)
+
     auth.userId = admin
     const tree = await render(scene.project)
-    const table = AgreementMatrixTable(matrixOf(tree))
-    const markup = renderToStaticMarkup(createElement(AgreementMatrixTable, matrixOf(tree)))
+    const section = findSection(tree, AgreementMatrixTable)
 
-    expect(rowTitlesOf(markup)).toEqual(['Informacional', 'Transacional', ALL_DEFINITIONS_LABEL])
-    expect(visibleTextOf(createElement(AgreementMatrixTable, matrixOf(tree)))).toContain('0,083')
-    expect(visibleTextOf(createElement(AgreementMatrixTable, matrixOf(tree)))).toContain(
-      ALL_DEFINITIONS_NOTE,
-    )
-    expect(markupTextOf(createElement(AgreementMatrixTable, matrixOf(tree)))).not.toContain(
-      '0,167',
-    )
-    expect(tooltipTextsOf(table)).toEqual([ALL_DEFINITIONS_LEGEND])
+    expect(section).toBe(findSection(tree, CriterionAgreementTable))
+    expect(
+      typeOrderOf(section, [
+        AgreementPanel,
+        CriterionAgreementTable,
+        Disclosure,
+        AgreementMatrixTable,
+      ]),
+    ).toEqual([AgreementPanel, CriterionAgreementTable, Disclosure, AgreementMatrixTable])
+
+    const disclosure = findElement(section, Disclosure)!
+    expect(findElement(disclosure, AgreementMatrixTable)).toBeTruthy()
+    expect(findElement(disclosure, CriterionAgreementTable)).toBeNull()
+    expect(opensClosed(disclosure)).toBe(true)
+    expect(glanceTextOf(disclosure)).toBe('Ver por definição (2 definições × 1 critério)')
+    expect(Object.keys(criterionTableOf(tree)).sort()).toEqual([
+      'criteria',
+      'definitions',
+      'observations',
+    ])
   })
 
-  it('cada célula traz as notas iguais no título, e a linha “Todas as definições” as mostra abaixo do α', async () => {
+  it('a tabela por critério traz o α sobre as notas das definições juntas, e não a média das células', async () => {
     const admin = await newUser('Admin')
-    const scene = await roundWith(admin, 3, { shape: TWO_DEFINITIONS })
-    const ana = await newEvaluator(scene.project, 'Ana')
-    const bruno = await newEvaluator(scene.project, 'Bruno')
-
-    const agree = ['low', 'medium', 'high'] as const
-    const disagree = ['high', 'medium', 'low'] as const
-    for (const [index, response] of scene.responses.entries()) {
-      await addEvaluation(ownerDb, scene.round, response, ana, {
-        cells: filled(scene.cells, agree[index]),
-      })
-      await addEvaluation(ownerDb, scene.round, response, bruno, {
-        cells: [
-          ...filled(cellsOf(scene, 'Informacional'), agree[index]),
-          ...filled(cellsOf(scene, 'Transacional'), disagree[index]),
-        ],
-      })
-    }
+    const scene = await twoDefinitionsScene(admin)
 
     auth.userId = admin
     const tree = await render(scene.project)
-    const markup = renderToStaticMarkup(createElement(AgreementMatrixTable, matrixOf(tree)))
-    const visible = visibleTextOf(createElement(AgreementMatrixTable, matrixOf(tree)))
+    const table = createElement(CriterionAgreementTable, criterionTableOf(tree))
+    const markup = renderToStaticMarkup(table)
 
+    expect(columnTitlesOf(markup)).toEqual(['Critério', 'ICR', 'Notas iguais', 'Notas'])
+    expect(rowTitlesOf(markup)).toEqual(['Clareza Geral'])
+    expect(visibleTextOf(table)).toBe(
+      'Critério ICR Notas iguais Notas Clareza Geral 0,083 66,7% ' +
+        'Alto 33,3% · Médio 33,3% · Baixo 33,3% 6 notas · 2 avaliadores ' +
+        `${CRITERION_TABLE_NOTE} i`,
+    )
+    expect(markupTextOf(table)).not.toContain('0,167')
+    expect(tooltipTextsOf(CriterionAgreementTable(criterionTableOf(tree)))).toEqual([
+      CRITERION_TABLE_HELP,
+    ])
+  })
+
+  it('a matriz por definição perde a linha “Todas as definições” e as notas iguais visíveis, e cada célula as mantém no título', async () => {
+    const admin = await newUser('Admin')
+    const scene = await twoDefinitionsScene(admin)
+
+    auth.userId = admin
+    const tree = await render(scene.project)
+    const matrix = createElement(AgreementMatrixTable, matrixOf(tree))
+    const markup = renderToStaticMarkup(matrix)
+
+    expect(rowTitlesOf(markup)).toEqual(['Informacional', 'Transacional'])
+    expect(markupTextOf(matrix)).not.toContain('Todas as definições')
+    expect(markupTextOf(matrix)).not.toContain('iguais')
+    expect(tooltipTextsOf(AgreementMatrixTable(matrixOf(tree)))).toEqual([])
     expect(markup).toContain('title="3 notas · 2 avaliadores · 100% de notas iguais"')
     expect(markup).toContain('title="3 notas · 2 avaliadores · 33,3% de notas iguais"')
-    expect(markup).toContain('title="6 notas · 2 avaliadores · 66,7% de notas iguais"')
-    expect(visible).toContain(`${ALL_DEFINITIONS_LABEL} 0,083 66,7% iguais`)
-    expect(visible).not.toContain('100% iguais')
-    expect(visible).not.toContain('33,3% iguais')
+    expect(markup).not.toContain('6 notas')
   })
 
-  it('com uma definição só, a matriz não ganha a linha “Todas as definições”', async () => {
+  it('com uma definição só, a tabela por critério também aparece', async () => {
     const admin = await newUser('Admin')
     const scene = await roundWith(admin, 2)
     const ana = await newEvaluator(scene.project, 'Ana')
@@ -2534,9 +2586,25 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     const tree = await render(scene.project)
     const markup = renderToStaticMarkup(createElement(AgreementMatrixTable, matrixOf(tree)))
 
-    expect(markupTextOf(createElement(AgreementMatrixTable, matrixOf(tree)))).toContain('1,000')
     expect(rowTitlesOf(markup)).toEqual(['Informacional'])
-    expect(markup).not.toContain(ALL_DEFINITIONS_LABEL)
+    expect(criterionTableTextOf(tree)).toContain('Clareza 1,000 100% Alto 50% · Médio 0% · Baixo 50%')
+    expect(glanceTextOf(byDefinitionOf(tree))).toBe(
+      'Ver por definição (1 definição × 1 critério)',
+    )
+  })
+
+  it('sem definição no codebook da rodada, a matriz diz que não há o que cruzar, sem tabela por critério nem recolher', async () => {
+    const admin = await newUser('Admin')
+    const scene = await roundWith(admin, 1, { shape: { definitions: [] } })
+
+    auth.userId = admin
+    const tree = await render(scene.project)
+    const section = findSection(tree, AgreementMatrixTable)
+
+    expect(section).toBeTruthy()
+    expect(findElement(section, CriterionAgreementTable)).toBeNull()
+    expect(findElement(section, Disclosure)).toBeNull()
+    expect(matrixTextOf(tree)).toContain('não tem definição e critério para cruzar')
   })
 
   it('o critério específico de uma definição é traço na linha da outra', async () => {
@@ -2577,7 +2645,6 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
       'Query 3',
       'Query 4',
       'Query 5',
-      ALL_DEFINITIONS_LABEL,
       PER_RESPONSE_LABEL,
     ])
     expect(columnTitlesOf(markup)).toEqual([
@@ -2587,9 +2654,31 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     ])
     expect(titleCountOf(markup, CELL_PER_RESPONSE_ROW_TITLE)).toBe(1)
     expect(titleCountOf(markup, CELL_PER_RESPONSE_COLUMN_TITLE)).toBe(5)
-    expect(titleCountOf(markup, CELL_ALL_DEFINITIONS_PER_RESPONSE_TITLE)).toBe(1)
     expect(titleCountOf(markup, CELL_NOT_APPLICABLE_TITLE)).toBe(0)
     expect(howToReadOf(AgreementMatrixTable(matrixOf(tree)))).toEqual([])
+  })
+
+  it('a tabela por critério traz o critério por resposta com o valor da linha “Por resposta”, e não o traço', async () => {
+    const admin = await newUser('Admin')
+    const scene = await perResponseScene(admin)
+
+    auth.userId = admin
+    const tree = await render(scene.project)
+    const table = createElement(CriterionAgreementTable, criterionTableOf(tree))
+    const matrix = createElement(AgreementMatrixTable, matrixOf(tree))
+
+    expect(rowTitlesOf(renderToStaticMarkup(table))).toEqual([
+      'Relevance Geral',
+      `Diversity ${PER_RESPONSE_LABEL}`,
+    ])
+    expect(visibleTextOf(table)).toContain('Relevance Geral 1,000 100%')
+    expect(visibleTextOf(table)).toContain('10 notas · 2 avaliadores')
+    expect(visibleTextOf(table)).toContain(`Diversity ${PER_RESPONSE_LABEL} 0,833 50%`)
+    expect(visibleTextOf(table)).not.toContain(CELL_NOT_APPLICABLE)
+    expect(markupTextOf(matrix)).toContain(`${PER_RESPONSE_LABEL} ${CELL_NOT_APPLICABLE} 0,833`)
+    expect(glanceTextOf(byDefinitionOf(tree))).toBe(
+      'Ver por definição (5 definições × 2 critérios)',
+    )
   })
 
   it('a matriz de Qualidade traz a linha “Por resposta” com a distribuição das notas por resposta', async () => {

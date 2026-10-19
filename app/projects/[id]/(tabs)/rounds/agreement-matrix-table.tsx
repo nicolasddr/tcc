@@ -1,6 +1,5 @@
 import { Badge } from '@/app/components/ui/badge'
 import { EmptyState } from '@/app/components/ui/empty-state'
-import { InfoTooltip } from '@/app/components/ui/tooltip'
 import type {
   CodebookCriterion,
   CodebookDefinition,
@@ -8,17 +7,12 @@ import type {
 import { PER_RESPONSE_LABEL } from '../../pipeline/criteria'
 import { PER_RESPONSE_KEY } from '../evaluate/completeness'
 import type { RoundObservation } from './agreement'
-import { agreementMatrix, allDefinitionsRow, type MatrixCell } from './agreement-matrix'
+import { agreementMatrix, type MatrixCell } from './agreement-matrix'
 import {
-  ALL_DEFINITIONS_LABEL,
-  ALL_DEFINITIONS_LEGEND,
-  ALL_DEFINITIONS_NOTE,
-  CELL_ALL_DEFINITIONS_PER_RESPONSE_TITLE,
   CELL_NOT_APPLICABLE,
   CELL_UNRATED_LABEL,
   agreementBand,
   bandTone,
-  cellEqualLabel,
   cellNotApplicableTitle,
   cellNotCalculableLabel,
   cellTitle,
@@ -28,11 +22,9 @@ import {
 function Cell({
   cell,
   notApplicableTitle,
-  showEqual = false,
 }: {
   cell: MatrixCell
   notApplicableTitle: string
-  showEqual?: boolean
 }) {
   if (cell.state === 'not_applicable') {
     return (
@@ -55,15 +47,6 @@ function Cell({
   ) : (
     <span className="text-muted">{cellNotCalculableLabel(agreement.reason)}</span>
   )
-
-  if (showEqual && profile) {
-    return (
-      <span className="flex flex-col items-start gap-0.5" title={title}>
-        {value}
-        <span className="text-[11.5px] text-muted">{cellEqualLabel(profile)}</span>
-      </span>
-    )
-  }
 
   return <span title={title}>{value}</span>
 }
@@ -89,9 +72,6 @@ export function AgreementMatrixTable({
   }
 
   const rows = agreementMatrix(definitions, criteria, observations)
-  const definitionRows = rows.filter((row) => row.definition !== null)
-  const perResponseRows = rows.filter((row) => row.definition === null)
-  const allDefinitions = allDefinitionsRow(definitions, criteria, observations)
   const columns = rows[0].cells.map((entry) => entry.column)
 
   const matrixRow = (row: (typeof rows)[number]) => (
@@ -149,39 +129,10 @@ export function AgreementMatrixTable({
             </tr>
           </thead>
           <tbody>
-            {definitionRows.map(matrixRow)}
-            {allDefinitions ? (
-              <tr>
-                <th
-                  scope="row"
-                  className="border-t-2 border-b border-line px-3 py-2 text-left font-semibold whitespace-nowrap text-ink"
-                >
-                  {ALL_DEFINITIONS_LABEL}
-                </th>
-                {allDefinitions.map((entry) => (
-                  <td
-                    key={entry.column.key}
-                    className="border-t-2 border-b border-line px-3 py-2 whitespace-nowrap"
-                  >
-                    <Cell
-                      cell={entry.cell}
-                      notApplicableTitle={CELL_ALL_DEFINITIONS_PER_RESPONSE_TITLE}
-                      showEqual
-                    />
-                  </td>
-                ))}
-              </tr>
-            ) : null}
-            {perResponseRows.map(matrixRow)}
+            {rows.map(matrixRow)}
           </tbody>
         </table>
       </div>
-
-      {allDefinitions ? (
-        <p className="m-0 text-xs text-muted">
-          {ALL_DEFINITIONS_NOTE} <InfoTooltip text={ALL_DEFINITIONS_LEGEND} />
-        </p>
-      ) : null}
     </div>
   )
 }

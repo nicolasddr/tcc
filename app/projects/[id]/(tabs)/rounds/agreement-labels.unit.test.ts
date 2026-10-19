@@ -2,21 +2,20 @@ import { describe, it, expect } from 'vitest'
 import {
   AGREEMENT_ALL_LABEL,
   AGREEMENT_BANDS,
-  ALL_DEFINITIONS_LABEL,
-  ALL_DEFINITIONS_LEGEND,
-  ALL_DEFINITIONS_NOTE,
-  CELL_ALL_DEFINITIONS_PER_RESPONSE_TITLE,
   AGREEMENT_SERIES_POINTS,
   AGREEMENT_WITHOUT_OUTLIERS_LABEL,
   AGREEMENT_SOURCE,
   BAND_REFERENCE,
   BAND_REFERENCE_LABEL,
+  BY_DEFINITION_LABEL,
   CELL_NOT_APPLICABLE,
   CELL_NOT_APPLICABLE_TITLE,
   CELL_PER_RESPONSE_COLUMN_TITLE,
   CELL_PER_RESPONSE_ROW_TITLE,
   CELL_UNRATED_LABEL,
   CONCENTRATION_HELP,
+  CRITERION_TABLE_HELP,
+  CRITERION_TABLE_NOTE,
   MATRIX_PER_RESPONSE_LEGEND,
   OUTLIER_PAIR_POINTS,
   OUTLIER_PAIR_RESULT,
@@ -27,10 +26,11 @@ import {
   agreementBand,
   bandLabel,
   bandTone,
-  cellEqualLabel,
+  byDefinitionSummary,
   cellNotCalculableLabel,
   cellTitle,
   concentrationWarning,
+  distributionLine,
   formatAlpha,
   matrixVersionLabel,
   matrixVersionNote,
@@ -235,14 +235,27 @@ describe('app/projects/[id]/rounds/agreement-labels — o coeficiente na tela', 
     expect(MATRIX_PER_RESPONSE_LEGEND).toContain('critério por resposta')
   })
 
-  it('a linha de todas as definições diz que é um alpha sobre as notas, e não a média das células', () => {
-    expect(ALL_DEFINITIONS_LABEL).toBe('Todas as definições')
-    expect(ALL_DEFINITIONS_NOTE).toContain(`“${ALL_DEFINITIONS_LABEL}”`)
-    expect(ALL_DEFINITIONS_NOTE).toContain('não a média das células')
-    expect(ALL_DEFINITIONS_LEGEND).toContain('que têm o critério')
-    expect(ALL_DEFINITIONS_LEGEND).not.toContain('média')
-    expect(CELL_ALL_DEFINITIONS_PER_RESPONSE_TITLE).toContain(`linha ${PER_RESPONSE_LABEL}`)
-    expect(CELL_ALL_DEFINITIONS_PER_RESPONSE_TITLE).not.toBe(CELL_PER_RESPONSE_COLUMN_TITLE)
+  it('a tabela por critério diz que junta as definições numa conta só, e não é a média das células', () => {
+    expect(CRITERION_TABLE_NOTE).toBe(
+      'Cada linha junta as notas do critério em todas as definições que o têm, numa conta só.',
+    )
+    expect(CRITERION_TABLE_HELP).toContain('não a média das células')
+    expect(CRITERION_TABLE_HELP).toContain(BY_DEFINITION_LABEL)
+    expect(CRITERION_TABLE_HELP).not.toContain('numa conta só')
+  })
+
+  it('o resumo da matriz recolhida conta as definições e os critérios', () => {
+    expect(BY_DEFINITION_LABEL).toBe('Ver por definição')
+    expect(byDefinitionSummary(5, 2)).toBe('Ver por definição (5 definições × 2 critérios)')
+    expect(byDefinitionSummary(1, 1)).toBe('Ver por definição (1 definição × 1 critério)')
+  })
+
+  it('a linha de todas as definições e os seus textos saíram', () => {
+    expect(labels).not.toHaveProperty('ALL_DEFINITIONS_LABEL')
+    expect(labels).not.toHaveProperty('ALL_DEFINITIONS_NOTE')
+    expect(labels).not.toHaveProperty('ALL_DEFINITIONS_LEGEND')
+    expect(labels).not.toHaveProperty('CELL_ALL_DEFINITIONS_PER_RESPONSE_TITLE')
+    expect(labels).not.toHaveProperty('cellEqualLabel')
   })
 
   it('a versão da matriz tem rótulo curto e frase inteira, as duas com o número da rodada', () => {
@@ -346,8 +359,10 @@ describe('app/projects/[id]/rounds/agreement-labels — notas iguais na matriz',
     expect(cellTitle({ units: 4, raters: 1 }, null)).toBe(sampleSize({ units: 4, raters: 1 }))
   })
 
-  it('o rótulo visível da linha de todas as definições é curto', () => {
-    expect(cellEqualLabel(profile(0.9, { 3: 1 }))).toBe('90% iguais')
-    expect(cellEqualLabel(profile(2 / 3, { 3: 1 }))).toBe('66,7% iguais')
+  it('a distribuição traz os três níveis na ordem da escala, sem as notas iguais', () => {
+    expect(distributionLine(CONCENTRATED)).toBe('Alto 94% · Médio 6% · Baixo 0%')
+    expect(distributionLine(profile(0.945, { 3: 0.5, 2: 0.255, 1: 0.245 }))).toBe(
+      'Alto 50% · Médio 25,5% · Baixo 24,5%',
+    )
   })
 })

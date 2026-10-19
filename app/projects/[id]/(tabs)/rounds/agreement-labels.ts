@@ -43,20 +43,22 @@ export const MATRIX_PER_RESPONSE_LEGEND =
   'colunas dos critérios de definição, e nas linhas das definições na coluna do critério ' +
   'por resposta.'
 
-export const ALL_DEFINITIONS_LABEL = 'Todas as definições'
+export const BY_DEFINITION_LABEL = 'Ver por definição'
 
-export const CELL_ALL_DEFINITIONS_PER_RESPONSE_TITLE =
-  `o critério por resposta já tem um valor só, na linha ${PER_RESPONSE_LABEL}`
+export const CRITERION_TABLE_NOTE =
+  'Cada linha junta as notas do critério em todas as definições que o têm, numa conta só.'
 
-export const ALL_DEFINITIONS_NOTE =
-  `A linha “${ALL_DEFINITIONS_LABEL}” é um α sobre as notas das definições juntas, e não ` +
-  'a média das células.'
+export const CRITERION_TABLE_HELP =
+  'É um α sobre essas notas, e não a média das células da matriz. Para ver se alguma ' +
+  `definição puxa o número para baixo, abra ${BY_DEFINITION_LABEL}. Quando as definições ` +
+  'são só posições (Query 1, Query 2…), a leitura é esta tabela.'
 
-export const ALL_DEFINITIONS_LEGEND =
-  'Em cada coluna, a conta junta as notas de todas as definições que têm o critério. Cada ' +
-  'nota continua comparada só com as notas da mesma resposta e da mesma definição. É a ' +
-  'leitura do critério quando as definições são posições (Pergunta 1, Pergunta 2…) e não ' +
-  'textos diferentes.'
+export function byDefinitionSummary(definitions: number, criteria: number): string {
+  return (
+    `${BY_DEFINITION_LABEL} (${plural(definitions, 'definição', 'definições')} × ` +
+    `${plural(criteria, 'critério', 'critérios')})`
+  )
+}
 
 export const OUTLIER_PAIR_SUMMARY =
   'Os dois valores saem do mesmo dado desta rodada, e o resultado da rodada continua ' +
@@ -164,10 +166,6 @@ export function cellTitle(
   return profile ? `${size} · ${formatShare(profile.equal)} de notas iguais` : size
 }
 
-export function cellEqualLabel(profile: AgreementProfile): string {
-  return `${formatShare(profile.equal)} iguais`
-}
-
 export function smallSampleWarning({
   raters,
   responses,
@@ -233,11 +231,14 @@ function levelShare(profile: AgreementProfile, value: ScaleValue): number {
   return profile.shares.get(scaleRank(value)) ?? 0
 }
 
+export function distributionLine(profile: AgreementProfile): string {
+  return SCALE.map(
+    (value) => `${scaleLabel(value)} ${formatShare(levelShare(profile, value))}`,
+  ).join(' · ')
+}
+
 export function profileLine(profile: AgreementProfile): string {
-  return [
-    `${formatShare(profile.equal)} de notas iguais`,
-    ...SCALE.map((value) => `${scaleLabel(value)} ${formatShare(levelShare(profile, value))}`),
-  ].join(' · ')
+  return `${formatShare(profile.equal)} de notas iguais · ${distributionLine(profile)}`
 }
 
 export function concentrationWarning(

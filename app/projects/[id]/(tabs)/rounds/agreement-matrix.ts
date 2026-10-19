@@ -98,27 +98,6 @@ export function matrixColumns<C extends CriterionKey>(
   ]
 }
 
-export function allDefinitionsRow<C extends CriterionKey>(
-  definitions: readonly DefinitionKey[],
-  criteria: readonly C[],
-  observations: readonly RoundObservation[],
-): { column: MatrixColumn<C>; cell: MatrixCell }[] | null {
-  if (definitions.length < 2) return null
-
-  const byCell = groupByCell(observations)
-
-  return matrixColumns(definitions, criteria).map((column) => {
-    if (column.isPerResponse) return { column, cell: { state: 'not_applicable' } as const }
-
-    const group = [...column.criteria].flatMap(
-      ([definitionId, criterion]) => byCell.get(cellKey(definitionId, criterion.id)) ?? [],
-    )
-    if (group.length === 0) return { column, cell: { state: 'unrated' } as const }
-
-    return { column, cell: measureAgreement(group) }
-  })
-}
-
 export type MeasuredCell<V> =
   | { state: 'not_applicable' }
   | { state: 'unrated' }
@@ -156,6 +135,24 @@ export function measuredMatrix<D extends DefinitionKey, C extends CriterionKey, 
   }))
 }
 
+export function measuredByColumn<C extends CriterionKey, V>(
+  definitions: readonly DefinitionKey[],
+  criteria: readonly C[],
+  observations: readonly RoundObservation[],
+  measure: (group: readonly RoundObservation[]) => V,
+): { column: MatrixColumn<C>; cell: MeasuredCell<V> }[] {
+  const byCell = groupByCell(observations)
+
+  return matrixColumns(definitions, criteria).map((column) => {
+    const group = [...column.criteria].flatMap(
+      ([definitionId, criterion]) => byCell.get(cellKey(definitionId, criterion.id)) ?? [],
+    )
+    if (group.length === 0) return { column, cell: { state: 'unrated' } as const }
+
+    return { column, cell: { state: 'measured', value: measure(group) } as const }
+  })
+}
+
 function measureAgreement(group: readonly RoundObservation[]): MatrixCell {
   return { state: 'calculated', agreement: ordinalAlpha(group), profile: agreementProfile(group) }
 }
@@ -174,4 +171,14 @@ export function agreementMatrix<D extends DefinitionKey, C extends CriterionKey>
     definition: row.definition,
     cells: row.cells.map(({ column, cell }) => ({ column, cell: agreementCell(cell) })),
   }))
+}
+
+export function criterionCells<C extends CriterionKey>(
+  definitions: readonly DefinitionKey[],
+  criteria: readonly C[],
+  observations: readonly RoundObservation[],
+): { column: MatrixColumn<C>; cell: MatrixCell }[] {
+  return measuredByColumn(definitions, criteria, observations, measureAgreement).map(
+    ({ column, cell }) => ({ column, cell: agreementCell(cell) }),
+  )
 }

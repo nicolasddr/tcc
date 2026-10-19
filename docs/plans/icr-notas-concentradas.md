@@ -20,7 +20,11 @@ arquivos diferentes, com uma exceção: as duas editam `docs/icr-como-calculamos
 `docs/CONTEXT.md`, em seções diferentes. Quem commitar por último confere o arquivo antes. A
 Parte 3 depende das duas.
 
-**Decisões ⚠ D1, D4 e D6 precisam de confirmação antes da Parte em que entram.**
+**Decisões ⚠ D1, D4 e D6 confirmadas pelo usuário em 2026-10-19**, as três na opção recomendada.
+Não perguntar de novo.
+
+**A linha "Todas as definições" (D6, Partes 2 e 3) é substituída por `icr-por-criterio.md`**: no
+pé da matriz, ela lia como total ou média.
 
 ---
 
