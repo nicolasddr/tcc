@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import * as labels from '@/app/projects/[id]/(tabs)/rounds/quality-labels'
 import {
+  QUALITY_CRITERION_LEGEND,
   QUALITY_HINT,
   QUALITY_MATRIX_LEGEND,
   QUALITY_POINTS,
@@ -19,6 +20,7 @@ import {
   CELL_NOT_APPLICABLE,
   CELL_NOT_APPLICABLE_TITLE,
   CELL_UNRATED_LABEL,
+  BY_DEFINITION_LABEL,
 } from '@/app/projects/[id]/(tabs)/rounds/agreement-labels'
 
 const JUDGEMENT_WORDS = [
@@ -72,6 +74,7 @@ describe('app/projects/[id]/rounds/quality-labels — a Qualidade na tela', () =
   it('a varredura de palavras de juízo alcança as frases da matriz e da série', () => {
     expect(exportedStrings()).toEqual(
       expect.arrayContaining([
+        QUALITY_CRITERION_LEGEND,
         QUALITY_MATRIX_LEGEND,
         QUALITY_SERIES_HINT,
         ...QUALITY_SERIES_POINTS,
@@ -108,6 +111,15 @@ describe('app/projects/[id]/rounds/quality-labels — a Qualidade na tela', () =
     expect(QUALITY_MATRIX_LEGEND).toContain(`“${CELL_NOT_APPLICABLE}”`)
     expect(QUALITY_MATRIX_LEGEND).toContain(CELL_NOT_APPLICABLE_TITLE)
     expect(QUALITY_MATRIX_LEGEND).toContain('não vale 0%')
+  })
+
+  it('a legenda da tabela por critério diz que as definições se juntam numa soma, e não numa média, e onde está a matriz', () => {
+    expect(QUALITY_CRITERION_LEGEND).toBe(
+      'Na tabela por critério, cada linha junta as notas do critério em todas as definições ' +
+        'que o têm; o critério por resposta traz as notas dele. As contagens são a soma das ' +
+        'células da coluna na matriz, e as porcentagens saem desse total, e não da média das ' +
+        `células. A matriz por definição fica em ${BY_DEFINITION_LABEL}.`,
+    )
   })
 
   it('a legenda da matriz diz que o par vem com todos primeiro', () => {

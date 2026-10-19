@@ -2,10 +2,12 @@ import { describe, it, expect } from 'vitest'
 import type { Scope } from '@/app/projects/[id]/pipeline/criteria'
 import {
   agreementMatrix,
+  matrixColumns,
   type MeasuredCell,
   type MeasuredRow,
 } from '@/app/projects/[id]/(tabs)/rounds/agreement-matrix'
 import {
+  qualityByCriterion,
   qualityMatrix,
   qualityOf,
   qualityPair,
@@ -297,5 +299,150 @@ describe('qualityMatrix — a linha por resposta', () => {
     })
     expect(pair.excluded).toBe(1)
     expect(pairOf(rows[0], 'Relevance').all.total).toBe(4)
+  })
+})
+
+describe('qualityByCriterion — uma linha por critério, juntando as definições', () => {
+  const navegacional: Definition = { id: 'd3', title: 'Navegacional' }
+  const three = [informacional, transacional, navegacional]
+
+  type Entry = ReturnType<typeof qualityByCriterion<Criterion>>[number]
+
+  function entryOf(entries: readonly Entry[], name: string): Entry {
+    const found = entries.find((entry) => entry.column.name === name)
+    if (!found) throw new Error(`critério ${name} não está na tabela`)
+    return found
+  }
+
+  function measuredOf(entries: readonly Entry[], name: string): QualityPair {
+    const { cell } = entryOf(entries, name)
+    if (cell.state !== 'measured') throw new Error(`critério ${name} sem nota`)
+    return cell.value
+  }
+
+  it('o critério geral em três definições soma as contagens das três células', () => {
+    const criteria = [criterion('g1', null)]
+    const d1 = ratings('d1', 'g1', { ana: ['high', 'high'], bruno: ['high', 'medium'] })
+    const d2 = ratings('d2', 'g1', { ana: ['low'], bruno: ['medium'] })
+    const d3 = ratings('d3', 'g1', { ana: ['low', 'low', 'high'], bruno: ['low', 'medium', 'high'] })
+
+    const entries = qualityByCriterion(three, criteria, [...d1, ...d2, ...d3], NONE)
+    const pair = measuredOf(entries, 'g1')
+
+    const matrix = qualityMatrix(three, criteria, [...d1, ...d2, ...d3], NONE)
+    const counts = matrix.map((row) =>
+      pairOf(row, 'g1').all.rated ? pairOf(row, 'g1').all : null,
+    )
+    const summed = ['high', 'medium', 'low'].map((value) =>
+      counts.reduce(
+        (total, quality) =>
+          total +
+          (quality && quality.rated
+            ? quality.levels.find((level) => level.value === value)!.count
+            : 0),
+        0,
+      ),
+    )
+
+    expect(pair.all).toEqual({
+      rated: true,
+      total: 12,
+      levels: [
+        { value: 'high', count: 5, share: 5 / 12 },
+        { value: 'medium', count: 3, share: 3 / 12 },
+        { value: 'low', count: 4, share: 4 / 12 },
+      ],
+    })
+    expect(pair.all.rated && pair.all.levels.map((level) => level.count)).toEqual(summed)
+    expect(pair.withoutOutliers).toBeNull()
+    expect(pair.excluded).toBe(0)
+  })
+
+  it('com avaliador marcado, o sem os marcados sai das notas juntas sem ele, e o com todos não muda', () => {
+    const criteria = [criterion('g1', null)]
+    const observations = [
+      ...ratings('d1', 'g1', { ana: ['high'], bruno: ['high'], carla: ['low'] }),
+      ...ratings('d2', 'g1', { ana: ['medium'], bruno: ['high'], carla: ['low'] }),
+    ]
+    const excluded = new Set(['carla'])
+
+    const pair = measuredOf(
+      qualityByCriterion([informacional, transacional], criteria, observations, excluded),
+      'g1',
+    )
+
+    expect(pair.all).toEqual(qualityOf(observations))
+    expect(pair.withoutOutliers).toEqual({
+      rated: true,
+      total: 4,
+      levels: [
+        { value: 'high', count: 3, share: 0.75 },
+        { value: 'medium', count: 1, share: 0.25 },
+        { value: 'low', count: 0, share: 0 },
+      ],
+    })
+    expect(pair.excluded).toBe(1)
+  })
+
+  it('específicos de mesmo nome juntam só as definições que têm o critério', () => {
+    const criteria = [
+      criterion('c1', 'd1', 'Aderência à definição'),
+      criterion('c3', 'd3', 'Aderência à definição'),
+    ]
+    const own = [
+      ...ratings('d1', 'c1', { ana: ['high', 'high'] }),
+      ...ratings('d3', 'c3', { ana: ['low'] }),
+    ]
+    const stray = ratings('d2', 'c1', { ana: ['medium', 'medium', 'medium'] })
+
+    const entries = qualityByCriterion(three, criteria, [...own, ...stray], NONE)
+
+    expect(entries).toHaveLength(1)
+    expect(measuredOf(entries, 'Aderência à definição').all).toEqual(qualityOf(own))
+  })
+
+  it('o critério por resposta é igual à célula dele na linha “Por resposta”', () => {
+    const queries: Definition[] = [1, 2].map((n) => ({ id: `q${n}`, title: `Query ${n}` }))
+    const criteria = [criterion('relevance', null, 'Relevance'), perResponse('diversity', 'Diversity')]
+    const observations = [
+      ...ratings('q1', 'relevance', { ana: ['low'], bruno: ['low'] }),
+      ...ratings(null, 'diversity', { ana: ['high', 'medium'], bruno: ['high', 'low'] }),
+    ]
+    const excluded = new Set(['bruno'])
+
+    const entries = qualityByCriterion(queries, criteria, observations, excluded)
+    const matrix = qualityMatrix(queries, criteria, observations, excluded)
+    const perResponseRow = matrix.find((row) => row.definition === null)!
+
+    expect(entryOf(entries, 'Diversity').cell).toEqual(cellOf(perResponseRow, 'Diversity'))
+    expect(measuredOf(entries, 'Diversity').all.total).toBe(4)
+  })
+
+  it('critério que ninguém avaliou fica sem nota, e não vira distribuição vazia', () => {
+    const criteria = [criterion('g1', null), criterion('c1', 'd1')]
+
+    const entries = qualityByCriterion(
+      [informacional],
+      criteria,
+      ratings('d1', 'g1', { ana: ['high'] }),
+      NONE,
+    )
+
+    expect(entryOf(entries, 'c1').cell).toEqual({ state: 'unrated' })
+  })
+
+  it('a ordem segue as colunas da matriz: gerais, específicos e por resposta', () => {
+    const criteria = [
+      perResponse('p1'),
+      criterion('c2', 'd2'),
+      criterion('g1', null),
+      criterion('c1', 'd1'),
+    ]
+    const definitions = [informacional, transacional]
+
+    const entries = qualityByCriterion(definitions, criteria, [], NONE)
+
+    expect(entries.map((entry) => entry.column)).toEqual(matrixColumns(definitions, criteria))
+    expect(entries.map((entry) => entry.column.name)).toEqual(['g1', 'c1', 'c2', 'p1'])
   })
 })

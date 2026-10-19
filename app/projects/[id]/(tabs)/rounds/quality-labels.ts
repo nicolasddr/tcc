@@ -6,6 +6,7 @@ import { formatShare, shareNumber } from './share'
 import {
   AGREEMENT_ALL_LABEL,
   AGREEMENT_WITHOUT_OUTLIERS_LABEL,
+  BY_DEFINITION_LABEL,
   CELL_NOT_APPLICABLE,
   CELL_NOT_APPLICABLE_TITLE,
   CELL_UNRATED_LABEL,
@@ -28,6 +29,12 @@ export const QUALITY_POINTS: readonly string[] = [
   'A ferramenta não fixa um alvo para essa distribuição nem diz se o valor basta: quem ' +
     'conhece a tarefa é quem lê o número.',
 ]
+
+export const QUALITY_CRITERION_LEGEND =
+  'Na tabela por critério, cada linha junta as notas do critério em todas as definições ' +
+  'que o têm; o critério por resposta traz as notas dele. As contagens são a soma das ' +
+  'células da coluna na matriz, e as porcentagens saem desse total, e não da média das ' +
+  `células. A matriz por definição fica em ${BY_DEFINITION_LABEL}.`
 
 export const QUALITY_MATRIX_LEGEND =
   'Na matriz, cada célula traz a distribuição das notas daquela definição × critério ' +

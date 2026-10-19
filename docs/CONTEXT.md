@@ -187,13 +187,16 @@ Evitar: "comentário" (sugere uma conversa com respostas, que não é o que exis
 **Qualidade**
 Quanto as notas dos avaliadores ficam em Alto: a distribuição de Alto, Médio e Baixo sobre as notas
 de uma rodada das Fases 3 ou 4, lida como porcentagem, na rodada inteira, por célula e na série das
-rodadas dessas duas fases. Não existe meta de qualidade. É uma dimensão independente da Concordância, e as
-duas aparecem separadas na UI. A ferramenta mostra a distribuição e **não diz se a qualidade está
-boa**: não há regra de "resposta que atinge os critérios", nem veredito, nem cor de aprovado. Quem
-decide se o padrão foi atingido é o Administrador. Só é leitura confiável quando o ICR está alto,
-porque notas em que os avaliadores discordam não dizem nada sobre a LLM. Como o ICR, respeita a marca
-de Outlier (com todos e sem os marcados, juntos) e não aparece para o Avaliador. Não aparece nas
-rodadas da Fase 2, em que a pergunta é outra.
+rodadas dessas duas fases. Na tela da rodada, a Qualidade abre **por critério**: cada linha junta as
+notas daquele critério em todas as definições que o têm, somando as contagens, e não tirando a média
+das células; a matriz por definição fica recolhida em *Ver por definição*. Não existe meta de
+qualidade. É uma dimensão independente da Concordância, e as duas aparecem separadas na UI. A
+ferramenta mostra a distribuição e **não diz se a qualidade está boa**: não há regra de "resposta
+que atinge os critérios", nem veredito, nem cor de aprovado. Quem decide se o padrão foi atingido é
+o Administrador. Só é leitura confiável quando o ICR está alto, porque notas em que os avaliadores
+discordam não dizem nada sobre a LLM. Como o ICR, respeita a marca de Outlier (com todos e sem os
+marcados, juntos) e não aparece para o Avaliador. Não aparece nas rodadas da Fase 2, em que a
+pergunta é outra.
 
 ## Projeto e processo
 

@@ -43,7 +43,8 @@ import { matrixColumns } from './agreement-matrix'
 import { byDefinitionSummary } from './agreement-labels'
 import { CriterionAgreementTable } from './criterion-agreement-table'
 import { QualityPanel } from './quality-panel'
-import { QualityMatrixTable } from './quality-matrix-table'
+import { QualityMatrixNotes, QualityMatrixTable } from './quality-matrix-table'
+import { CriterionQualityTable } from './criterion-quality-table'
 import {
   QUALITY_SECTION_ID,
   hasReadingGuidance,
@@ -200,11 +201,24 @@ export default async function ProjectRoundsPage({
     : EMPTY_SET
   const focusDefinitions = focusCodebook?.definitions ?? []
   const focusCriteria = focusCodebook?.criteria ?? []
+  const focusByDefinition = byDefinitionSummary(
+    focusDefinitions.length,
+    matrixColumns(focusDefinitions, focusCriteria).length,
+  )
   const focusMatrix = focusRound ? (
     <AgreementMatrixTable
       definitions={focusDefinitions}
       criteria={focusCriteria}
       observations={focusObservations}
+      codebookVersionNumber={focusRound.codebookVersionNumber}
+    />
+  ) : null
+  const focusQualityMatrix = focusRound ? (
+    <QualityMatrixTable
+      definitions={focusDefinitions}
+      criteria={focusCriteria}
+      observations={focusObservations}
+      excluded={focusExcluded}
       codebookVersionNumber={focusRound.codebookVersionNumber}
     />
   ) : null
@@ -382,12 +396,7 @@ export default async function ProjectRoundsPage({
                   observations={focusObservations}
                 />
 
-                <Disclosure
-                  summary={byDefinitionSummary(
-                    focusDefinitions.length,
-                    matrixColumns(focusDefinitions, focusCriteria).length,
-                  )}
-                >
+                <Disclosure summary={focusByDefinition}>
                   <div className="mt-2">{focusMatrix}</div>
                 </Disclosure>
               </>
@@ -413,13 +422,27 @@ export default async function ProjectRoundsPage({
           <div className="flex flex-col gap-4">
             <QualityPanel pair={focusQuality} />
 
-            <QualityMatrixTable
-              definitions={focusCodebook?.definitions ?? []}
-              criteria={focusCodebook?.criteria ?? []}
-              observations={focusObservations}
-              excluded={focusExcluded}
-              codebookVersionNumber={focusRound.codebookVersionNumber}
-            />
+            {focusDefinitions.length > 0 && focusCriteria.length > 0 ? (
+              <>
+                <CriterionQualityTable
+                  definitions={focusDefinitions}
+                  criteria={focusCriteria}
+                  observations={focusObservations}
+                  excluded={focusExcluded}
+                />
+
+                <Disclosure summary={focusByDefinition}>
+                  <div className="mt-2">{focusQualityMatrix}</div>
+                </Disclosure>
+
+                <QualityMatrixNotes
+                  criteria={focusCriteria}
+                  codebookVersionNumber={focusRound.codebookVersionNumber}
+                />
+              </>
+            ) : (
+              focusQualityMatrix
+            )}
           </div>
         </Section>
       ) : null}

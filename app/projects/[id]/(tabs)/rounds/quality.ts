@@ -2,7 +2,14 @@ import { SCALE, scaleRank, type ScaleValue } from '../evaluate/scale'
 import { PHASE_3 } from '../../pipeline/preconditions'
 import type { RoundObservation } from './agreement'
 import { withoutExcluded } from './agreement-pair'
-import { measuredMatrix, type CriterionKey, type MeasuredRow } from './agreement-matrix'
+import {
+  measuredByColumn,
+  measuredMatrix,
+  type CriterionKey,
+  type MatrixColumn,
+  type MeasuredCell,
+  type MeasuredRow,
+} from './agreement-matrix'
 import type { DefinitionKey } from '../../pipeline/criteria'
 
 export type QualityLevel = { value: ScaleValue; count: number; share: number }
@@ -55,6 +62,17 @@ export function qualityMatrix<D extends DefinitionKey, C extends CriterionKey>(
   excluded: ReadonlySet<string>,
 ): MeasuredRow<D, C, QualityPair>[] {
   return measuredMatrix(definitions, criteria, observations, (group) =>
+    qualityPair(group, excluded),
+  )
+}
+
+export function qualityByCriterion<C extends CriterionKey>(
+  definitions: readonly DefinitionKey[],
+  criteria: readonly C[],
+  observations: readonly RoundObservation[],
+  excluded: ReadonlySet<string>,
+): { column: MatrixColumn<C>; cell: MeasuredCell<QualityPair> }[] {
+  return measuredByColumn(definitions, criteria, observations, (group) =>
     qualityPair(group, excluded),
   )
 }

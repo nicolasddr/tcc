@@ -4,96 +4,20 @@ import type {
   CodebookCriterion,
   CodebookDefinition,
 } from '../../pipeline/codebook'
-import { PER_RESPONSE_LABEL } from '../../pipeline/criteria'
+import { PER_RESPONSE_LABEL, perResponseCriteria } from '../../pipeline/criteria'
 import { PER_RESPONSE_KEY } from '../evaluate/completeness'
 import type { RoundObservation } from './agreement'
-import type { MeasuredCell } from './agreement-matrix'
-import { qualityMatrix, type Quality, type QualityPair } from './quality'
-import { QualityBar, QualityScaleLegend } from './quality-bar'
+import { qualityMatrix } from './quality'
+import { QualityScaleLegend } from './quality-bar'
+import { QualityCell } from './quality-cell'
+import { QUALITY_CRITERION_LEGEND, QUALITY_MATRIX_LEGEND } from './quality-labels'
 import {
-  QUALITY_MATRIX_LEGEND,
-  QUALITY_UNRATED,
-  QUALITY_UNRATED_WITHOUT_OUTLIERS,
-  levelShares,
-  levelsText,
-} from './quality-labels'
-import {
-  AGREEMENT_ALL_LABEL,
-  AGREEMENT_WITHOUT_OUTLIERS_LABEL,
-  CELL_NOT_APPLICABLE,
-  CELL_UNRATED_LABEL,
   MATRIX_PER_RESPONSE_LEGEND,
   cellNotApplicableTitle,
   matrixVersionLabel,
   matrixVersionNote,
 } from './agreement-labels'
 import { HowToRead } from './how-to-read'
-
-function Levels({
-  label,
-  quality,
-  unrated,
-}: {
-  label?: string
-  quality: Quality
-  unrated: string
-}) {
-  return (
-    <span
-      className="flex min-w-24 flex-col gap-1"
-      title={quality.rated ? levelsText(quality.levels) : undefined}
-    >
-      {label ? <span className="text-[11px] text-muted">{label}</span> : null}
-      {quality.rated ? (
-        <>
-          <QualityBar levels={quality.levels} size="sm" />
-          <span className="text-xs whitespace-nowrap text-muted tabular-nums">
-            {levelShares(quality.levels)}
-          </span>
-        </>
-      ) : (
-        <span className="text-muted">{unrated}</span>
-      )}
-    </span>
-  )
-}
-
-function Cell({
-  cell,
-  notApplicableTitle,
-}: {
-  cell: MeasuredCell<QualityPair>
-  notApplicableTitle: string
-}) {
-  if (cell.state === 'not_applicable') {
-    return (
-      <span className="text-muted" title={notApplicableTitle}>
-        {CELL_NOT_APPLICABLE}
-      </span>
-    )
-  }
-
-  if (cell.state === 'unrated') {
-    return <span className="text-muted">{CELL_UNRATED_LABEL}</span>
-  }
-
-  const { all, withoutOutliers } = cell.value
-
-  if (!withoutOutliers) {
-    return <Levels quality={all} unrated={QUALITY_UNRATED} />
-  }
-
-  return (
-    <span className="flex flex-col gap-2">
-      <Levels label={AGREEMENT_ALL_LABEL} quality={all} unrated={QUALITY_UNRATED} />
-      <Levels
-        label={AGREEMENT_WITHOUT_OUTLIERS_LABEL}
-        quality={withoutOutliers}
-        unrated={QUALITY_UNRATED_WITHOUT_OUTLIERS}
-      />
-    </span>
-  )
-}
 
 export function QualityMatrixTable({
   definitions,
@@ -121,63 +45,73 @@ export function QualityMatrixTable({
   const columns = rows[0].cells.map((entry) => entry.column)
 
   return (
-    <div className="flex flex-col gap-2">
-      <div className="overflow-x-auto">
-        <table className="w-full border-collapse text-[13px]">
-          <thead>
-            <tr>
+    <div className="overflow-x-auto">
+      <table className="w-full border-collapse text-[13px]">
+        <thead>
+          <tr>
+            <th
+              scope="col"
+              className="border-b border-line px-3 py-2 text-left align-bottom text-[11px] font-semibold tracking-[0.06em] text-muted uppercase"
+            >
+              Definição
+            </th>
+            {columns.map((column) => (
               <th
+                key={column.key}
                 scope="col"
-                className="border-b border-line px-3 py-2 text-left align-bottom text-[11px] font-semibold tracking-[0.06em] text-muted uppercase"
+                className="border-b border-line px-3 py-2 text-left align-bottom font-semibold whitespace-nowrap text-label"
               >
-                Definição
+                <span className="flex items-center gap-1.5">
+                  {column.name}
+                  {column.isGeneral ? <Badge tone="neutral">Geral</Badge> : null}
+                  {column.isPerResponse ? (
+                    <Badge tone="neutral">{PER_RESPONSE_LABEL}</Badge>
+                  ) : null}
+                </span>
               </th>
-              {columns.map((column) => (
-                <th
-                  key={column.key}
-                  scope="col"
-                  className="border-b border-line px-3 py-2 text-left align-bottom font-semibold whitespace-nowrap text-label"
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <tr key={row.definition?.id ?? PER_RESPONSE_KEY}>
+              <th
+                scope="row"
+                className="border-b border-line px-3 py-2 text-left align-top font-semibold text-ink"
+              >
+                {row.definition?.title ?? PER_RESPONSE_LABEL}
+              </th>
+              {row.cells.map((entry) => (
+                <td
+                  key={entry.column.key}
+                  className="border-b border-line px-3 py-2 align-top"
                 >
-                  <span className="flex items-center gap-1.5">
-                    {column.name}
-                    {column.isGeneral ? <Badge tone="neutral">Geral</Badge> : null}
-                    {column.isPerResponse ? (
-                      <Badge tone="neutral">{PER_RESPONSE_LABEL}</Badge>
-                    ) : null}
-                  </span>
-                </th>
+                  <QualityCell
+                    cell={entry.cell}
+                    notApplicableTitle={cellNotApplicableTitle(
+                      row.definition === null,
+                      entry.column.isPerResponse,
+                    )}
+                  />
+                </td>
               ))}
             </tr>
-          </thead>
-          <tbody>
-            {rows.map((row) => (
-              <tr key={row.definition?.id ?? PER_RESPONSE_KEY}>
-                <th
-                  scope="row"
-                  className="border-b border-line px-3 py-2 text-left align-top font-semibold text-ink"
-                >
-                  {row.definition?.title ?? PER_RESPONSE_LABEL}
-                </th>
-                {row.cells.map((entry) => (
-                  <td
-                    key={entry.column.key}
-                    className="border-b border-line px-3 py-2 align-top"
-                  >
-                    <Cell
-                      cell={entry.cell}
-                      notApplicableTitle={cellNotApplicableTitle(
-                        row.definition === null,
-                        entry.column.isPerResponse,
-                      )}
-                    />
-                  </td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
 
+export function QualityMatrixNotes({
+  criteria,
+  codebookVersionNumber,
+}: {
+  criteria: CodebookCriterion[]
+  codebookVersionNumber: number
+}) {
+  return (
+    <div className="flex flex-col gap-2">
       <QualityScaleLegend suffix="em %" />
 
       <p className="m-0 text-xs text-muted">{matrixVersionLabel(codebookVersionNumber)}</p>
@@ -185,8 +119,9 @@ export function QualityMatrixTable({
       <HowToRead
         paragraphs={[
           matrixVersionNote(codebookVersionNumber),
+          QUALITY_CRITERION_LEGEND,
           QUALITY_MATRIX_LEGEND,
-          ...(rows.some((row) => row.definition === null) ? [MATRIX_PER_RESPONSE_LEGEND] : []),
+          ...(perResponseCriteria(criteria).length > 0 ? [MATRIX_PER_RESPONSE_LEGEND] : []),
         ]}
       />
     </div>
