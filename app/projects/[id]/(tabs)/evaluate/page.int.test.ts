@@ -21,6 +21,7 @@ vi.mock('next/navigation', () => ({
 
 import ProjectEvaluatePage from '@/app/projects/[id]/(tabs)/evaluate/page'
 import { EvaluationForm } from '@/app/projects/[id]/(tabs)/evaluate/evaluation-form'
+import { ScaleOptions } from '@/app/projects/[id]/(tabs)/evaluate/scale-options'
 import { ItemPanel, PromptPanel } from '@/app/projects/[id]/(tabs)/evaluate/context-panel'
 import { formatDate } from '@/app/notifications/labels'
 import { QueueNav } from '@/app/components/ui/queue-nav'
@@ -58,6 +59,7 @@ import {
   addEvaluation,
   memberId as memberIdOf,
   cleanup,
+  type CriterionFixture,
 } from '@/test/helpers'
 
 function findElement(node: unknown, type: unknown): ReactElement | null {
@@ -218,10 +220,10 @@ describe('app/projects/[id]/evaluate — a tela do avaliador', () => {
       definitions?: {
         title: string
         description?: string
-        criteria?: { name: string; description?: string }[]
+        criteria?: CriterionFixture[]
       }[]
-      generalCriteria?: { name: string; description?: string }[]
-      perResponseCriteria?: { name: string; description?: string }[]
+      generalCriteria?: CriterionFixture[]
+      perResponseCriteria?: CriterionFixture[]
       responses?: number
       phase?: number
       openRound?: boolean
@@ -388,6 +390,115 @@ describe('app/projects/[id]/evaluate — a tela do avaliador', () => {
       expect(button).toContain('bg-quality-high')
       expect(button).not.toMatch(/(?:bg|text)-(?:success|warning|danger)/)
     }
+  })
+
+  describe('a descrição do nível', () => {
+    async function described() {
+      const admin = await newUser('Admin')
+      const scene = await scenario(admin, {
+        definitions: [
+          {
+            title: 'Informacional',
+            criteria: [
+              {
+                name: 'Relevância',
+                levels: { high: 'mantém a intenção', low: 'muda de assunto' },
+              },
+            ],
+          },
+        ],
+      })
+      const evaluator = await newEvaluator(scene.project)
+
+      auth.userId = evaluator
+      return formOf(await open(scene.project))
+    }
+
+    function buttonsOf(html: string): Record<string, string> {
+      const buttons: Record<string, string> = {}
+      for (const button of html.match(/<button[^>]*aria-pressed[^>]*>[\s\S]*?<\/button>/g) ?? []) {
+        const label = /(Alto|Médio|Baixo)<\/button>$/.exec(button)
+        if (label) buttons[label[1]] = button
+      }
+      return buttons
+    }
+
+    function tooltipOf(html: string, id: string): string | null {
+      const escaped = id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+      return (
+        new RegExp(`<span[^>]*id="${escaped}"[^>]*>([\\s\\S]*?)</span>`).exec(html)?.[0] ??
+        null
+      )
+    }
+
+    it('os botões dos níveis descritos apontam para o balão com a descrição, e o vazio não aponta', async () => {
+      const props = await described()
+      const html = markupOf(props)
+      const buttons = buttonsOf(html)
+
+      expect(Object.keys(buttons)).toEqual(['Alto', 'Médio', 'Baixo'])
+      expect(buttons['Médio']).not.toContain('aria-describedby')
+
+      for (const [label, text] of [
+        ['Alto', 'mantém a intenção'],
+        ['Baixo', 'muda de assunto'],
+      ]) {
+        const id = /aria-describedby="([^"]+)"/.exec(buttons[label])?.[1]
+        expect(id).toBeTruthy()
+        const tooltip = tooltipOf(html, id!)
+        expect(tooltip).toContain('role="tooltip"')
+        expect(tooltip).toContain(`>${text}</span>`)
+        expect(tooltip).toMatch(/class="[^"]*\bhidden\b/)
+        expect(buttons[label]).not.toContain(text)
+      }
+    })
+
+    it('o nível escolhido mostra a sua descrição abaixo dos botões, e sem escolha nada aparece', async () => {
+      const props = await described()
+      const criterion = props.cells[0].criterion
+      expect(criterion.levels).toEqual({
+        high: 'mantém a intenção',
+        medium: null,
+        low: 'muda de assunto',
+      })
+
+      const markup = (value: string) =>
+        renderToStaticMarkup(
+          createElement(ScaleOptions, {
+            criterion,
+            value,
+            disabled: false,
+            onChange: () => {},
+          }),
+        )
+
+      expect(markupOf(props)).not.toContain('Alto: ')
+      expect(markup('')).not.toContain('Alto: ')
+      expect(markup('')).not.toContain('Baixo: ')
+
+      const high = markup('high')
+      expect(high).toMatch(/<p class="[^"]*text-xs text-muted[^"]*">Alto: mantém a intenção<\/p>/)
+      expect(high.indexOf('Alto: mantém')).toBeGreaterThan(high.lastIndexOf('</button>'))
+      expect(high).not.toContain('Baixo: ')
+
+      expect(markup('low')).toContain('>Baixo: muda de assunto</p>')
+      expect(markup('medium')).not.toContain('Médio: ')
+      expect(markup('medium')).not.toMatch(/<p[^>]*>Médio/)
+    })
+
+    it('o balão fica preso à esquerda do grupo de botões, não do botão', async () => {
+      const props = await described()
+      const html = markupOf(props)
+      const group = /<div class="([^"]*)"><div role="group" aria-label="Nota de Relevância"/.exec(html)
+
+      expect(group).toBeTruthy()
+      expect(group![1]).toContain('relative')
+      for (const tooltip of html.match(/<span[^>]*role="tooltip"[^>]*>/g) ?? []) {
+        expect(tooltip).toContain('left-0')
+        expect(tooltip).toContain('top-full')
+      }
+      expect(html.match(/role="tooltip"/g)).toHaveLength(2)
+    })
   })
 
   it('a barra de envio fica presa ao rodapé, com o contador, o botão e o aviso nessa ordem', async () => {

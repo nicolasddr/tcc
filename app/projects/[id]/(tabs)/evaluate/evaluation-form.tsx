@@ -9,8 +9,9 @@ import {
   isComplete,
   type Answer,
 } from './completeness'
-import { SCALE, isScaleValue, scaleLabel } from './scale'
-import { ScaleBadge, ScaleMarker } from './scale-marker'
+import { isScaleValue } from './scale'
+import { ScaleBadge } from './scale-marker'
+import { ScaleOptions } from './scale-options'
 import type { SubmittedEvaluation } from './evaluation'
 import { ContextCard } from './context-panel'
 import type { CodebookCriterion, CodebookDefinition } from '../../pipeline/codebook'
@@ -20,7 +21,7 @@ import { JUSTIFICATION_MAX } from '@/lib/limits'
 import { plural } from '@/lib/plural'
 import { Alert } from '@/app/components/ui/alert'
 import { Badge } from '@/app/components/ui/badge'
-import { Button, buttonClass } from '@/app/components/ui/button'
+import { Button } from '@/app/components/ui/button'
 import { Card, cardClassName } from '@/app/components/ui/card'
 import { cx } from '@/app/components/ui/cx'
 import { Disclosure } from '@/app/components/ui/disclosure'
@@ -33,8 +34,6 @@ type Cell = CodebookCell<CodebookDefinition, CodebookCriterion>
 type Group = { definition: CodebookDefinition | null; cells: Cell[] }
 
 const initialState: EvaluationState = null
-
-const selected = 'border-brand! bg-brand-tint! text-brand-hover!'
 
 function groupByDefinition(cells: readonly Cell[]): Group[] {
   const groups: Group[] = []
@@ -334,35 +333,14 @@ export function EvaluationForm({
 
                           <input type="hidden" name={`score_${key}`} value={value} />
 
-                          <div
-                            role="group"
-                            aria-label={`Nota de ${cell.criterion.name}`}
-                            className="flex flex-wrap gap-2"
-                          >
-                            {SCALE.map((option) => {
-                              const active = value === option
-                              return (
-                                <button
-                                  key={option}
-                                  type="button"
-                                  aria-pressed={active}
-                                  disabled={pending}
-                                  onClick={() =>
-                                    setValues((current) => ({
-                                      ...current,
-                                      [key]: active ? '' : option,
-                                    }))
-                                  }
-                                  className={buttonClass('secondary', {
-                                    className: cx('max-sm:px-3!', active && selected),
-                                  })}
-                                >
-                                  <ScaleMarker value={option} />
-                                  {scaleLabel(option)}
-                                </button>
-                              )
-                            })}
-                          </div>
+                          <ScaleOptions
+                            criterion={cell.criterion}
+                            value={value}
+                            disabled={pending}
+                            onChange={(option) =>
+                              setValues((current) => ({ ...current, [key]: option }))
+                            }
+                          />
 
                           <Justification
                             criterion={cell.criterion}
