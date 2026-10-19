@@ -35,15 +35,6 @@ export const CELL_PER_RESPONSE_COLUMN_TITLE =
 
 export const CELL_UNRATED_LABEL = 'sem nota'
 
-export const MATRIX_LEGEND =
-  `Na matriz, “${CELL_UNRATED_LABEL}” é célula que existe no codebook e que ninguém ` +
-  `avaliou ainda; “${cellNotCalculableLabel('few_evaluators')}”, ` +
-  `“${cellNotCalculableLabel('no_shared_units')}” e ` +
-  `“${cellNotCalculableLabel('no_variation')}” são células com nota e sem coeficiente, ` +
-  'respectivamente por um avaliador só, por nenhuma resposta avaliada por dois deles e ' +
-  `por todas as notas no mesmo ponto da escala; e “${CELL_NOT_APPLICABLE}” é ` +
-  `${CELL_NOT_APPLICABLE_TITLE}, que não se aplica a esta. Nenhum desses casos vale zero.`
-
 export const MATRIX_PER_RESPONSE_LEGEND =
   `A linha “${PER_RESPONSE_LABEL}” traz os critérios que julgam a resposta inteira: uma ` +
   `nota por resposta, sem definição. Por isso o “${CELL_NOT_APPLICABLE}” aparece nela nas ` +
@@ -72,11 +63,6 @@ export const AGREEMENT_SERIES_POINTS: readonly string[] = [
     `seguinte. Na Fase ${PHASE_4}, codebook e prompt não mudam: mudam os itens e os ` +
     'avaliadores, e cada rodada se lê ao lado da sua rodada de referência.',
 ]
-
-export const MATRIX_SCOPE_NOTE =
-  `A matriz por célula é calculada ${AGREEMENT_ALL_LABEL}, inclusive com as notas de ` +
-  'quem está marcado como outlier nesta rodada. O par com e sem os marcados aparece só ' +
-  'no coeficiente da rodada, acima.'
 
 export const BAND_REFERENCE_LABEL = 'Faixa de referência'
 
@@ -177,8 +163,8 @@ export function notCalculableMessage(reason: NotCalculableReason): string {
   switch (reason) {
     case 'few_evaluators':
       return (
-        'Menos de dois avaliadores enviaram avaliação nesta rodada. O coeficiente ' +
-        'compara pessoas, e com uma só não há o que comparar: é falta de dado, não erro.'
+        'É preciso que pelo menos dois avaliadores enviem avaliação nesta rodada para que o ' +
+        'ICR possa ser calculado.'
       )
     case 'no_shared_units':
       return (

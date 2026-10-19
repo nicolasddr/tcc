@@ -65,7 +65,6 @@ import { llmModel } from '@/lib/ai'
 import { projectResponsesLeft, projectResponsesMax } from '@/lib/ai/quota'
 import { Section } from '@/app/components/ui/section'
 import { ButtonLink } from '@/app/components/ui/button'
-import { formatDate } from '@/app/notifications/labels'
 
 const EMPTY_SET: ReadonlySet<string> = new Set<string>()
 
@@ -234,8 +233,6 @@ export default async function ProjectRoundsPage({
       id={ROUNDS_SECTION_ID}
       className="scroll-mt-6"
       title="Rodadas do projeto"
-      hint="Das mais recentes para as mais antigas."
-      help="Cada rodada aparece com o seu estado, as versões de codebook e de prompt que ela fixou e a concordância alcançada sobre elas."
     >
       <RoundList
         projectId={project.id}
@@ -348,11 +345,7 @@ export default async function ProjectRoundsPage({
               : `Concordância na rodada ${focusRound.roundNumber}`
           }
           hint="Krippendorff's Alpha ordinal, sobre a versão de codebook que a rodada fixou."
-          help={
-            focusRound.closedAt
-              ? `A rodada ${focusRound.roundNumber} fechou em ${formatDate(focusRound.closedAt)}. É a última, e a leitura segue aqui: com ela se decide onde refinar o codebook antes da próxima.`
-              : 'O valor aparece desde a primeira avaliação e não trava nada: fechar a rodada e avançar de fase continuam sendo decisão sua.'
-          }
+          help="Krippendorff's Alpha ordinal"
         >
           <div className="flex flex-col gap-4">
             <AgreementPanel

@@ -31,8 +31,6 @@ import { CloseRound } from '@/app/projects/[id]/(tabs)/rounds/close-round'
 import { GenerateResponses } from '@/app/projects/[id]/(tabs)/rounds/generate-responses'
 import {
   OpenRoundCard,
-  OPEN_ROUND_MORE_SUMMARY,
-  openRoundPoints,
 } from '@/app/projects/[id]/(tabs)/rounds/open-round-card'
 import { ReadingShortcuts } from '@/app/projects/[id]/(tabs)/rounds/reading-shortcuts'
 import {
@@ -64,9 +62,7 @@ import {
   CELL_PER_RESPONSE_COLUMN_TITLE,
   CELL_PER_RESPONSE_ROW_TITLE,
   CELL_UNRATED_LABEL,
-  MATRIX_LEGEND,
   MATRIX_PER_RESPONSE_LEGEND,
-  MATRIX_SCOPE_NOTE,
   OUTLIER_PAIR_POINTS,
   OUTLIER_PAIR_RESULT,
   OUTLIER_PAIR_SUMMARY,
@@ -93,10 +89,7 @@ import {
 } from '@/app/projects/[id]/pipeline/preconditions'
 import {
   closeConfirmationLines,
-  codebookLockedMessage,
-  openRoundSummary,
   pendingEvaluatorsTitle,
-  phase4RoundLockedMessage,
   RESPONSES_LEFT_HELP,
   RESPONSES_LEFT_POINTS,
   roundBlockerHelp,
@@ -834,7 +827,7 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     expect(findAll(cards[1], ButtonLink)).toHaveLength(1)
   })
 
-  it('a lista mostra a fase de cada rodada, e o painel da rodada aberta diz o que vai à LLM', async () => {
+  it('a lista mostra a fase de cada rodada, e o painel da rodada aberta não diz o que vai à LLM', async () => {
     const admin = await newUser('Admin')
     const { project, codebookVersion, promptVersion } = await readyProject(
       admin,
@@ -867,7 +860,7 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     expect(close.round.phase).toBe(PHASE_3)
     const card = cardOf(tree)
     expect(card.round.phase).toBe(PHASE_3)
-    expect(openRoundPoints(card.round)).toContain(roundInputSummary(PHASE_3))
+    expect(cardTextOf(tree)).not.toContain(roundInputSummary(PHASE_3))
     expect(cardTextOf(tree)).not.toContain(roundInputSummary(PHASE_2))
   })
 
@@ -1138,12 +1131,6 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     const close = closeRoundOf(tree)
     expect(close.round.phase).toBe(PHASE_4)
 
-    const help = openRoundPoints(cardOf(tree).round)
-    expect(help).toContain(roundInputSummary(PHASE_4))
-    expect(help).not.toContain(roundInputSummary(PHASE_3))
-    expect(help).toContain(phase4RoundLockedMessage(2))
-    expect(help).not.toContain(codebookLockedMessage(2))
-
     const panel = markupTextOf(createElement(CloseRound, close))
     for (const line of closeConfirmationLines(2, PHASE_4)) {
       expect(panel).toContain(line)
@@ -1296,26 +1283,20 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     expect(card.round.id).toBe(round)
     const element = createElement(OpenRoundCard, card)
     const visible = visibleTextOf(element)
-    expect(visible).toContain(`Rodada 1 Aberta Fase ${PHASE_2}`)
+    expect(visible).toContain('Rodada 1 Aberta')
+    expect(visible).not.toContain(`Fase ${PHASE_2}`)
     expect(visible).toContain(
       `Codebook v1 · Prompt v1 · aberta em ${formatDate(card.round.createdAt)}`,
     )
     expect(visible).toContain('1 resposta nesta rodada')
     expect(visible).not.toContain('sem resposta gerada pela LLM')
-    expect(visible).toContain('Respostas da rodada 1 (1)')
+    expect(visible).toContain('Itens da rodada 1 (1)')
     expect(visible).toContain('Item 1')
     expect(glanceTextOf(element)).not.toContain(roundInputSummary(PHASE_2))
 
-    expect(tooltipTextsOf(OpenRoundCard(card))).toEqual([openRoundSummary(1, 1, 1)])
-    expect(learnMoreOf(OpenRoundCard(card))).toEqual([
-      { summary: OPEN_ROUND_MORE_SUMMARY, points: openRoundPoints(card.round) },
-    ])
-    expect(OPEN_ROUND_MORE_SUMMARY).toBe('Como funciona a rodada aberta')
-    expect(openRoundPoints(card.round)).toEqual([
-      codebookLockedMessage(1),
-      roundInputSummary(PHASE_2),
-      'Só existe uma rodada aberta por projeto. Fechar é ação sua, é irreversível e não depende de todos terem terminado.',
-    ])
+    expect(tooltipTextsOf(OpenRoundCard(card))).toEqual([])
+    expect(learnMoreOf(OpenRoundCard(card))).toEqual([])
+    expect(markupTextOf(element)).not.toContain('Como funciona a rodada aberta')
     expect(opensClosed(element)).toBe(true)
 
     const links = findAll(OpenRoundCard(card), ButtonLink)
@@ -1403,7 +1384,7 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     expect(summary).toBeGreaterThan(fresh)
     expect(answered).toBeGreaterThan(summary)
     expect(renderToStaticMarkup(panel)).toMatch(/<details class="group">/)
-    expect(text).not.toContain('Respostas da rodada')
+    expect(text).not.toContain('Itens da rodada')
   })
 
   it('o seletor diz em quais rodadas cada item já produziu resposta, sem tirar ninguém da lista', async () => {
@@ -1515,7 +1496,7 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
 
     const text = panelTextOf(tree)
     expect(text).toContain('não calculável')
-    expect(text).toContain('Menos de dois avaliadores')
+    expect(text).toContain('pelo menos dois avaliadores')
     expect(text).toContain('0 notas · 1 avaliador')
   })
 
@@ -1659,7 +1640,7 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     )
   })
 
-  it('a matriz por célula diz que é calculada com todos, inclusive os marcados', async () => {
+  it('a matriz por célula não traz nota sobre o cálculo com os marcados', async () => {
     const admin = await newUser('Admin')
     const scene = await roundWith(admin, 2)
     const ana = await newEvaluator(scene.project, 'Ana')
@@ -1676,7 +1657,7 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     await addOutlier(ownerDb, scene.round, bruno, admin)
 
     auth.userId = admin
-    expect(matrixTextOf(await render(scene.project))).toContain(MATRIX_SCOPE_NOTE)
+    expect(matrixTextOf(await render(scene.project))).not.toContain('inclusive com as notas')
   })
 
   it('o avaliador desativado que avaliou a rodada continua no esforço, marcado como desativado', async () => {
@@ -2224,18 +2205,14 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     const text = matrixTextOf(tree)
     expect(text).toContain('Clareza')
     expect(text).not.toContain('Profundidade')
-    expect(text).toContain('Codebook v1')
+    expect(text).not.toContain('Codebook v1')
 
-    const visible = glanceTextOf(createElement(AgreementMatrixTable, matrixOf(tree)))
-    expect(visible).toContain('Codebook v1 da rodada')
-    expect(visible).not.toContain('vigente')
     const table = AgreementMatrixTable(matrixOf(tree))
     expect(tooltipTextsOf(table)).toEqual([])
-    expect(howToReadOf(table)).toEqual([[matrixVersionNote(1), MATRIX_SCOPE_NOTE, MATRIX_LEGEND]])
-    expect(markupTextOf(createElement(AgreementMatrixTable, matrixOf(tree)))).toContain(
+    expect(howToReadOf(table)).toEqual([])
+    expect(markupTextOf(createElement(AgreementMatrixTable, matrixOf(tree)))).not.toContain(
       HOW_TO_READ_TABLE,
     )
-    expect(opensClosed(createElement(AgreementMatrixTable, matrixOf(tree)))).toBe(true)
   })
 
   it('cada bloco da leitura tem uma frase visível e um ⓘ que não repetem a mesma ideia', async () => {
@@ -2253,7 +2230,6 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
 
     auth.userId = admin
     const tree = await render(scene.project)
-    const closedAt = listOf(tree).rounds[0].closedAt!
 
     type SectionProps = { hint: string; help: string; more?: { points: readonly string[] } }
 
@@ -2261,16 +2237,11 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     expect(agreement.hint).toBe(
       "Krippendorff's Alpha ordinal, sobre a versão de codebook que a rodada fixou.",
     )
-    expect(agreement.help).toContain(`A rodada 1 fechou em ${formatDate(closedAt)}.`)
-    expect(agreement.help).toContain('a leitura segue aqui')
-    expect(agreement.help).toContain('com ela se decide onde refinar o codebook')
-    expect(agreement.help.split(/\s+/).filter(Boolean).length).toBeLessThanOrEqual(25)
-    expect(agreement.help).not.toContain('versão de codebook que esta rodada fixou')
+    expect(agreement.help).toBe("Krippendorff's Alpha ordinal")
 
     const rounds = findSection(tree, RoundList)!.props as SectionProps
-    expect(rounds.hint).toBe('Das mais recentes para as mais antigas.')
-    expect(rounds.help).toContain('o seu estado')
-    expect(rounds.help).toContain('as versões de codebook e de prompt que ela fixou')
+    expect(rounds.hint).toBeUndefined()
+    expect(rounds.help).toBeUndefined()
 
     const quality = findSection(tree, QualityMatrixTable)!.props as SectionProps
     expect(quality.hint).toBe(QUALITY_HINT)
@@ -2279,7 +2250,7 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     expect(QUALITY_POINTS.join(' ')).not.toContain('distribuição das notas desta rodada')
   })
 
-  it('com a rodada aberta, o ⓘ da Concordância diz que o valor não trava nada, e a frase continua a mesma', async () => {
+  it('com a rodada aberta, o ⓘ da Concordância nomeia o coeficiente, e a frase continua a mesma', async () => {
     const admin = await newUser('Admin')
     const scene = await roundWith(admin, 1)
 
@@ -2293,9 +2264,7 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     expect(agreement.hint).toBe(
       "Krippendorff's Alpha ordinal, sobre a versão de codebook que a rodada fixou.",
     )
-    expect(agreement.help).toBe(
-      'O valor aparece desde a primeira avaliação e não trava nada: fechar a rodada e avançar de fase continuam sendo decisão sua.',
-    )
+    expect(agreement.help).toBe("Krippendorff's Alpha ordinal")
   })
 
   it('a matriz e o painel continuam na tela depois que a rodada fecha', async () => {
@@ -2403,9 +2372,7 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     expect(titleCountOf(markup, CELL_PER_RESPONSE_ROW_TITLE)).toBe(1)
     expect(titleCountOf(markup, CELL_PER_RESPONSE_COLUMN_TITLE)).toBe(5)
     expect(titleCountOf(markup, CELL_NOT_APPLICABLE_TITLE)).toBe(0)
-    expect(howToReadOf(AgreementMatrixTable(matrixOf(tree)))).toEqual([
-      [matrixVersionNote(1), MATRIX_SCOPE_NOTE, MATRIX_LEGEND, MATRIX_PER_RESPONSE_LEGEND],
-    ])
+    expect(howToReadOf(AgreementMatrixTable(matrixOf(tree)))).toEqual([])
   })
 
   it('a matriz de Qualidade traz a linha “Por resposta” com a distribuição das notas por resposta', async () => {

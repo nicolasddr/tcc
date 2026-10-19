@@ -12,7 +12,6 @@ import {
   CELL_PER_RESPONSE_COLUMN_TITLE,
   CELL_PER_RESPONSE_ROW_TITLE,
   CELL_UNRATED_LABEL,
-  MATRIX_LEGEND,
   MATRIX_PER_RESPONSE_LEGEND,
   OUTLIER_PAIR_POINTS,
   OUTLIER_PAIR_RESULT,
@@ -188,7 +187,8 @@ describe('app/projects/[id]/rounds/agreement-labels — o coeficiente na tela', 
     const shared = notCalculableMessage('no_shared_units')
     const variation = notCalculableMessage('no_variation')
 
-    expect(few).toContain('Menos de dois avaliadores')
+    expect(few).toContain('pelo menos dois avaliadores')
+    expect(few).toContain('ICR')
     expect(shared).toContain('não se cruzaram')
     expect(variation).toContain('mesmo ponto da escala')
     expect(variation).toContain('não é o mesmo que concordância perfeita')
@@ -213,16 +213,6 @@ describe('app/projects/[id]/rounds/agreement-labels — o coeficiente na tela', 
     expect(CELL_NOT_APPLICABLE).not.toMatch(/\d/)
     expect(CELL_UNRATED_LABEL).not.toMatch(/\d/)
     expect(CELL_NOT_APPLICABLE_TITLE).toContain('outra definição')
-  })
-
-  it('a legenda da matriz explica os três rótulos curtos, o traço e a ausência de zero', () => {
-    expect(MATRIX_LEGEND).toContain(CELL_UNRATED_LABEL)
-    expect(MATRIX_LEGEND).toContain(cellNotCalculableLabel('few_evaluators'))
-    expect(MATRIX_LEGEND).toContain(cellNotCalculableLabel('no_shared_units'))
-    expect(MATRIX_LEGEND).toContain(cellNotCalculableLabel('no_variation'))
-    expect(MATRIX_LEGEND).toContain(CELL_NOT_APPLICABLE)
-    expect(MATRIX_LEGEND).toContain(CELL_NOT_APPLICABLE_TITLE)
-    expect(MATRIX_LEGEND).toContain('zero')
   })
 
   it('o traço da linha por resposta e o da coluna por resposta dizem motivos próprios, explicados no parágrafo', () => {

@@ -387,12 +387,6 @@ export function roundLockedHelp(roundNumber: number, phase: number): string {
         'mudar debaixo dos avaliadores. Fechada, a primeira alteração cria a versão seguinte.'
 }
 
-export function roundLockedMessage(roundNumber: number, phase: number): string {
-  return phase >= PHASE_4
-    ? phase4RoundLockedMessage(roundNumber)
-    : codebookLockedMessage(roundNumber)
-}
-
 export function closeConfirmationLines(roundNumber: number, phase: number): string[] {
   return [
     `Fechar a rodada ${roundNumber} é irreversível: ela deixa de aceitar resposta e avaliação, e não existe reabrir.`,
@@ -425,17 +419,6 @@ export function pendingEvaluatorsTitle(count: number, active: number): string {
   return count === 1
     ? '1 avaliador ainda não terminou:'
     : `${count} avaliadores ainda não terminaram:`
-}
-
-export function openRoundSummary(
-  roundNumber: number,
-  codebookVersionNumber: number | null,
-  promptVersionNumber: number | null,
-): string {
-  return (
-    `A rodada ${roundNumber} está aberta sobre o codebook v${codebookVersionNumber} e ` +
-    `o prompt v${promptVersionNumber}.`
-  )
 }
 
 export function roundInputSummary(phase: number): string {

@@ -3,30 +3,14 @@ import type { EvaluatorEffort } from './agreement'
 import type { RoundSummary } from './rounds'
 import type { RoundResponse } from '../../pipeline/responses'
 import type { RoundMark } from '../../round-usage'
-import { openRoundSummary, roundInputSummary, roundLockedMessage } from './preconditions'
 import { EffortList } from './effort-list'
 import { Badge } from '@/app/components/ui/badge'
 import { ButtonLink } from '@/app/components/ui/button'
 import { Card } from '@/app/components/ui/card'
 import { Disclosure } from '@/app/components/ui/disclosure'
-import { InfoTooltip } from '@/app/components/ui/tooltip'
-import { LearnMore } from '@/app/components/ui/learn-more'
 import { formatDate } from '@/app/notifications/labels'
 
 export const GENERATE_PANEL_ID = 'gerar'
-
-export const OPEN_ROUND_MORE_SUMMARY = 'Como funciona a rodada aberta'
-
-export function openRoundPoints(
-  round: Pick<RoundSummary, 'roundNumber' | 'phase'>,
-): readonly string[] {
-  return [
-    roundLockedMessage(round.roundNumber, round.phase),
-    roundInputSummary(round.phase),
-    'Só existe uma rodada aberta por projeto. Fechar é ação sua, é irreversível e não ' +
-      'depende de todos terem terminado.',
-  ]
-}
 
 export function OpenRoundCard({
   round,
@@ -51,14 +35,6 @@ export function OpenRoundCard({
         <h2 className="m-0 flex flex-wrap items-center gap-2 text-[16px] font-bold text-ink">
           Rodada {round.roundNumber}
           <Badge tone="info">Aberta</Badge>
-          <Badge tone="info">Fase {round.phase}</Badge>
-          <InfoTooltip
-            text={openRoundSummary(
-              round.roundNumber,
-              round.codebookVersionNumber,
-              round.promptVersionNumber,
-            )}
-          />
         </h2>
         <p className="m-0 text-[13px] text-muted">
           Codebook v{round.codebookVersionNumber} · Prompt v{round.promptVersionNumber} ·
@@ -84,7 +60,7 @@ export function OpenRoundCard({
         </p>
       </div>
 
-      <Disclosure summary={`Respostas da rodada ${round.roundNumber} (${generated.length})`}>
+      <Disclosure summary={`Itens da rodada ${round.roundNumber} (${generated.length})`}>
         {generated.length === 0 ? (
           <p className="m-0 mt-2 text-[13px] text-muted">
             Nenhuma resposta gerada nesta rodada ainda.
@@ -103,8 +79,6 @@ export function OpenRoundCard({
           </ul>
         )}
       </Disclosure>
-
-      <LearnMore summary={OPEN_ROUND_MORE_SUMMARY} points={openRoundPoints(round)} />
     </Card>
   )
 }

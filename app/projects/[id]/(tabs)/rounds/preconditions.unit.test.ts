@@ -6,7 +6,6 @@ import {
   closeConfirmationLines,
   evaluatorsNotFinished,
   pendingEvaluatorsTitle,
-  openRoundSummary,
   codebookLockedMessage,
   phase4RoundLockedMessage,
   generationMax,
@@ -20,7 +19,6 @@ import {
   roundInputSummary,
   roundBlockers,
   roundLockedHelp,
-  roundLockedMessage,
   selectionBlockerMessage,
   selectionBlockers,
   selectionCountLabel,
@@ -193,12 +191,6 @@ describe('app/projects/[id]/rounds/preconditions — o que trava a abertura de u
     expect(evaluatorsNotFinished(evaluators, 0)).toEqual(['Ana'])
   })
 
-  it('o resumo da rodada aberta nomeia as versões congeladas', () => {
-    expect(openRoundSummary(2, 3, 4)).toBe(
-      'A rodada 2 está aberta sobre o codebook v3 e o prompt v4.',
-    )
-  })
-
   it('a mensagem da trava do codebook nomeia a rodada aberta e diz como destravar', () => {
     const message = codebookLockedMessage(2)
     expect(message).toContain('rodada 2')
@@ -212,12 +204,6 @@ describe('app/projects/[id]/rounds/preconditions — o que trava a abertura de u
     expect(message).toContain(`Na Fase ${PHASE_4}`)
     expect(message).toContain('congelados pela fase')
     expect(message).not.toContain('Feche a rodada para voltar a editar')
-  })
-
-  it('a trava da rodada aberta escolhe a mensagem pela fase da rodada', () => {
-    expect(roundLockedMessage(2, PHASE_2)).toBe(codebookLockedMessage(2))
-    expect(roundLockedMessage(2, PHASE_3)).toBe(codebookLockedMessage(2))
-    expect(roundLockedMessage(2, PHASE_4)).toBe(phase4RoundLockedMessage(2))
   })
 
   it('na Fase 4, a confirmação de fechamento não diz que o codebook volta a ser editável', () => {

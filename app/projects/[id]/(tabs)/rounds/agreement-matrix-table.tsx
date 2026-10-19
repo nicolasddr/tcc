@@ -11,19 +11,13 @@ import { agreementMatrix, type MatrixCell } from './agreement-matrix'
 import {
   CELL_NOT_APPLICABLE,
   CELL_UNRATED_LABEL,
-  MATRIX_LEGEND,
-  MATRIX_PER_RESPONSE_LEGEND,
-  MATRIX_SCOPE_NOTE,
   agreementBand,
   bandTone,
   cellNotApplicableTitle,
   cellNotCalculableLabel,
   formatAlpha,
-  matrixVersionLabel,
-  matrixVersionNote,
   sampleSize,
 } from './agreement-labels'
-import { HowToRead } from './how-to-read'
 
 function Cell({ cell, notApplicableTitle }: { cell: MatrixCell; notApplicableTitle: string }) {
   if (cell.state === 'not_applicable') {
@@ -137,17 +131,6 @@ export function AgreementMatrixTable({
           </tbody>
         </table>
       </div>
-
-      <p className="m-0 text-xs text-muted">{matrixVersionLabel(codebookVersionNumber)}</p>
-
-      <HowToRead
-        paragraphs={[
-          matrixVersionNote(codebookVersionNumber),
-          MATRIX_SCOPE_NOTE,
-          MATRIX_LEGEND,
-          ...(rows.some((row) => row.definition === null) ? [MATRIX_PER_RESPONSE_LEGEND] : []),
-        ]}
-      />
     </div>
   )
 }
