@@ -11,10 +11,12 @@ export function readingShortcuts({
   agreement,
   quality,
   rounds,
+  review,
 }: {
   agreement: boolean
   quality: boolean
   rounds?: number
+  review?: string
 }): ReadingShortcut[] {
   return [
     ...(agreement ? [{ href: `#${AGREEMENT_SECTION_ID}`, label: 'Concordância' }] : []),
@@ -22,6 +24,7 @@ export function readingShortcuts({
     ...(rounds !== undefined
       ? [{ href: `#${ROUNDS_SECTION_ID}`, label: `Rodadas do projeto (${rounds})` }]
       : []),
+    ...(review !== undefined ? [{ href: review, label: 'Revisão de discordâncias' }] : []),
   ]
 }
 

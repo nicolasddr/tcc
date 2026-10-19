@@ -35,7 +35,6 @@ export function OpenRoundCard({
   excluded,
   participation,
   generated,
-  unanswered,
   close,
 }: {
   round: RoundSummary
@@ -44,7 +43,6 @@ export function OpenRoundCard({
   excluded: ReadonlySet<string>
   participation?: Readonly<Record<string, RoundMark>>
   generated: RoundResponse[]
-  unanswered: number
   close: React.ReactNode
 }) {
   return (
@@ -82,12 +80,7 @@ export function OpenRoundCard({
           {close}
         </div>
         <p className="m-0 text-[13px] text-muted">
-          {plural(generated.length, 'resposta nesta rodada', 'respostas nesta rodada')} ·{' '}
-          {plural(
-            unanswered,
-            'item do pool ainda sem resposta gerada pela LLM',
-            'itens do pool ainda sem resposta gerada pela LLM',
-          )}
+          {plural(generated.length, 'resposta nesta rodada', 'respostas nesta rodada')}
         </p>
       </div>
 

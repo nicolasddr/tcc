@@ -1299,9 +1299,8 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     expect(visible).toContain(
       `Codebook v1 · Prompt v1 · aberta em ${formatDate(card.round.createdAt)}`,
     )
-    expect(visible).toContain(
-      '1 resposta nesta rodada · 1 item do pool ainda sem resposta gerada pela LLM',
-    )
+    expect(visible).toContain('1 resposta nesta rodada')
+    expect(visible).not.toContain('sem resposta gerada pela LLM')
     expect(visible).toContain('Respostas da rodada 1 (1)')
     expect(visible).toContain('Item 1')
     expect(glanceTextOf(element)).not.toContain(roundInputSummary(PHASE_2))
@@ -2703,7 +2702,7 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     expect(findSection(tree, ReadingGuidanceNote)).toBeNull()
   })
 
-  it('sem rodada aberta, os atalhos levam só à Concordância e à Qualidade', async () => {
+  it('sem rodada aberta, os atalhos levam à Concordância, à Qualidade e à revisão de discordâncias', async () => {
     const admin = await newUser('Admin')
     const scene = await guidanceScene(admin, 'within')
 
@@ -2713,12 +2712,16 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     expect(shortcutsOf(tree)?.links).toEqual([
       { href: '#concordancia', label: 'Concordância' },
       { href: '#qualidade', label: 'Qualidade' },
+      {
+        href: `/projects/${scene.project}/rounds/${scene.round}`,
+        label: 'Revisão de discordâncias',
+      },
     ])
     const text = markupTextOf(createElement(ReadingShortcuts, shortcutsOf(tree)!))
-    expect(text).toBe('Ir para: Concordância · Qualidade')
+    expect(text).toBe('Ir para: Concordância · Qualidade · Revisão de discordâncias')
   })
 
-  it('com rodada aberta, os atalhos levam à Concordância, à Qualidade e às rodadas do projeto', async () => {
+  it('com rodada aberta, os atalhos levam à Concordância, à Qualidade, às rodadas do projeto e à revisão de discordâncias da rodada aberta', async () => {
     const admin = await newUser('Admin')
     const scene = await roundWith(admin, 2, { phase: PHASE_3 })
 
@@ -2729,6 +2732,10 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
       { href: '#concordancia', label: 'Concordância' },
       { href: '#qualidade', label: 'Qualidade' },
       { href: '#rodadas-do-projeto', label: 'Rodadas do projeto (1)' },
+      {
+        href: `/projects/${scene.project}/rounds/${scene.round}`,
+        label: 'Revisão de discordâncias',
+      },
     ])
   })
 
@@ -2743,6 +2750,10 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     expect(shortcutsOf(tree)?.links).toEqual([
       { href: '#concordancia', label: 'Concordância' },
       { href: '#rodadas-do-projeto', label: 'Rodadas do projeto (1)' },
+      {
+        href: `/projects/${scene.project}/rounds/${scene.round}`,
+        label: 'Revisão de discordâncias',
+      },
     ])
   })
 

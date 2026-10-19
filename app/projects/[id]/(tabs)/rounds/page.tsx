@@ -204,8 +204,6 @@ export default async function ProjectRoundsPage({
   const openSummary = openRound
     ? rounds.find((round) => round.id === openRound.id)
     : undefined
-  const answeredItems = new Set(generated.map((response) => response.itemId))
-  const unanswered = items.filter((item) => !answeredItems.has(item.id)).length
   const roundsHref = `/projects/${project.id}/rounds`
   const generating = query.gerar !== undefined
 
@@ -228,6 +226,7 @@ export default async function ProjectRoundsPage({
     agreement: focusRound !== null,
     quality: focusQuality !== undefined,
     ...(openRound ? { rounds: rounds.length } : {}),
+    ...(focusRound ? { review: `${roundsHref}/${focusRound.id}` } : {}),
   })
 
   const roundList = (
@@ -257,7 +256,6 @@ export default async function ProjectRoundsPage({
           excluded={new Set(focusOutliers.map((mark) => mark.projectMemberId))}
           {...(focusParticipation ? { participation: focusParticipation } : {})}
           generated={generated}
-          unanswered={unanswered}
           close={
             <CloseRound
               projectId={project.id}
