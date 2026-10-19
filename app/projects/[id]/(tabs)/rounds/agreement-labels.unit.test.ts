@@ -12,6 +12,7 @@ import {
   CELL_PER_RESPONSE_COLUMN_TITLE,
   CELL_PER_RESPONSE_ROW_TITLE,
   CELL_UNRATED_LABEL,
+  CONCENTRATION_HELP,
   MATRIX_PER_RESPONSE_LEGEND,
   OUTLIER_PAIR_POINTS,
   OUTLIER_PAIR_RESULT,
@@ -23,15 +24,18 @@ import {
   bandLabel,
   bandTone,
   cellNotCalculableLabel,
+  concentrationWarning,
   formatAlpha,
   matrixVersionLabel,
   matrixVersionNote,
   notCalculableMessage,
+  profileLine,
   sampleSize,
   smallSampleWarning,
 } from '@/app/projects/[id]/(tabs)/rounds/agreement-labels'
 import { PER_RESPONSE_LABEL } from '@/app/projects/[id]/pipeline/criteria'
 import * as labels from '@/app/projects/[id]/(tabs)/rounds/agreement-labels'
+import type { Agreement, AgreementProfile } from '@/lib/agreement'
 
 function wordsOf(text: string): number {
   return text.split(/\s+/).filter(Boolean).length
@@ -231,5 +235,80 @@ describe('app/projects/[id]/rounds/agreement-labels — o coeficiente na tela', 
       'A matriz é da versão de codebook que a rodada fixou, Codebook v4, e não da ' +
         'versão vigente do projeto.',
     )
+  })
+})
+
+function profile(equal: number, shares: Record<number, number>): AgreementProfile {
+  return {
+    equal,
+    shares: new Map(Object.entries(shares).map(([rank, share]) => [Number(rank), share])),
+  }
+}
+
+function calculated(alpha: number): Agreement {
+  return { calculable: true, alpha, units: 50, raters: 2 }
+}
+
+const CONCENTRATED = profile(0.96, { 3: 0.94, 2: 0.06 })
+
+describe('app/projects/[id]/rounds/agreement-labels — notas iguais e distribuição', () => {
+  it('a linha do perfil traz as notas iguais e os três níveis na ordem da escala, inclusive 0%', () => {
+    expect(profileLine(CONCENTRATED)).toBe(
+      '96% de notas iguais · Alto 94% · Médio 6% · Baixo 0%',
+    )
+  })
+
+  it('a linha do perfil usa uma casa decimal com vírgula', () => {
+    expect(profileLine(profile(0.945, { 3: 0.5, 2: 0.255, 1: 0.245 }))).toBe(
+      '94,5% de notas iguais · Alto 50% · Médio 25,5% · Baixo 24,5%',
+    )
+  })
+
+  it('o aviso cita o nível de maior parte e as duas porcentagens', () => {
+    expect(concentrationWarning(calculated(-0.01), CONCENTRATED)).toBe(
+      'As notas se concentram em Alto (94%), e os avaliadores deram a mesma nota em 96% ' +
+        'dos pares. Com pouca variação na escala, poucas divergências bastam para derrubar ' +
+        'o α. Leia o número junto com a matriz.',
+    )
+  })
+
+  it('o nível citado é o de maior parte, mesmo quando não é Alto', () => {
+    expect(
+      concentrationWarning(calculated(0.2), profile(0.9, { 3: 0.1, 2: 0.85, 1: 0.05 })),
+    ).toContain('As notas se concentram em Médio (85%)')
+  })
+
+  it('sem aviso quando o α não é calculável', () => {
+    expect(
+      concentrationWarning(
+        { calculable: false, reason: 'no_variation', units: 10, raters: 2 },
+        profile(1, { 3: 1 }),
+      ),
+    ).toBeNull()
+  })
+
+  it('sem aviso quando o α está em aceitável ou boa, a partir do corte exato', () => {
+    expect(concentrationWarning(calculated(AGREEMENT_BANDS.acceptable), CONCENTRATED)).toBeNull()
+    expect(concentrationWarning(calculated(AGREEMENT_BANDS.good), CONCENTRATED)).toBeNull()
+    expect(
+      concentrationWarning(calculated(AGREEMENT_BANDS.acceptable - 0.001), CONCENTRATED),
+    ).not.toBeNull()
+  })
+
+  it('o aviso vale a partir de 80% de notas iguais, inclusive', () => {
+    expect(concentrationWarning(calculated(0.1), profile(0.8, { 3: 0.9, 2: 0.1 }))).not.toBeNull()
+    expect(concentrationWarning(calculated(0.1), profile(0.799, { 3: 0.9, 2: 0.1 }))).toBeNull()
+  })
+
+  it('sem perfil não há aviso', () => {
+    expect(concentrationWarning(calculated(0.1), null)).toBeNull()
+  })
+
+  it('a ajuda do aviso nomeia o paradoxo, os dois cortes e diz que são convenção da ferramenta', () => {
+    expect(CONCENTRATION_HELP).toContain('paradoxo da prevalência')
+    expect(CONCENTRATION_HELP).toContain('0,667')
+    expect(CONCENTRATION_HELP).toContain('80%')
+    expect(CONCENTRATION_HELP).toContain('convenção desta ferramenta')
+    expect(wordsOf(CONCENTRATION_HELP)).toBeLessThanOrEqual(50)
   })
 })

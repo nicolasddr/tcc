@@ -50,8 +50,8 @@ Feita em `app/projects/[id]/(tabs)/rounds/agreement.ts`:
 **Validação.** Os testes do módulo (`lib/agreement.unit.test.ts`) reproduzem o valor publicado em
 Krippendorff (2011), *Computing Krippendorff's Alpha-Reliability*: matriz de 4 observadores por 12
 unidades, alpha ordinal = 0,815. Os testes também cobrem uma distribuição degenerada em que 80% de
-concordância percentual resulta em α = −1/18, o que mostra por que a concordância percentual não é
-usada.
+concordância percentual resulta em α = −1/18, o que mostra por que as notas iguais aparecem ao lado
+do alpha, e nunca no lugar dele.
 
 ## 4. Quando o coeficiente não é calculável
 
@@ -62,6 +62,31 @@ O resultado é **não calculável**, e nunca vira 0 nem 1, em três casos:
 | Poucos avaliadores | menos de dois avaliadores na rodada |
 | Sem unidades em comum | nenhuma unidade avaliada por pelo menos dois avaliadores |
 | Sem variação | todas as notas no mesmo ponto da escala (D_e = 0) |
+
+### 4.1 Notas iguais e distribuição
+
+Quando quase toda nota cai num nível só, a discordância esperada ao acaso (D_e) fica perto de zero,
+e uma divergência só já derruba o alpha, mesmo com os avaliadores quase sempre de acordo (paradoxo
+da prevalência). Para ler esse caso, o painel da rodada mostra dois números **ao lado** do alpha,
+calculados sobre os mesmos valores pareáveis que ele usa (`agreementProfile` em
+`lib/agreement.ts`), pela matriz de coincidências da seção 3:
+
+- **notas iguais** = `Σ_c o[c][c] / n`. Com dois avaliadores, é a parte das unidades em que os dois
+  deram o mesmo nível; com mais, cada par pesa `1 / (mᵤ − 1)`, como no alpha;
+- **distribuição** = `n_c / n` para cada nível, sempre com Alto, Médio e Baixo, inclusive 0%.
+
+Unidades com uma nota só ficam fora, como no alpha, e os números batem com o N mostrado. Sem unidade
+pareável não há números. Com a rodada sem variação (seção 4), eles aparecem mesmo assim e explicam o
+"não calculável". Com avaliador marcado como outlier, cada valor ("com todos" e "sem os marcados")
+traz os seus.
+
+Os dois números não substituem o alpha, não entram na série nem na faixa de referência, e o
+Avaliador não os vê (ADR 0011).
+
+**Aviso de notas concentradas** (`rounds/agreement-labels.ts`): o painel avisa quando o alpha é
+calculável, está na faixa questionável (abaixo de 0,667) e as notas iguais são 80% ou mais. O aviso
+cita o nível de maior parte e as duas porcentagens. O corte de 80% é convenção da ferramenta, e não
+da literatura.
 
 ## 5. Onde o número aparece
 

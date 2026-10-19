@@ -101,3 +101,29 @@ export function ordinalAlpha(observations: readonly Observation[]): Agreement {
 
   return { calculable: true, alpha: 1 - ((n - 1) * observed) / expected, units, raters }
 }
+
+export type AgreementProfile = {
+  equal: number
+  shares: ReadonlyMap<number, number>
+}
+
+export function agreementProfile(
+  observations: readonly Observation[],
+): AgreementProfile | null {
+  const pairable = groupByUnit(observations).filter((values) => values.length >= 2)
+  if (pairable.length === 0) return null
+
+  const matrix = coincidences(pairable)
+  const totals = marginals(matrix)
+
+  let n = 0
+  for (const total of totals.values()) n += total
+
+  let diagonal = 0
+  for (const [c, row] of matrix) diagonal += row.get(c) ?? 0
+
+  const shares = new Map<number, number>()
+  for (const [c, total] of totals) shares.set(c, total / n)
+
+  return { equal: diagonal / n, shares }
+}

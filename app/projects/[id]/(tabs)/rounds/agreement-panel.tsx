@@ -1,8 +1,8 @@
 import { plural } from '@/lib/plural'
-import type { Agreement } from '@/lib/agreement'
+import type { Agreement, AgreementProfile } from '@/lib/agreement'
 import type { EvaluatorEffort } from './agreement'
 import { EffortList } from './effort-list'
-import type { AgreementPair } from './agreement-pair'
+import type { AgreementPair, ProfilePair } from './agreement-pair'
 import type { OutlierMark } from './outliers'
 import type { RoundMark } from '../../round-usage'
 import {
@@ -11,6 +11,7 @@ import {
   AGREEMENT_WITHOUT_OUTLIERS_LABEL,
   BAND_REFERENCE,
   BAND_REFERENCE_LABEL,
+  CONCENTRATION_HELP,
   NOT_CALCULABLE_LABEL,
   OUTLIER_PAIR_POINTS,
   OUTLIER_PAIR_RESULT,
@@ -18,8 +19,10 @@ import {
   agreementBand,
   bandLabel,
   bandTone,
+  concentrationWarning,
   formatAlpha,
   notCalculableMessage,
+  profileLine,
   SMALL_SAMPLE_HELP,
   sampleSize,
   smallSampleWarning,
@@ -68,6 +71,16 @@ function AgreementStat({
   )
 }
 
+function ProfileLine({ profile }: { profile: AgreementProfile | null }) {
+  if (!profile) return null
+  return (
+    <>
+      <br />
+      {profileLine(profile)}
+    </>
+  )
+}
+
 function ExcludedList({ outliers }: { outliers: OutlierMark[] }) {
   if (outliers.length === 0) return null
 
@@ -101,12 +114,14 @@ function ExcludedList({ outliers }: { outliers: OutlierMark[] }) {
 
 export function AgreementPanel({
   pair,
+  profiles,
   responses,
   effort,
   outliers,
   participation,
 }: {
   pair: AgreementPair
+  profiles: ProfilePair
   responses: ResponseCounts
   effort: EvaluatorEffort[]
   outliers: OutlierMark[]
@@ -115,7 +130,7 @@ export function AgreementPanel({
   const { all, withoutOutliers } = pair
   const excluded = new Set(outliers.map((mark) => mark.projectMemberId))
 
-  const warnings: { key: string; text: string }[] = []
+  const warnings: { key: string; text: string; help: string }[] = []
   const allWarning = smallSampleWarning({
     raters: all.raters,
     responses: responses.all,
@@ -124,6 +139,7 @@ export function AgreementPanel({
     warnings.push({
       key: 'all',
       text: withoutOutliers ? `${AGREEMENT_ALL_LABEL} — ${allWarning}` : allWarning,
+      help: SMALL_SAMPLE_HELP,
     })
   }
   if (withoutOutliers) {
@@ -135,6 +151,30 @@ export function AgreementPanel({
       warnings.push({
         key: 'without',
         text: `${AGREEMENT_WITHOUT_OUTLIERS_LABEL} — ${filteredWarning}`,
+        help: SMALL_SAMPLE_HELP,
+      })
+    }
+  }
+  const allConcentration = concentrationWarning(all, profiles.all)
+  if (allConcentration) {
+    warnings.push({
+      key: 'all-concentration',
+      text: withoutOutliers
+        ? `${AGREEMENT_ALL_LABEL} — ${allConcentration}`
+        : allConcentration,
+      help: CONCENTRATION_HELP,
+    })
+  }
+  if (withoutOutliers) {
+    const filteredConcentration = concentrationWarning(
+      withoutOutliers,
+      profiles.withoutOutliers,
+    )
+    if (filteredConcentration) {
+      warnings.push({
+        key: 'without-concentration',
+        text: `${AGREEMENT_WITHOUT_OUTLIERS_LABEL} — ${filteredConcentration}`,
+        help: CONCENTRATION_HELP,
       })
     }
   }
@@ -150,9 +190,11 @@ export function AgreementPanel({
           <span className="whitespace-nowrap">
             {BAND_REFERENCE_LABEL} <InfoTooltip text={BAND_REFERENCE} />
           </span>
+          <ProfileLine profile={profiles.all} />
         </>
       ) : (
         <>
+          <ProfileLine profile={profiles.all} />
           <br />
           {notCalculableMessage(all.reason)}
         </>
@@ -182,6 +224,7 @@ export function AgreementPanel({
                     'respostas avaliadas',
                   )}{' '}
                   · {plural(pair.excluded, 'avaliador fora', 'avaliadores fora')}
+                  <ProfileLine profile={profiles.withoutOutliers} />
                   {withoutOutliers.calculable ? null : (
                     <>
                       <br />
@@ -208,7 +251,7 @@ export function AgreementPanel({
 
       {warnings.map((warning) => (
         <Alert key={warning.key} tone="notice">
-          {warning.text} <InfoTooltip text={SMALL_SAMPLE_HELP} />
+          {warning.text} <InfoTooltip text={warning.help} />
         </Alert>
       ))}
 

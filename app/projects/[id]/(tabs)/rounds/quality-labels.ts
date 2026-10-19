@@ -2,6 +2,7 @@ import { plural } from '@/lib/plural'
 import { scaleLabel } from '../evaluate/scale'
 import { PHASE_2, PHASE_3, PHASE_4 } from '../../pipeline/preconditions'
 import type { QualityLevel } from './quality'
+import { formatShare, shareNumber } from './share'
 import {
   AGREEMENT_ALL_LABEL,
   AGREEMENT_WITHOUT_OUTLIERS_LABEL,
@@ -60,15 +61,7 @@ export const QUALITY_SERIES_NOTE =
 
 export const QUALITY_SERIES_NUMBERS = 'Ver os números de cada rodada'
 
-const SHARE_FORMAT = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 1 })
-
-function shareNumber(share: number): string {
-  return SHARE_FORMAT.format(share * 100)
-}
-
-export function formatShare(share: number): string {
-  return `${shareNumber(share)}%`
-}
+export { formatShare }
 
 export function qualityTotal(total: number): string {
   return plural(total, 'nota', 'notas')

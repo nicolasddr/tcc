@@ -141,6 +141,9 @@ um critério por resposta rende uma unidade por resposta. Avaliação que
 não existe é dado faltante, nunca exclusão de avaliador — a unidade sem par sai do cálculo e a
 pessoa continua nele. E o coeficiente é **não calculável**, nunca zero e nunca 1, em três casos:
 menos de dois avaliadores, nenhuma unidade avaliada por dois deles, e nenhuma variação nas notas.
+Ao lado do α, o painel da rodada mostra as **notas iguais** (a parte dos pares de notas, na mesma
+unidade, com o mesmo nível) e a distribuição das notas entre Alto, Médio e Baixo, para ler um α
+baixo quando as notas se concentram num nível só; elas não substituem o α.
 Não existe média, soma nem "ICR do projeto" em tela nenhuma: a leitura entre rodadas é a série, um
 ponto por rodada com a sua versão de codebook e a sua fase ao lado. A série é uma só para as Fases 2,
 3 e 4, porque a passagem de uma fase para a seguinte com a mesma versão de codebook é uma comparação

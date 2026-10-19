@@ -14,6 +14,7 @@ import {
 import {
   agreementPair,
   evaluatedResponses,
+  profilePair,
   withoutExcluded,
   type AgreementPair,
 } from './agreement-pair'
@@ -350,6 +351,7 @@ export default async function ProjectRoundsPage({
           <div className="flex flex-col gap-4">
             <AgreementPanel
               pair={focusPair}
+              profiles={profilePair(focusObservations, focusExcluded)}
               responses={responses}
               effort={openRound ? [] : effort}
               outliers={focusOutliers}

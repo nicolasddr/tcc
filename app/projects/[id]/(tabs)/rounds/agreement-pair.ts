@@ -1,10 +1,20 @@
-import { ordinalAlpha, type Agreement } from '@/lib/agreement'
+import {
+  agreementProfile,
+  ordinalAlpha,
+  type Agreement,
+  type AgreementProfile,
+} from '@/lib/agreement'
 import type { RoundObservation } from './agreement'
 
 export type AgreementPair = {
   all: Agreement
   withoutOutliers: Agreement | null
   excluded: number
+}
+
+export type ProfilePair = {
+  all: AgreementProfile | null
+  withoutOutliers: AgreementProfile | null
 }
 
 export function withoutExcluded(
@@ -27,6 +37,19 @@ export function agreementPair(
         ? null
         : ordinalAlpha(withoutExcluded(observations, excluded)),
     excluded: excluded.size,
+  }
+}
+
+export function profilePair(
+  observations: readonly RoundObservation[],
+  excluded: ReadonlySet<string>,
+): ProfilePair {
+  return {
+    all: agreementProfile(observations),
+    withoutOutliers:
+      excluded.size === 0
+        ? null
+        : agreementProfile(withoutExcluded(observations, excluded)),
   }
 }
 

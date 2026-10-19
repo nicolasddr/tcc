@@ -67,9 +67,11 @@ import {
   OUTLIER_PAIR_RESULT,
   OUTLIER_PAIR_SUMMARY,
   SMALL_SAMPLE_HELP,
+  CONCENTRATION_HELP,
   matrixVersionNote,
 } from '@/app/projects/[id]/(tabs)/rounds/agreement-labels'
 import { Section } from '@/app/components/ui/section'
+import { Alert } from '@/app/components/ui/alert'
 import {
   DEACTIVATED_HELP,
   EFFORT_MORE_SUMMARY,
@@ -1525,6 +1527,115 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     expect(tooltipTextsOf(AgreementPanel(panelOf(tree)))).toContain(SMALL_SAMPLE_HELP)
   })
 
+  it('notas concentradas: o painel mostra notas iguais, distribuição e o aviso ao lado do α', async () => {
+    const admin = await newUser('Admin')
+    const scene = await roundWith(admin, 10)
+    const ana = await newEvaluator(scene.project, 'Ana')
+    const bruno = await newEvaluator(scene.project, 'Bruno')
+
+    for (const [index, response] of scene.responses.entries()) {
+      await addEvaluation(ownerDb, scene.round, response, ana, {
+        cells: filled(scene.cells, 'high'),
+      })
+      await addEvaluation(ownerDb, scene.round, response, bruno, {
+        cells: filled(scene.cells, index === 9 ? 'medium' : 'high'),
+      })
+    }
+
+    auth.userId = admin
+    const tree = await render(scene.project)
+    const props = panelOf(tree)
+
+    expect(props.pair.all).toMatchObject({ calculable: true, units: 10, raters: 2 })
+    expect(props.pair.all.calculable && props.pair.all.alpha).toBeCloseTo(0, 10)
+    expect(props.profiles).toEqual({
+      all: { equal: 0.9, shares: new Map([[3, 0.95], [2, 0.05]]) },
+      withoutOutliers: null,
+    })
+
+    const visible = visibleTextOf(createElement(AgreementPanel, props))
+    expect(visible).toContain(
+      `10 notas · 2 avaliadores · 10 respostas avaliadas · ${BAND_REFERENCE_LABEL}`,
+    )
+    expect(visible).toContain('90% de notas iguais · Alto 95% · Médio 5% · Baixo 0%')
+
+    const alerts = findAll(AgreementPanel(props), Alert).map((alert) => visibleTextOf(alert))
+    expect(alerts).toContain(
+      'As notas se concentram em Alto (95%), e os avaliadores deram a mesma nota em 90% ' +
+        'dos pares. Com pouca variação na escala, poucas divergências bastam para derrubar ' +
+        'o α. Leia o número junto com a matriz. i',
+    )
+    expect(tooltipTextsOf(AgreementPanel(props))).toContain(CONCENTRATION_HELP)
+  })
+
+  it('com outliers, cada valor tem a sua linha de notas iguais, e o aviso de concentração leva o rótulo do valor', () => {
+    const props: PanelProps = {
+      pair: {
+        all: { calculable: true, alpha: 0.1, units: 30, raters: 4 },
+        withoutOutliers: { calculable: true, alpha: 0.9, units: 30, raters: 3 },
+        excluded: 1,
+      },
+      profiles: {
+        all: { equal: 0.85, shares: new Map([[3, 0.9], [2, 0.1]]) },
+        withoutOutliers: { equal: 0.7, shares: new Map([[3, 0.4], [2, 0.3], [1, 0.3]]) },
+      },
+      responses: { all: 30, withoutOutliers: 30 },
+      effort: [],
+      outliers: [],
+    }
+
+    const visible = visibleTextOf(createElement(AgreementPanel, props))
+    expect(visible).toContain('85% de notas iguais · Alto 90% · Médio 10% · Baixo 0%')
+    expect(visible).toContain('70% de notas iguais · Alto 40% · Médio 30% · Baixo 30%')
+
+    const alerts = findAll(AgreementPanel(props), Alert).map((alert) => visibleTextOf(alert))
+    expect(alerts).toEqual([
+      `${AGREEMENT_ALL_LABEL} — As notas se concentram em Alto (90%), e os avaliadores ` +
+        'deram a mesma nota em 85% dos pares. Com pouca variação na escala, poucas ' +
+        'divergências bastam para derrubar o α. Leia o número junto com a matriz. i',
+    ])
+
+    const bothConcentrated: PanelProps = {
+      ...props,
+      pair: {
+        ...props.pair,
+        withoutOutliers: { calculable: true, alpha: 0.2, units: 30, raters: 3 },
+      },
+      profiles: {
+        ...props.profiles,
+        withoutOutliers: { equal: 0.9, shares: new Map([[3, 0.95], [2, 0.05]]) },
+      },
+    }
+    const both = findAll(AgreementPanel(bothConcentrated), Alert).map((alert) =>
+      visibleTextOf(alert),
+    )
+    expect(both).toHaveLength(2)
+    expect(both[1]).toBe(
+      `${AGREEMENT_WITHOUT_OUTLIERS_LABEL} — As notas se concentram em Alto (95%), e os ` +
+        'avaliadores deram a mesma nota em 90% dos pares. Com pouca variação na escala, ' +
+        'poucas divergências bastam para derrubar o α. Leia o número junto com a matriz. i',
+    )
+  })
+
+  it('sem variação, a linha de notas iguais explica o não calculável, e não há aviso de concentração', () => {
+    const props: PanelProps = {
+      pair: {
+        all: { calculable: false, reason: 'no_variation', units: 12, raters: 3 },
+        withoutOutliers: null,
+        excluded: 0,
+      },
+      profiles: { all: { equal: 1, shares: new Map([[3, 1]]) }, withoutOutliers: null },
+      responses: { all: 12, withoutOutliers: 12 },
+      effort: [],
+      outliers: [],
+    }
+
+    expect(visibleTextOf(createElement(AgreementPanel, props))).toContain(
+      '100% de notas iguais · Alto 100% · Médio 0% · Baixo 0%',
+    )
+    expect(findAll(AgreementPanel(props), Alert)).toEqual([])
+  })
+
   it('o esforço por avaliador mostra a contagem de cada um, inclusive quem enviou zero', async () => {
     const admin = await newUser('Admin')
     const scene = await roundWith(admin, 3)
@@ -1800,6 +1911,7 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
       'effort',
       'outliers',
       'pair',
+      'profiles',
       'responses',
     ])
     expect(Object.keys(panelOf(tree).pair).sort()).toEqual([

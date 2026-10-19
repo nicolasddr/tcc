@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { ordinalAlpha, type Observation } from './agreement'
+import { agreementProfile, ordinalAlpha, type Observation } from './agreement'
 
 function fromPairs(pairs: ReadonlyArray<readonly [number, number]>): Observation[] {
   return pairs.flatMap(([a, b], index) => [
@@ -156,5 +156,102 @@ describe('ordinalAlpha', () => {
 
     expect(result).toMatchObject({ calculable: true, units: 11, raters: 4 })
     expect(result.calculable && result.alpha).toBeCloseTo(0.815, 3)
+  })
+})
+
+function sharesOf(profile: ReturnType<typeof agreementProfile>): [number, number][] {
+  return [...(profile?.shares ?? new Map<number, number>())].sort(([a], [b]) => a - b)
+}
+
+describe('agreementProfile', () => {
+  it('distribuição degenerada: 80% de notas iguais, 90% em Alto e 10% em Médio', () => {
+    const profile = agreementProfile(
+      fromPairs([
+        [3, 3],
+        [3, 3],
+        [3, 3],
+        [3, 3],
+        [3, 3],
+        [3, 3],
+        [3, 3],
+        [3, 3],
+        [3, 2],
+        [2, 3],
+      ]),
+    )
+
+    expect(profile?.equal).toBeCloseTo(0.8, 10)
+    expect(sharesOf(profile)).toHaveLength(2)
+    expect(profile?.shares.get(3)).toBeCloseTo(0.9, 10)
+    expect(profile?.shares.get(2)).toBeCloseTo(0.1, 10)
+    expect(profile?.shares.get(1) ?? 0).toBe(0)
+  })
+
+  it('48 pares iguais em Alto e 2 divergentes: 96% de notas iguais e 98% em Alto', () => {
+    const pairs: [number, number][] = [
+      ...Array.from({ length: 48 }, (): [number, number] => [3, 3]),
+      [3, 2],
+      [3, 2],
+    ]
+
+    const profile = agreementProfile(fromPairs(pairs))
+
+    expect(profile?.equal).toBeCloseTo(0.96, 10)
+    expect(profile?.shares.get(3)).toBeCloseTo(0.98, 10)
+    expect(profile?.shares.get(2)).toBeCloseTo(0.02, 10)
+  })
+
+  it('matriz de Krippendorff (2011): 32 de 40 valores pareáveis iguais, e a parte de cada posto', () => {
+    const profile = agreementProfile(
+      fromMatrix({
+        A: [1, 2, 3, 3, 2, 1, 4, 1, 2, null, null, null],
+        B: [1, 2, 3, 3, 2, 2, 4, 1, 2, 5, null, 3],
+        C: [null, 3, 3, 3, 2, 3, 4, 2, 2, 5, 1, null],
+        D: [1, 2, 3, 3, 2, 4, 4, 1, 2, 5, 1, null],
+      }),
+    )
+
+    expect(profile?.equal).toBeCloseTo(32 / 40, 10)
+    const shares = sharesOf(profile)
+    expect(shares.map(([rank]) => rank)).toEqual([1, 2, 3, 4, 5])
+    const expected = [9 / 40, 13 / 40, 10 / 40, 5 / 40, 3 / 40]
+    shares.forEach(([, share], index) => expect(share).toBeCloseTo(expected[index], 10))
+  })
+
+  it('unidade com uma nota só fica fora: o perfil não muda ao acrescentá-la', () => {
+    const pairs = fromPairs([
+      [1, 1],
+      [2, 2],
+      [3, 3],
+      [1, 2],
+    ])
+
+    const without = agreementProfile(pairs)
+    const withSingle = agreementProfile([...pairs, { unitId: 'u5', raterId: 'A', value: 3 }])
+
+    expect(without?.equal).toBeCloseTo(0.75, 10)
+    expect(withSingle?.equal).toBeCloseTo(0.75, 10)
+    expect(sharesOf(withSingle)).toEqual(sharesOf(without))
+    expect(withSingle?.shares.get(3)).toBeCloseTo(0.25, 10)
+  })
+
+  it('sem unidade pareável não há perfil', () => {
+    expect(
+      agreementProfile([
+        { unitId: 'u1', raterId: 'A', value: 1 },
+        { unitId: 'u2', raterId: 'B', value: 3 },
+      ]),
+    ).toBeNull()
+    expect(agreementProfile([])).toBeNull()
+  })
+
+  it('um avaliador só não tem perfil', () => {
+    const observations = [1, 2, 3, 1].map((value, index) => ({
+      unitId: `u${index + 1}`,
+      raterId: 'A',
+      value,
+    }))
+
+    expect(agreementProfile(observations)).toBeNull()
   })
 })

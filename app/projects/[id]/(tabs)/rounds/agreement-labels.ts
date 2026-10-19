@@ -1,7 +1,9 @@
 import { plural } from '@/lib/plural'
-import type { Agreement, NotCalculableReason } from '@/lib/agreement'
+import type { Agreement, AgreementProfile, NotCalculableReason } from '@/lib/agreement'
 import { PHASE_2, PHASE_3, PHASE_4 } from '../../pipeline/preconditions'
 import { PER_RESPONSE_LABEL } from '../../pipeline/criteria'
+import { SCALE, scaleLabel, scaleRank, type ScaleValue } from '../evaluate/scale'
+import { formatShare } from './share'
 
 export type AgreementBand = 'questionable' | 'acceptable' | 'good'
 
@@ -189,4 +191,44 @@ export function cellNotCalculableLabel(reason: NotCalculableReason): string {
     case 'no_variation':
       return 'sem variação'
   }
+}
+
+export const CONCENTRATION_EQUAL = 0.8
+
+export const CONCENTRATION_HELP =
+  'É o paradoxo da prevalência: com quase todas as notas num nível só, a discordância ' +
+  'esperada ao acaso fica perto de zero, e poucas divergências derrubam o α. O aviso ' +
+  `pede α abaixo de ${formatCut(AGREEMENT_BANDS.acceptable)} e ` +
+  `${formatShare(CONCENTRATION_EQUAL)} ou mais de notas iguais: corte por convenção desta ` +
+  'ferramenta, não da literatura.'
+
+function levelShare(profile: AgreementProfile, value: ScaleValue): number {
+  return profile.shares.get(scaleRank(value)) ?? 0
+}
+
+export function profileLine(profile: AgreementProfile): string {
+  return [
+    `${formatShare(profile.equal)} de notas iguais`,
+    ...SCALE.map((value) => `${scaleLabel(value)} ${formatShare(levelShare(profile, value))}`),
+  ].join(' · ')
+}
+
+export function concentrationWarning(
+  agreement: Agreement,
+  profile: AgreementProfile | null,
+): string | null {
+  if (!profile || !agreement.calculable) return null
+  if (agreement.alpha >= AGREEMENT_BANDS.acceptable) return null
+  if (profile.equal < CONCENTRATION_EQUAL) return null
+
+  const top = SCALE.reduce((best, value) =>
+    levelShare(profile, value) > levelShare(profile, best) ? value : best,
+  )
+
+  return (
+    `As notas se concentram em ${scaleLabel(top)} (${formatShare(levelShare(profile, top))}), ` +
+    `e os avaliadores deram a mesma nota em ${formatShare(profile.equal)} dos pares. Com ` +
+    'pouca variação na escala, poucas divergências bastam para derrubar o α. Leia o número ' +
+    'junto com a matriz.'
+  )
 }

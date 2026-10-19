@@ -2,10 +2,11 @@ import { describe, it, expect } from 'vitest'
 import {
   agreementPair,
   evaluatedResponses,
+  profilePair,
   withoutExcluded,
 } from '@/app/projects/[id]/(tabs)/rounds/agreement-pair'
 import type { RoundObservation } from '@/app/projects/[id]/(tabs)/rounds/agreement'
-import { ordinalAlpha } from '@/lib/agreement'
+import { agreementProfile, ordinalAlpha } from '@/lib/agreement'
 
 function score(
   responseId: string,
@@ -99,5 +100,43 @@ describe('agreementPair — o valor com todos e o valor sem os marcados', () => 
     expect(evaluatedResponses(observations)).toBe(3)
     expect(evaluatedResponses(withoutExcluded(observations, new Set(['bruno'])))).toBe(3)
     expect(evaluatedResponses([])).toBe(0)
+  })
+})
+
+describe('profilePair — notas iguais e distribuição com todos e sem os marcados', () => {
+  it('sem exclusão, o par traz só o perfil com todos', () => {
+    const observations = ratings({ ana: [3, 3, 3, 2], bruno: [3, 3, 3, 3] })
+
+    const pair = profilePair(observations, NONE)
+
+    expect(pair.all).toEqual(agreementProfile(observations))
+    expect(pair.all?.equal).toBeCloseTo(0.75, 10)
+    expect(pair.withoutOutliers).toBeNull()
+  })
+
+  it('com exclusão, cada perfil sai do seu recorte', () => {
+    const observations = ratings({
+      ana: [3, 3, 3, 3],
+      bruno: [3, 3, 3, 3],
+      carla: [1, 1, 1, 1],
+    })
+
+    const pair = profilePair(observations, new Set(['carla']))
+
+    expect(pair.all).toEqual(agreementProfile(observations))
+    expect(pair.withoutOutliers).toEqual(
+      agreementProfile(ratings({ ana: [3, 3, 3, 3], bruno: [3, 3, 3, 3] })),
+    )
+    expect(pair.withoutOutliers?.equal).toBe(1)
+    expect(pair.all?.equal).toBeCloseTo(1 / 3, 10)
+  })
+
+  it('excluir todo mundo menos um deixa o perfil filtrado nulo', () => {
+    const observations = ratings({ ana: [1, 2, 3], bruno: [3, 2, 1] })
+
+    const pair = profilePair(observations, new Set(['bruno']))
+
+    expect(pair.all).not.toBeNull()
+    expect(pair.withoutOutliers).toBeNull()
   })
 })
