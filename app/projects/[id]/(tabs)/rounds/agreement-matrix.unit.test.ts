@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import type { Scope } from '@/app/projects/[id]/pipeline/criteria'
 import {
   agreementMatrix,
+  allDefinitionsRow,
   matrixColumns,
   type MatrixCell,
   type MatrixRow,
@@ -331,5 +332,140 @@ describe('app/projects/[id]/rounds/agreement-matrix — a linha por resposta', (
       ...Array(5).fill(['unrated', 'not_applicable']),
       ['not_applicable', 'unrated'],
     ])
+  })
+})
+
+describe('app/projects/[id]/rounds/agreement-matrix — todas as definições', () => {
+  type AllDefinitionsCells = NonNullable<ReturnType<typeof allDefinitionsRow<Criterion>>>
+
+  function allOf(
+    definitions: readonly Definition[],
+    criteria: readonly Criterion[],
+    observations: readonly RoundObservation[],
+  ): AllDefinitionsCells {
+    const row = allDefinitionsRow(definitions, criteria, observations)
+    if (!row) throw new Error('a linha de todas as definições não está na matriz')
+    return row
+  }
+
+  function columnCell(cells: AllDefinitionsCells, name: string): MatrixCell {
+    const found = cells.find((entry) => entry.column.name === name)
+    if (!found) throw new Error(`coluna ${name} não está na linha`)
+    return found.cell
+  }
+
+  it('o alpha da coluna geral é calculado sobre as notas de todas as definições, e não é a média das células', () => {
+    const definitions = [informacional, transacional, navegacional]
+    const criteria = [criterion('g1', null)]
+    const observations = [
+      ...ratings('d1', 'g1', { A: [1, 2, 3, 1], B: [1, 2, 3, 1] }),
+      ...ratings('d2', 'g1', { A: [1, 2, 3, 1], B: [1, 2, 3, 2] }),
+      ...ratings('d3', 'g1', { A: [3, 3, 3, 1], B: [3, 3, 2, 1] }),
+    ]
+
+    const cells = agreementMatrix(definitions, criteria, observations).map((row) =>
+      alphaOf(cellOf(row, 'g1')),
+    )
+    const mean = cells.reduce((sum, alpha) => sum + alpha, 0) / cells.length
+    const cell = columnCell(allOf(definitions, criteria, observations), 'g1')
+
+    expect(cells).toEqual([1, 0.79, 0.75])
+    expect(cell).toMatchObject({
+      state: 'calculated',
+      agreement: { calculable: true, units: 12, raters: 2 },
+    })
+    expect(alphaOf(cell)).toBeCloseTo(193 / 216, 10)
+    expect(alphaOf(cell)).not.toBeCloseTo(mean, 2)
+  })
+
+  it('a coluna de específicos de mesmo nome junta só as definições que têm o critério', () => {
+    const definitions = [informacional, transacional, navegacional]
+    const criteria = [
+      criterion('g1', null, 'Justificativa clara'),
+      criterion('c1', 'd1', 'Aderência à definição'),
+      criterion('c2', 'd2', 'Aderência à definição'),
+      criterion('c3', 'd3', 'Outro'),
+    ]
+
+    const cells = allOf(definitions, criteria, [
+      ...ratings('d1', 'c1', { A: [1, 2, 3, 1], B: [1, 2, 3, 1] }),
+      ...ratings('d2', 'c2', { A: [1, 2, 3, 1], B: [1, 2, 3, 2] }),
+      ...ratings('d3', 'c3', { A: [3, 3, 3], B: [1, 1, 1] }),
+      ...ratings('d3', 'g1', { A: [3, 3, 3], B: [1, 1, 1] }),
+    ])
+    const cell = columnCell(cells, 'Aderência à definição')
+
+    expect(cells.map((entry) => entry.column.name)).toEqual([
+      'Justificativa clara',
+      'Aderência à definição',
+      'Outro',
+    ])
+    expect(cell).toMatchObject({
+      state: 'calculated',
+      agreement: { calculable: true, units: 8, raters: 2 },
+    })
+    expect(alphaOf(cell)).toBeCloseTo(0.8863636364, 10)
+  })
+
+  it('a coluna do critério por resposta não se aplica à linha', () => {
+    const queries: Definition[] = [1, 2].map((n) => ({ id: `q${n}`, title: `Query ${n}` }))
+    const criteria = [criterion('relevance', null, 'Relevance'), perResponse('diversity', 'Diversity')]
+
+    const cells = allOf(
+      queries,
+      criteria,
+      ratings(null, 'diversity', { A: [1, 2, 3], B: [1, 2, 3] }),
+    )
+
+    expect(columnCell(cells, 'Diversity')).toEqual({ state: 'not_applicable' })
+  })
+
+  it('a coluna sem nota em definição nenhuma fica sem nota', () => {
+    const criteria = [criterion('g1', null), criterion('g2', null)]
+
+    const cells = allOf(
+      [informacional, transacional],
+      criteria,
+      ratings('d1', 'g1', { A: [1, 2, 3], B: [1, 2, 3] }),
+    )
+
+    expect(columnCell(cells, 'g1')).toMatchObject({ state: 'calculated' })
+    expect(columnCell(cells, 'g2')).toEqual({ state: 'unrated' })
+  })
+
+  it('com uma definição só, não há linha', () => {
+    const criteria = [criterion('g1', null)]
+
+    expect(
+      allDefinitionsRow(
+        [informacional],
+        criteria,
+        ratings('d1', 'g1', { A: [1, 2, 3], B: [1, 2, 3] }),
+      ),
+    ).toBeNull()
+    expect(allDefinitionsRow([], criteria, [])).toBeNull()
+  })
+
+  it('notas da linha por resposta não entram em coluna nenhuma da linha', () => {
+    const queries: Definition[] = [1, 2].map((n) => ({ id: `q${n}`, title: `Query ${n}` }))
+    const criteria = [criterion('relevance', null, 'Relevance'), perResponse('diversity', 'Diversity')]
+    const relevance = [
+      ...ratings('q1', 'relevance', { A: [1, 2, 3], B: [1, 2, 3] }),
+      ...ratings('q2', 'relevance', { A: [1, 2, 3], B: [1, 2, 2] }),
+    ]
+    const withoutDefinition = [
+      ...ratings(null, 'relevance', { A: [3, 3, 3], B: [1, 1, 1] }),
+      ...ratings(null, 'diversity', { A: [3, 3, 3], B: [1, 1, 1] }),
+    ]
+
+    const alone = allOf(queries, criteria, relevance)
+    const together = allOf(queries, criteria, [...relevance, ...withoutDefinition])
+
+    expect(columnCell(together, 'Relevance')).toEqual(columnCell(alone, 'Relevance'))
+    expect(columnCell(together, 'Relevance')).toMatchObject({
+      state: 'calculated',
+      agreement: { units: 6 },
+    })
+    expect(columnCell(together, 'Diversity')).toEqual({ state: 'not_applicable' })
   })
 })

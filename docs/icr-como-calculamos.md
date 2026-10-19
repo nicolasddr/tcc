@@ -100,6 +100,16 @@ da literatura.
     definição);
   - *sem nota*: a célula existe e ninguém a avaliou ainda;
   - *não calculável*: a célula tem nota e não tem coeficiente (um dos casos da seção 4).
+
+  Com duas ou mais definições, a matriz ganha a linha **Todas as definições**, entre as definições
+  e a linha *Por resposta*. Em cada coluna, ela traz um alpha calculado sobre todas as notas
+  daquela coluna na rodada: as de todas as definições, no critério geral, e as das definições que
+  têm o critério, na coluna de critérios específicos de mesmo nome. As unidades continuam as
+  mesmas: cada nota só se compara com as da mesma resposta e da mesma definição. É um alpha sobre
+  essas notas, e **não a média** dos alphas das células, e também é calculado **com todos**. Na
+  coluna do critério por resposta, a linha mostra o traço, porque esse critério já tem um valor
+  só, na linha *Por resposta*. É a leitura do critério quando as definições são posições
+  (Pergunta 1, Pergunta 2…) e não textos diferentes.
 - **Série entre rodadas** (`rounds/agreement-series.ts`). Um ponto por rodada, com a versão do
   codebook e a fase ao lado, também **com todos**. A série é uma só para as Fases 2, 3 e 4. **Não
   existe média, soma nem "ICR do projeto"** em tela nenhuma.

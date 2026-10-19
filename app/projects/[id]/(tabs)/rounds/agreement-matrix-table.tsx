@@ -1,5 +1,6 @@
 import { Badge } from '@/app/components/ui/badge'
 import { EmptyState } from '@/app/components/ui/empty-state'
+import { InfoTooltip } from '@/app/components/ui/tooltip'
 import type {
   CodebookCriterion,
   CodebookDefinition,
@@ -7,8 +8,12 @@ import type {
 import { PER_RESPONSE_LABEL } from '../../pipeline/criteria'
 import { PER_RESPONSE_KEY } from '../evaluate/completeness'
 import type { RoundObservation } from './agreement'
-import { agreementMatrix, type MatrixCell } from './agreement-matrix'
+import { agreementMatrix, allDefinitionsRow, type MatrixCell } from './agreement-matrix'
 import {
+  ALL_DEFINITIONS_LABEL,
+  ALL_DEFINITIONS_LEGEND,
+  ALL_DEFINITIONS_NOTE,
+  CELL_ALL_DEFINITIONS_PER_RESPONSE_TITLE,
   CELL_NOT_APPLICABLE,
   CELL_UNRATED_LABEL,
   agreementBand,
@@ -72,7 +77,35 @@ export function AgreementMatrixTable({
   }
 
   const rows = agreementMatrix(definitions, criteria, observations)
+  const definitionRows = rows.filter((row) => row.definition !== null)
+  const perResponseRows = rows.filter((row) => row.definition === null)
+  const allDefinitions = allDefinitionsRow(definitions, criteria, observations)
   const columns = rows[0].cells.map((entry) => entry.column)
+
+  const matrixRow = (row: (typeof rows)[number]) => (
+    <tr key={row.definition?.id ?? PER_RESPONSE_KEY}>
+      <th
+        scope="row"
+        className="border-b border-line px-3 py-2 text-left font-semibold text-ink"
+      >
+        {row.definition?.title ?? PER_RESPONSE_LABEL}
+      </th>
+      {row.cells.map((entry) => (
+        <td
+          key={entry.column.key}
+          className="border-b border-line px-3 py-2 whitespace-nowrap"
+        >
+          <Cell
+            cell={entry.cell}
+            notApplicableTitle={cellNotApplicableTitle(
+              row.definition === null,
+              entry.column.isPerResponse,
+            )}
+          />
+        </td>
+      ))}
+    </tr>
+  )
 
   return (
     <div className="flex flex-col gap-2">
@@ -104,33 +137,38 @@ export function AgreementMatrixTable({
             </tr>
           </thead>
           <tbody>
-            {rows.map((row) => (
-              <tr key={row.definition?.id ?? PER_RESPONSE_KEY}>
+            {definitionRows.map(matrixRow)}
+            {allDefinitions ? (
+              <tr>
                 <th
                   scope="row"
-                  className="border-b border-line px-3 py-2 text-left font-semibold text-ink"
+                  className="border-t-2 border-b border-line px-3 py-2 text-left font-semibold whitespace-nowrap text-ink"
                 >
-                  {row.definition?.title ?? PER_RESPONSE_LABEL}
+                  {ALL_DEFINITIONS_LABEL}
                 </th>
-                {row.cells.map((entry) => (
+                {allDefinitions.map((entry) => (
                   <td
                     key={entry.column.key}
-                    className="border-b border-line px-3 py-2 whitespace-nowrap"
+                    className="border-t-2 border-b border-line px-3 py-2 whitespace-nowrap"
                   >
                     <Cell
                       cell={entry.cell}
-                      notApplicableTitle={cellNotApplicableTitle(
-                        row.definition === null,
-                        entry.column.isPerResponse,
-                      )}
+                      notApplicableTitle={CELL_ALL_DEFINITIONS_PER_RESPONSE_TITLE}
                     />
                   </td>
                 ))}
               </tr>
-            ))}
+            ) : null}
+            {perResponseRows.map(matrixRow)}
           </tbody>
         </table>
       </div>
+
+      {allDefinitions ? (
+        <p className="m-0 text-xs text-muted">
+          {ALL_DEFINITIONS_NOTE} <InfoTooltip text={ALL_DEFINITIONS_LEGEND} />
+        </p>
+      ) : null}
     </div>
   )
 }

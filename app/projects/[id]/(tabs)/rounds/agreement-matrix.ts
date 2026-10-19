@@ -93,6 +93,27 @@ export function matrixColumns<C extends CriterionKey>(
   ]
 }
 
+export function allDefinitionsRow<C extends CriterionKey>(
+  definitions: readonly DefinitionKey[],
+  criteria: readonly C[],
+  observations: readonly RoundObservation[],
+): { column: MatrixColumn<C>; cell: MatrixCell }[] | null {
+  if (definitions.length < 2) return null
+
+  const byCell = groupByCell(observations)
+
+  return matrixColumns(definitions, criteria).map((column) => {
+    if (column.isPerResponse) return { column, cell: { state: 'not_applicable' } as const }
+
+    const group = [...column.criteria].flatMap(
+      ([definitionId, criterion]) => byCell.get(cellKey(definitionId, criterion.id)) ?? [],
+    )
+    if (group.length === 0) return { column, cell: { state: 'unrated' } as const }
+
+    return { column, cell: { state: 'calculated', agreement: ordinalAlpha(group) } as const }
+  })
+}
+
 export type MeasuredCell<V> =
   | { state: 'not_applicable' }
   | { state: 'unrated' }

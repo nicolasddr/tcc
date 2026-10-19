@@ -57,6 +57,10 @@ import {
   AGREEMENT_WITHOUT_OUTLIERS_LABEL,
   BAND_REFERENCE,
   BAND_REFERENCE_LABEL,
+  ALL_DEFINITIONS_LABEL,
+  ALL_DEFINITIONS_LEGEND,
+  ALL_DEFINITIONS_NOTE,
+  CELL_ALL_DEFINITIONS_PER_RESPONSE_TITLE,
   CELL_NOT_APPLICABLE,
   CELL_NOT_APPLICABLE_TITLE,
   CELL_PER_RESPONSE_COLUMN_TITLE,
@@ -672,7 +676,13 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
   }
 
   function rowTitlesOf(markup: string): string[] {
-    return [...markup.matchAll(/<th scope="row"[^>]*>(.*?)<\/th>/g)].map((match) => match[1])
+    return [...markup.matchAll(/<th scope="row"[^>]*>(.*?)<\/th>/g)].map((match) =>
+      match[1]
+        .replace(/<span [^>]*(role="tooltip"|aria-hidden="true")[^>]*>[^<]*<\/span>/g, ' ')
+        .replace(/<[^>]*>/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim(),
+    )
   }
 
   function columnTitlesOf(markup: string): string[] {
@@ -2436,6 +2446,66 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     expect(text).toContain('-0,667')
   })
 
+  it('a linha “Todas as definições” traz o α sobre as notas das definições juntas, e não a média das células', async () => {
+    const admin = await newUser('Admin')
+    const scene = await roundWith(admin, 3, { shape: TWO_DEFINITIONS })
+    const ana = await newEvaluator(scene.project, 'Ana')
+    const bruno = await newEvaluator(scene.project, 'Bruno')
+
+    const agree = ['low', 'medium', 'high'] as const
+    const disagree = ['high', 'medium', 'low'] as const
+    for (const [index, response] of scene.responses.entries()) {
+      await addEvaluation(ownerDb, scene.round, response, ana, {
+        cells: filled(scene.cells, agree[index]),
+      })
+      await addEvaluation(ownerDb, scene.round, response, bruno, {
+        cells: [
+          ...filled(cellsOf(scene, 'Informacional'), agree[index]),
+          ...filled(cellsOf(scene, 'Transacional'), disagree[index]),
+        ],
+      })
+    }
+
+    auth.userId = admin
+    const tree = await render(scene.project)
+    const table = AgreementMatrixTable(matrixOf(tree))
+    const markup = renderToStaticMarkup(createElement(AgreementMatrixTable, matrixOf(tree)))
+
+    expect(rowTitlesOf(markup)).toEqual(['Informacional', 'Transacional', ALL_DEFINITIONS_LABEL])
+    expect(visibleTextOf(createElement(AgreementMatrixTable, matrixOf(tree)))).toContain('0,083')
+    expect(visibleTextOf(createElement(AgreementMatrixTable, matrixOf(tree)))).toContain(
+      ALL_DEFINITIONS_NOTE,
+    )
+    expect(markupTextOf(createElement(AgreementMatrixTable, matrixOf(tree)))).not.toContain(
+      '0,167',
+    )
+    expect(tooltipTextsOf(table)).toEqual([ALL_DEFINITIONS_LEGEND])
+  })
+
+  it('com uma definição só, a matriz não ganha a linha “Todas as definições”', async () => {
+    const admin = await newUser('Admin')
+    const scene = await roundWith(admin, 2)
+    const ana = await newEvaluator(scene.project, 'Ana')
+    const bruno = await newEvaluator(scene.project, 'Bruno')
+
+    const values = ['low', 'high'] as const
+    for (const [index, value] of values.entries()) {
+      for (const evaluator of [ana, bruno]) {
+        await addEvaluation(ownerDb, scene.round, scene.responses[index], evaluator, {
+          cells: filled(scene.cells, value),
+        })
+      }
+    }
+
+    auth.userId = admin
+    const tree = await render(scene.project)
+    const markup = renderToStaticMarkup(createElement(AgreementMatrixTable, matrixOf(tree)))
+
+    expect(markupTextOf(createElement(AgreementMatrixTable, matrixOf(tree)))).toContain('1,000')
+    expect(rowTitlesOf(markup)).toEqual(['Informacional'])
+    expect(markup).not.toContain(ALL_DEFINITIONS_LABEL)
+  })
+
   it('o critério específico de uma definição é traço na linha da outra', async () => {
     const admin = await newUser('Admin')
     const scene = await roundWith(admin, 1, {
@@ -2474,6 +2544,7 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
       'Query 3',
       'Query 4',
       'Query 5',
+      ALL_DEFINITIONS_LABEL,
       PER_RESPONSE_LABEL,
     ])
     expect(columnTitlesOf(markup)).toEqual([
@@ -2483,6 +2554,7 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     ])
     expect(titleCountOf(markup, CELL_PER_RESPONSE_ROW_TITLE)).toBe(1)
     expect(titleCountOf(markup, CELL_PER_RESPONSE_COLUMN_TITLE)).toBe(5)
+    expect(titleCountOf(markup, CELL_ALL_DEFINITIONS_PER_RESPONSE_TITLE)).toBe(1)
     expect(titleCountOf(markup, CELL_NOT_APPLICABLE_TITLE)).toBe(0)
     expect(howToReadOf(AgreementMatrixTable(matrixOf(tree)))).toEqual([])
   })

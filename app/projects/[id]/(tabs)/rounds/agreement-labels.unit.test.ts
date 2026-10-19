@@ -2,6 +2,10 @@ import { describe, it, expect } from 'vitest'
 import {
   AGREEMENT_ALL_LABEL,
   AGREEMENT_BANDS,
+  ALL_DEFINITIONS_LABEL,
+  ALL_DEFINITIONS_LEGEND,
+  ALL_DEFINITIONS_NOTE,
+  CELL_ALL_DEFINITIONS_PER_RESPONSE_TITLE,
   AGREEMENT_SERIES_POINTS,
   AGREEMENT_WITHOUT_OUTLIERS_LABEL,
   AGREEMENT_SOURCE,
@@ -227,6 +231,16 @@ describe('app/projects/[id]/rounds/agreement-labels — o coeficiente na tela', 
     expect(MATRIX_PER_RESPONSE_LEGEND).toContain(`“${CELL_NOT_APPLICABLE}”`)
     expect(MATRIX_PER_RESPONSE_LEGEND).toContain('critérios de definição')
     expect(MATRIX_PER_RESPONSE_LEGEND).toContain('critério por resposta')
+  })
+
+  it('a linha de todas as definições diz que é um alpha sobre as notas, e não a média das células', () => {
+    expect(ALL_DEFINITIONS_LABEL).toBe('Todas as definições')
+    expect(ALL_DEFINITIONS_NOTE).toContain(`“${ALL_DEFINITIONS_LABEL}”`)
+    expect(ALL_DEFINITIONS_NOTE).toContain('não a média das células')
+    expect(ALL_DEFINITIONS_LEGEND).toContain('que têm o critério')
+    expect(ALL_DEFINITIONS_LEGEND).not.toContain('média')
+    expect(CELL_ALL_DEFINITIONS_PER_RESPONSE_TITLE).toContain(`linha ${PER_RESPONSE_LABEL}`)
+    expect(CELL_ALL_DEFINITIONS_PER_RESPONSE_TITLE).not.toBe(CELL_PER_RESPONSE_COLUMN_TITLE)
   })
 
   it('a versão da matriz tem rótulo curto e frase inteira, as duas com o número da rodada', () => {

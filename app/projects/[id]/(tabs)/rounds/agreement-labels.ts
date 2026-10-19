@@ -43,6 +43,21 @@ export const MATRIX_PER_RESPONSE_LEGEND =
   'colunas dos critérios de definição, e nas linhas das definições na coluna do critério ' +
   'por resposta.'
 
+export const ALL_DEFINITIONS_LABEL = 'Todas as definições'
+
+export const CELL_ALL_DEFINITIONS_PER_RESPONSE_TITLE =
+  `o critério por resposta já tem um valor só, na linha ${PER_RESPONSE_LABEL}`
+
+export const ALL_DEFINITIONS_NOTE =
+  `A linha “${ALL_DEFINITIONS_LABEL}” é um α sobre as notas das definições juntas, e não ` +
+  'a média das células.'
+
+export const ALL_DEFINITIONS_LEGEND =
+  'Em cada coluna, a conta junta as notas de todas as definições que têm o critério. Cada ' +
+  'nota continua comparada só com as notas da mesma resposta e da mesma definição. É a ' +
+  'leitura do critério quando as definições são posições (Pergunta 1, Pergunta 2…) e não ' +
+  'textos diferentes.'
+
 export const OUTLIER_PAIR_SUMMARY =
   'Os dois valores saem do mesmo dado desta rodada, e o resultado da rodada continua ' +
   `sendo o ${AGREEMENT_ALL_LABEL}.`
