@@ -42,6 +42,8 @@ A régua com que o Avaliador julga um critério, ordinal e de três pontos: Alto
 É fixa na ferramenta e não configurável por projeto, porque o nível de mensuração da métrica
 de concordância, o diff entre versões do codebook e a comparabilidade entre rodadas dependem
 dela ser a mesma sempre. A escala nunca vai à LLM, nem na Fase 3: a LLM não se avalia.
+Cada critério pode descrever o que vale Alto, Médio e Baixo nele (*descrição do nível*). É
+instrução para o avaliador e, como a escala, não vai à LLM.
 
 ## Pipeline e avaliação
 

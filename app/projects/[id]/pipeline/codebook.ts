@@ -10,6 +10,7 @@ import {
 import { isVersionOpen } from '@/lib/versioning'
 import { isUuid, summarize, type Summarized } from './versions'
 import { isScope, type Scope } from './criteria'
+import type { ScaleValue } from '../(tabs)/evaluate/scale'
 
 export type CodebookVersion = {
   id: string
@@ -43,6 +44,7 @@ export type CodebookCriterion = {
   scope: Scope
   name: string
   description: string | null
+  levels: Record<ScaleValue, string | null>
   orderIndex: number
 }
 
@@ -110,13 +112,18 @@ async function loadCriteria(
       scope: codebookCriteria.scope,
       name: codebookCriteria.name,
       description: codebookCriteria.description,
+      high: codebookCriteria.highDescription,
+      medium: codebookCriteria.mediumDescription,
+      low: codebookCriteria.lowDescription,
       orderIndex: codebookCriteria.orderIndex,
     })
     .from(codebookCriteria)
     .where(eq(codebookCriteria.codebookVersionId, versionId))
     .orderBy(asc(codebookCriteria.orderIndex), asc(codebookCriteria.id))
 
-  return rows.flatMap(({ scope, ...row }) => (isScope(scope) ? [{ ...row, scope }] : []))
+  return rows.flatMap(({ scope, high, medium, low, ...row }) =>
+    isScope(scope) ? [{ ...row, scope, levels: { high, medium, low } }] : [],
+  )
 }
 
 export async function loadCodebook(

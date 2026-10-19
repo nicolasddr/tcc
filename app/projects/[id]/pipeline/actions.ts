@@ -54,6 +54,7 @@ import { itemContentError, normalizeItemContent } from './item-content'
 import { countClosedRounds, listRounds, loadOpenRound } from '../(tabs)/rounds/rounds'
 import { referenceVersionsOf } from '../(tabs)/rounds/reference-round'
 import { codebookLockedMessage } from '../(tabs)/rounds/preconditions'
+import { SCALE, scaleLabel, type ScaleValue } from '../(tabs)/evaluate/scale'
 import {
   CODEBOOK_NOTE_MAX,
   CRITERION_DESCRIPTION_MAX,
@@ -62,6 +63,7 @@ import {
   DEFINITION_TITLE_MAX,
   ITEM_BATCH_MAX,
   ITEM_NAME_MAX,
+  LEVEL_DESCRIPTION_MAX,
   PROMPT_CHANGE_LOG_MAX,
   PROMPT_DESCRIPTION_MAX,
   PROMPT_NAME_MAX,
@@ -81,6 +83,7 @@ type ParsedCriterion = {
   definitionIndex: number | null
   name: string
   description: string | null
+  levels: Record<ScaleValue, string | null>
   orderIndex: number
 }
 
@@ -127,6 +130,15 @@ function parseCriteria(
     return { error: 'Não foi possível ler os critérios enviados.' }
   }
 
+  const levelTexts = {} as Record<ScaleValue, string[]>
+  for (const level of SCALE) {
+    const texts = formData.getAll(`criterion_level_${level}`).map(String)
+    if (texts.length > 0 && texts.length !== names.length) {
+      return { error: 'Não foi possível ler os critérios enviados.' }
+    }
+    levelTexts[level] = texts
+  }
+
   const criteria: ParsedCriterion[] = []
   const nextOrder = new Map<string, number>()
 
@@ -165,6 +177,17 @@ function parseCriteria(
       }
     }
 
+    const levels = {} as Record<ScaleValue, string | null>
+    for (const level of SCALE) {
+      const text = (levelTexts[level][i] ?? '').replace(/\r\n/g, '\n').trim()
+      if (text.length > LEVEL_DESCRIPTION_MAX) {
+        return {
+          error: `A descrição do nível ${scaleLabel(level)} pode ter no máximo ${LEVEL_DESCRIPTION_MAX} caracteres.`,
+        }
+      }
+      levels[level] = text || null
+    }
+
     const key = scope === 'specific' ? String(definitionIndex) : scope
     const orderIndex = nextOrder.get(key) ?? 0
     nextOrder.set(key, orderIndex + 1)
@@ -174,6 +197,7 @@ function parseCriteria(
       definitionIndex,
       name,
       description: description || null,
+      levels,
       orderIndex,
     })
   }
@@ -372,6 +396,9 @@ export async function saveCodebook(
           scope: criterion.scope,
           name: criterion.name,
           description: criterion.description,
+          highDescription: criterion.levels.high,
+          mediumDescription: criterion.levels.medium,
+          lowDescription: criterion.levels.low,
           orderIndex: criterion.orderIndex,
         })),
       )

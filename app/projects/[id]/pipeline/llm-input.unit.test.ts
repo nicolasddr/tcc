@@ -14,7 +14,7 @@ import {
 } from './llm-input'
 import { PHASE_1, PHASE_2, PHASE_3 } from './preconditions'
 import { DEFINITION_TYPE_OPTIONS, definitionTypeLabel } from '@/app/projects/definition-types'
-import { SCALE, scaleLabel } from '../(tabs)/evaluate/scale'
+import { SCALE, scaleLabel, type ScaleValue } from '../(tabs)/evaluate/scale'
 
 const DEFINITIONS: (LlmDefinition & { type: string })[] = [
   {
@@ -405,6 +405,23 @@ describe('composeLlmInput nunca envia o tipo da definição nem a escala', () =>
     const input = composeLlmInput({ ...PARTS, phase })
     for (const forbidden of [...typeValues, ...typeLabels, ...scaleLabels]) {
       expect(input).not.toContain(forbidden)
+    }
+  })
+
+  it('na Fase 3, a descrição dos níveis do critério fica de fora e o envio não muda', () => {
+    const levels: Record<ScaleValue, string> = {
+      high: 'mantém a intenção da pergunta',
+      medium: 'perde parte da intenção',
+      low: 'muda de assunto',
+    }
+    const criteria: (LlmCriterion & { levels: Record<ScaleValue, string> })[] =
+      CRITERIA.map((criterion) => ({ ...criterion, levels }))
+
+    const input = composeLlmInput({ ...PHASE_3_PARTS, criteria })
+
+    expect(input).toBe(PHASE_3_INPUT)
+    for (const text of Object.values(levels)) {
+      expect(input).not.toContain(text)
     }
   })
 })

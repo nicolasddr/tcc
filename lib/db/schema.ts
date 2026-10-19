@@ -278,6 +278,9 @@ export const codebookCriteria = pgTable("codebook_criteria", {
 	perResponse: boolean("per_response").generatedAlwaysAs(sql`scope = 'per_response'`).notNull(),
 	name: text().notNull(),
 	description: text(),
+	highDescription: text("high_description"),
+	mediumDescription: text("medium_description"),
+	lowDescription: text("low_description"),
 	orderIndex: integer("order_index").notNull(),
 }, (table) => [
 	index("cc_version_order").using("btree", table.codebookVersionId.asc().nullsLast(), table.orderIndex.asc().nullsLast()),
@@ -298,6 +301,9 @@ export const codebookCriteria = pgTable("codebook_criteria", {
 	check("cc_name_len", sql`char_length(name) <= 200`),
 	check("cc_name_not_blank", sql`btrim(name) <> ''`),
 	check("cc_description_len", sql`description IS NULL OR char_length(description) <= 2000`),
+	check("cc_high_description_len", sql`high_description IS NULL OR char_length(high_description) <= 500`),
+	check("cc_medium_description_len", sql`medium_description IS NULL OR char_length(medium_description) <= 500`),
+	check("cc_low_description_len", sql`low_description IS NULL OR char_length(low_description) <= 500`),
 ]);
 
 export const promptVersions = pgTable("prompt_versions", {

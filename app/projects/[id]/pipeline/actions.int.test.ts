@@ -37,7 +37,9 @@ import { loadPipelineInputs } from '@/app/projects/[id]/pipeline/inputs'
 import {
   listCodebookVersions,
   loadCodebook,
+  loadCodebookVersion,
 } from '@/app/projects/[id]/pipeline/codebook'
+import { SCALE, scaleLabel, type ScaleValue } from '@/app/projects/[id]/(tabs)/evaluate/scale'
 import {
   criteriaOfDefinition,
   missingCriteriaMessage,
@@ -71,6 +73,7 @@ import {
   ITEM_CONTENT_MAX,
   ITEM_FILE_BYTES_MAX,
   ITEM_NAME_MAX,
+  LEVEL_DESCRIPTION_MAX,
   PROMPT_CHANGE_LOG_MAX,
   PROMPT_DESCRIPTION_MAX,
   PROMPT_NAME_MAX,
@@ -92,6 +95,7 @@ type CriterionInput = {
   name: string
   scope?: number | 'general' | 'per_response'
   description?: string
+  levels?: Partial<Record<ScaleValue, string>>
 }
 
 const GERAL: CriterionInput[] = [{ name: 'Clareza', scope: 'general' }]
@@ -103,7 +107,12 @@ function fd(
     note?: string
     versionId?: string
     criteria?: CriterionInput[]
-    rawCriteria?: { names?: string[]; scopes?: string[]; descriptions?: string[] }
+    rawCriteria?: {
+      names?: string[]
+      scopes?: string[]
+      descriptions?: string[]
+      levels?: Partial<Record<ScaleValue, string[]>>
+    }
   } = {},
 ): FormData {
   const form = new FormData()
@@ -119,11 +128,17 @@ function fd(
 
   const criteria = extra.criteria ?? []
   const withCriterionDescriptions = criteria.some((c) => c.description !== undefined)
+  const withLevels = criteria.some((c) => c.levels !== undefined)
   for (const criterion of criteria) {
     form.append('criterion_scope', String(criterion.scope ?? 'general'))
     form.append('criterion_name', criterion.name)
     if (withCriterionDescriptions) {
       form.append('criterion_description', criterion.description ?? '')
+    }
+    if (withLevels) {
+      for (const level of SCALE) {
+        form.append(`criterion_level_${level}`, criterion.levels?.[level] ?? '')
+      }
     }
   }
 
@@ -135,6 +150,11 @@ function fd(
   }
   for (const description of extra.rawCriteria?.descriptions ?? []) {
     form.append('criterion_description', description)
+  }
+  for (const level of SCALE) {
+    for (const text of extra.rawCriteria?.levels?.[level] ?? []) {
+      form.append(`criterion_level_${level}`, text)
+    }
   }
 
   if (extra.note !== undefined) form.set('note', extra.note)
@@ -157,6 +177,19 @@ function criteriaOf(versionId: string) {
     .from(codebookCriteria)
     .where(eq(codebookCriteria.codebookVersionId, versionId))
     .orderBy(asc(codebookCriteria.orderIndex))
+}
+
+function levelsOf(versionId: string) {
+  return ownerDb
+    .select({
+      name: codebookCriteria.name,
+      high: codebookCriteria.highDescription,
+      medium: codebookCriteria.mediumDescription,
+      low: codebookCriteria.lowDescription,
+    })
+    .from(codebookCriteria)
+    .where(eq(codebookCriteria.codebookVersionId, versionId))
+    .orderBy(asc(codebookCriteria.scope), asc(codebookCriteria.orderIndex))
 }
 
 function scopedCriteriaOf(versionId: string) {
@@ -3820,6 +3853,212 @@ describe('app/projects/[id]/pipeline/actions — critérios do codebook', () => 
 
     const [version] = await listCodebookVersions(project)
     expect([version.definitionCount, version.criterionCount]).toEqual([0, 0])
+  })
+
+  it('grava a descrição dos três níveis do critério', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin)
+
+    auth.userId = admin
+    const result = await saveCodebook(
+      null,
+      fd(project, [{ title: 'Informacional', type: 'category' }], {
+        criteria: [
+          {
+            name: 'Relevância',
+            scope: 'general',
+            levels: {
+              high: 'a query mantém a intenção da pergunta',
+              medium: 'a query perde parte da intenção',
+              low: 'a query muda de assunto',
+            },
+          },
+        ],
+      }),
+    )
+    expect(result).toMatchObject({ ok: true })
+
+    const [version] = await versionsOf(project)
+    expect(await levelsOf(version.id)).toEqual([
+      {
+        name: 'Relevância',
+        high: 'a query mantém a intenção da pergunta',
+        medium: 'a query perde parte da intenção',
+        low: 'a query muda de assunto',
+      },
+    ])
+  })
+
+  it('grava só os níveis descritos: os demais ficam nulos, e texto em branco também', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin)
+
+    auth.userId = admin
+    const result = await saveCodebook(
+      null,
+      fd(project, [{ title: 'Informacional', type: 'category' }], {
+        criteria: [
+          {
+            name: 'Relevância',
+            scope: 'general',
+            levels: { high: '  a query mantém a intenção\r\nda pergunta  ', low: '   ' },
+          },
+          { name: 'Clareza', scope: 0 },
+        ],
+      }),
+    )
+    expect(result).toMatchObject({ ok: true })
+
+    const [version] = await versionsOf(project)
+    expect(await levelsOf(version.id)).toEqual([
+      {
+        name: 'Relevância',
+        high: 'a query mantém a intenção\nda pergunta',
+        medium: null,
+        low: null,
+      },
+      { name: 'Clareza', high: null, medium: null, low: null },
+    ])
+  })
+
+  it('o envio sem os campos de nível continua salvando, com os níveis nulos', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin)
+
+    auth.userId = admin
+    const form = fd(project, [{ title: 'Informacional', type: 'category' }], {
+      criteria: [{ name: 'Relevância', scope: 'general', description: 'mantém a intenção' }],
+    })
+    expect(form.has('criterion_level_high')).toBe(false)
+
+    const result = await saveCodebook(null, form)
+    expect(result).toMatchObject({ ok: true })
+
+    const [version] = await versionsOf(project)
+    expect(await levelsOf(version.id)).toEqual([
+      { name: 'Relevância', high: null, medium: null, low: null },
+    ])
+  })
+
+  it.each(SCALE)(
+    'recusa o envio com número de descrições do nível %s diferente do de nomes',
+    async (level) => {
+      const admin = await newUser('Admin')
+      const project = await newProject(admin)
+
+      auth.userId = admin
+      const denied = await saveCodebook(
+        null,
+        fd(project, [{ title: 'Informacional', type: 'category' }], {
+          rawCriteria: {
+            names: ['Relevância', 'Clareza'],
+            scopes: ['general', 'general'],
+            levels: { [level]: ['mantém a intenção'] },
+          },
+        }),
+      )
+
+      expect(denied).toEqual({ error: 'Não foi possível ler os critérios enviados.' })
+      expect(await versionsOf(project)).toHaveLength(0)
+    },
+  )
+
+  it.each(SCALE)(
+    'recusa a descrição do nível %s acima do limite, nomeando o nível, e aceita o limite exato',
+    async (level) => {
+      const admin = await newUser('Admin')
+      const project = await newProject(admin)
+
+      auth.userId = admin
+      const denied = await saveCodebook(
+        null,
+        fd(project, [{ title: 'Informacional', type: 'category' }], {
+          criteria: [
+            {
+              name: 'Relevância',
+              scope: 'general',
+              levels: { [level]: 'a'.repeat(LEVEL_DESCRIPTION_MAX + 1) },
+            },
+          ],
+        }),
+      )
+      expect(denied).toEqual({
+        error: `A descrição do nível ${scaleLabel(level)} pode ter no máximo ${LEVEL_DESCRIPTION_MAX} caracteres.`,
+      })
+      expect(await versionsOf(project)).toHaveLength(0)
+
+      const result = await saveCodebook(
+        null,
+        fd(project, [{ title: 'Informacional', type: 'category' }], {
+          criteria: [
+            {
+              name: 'Relevância',
+              scope: 'general',
+              levels: { [level]: 'a'.repeat(LEVEL_DESCRIPTION_MAX) },
+            },
+          ],
+        }),
+      )
+      expect(result).toMatchObject({ ok: true })
+    },
+  )
+
+  it('o banco recusa a descrição de nível acima do limite, mesmo por escrita direta', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin)
+    const versionId = await addCodebookVersion(ownerDb, project, admin)
+
+    const write = ownerDb.insert(codebookCriteria).values({
+      codebookVersionId: versionId,
+      definitionId: null,
+      scope: 'general',
+      name: 'Relevância',
+      lowDescription: 'a'.repeat(LEVEL_DESCRIPTION_MAX + 1),
+      orderIndex: 0,
+    })
+
+    await expect(write).rejects.toSatisfy(
+      (err: unknown) => pgErrorCode(err) === '23514',
+    )
+  })
+
+  it('a leitura do codebook, da versão vigente e de uma versão escolhida, traz os níveis', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin)
+
+    auth.userId = admin
+    await saveCodebook(
+      null,
+      fd(project, [{ title: 'Informacional', type: 'category' }], {
+        criteria: [
+          {
+            name: 'Relevância',
+            scope: 'general',
+            levels: { high: 'mantém a intenção', low: 'muda de assunto' },
+          },
+          { name: 'Clareza', scope: 0 },
+        ],
+      }),
+    )
+
+    const expected = [
+      {
+        name: 'Clareza',
+        levels: { high: null, medium: null, low: null },
+      },
+      {
+        name: 'Relevância',
+        levels: { high: 'mantém a intenção', medium: null, low: 'muda de assunto' },
+      },
+    ]
+    const levelsOfRead = (criteria: { name: string; levels: unknown }[]) =>
+      byName(criteria).map(({ name, levels }) => ({ name, levels }))
+
+    const codebook = await loadCodebook(project)
+    expect(levelsOfRead(codebook.criteria)).toEqual(expected)
+
+    const detail = await loadCodebookVersion(project, codebook.version!.id)
+    expect(levelsOfRead(detail!.criteria)).toEqual(expected)
   })
 
   it('nenhum critério vai no envio à LLM, que continua só com prompt e títulos', async () => {

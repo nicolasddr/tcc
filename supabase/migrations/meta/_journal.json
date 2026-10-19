@@ -134,6 +134,13 @@
       "when": 1792013336793,
       "tag": "0018_fair_tomorrow_man",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1792422506051,
+      "tag": "0019_quick_hellfire_club",
+      "breakpoints": true
     }
   ]
 }
