@@ -234,7 +234,7 @@ export default async function ProjectRoundsPage({
       id={ROUNDS_SECTION_ID}
       className="scroll-mt-6"
       title="Rodadas do projeto"
-      hint="Em ordem cronológica."
+      hint="Das mais recentes para as mais antigas."
       help="Cada rodada aparece com o seu estado, as versões de codebook e de prompt que ela fixou e a concordância alcançada sobre elas."
     >
       <RoundList

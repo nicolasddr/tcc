@@ -146,7 +146,7 @@ export function sampleSize({
   units,
   raters,
 }: Pick<Agreement, 'units' | 'raters'>): string {
-  return `${plural(units, 'unidade', 'unidades')} · ${plural(
+  return `${plural(units, 'nota', 'notas')} · ${plural(
     raters,
     'avaliador',
     'avaliadores',

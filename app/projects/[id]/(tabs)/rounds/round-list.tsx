@@ -55,13 +55,13 @@ export function RoundList({
 
   return (
     <div className="flex flex-col gap-5">
-      {phaseRuns(rounds).map((run) => (
+      {[...phaseRuns(rounds)].reverse().map((run) => (
         <section key={run.points[0].id} className="flex flex-col gap-2">
           <h3 className="m-0 text-[11px] font-semibold tracking-[0.06em] text-muted uppercase">
             Fase {run.phase}
           </h3>
           <ul className="m-0 flex list-none flex-col gap-3 p-0">
-            {run.points.map((round) => (
+            {[...run.points].reverse().map((round) => (
               <li key={round.id}>
                 <Card>
                   <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">

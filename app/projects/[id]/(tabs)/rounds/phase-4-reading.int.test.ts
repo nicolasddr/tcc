@@ -618,17 +618,17 @@ describe('app/projects/[id]/rounds — a rodada da Fase 4 ao lado da rodada de r
       return line ? markupTextOf(line) : null
     })
 
-    expect(lines[0]).toBeNull()
-    expect(lines[1]).toMatch(/^Referência: rodada 1 · ICR /)
-    expect(lines[2]).toBeNull()
-    expect(lines[3]).toMatch(/^Referência: rodada 3 · ICR /)
-    expect(lines[1]).not.toContain('Codebook')
-    expect(lines[1]).not.toContain('Prompt')
+    expect(lines[3]).toBeNull()
+    expect(lines[2]).toMatch(/^Referência: rodada 1 · ICR /)
+    expect(lines[1]).toBeNull()
+    expect(lines[0]).toMatch(/^Referência: rodada 3 · ICR /)
+    expect(lines[2]).not.toContain('Codebook')
+    expect(lines[2]).not.toContain('Prompt')
 
-    const { reference } = referenceLineOf(cards[1])!.props as LineProps
+    const { reference } = referenceLineOf(cards[2])!.props as LineProps
     expect(reference.agreement).toBe(list.agreement.get(scene.rounds.get(1)!))
     expect(reference.quality).toBe(list.quality.get(scene.rounds.get(1)!))
-    expect(lines[1]).toBe(referenceLine(reference))
+    expect(lines[2]).toBe(referenceLine(reference))
   })
 
   it('no cartão da rodada da Fase 4, a frase nomeia a mesma rodada de referência do bloco de comparação', async () => {
@@ -644,10 +644,10 @@ describe('app/projects/[id]/rounds — a rodada da Fase 4 ao lado da rodada de r
     expect(reference).toBe(1)
 
     const cards = cardsOf(listOf(tree))
-    const changes = changesOf(cards[1])
+    const changes = changesOf(cards[0])
     expect(changes).toBeTruthy()
     expect(changes!.changes?.entersPhase4).toBe(true)
-    expect(changesTextOf(cards[1])).toContain(entersPhase4Note(reference!))
+    expect(changesTextOf(cards[0])).toContain(entersPhase4Note(reference!))
   })
 
   it('depois de um retorno e de um novo avanço, a frase nomeia a referência da passagem', async () => {
@@ -666,11 +666,11 @@ describe('app/projects/[id]/rounds — a rodada da Fase 4 ao lado da rodada de r
     expect(comparison.kind === 'compared' && comparison.reference.roundNumber).toBe(3)
 
     const cards = cardsOf(listOf(tree))
-    expect(changesTextOf(cards[1])).toContain(entersPhase4Note(1))
-    expect(changesOf(cards[2])!.changes?.entersPhase4).toBe(false)
-    expect(changesTextOf(cards[2])).not.toMatch(/Primeira rodada da Fase 4/)
-    expect(changesTextOf(cards[3])).toContain(entersPhase4Note(3))
-    expect(changesTextOf(cards[3])).not.toContain(entersPhase4Note(1))
+    expect(changesTextOf(cards[2])).toContain(entersPhase4Note(1))
+    expect(changesOf(cards[1])!.changes?.entersPhase4).toBe(false)
+    expect(changesTextOf(cards[1])).not.toMatch(/Primeira rodada da Fase 4/)
+    expect(changesTextOf(cards[0])).toContain(entersPhase4Note(3))
+    expect(changesTextOf(cards[0])).not.toContain(entersPhase4Note(1))
   })
 
   it('numa rodada em foco da Fase 3, o bloco não aparece, e nenhum cartão das Fases 2 e 3 traz a referência', async () => {
@@ -689,10 +689,10 @@ describe('app/projects/[id]/rounds — a rodada da Fase 4 ao lado da rodada de r
     expect(allTextOf(tree)).not.toContain(REFERENCE_COMPARISON_TITLE)
 
     const cards = cardsOf(listOf(tree))
-    expect(referenceLineOf(cards[0])).toBeNull()
-    expect(referenceLineOf(cards[1])).toBeNull()
-    expect(referenceLineOf(cards[2])).not.toBeNull()
     expect(referenceLineOf(cards[3])).toBeNull()
+    expect(referenceLineOf(cards[2])).toBeNull()
+    expect(referenceLineOf(cards[1])).not.toBeNull()
+    expect(referenceLineOf(cards[0])).toBeNull()
   })
 
   it('numa rodada da Fase 4 sem rodada de referência, o bloco diz que não há com o que comparar', async () => {
@@ -726,7 +726,7 @@ describe('app/projects/[id]/rounds — a rodada da Fase 4 ao lado da rodada de r
 
     expectNoJudgment(comparisonElementOf(tree))
 
-    const line = referenceLineOf(cardsOf(listOf(tree))[1])
+    const line = referenceLineOf(cardsOf(listOf(tree))[0])
     expect(line).toBeTruthy()
     expectNoJudgment(line!)
   })

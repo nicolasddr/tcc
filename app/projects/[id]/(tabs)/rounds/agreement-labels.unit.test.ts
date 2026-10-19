@@ -130,10 +130,10 @@ describe('app/projects/[id]/rounds/agreement-labels — o coeficiente na tela', 
     expect(threeAndFour).toContain('ao lado da sua rodada de referência')
   })
 
-  it('o N sai em unidades e avaliadores, no singular quando é um só', () => {
-    expect(sampleSize({ units: 12, raters: 3 })).toBe('12 unidades · 3 avaliadores')
-    expect(sampleSize({ units: 1, raters: 1 })).toBe('1 unidade · 1 avaliador')
-    expect(sampleSize({ units: 0, raters: 0 })).toBe('0 unidades · 0 avaliadores')
+  it('o N sai em notas e avaliadores, no singular quando é um só', () => {
+    expect(sampleSize({ units: 12, raters: 3 })).toBe('12 notas · 3 avaliadores')
+    expect(sampleSize({ units: 1, raters: 1 })).toBe('1 nota · 1 avaliador')
+    expect(sampleSize({ units: 0, raters: 0 })).toBe('0 notas · 0 avaliadores')
   })
 
   it('a amostra pequena avisa por poucos avaliadores ou por poucas respostas', () => {

@@ -795,7 +795,7 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     expect(findElement(tree, GenerateResponses)).toBeNull()
   })
 
-  it('a lista mostra número, estado, versões usadas e data de cada rodada', async () => {
+  it('a lista mostra número, estado, versões usadas e data de cada rodada, da mais recente para a mais antiga', async () => {
     const admin = await newUser('Ana Pesquisadora')
     const { project, codebookVersion, promptVersion } = await readyProject(admin)
     await addRound(ownerDb, project, admin, codebookVersion, promptVersion, {
@@ -819,18 +819,19 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     expect(text).toContain('Prompt v1')
     expect(text).toContain(formatDate(list.rounds[1].createdAt))
     expect(text).toContain('Ana Pesquisadora')
+    expect(text.indexOf('Rodada 2')).toBeLessThan(text.indexOf('Rodada 1'))
 
     const tooltips = findAll(RoundList(list), InfoTooltip).map(
       (tooltip) => (tooltip.props as { text: string }).text,
     )
-    expect(tooltips[0]).toContain(`fechada em ${formatDate(list.rounds[0].closedAt!)}`)
-    expect(tooltips[1]).toBe(
+    expect(tooltips[0]).toBe(
       `Aberta em ${formatDate(list.rounds[1].createdAt)} por Ana Pesquisadora`,
     )
+    expect(tooltips[1]).toContain(`fechada em ${formatDate(list.rounds[0].closedAt!)}`)
 
     const cards = cardsOf(list)
-    expect(findAll(cards[0], ButtonLink)).toHaveLength(1)
-    expect(findAll(cards[1], ButtonLink)).toHaveLength(0)
+    expect(findAll(cards[0], ButtonLink)).toHaveLength(0)
+    expect(findAll(cards[1], ButtonLink)).toHaveLength(1)
   })
 
   it('a lista mostra a fase de cada rodada, e o painel da rodada aberta diz o que vai à LLM', async () => {
@@ -856,8 +857,8 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     expect(list.rounds.map((round) => round.phase)).toEqual([PHASE_2, PHASE_3])
     const groups = findAll(RoundList(list), 'section')
     expect(groups.map((group) => textOf(findElement(group, 'h3')))).toEqual([
-      `Fase ${PHASE_2}`,
       `Fase ${PHASE_3}`,
+      `Fase ${PHASE_2}`,
     ])
     expect(groups.map((group) => findAll(group, 'li').length)).toEqual([1, 1])
     expect(markupTextOf(createElement(RoundList, list))).not.toContain(' · Fase ')
@@ -900,9 +901,9 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     const cards = cardsOf(listOf(await render(project)))
     expect(cards).toHaveLength(3)
 
-    expect(cardChangesOf(cards[0]).changes).toBeNull()
-    expect(markupTextOf(cards[0])).not.toContain('→')
-    expect(cardChangesTextOf(cards[0])).toBe('Codebook v1 Prompt v1')
+    expect(cardChangesOf(cards[2]).changes).toBeNull()
+    expect(markupTextOf(cards[2])).not.toContain('→')
+    expect(cardChangesTextOf(cards[2])).toBe('Codebook v1 Prompt v1')
 
     const second = cardChangesOf(cards[1])
     expect(second.changes?.previousRoundNumber).toBe(1)
@@ -913,9 +914,9 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     expect(secondText).toContain(CODEBOOK_AND_PROMPT_NOTICE)
     expect(secondText).not.toContain(ENTERS_PHASE_3_NOTE)
 
-    const third = cardChangesOf(cards[2])
+    const third = cardChangesOf(cards[0])
     expect(third.changes?.previousRoundNumber).toBe(2)
-    const thirdText = cardChangesTextOf(cards[2])
+    const thirdText = cardChangesTextOf(cards[0])
     expect(thirdText).toContain('Codebook v2 Prompt v2')
     expect(thirdText).not.toContain('Codebook v1')
     expect(thirdText).toContain(`Fase ${PHASE_2} → ${PHASE_3}`)
@@ -928,9 +929,9 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
           createElement(RoundChangeChips, cardChangesOf(card)),
         ).matchAll(/<span class="[^"]*border-brand![^"]*">([^<]*)/g),
       ].map((match) => match[1])
-    expect(highlightedOf(cards[0])).toEqual([])
+    expect(highlightedOf(cards[2])).toEqual([])
     expect(highlightedOf(cards[1])).toEqual(['Codebook v1 → v2', 'Prompt v1 → v2'])
-    expect(highlightedOf(cards[2])).toEqual([`Fase ${PHASE_2} → ${PHASE_3}`])
+    expect(highlightedOf(cards[0])).toEqual([`Fase ${PHASE_2} → ${PHASE_3}`])
   })
 
   it('com codebook e prompt mudados juntos na última rodada, a nova rodada continua liberada', async () => {
@@ -942,9 +943,9 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     const changedTree = await render(changed)
     const sameTree = await render(same)
 
-    const withNotice = cardChangesOf(cardsOf(listOf(changedTree))[1])
+    const withNotice = cardChangesOf(cardsOf(listOf(changedTree))[0])
     expect(withNotice.changes?.codebookAndPrompt).toBe(true)
-    expect(cardChangesOf(cardsOf(listOf(sameTree))[1]).changes?.codebookAndPrompt).toBe(
+    expect(cardChangesOf(cardsOf(listOf(sameTree))[0]).changes?.codebookAndPrompt).toBe(
       false,
     )
 
@@ -966,7 +967,7 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     const sameTree = await render(same, { gerar: '1' })
 
     expect(
-      cardChangesOf(cardsOf(listOf(changedTree))[1]).changes?.codebookAndPrompt,
+      cardChangesOf(cardsOf(listOf(changedTree))[0]).changes?.codebookAndPrompt,
     ).toBe(true)
 
     const changedClose = closeRoundOf(changedTree)
@@ -1477,14 +1478,14 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     const text = panelTextOf(tree)
     expect(text).toContain('Concordância (ICR)')
     expect(text).toContain('1,000')
-    expect(text).toContain('3 unidades · 2 avaliadores')
+    expect(text).toContain('3 notas · 2 avaliadores')
     expect(text).toContain('Boa')
     expect(text).toContain(AGREEMENT_SOURCE)
     expect(text).toContain('não trava')
 
     const visible = visibleTextOf(createElement(AgreementPanel, props))
     expect(visible).toContain(
-      `3 unidades · 2 avaliadores · 3 respostas avaliadas · ${BAND_REFERENCE_LABEL}`,
+      `3 notas · 2 avaliadores · 3 respostas avaliadas · ${BAND_REFERENCE_LABEL}`,
     )
     expect(visible).not.toContain(AGREEMENT_SOURCE)
     expect(tooltipTextsOf(AgreementPanel(props))).toContain(BAND_REFERENCE)
@@ -1515,7 +1516,7 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     const text = panelTextOf(tree)
     expect(text).toContain('não calculável')
     expect(text).toContain('Menos de dois avaliadores')
-    expect(text).toContain('0 unidades · 1 avaliador')
+    expect(text).toContain('0 notas · 1 avaliador')
   })
 
   it('a amostra pequena avisa sem esconder o número', async () => {
@@ -1539,7 +1540,7 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
 
     expect(text).toContain('Amostra pequena (2 avaliadores, 2 respostas): leia com cautela.')
     expect(text).toContain('1,000')
-    expect(text).toContain('2 unidades · 2 avaliadores')
+    expect(text).toContain('2 notas · 2 avaliadores')
     expect(tooltipTextsOf(AgreementPanel(panelOf(tree)))).toContain(SMALL_SAMPLE_HELP)
   })
 
@@ -1748,7 +1749,7 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     const text = markupTextOf(value!)
     expect(text).toContain('Concordância (ICR): 1,000')
     expect(text).toContain('Boa')
-    expect(text).toContain('2 unidades · 2 avaliadores')
+    expect(text).toContain('2 notas · 2 avaliadores')
   })
 
   it('numa rodada da Fase 3, o Administrador vê a Qualidade com porcentagem e contagem', async () => {
@@ -2267,7 +2268,7 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     expect(agreement.help).not.toContain('versão de codebook que esta rodada fixou')
 
     const rounds = findSection(tree, RoundList)!.props as SectionProps
-    expect(rounds.hint).toBe('Em ordem cronológica.')
+    expect(rounds.hint).toBe('Das mais recentes para as mais antigas.')
     expect(rounds.help).toContain('o seu estado')
     expect(rounds.help).toContain('as versões de codebook e de prompt que ela fixou')
 
