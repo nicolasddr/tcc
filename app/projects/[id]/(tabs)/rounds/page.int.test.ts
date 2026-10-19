@@ -2482,6 +2482,39 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     expect(tooltipTextsOf(table)).toEqual([ALL_DEFINITIONS_LEGEND])
   })
 
+  it('cada célula traz as notas iguais no título, e a linha “Todas as definições” as mostra abaixo do α', async () => {
+    const admin = await newUser('Admin')
+    const scene = await roundWith(admin, 3, { shape: TWO_DEFINITIONS })
+    const ana = await newEvaluator(scene.project, 'Ana')
+    const bruno = await newEvaluator(scene.project, 'Bruno')
+
+    const agree = ['low', 'medium', 'high'] as const
+    const disagree = ['high', 'medium', 'low'] as const
+    for (const [index, response] of scene.responses.entries()) {
+      await addEvaluation(ownerDb, scene.round, response, ana, {
+        cells: filled(scene.cells, agree[index]),
+      })
+      await addEvaluation(ownerDb, scene.round, response, bruno, {
+        cells: [
+          ...filled(cellsOf(scene, 'Informacional'), agree[index]),
+          ...filled(cellsOf(scene, 'Transacional'), disagree[index]),
+        ],
+      })
+    }
+
+    auth.userId = admin
+    const tree = await render(scene.project)
+    const markup = renderToStaticMarkup(createElement(AgreementMatrixTable, matrixOf(tree)))
+    const visible = visibleTextOf(createElement(AgreementMatrixTable, matrixOf(tree)))
+
+    expect(markup).toContain('title="3 notas · 2 avaliadores · 100% de notas iguais"')
+    expect(markup).toContain('title="3 notas · 2 avaliadores · 33,3% de notas iguais"')
+    expect(markup).toContain('title="6 notas · 2 avaliadores · 66,7% de notas iguais"')
+    expect(visible).toContain(`${ALL_DEFINITIONS_LABEL} 0,083 66,7% iguais`)
+    expect(visible).not.toContain('100% iguais')
+    expect(visible).not.toContain('33,3% iguais')
+  })
+
   it('com uma definição só, a matriz não ganha a linha “Todas as definições”', async () => {
     const admin = await newUser('Admin')
     const scene = await roundWith(admin, 2)

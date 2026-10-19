@@ -1,4 +1,9 @@
-import { ordinalAlpha, type Agreement } from '@/lib/agreement'
+import {
+  agreementProfile,
+  ordinalAlpha,
+  type Agreement,
+  type AgreementProfile,
+} from '@/lib/agreement'
 import {
   generalCriteria,
   ownCriteria,
@@ -14,7 +19,7 @@ export type CriterionKey = DefinitionKey & CriterionScope & { name: string }
 export type MatrixCell =
   | { state: 'not_applicable' }
   | { state: 'unrated' }
-  | { state: 'calculated'; agreement: Agreement }
+  | { state: 'calculated'; agreement: Agreement; profile: AgreementProfile | null }
 
 export type MatrixColumn<C> = {
   key: string
@@ -110,7 +115,7 @@ export function allDefinitionsRow<C extends CriterionKey>(
     )
     if (group.length === 0) return { column, cell: { state: 'unrated' } as const }
 
-    return { column, cell: { state: 'calculated', agreement: ordinalAlpha(group) } as const }
+    return { column, cell: measureAgreement(group) }
   })
 }
 
@@ -151,9 +156,13 @@ export function measuredMatrix<D extends DefinitionKey, C extends CriterionKey, 
   }))
 }
 
-function agreementCell(cell: MeasuredCell<Agreement>): MatrixCell {
+function measureAgreement(group: readonly RoundObservation[]): MatrixCell {
+  return { state: 'calculated', agreement: ordinalAlpha(group), profile: agreementProfile(group) }
+}
+
+function agreementCell(cell: MeasuredCell<MatrixCell>): MatrixCell {
   if (cell.state !== 'measured') return cell
-  return { state: 'calculated', agreement: cell.value }
+  return cell.value
 }
 
 export function agreementMatrix<D extends DefinitionKey, C extends CriterionKey>(
@@ -161,7 +170,7 @@ export function agreementMatrix<D extends DefinitionKey, C extends CriterionKey>
   criteria: readonly C[],
   observations: readonly RoundObservation[],
 ): MatrixRow<D, C>[] {
-  return measuredMatrix(definitions, criteria, observations, ordinalAlpha).map((row) => ({
+  return measuredMatrix(definitions, criteria, observations, measureAgreement).map((row) => ({
     definition: row.definition,
     cells: row.cells.map(({ column, cell }) => ({ column, cell: agreementCell(cell) })),
   }))

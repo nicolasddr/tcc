@@ -18,13 +18,22 @@ import {
   CELL_UNRATED_LABEL,
   agreementBand,
   bandTone,
+  cellEqualLabel,
   cellNotApplicableTitle,
   cellNotCalculableLabel,
+  cellTitle,
   formatAlpha,
-  sampleSize,
 } from './agreement-labels'
 
-function Cell({ cell, notApplicableTitle }: { cell: MatrixCell; notApplicableTitle: string }) {
+function Cell({
+  cell,
+  notApplicableTitle,
+  showEqual = false,
+}: {
+  cell: MatrixCell
+  notApplicableTitle: string
+  showEqual?: boolean
+}) {
   if (cell.state === 'not_applicable') {
     return (
       <span className="text-muted" title={notApplicableTitle}>
@@ -37,23 +46,26 @@ function Cell({ cell, notApplicableTitle }: { cell: MatrixCell; notApplicableTit
     return <span className="text-muted">{CELL_UNRATED_LABEL}</span>
   }
 
-  const { agreement } = cell
+  const { agreement, profile } = cell
+  const title = cellTitle(agreement, profile)
+  const value = agreement.calculable ? (
+    <Badge tone={bandTone(agreementBand(agreement.alpha))}>
+      {formatAlpha(agreement.alpha)}
+    </Badge>
+  ) : (
+    <span className="text-muted">{cellNotCalculableLabel(agreement.reason)}</span>
+  )
 
-  if (!agreement.calculable) {
+  if (showEqual && profile) {
     return (
-      <span className="text-muted" title={sampleSize(agreement)}>
-        {cellNotCalculableLabel(agreement.reason)}
+      <span className="flex flex-col items-start gap-0.5" title={title}>
+        {value}
+        <span className="text-[11.5px] text-muted">{cellEqualLabel(profile)}</span>
       </span>
     )
   }
 
-  return (
-    <span title={sampleSize(agreement)}>
-      <Badge tone={bandTone(agreementBand(agreement.alpha))}>
-        {formatAlpha(agreement.alpha)}
-      </Badge>
-    </span>
-  )
+  return <span title={title}>{value}</span>
 }
 
 export function AgreementMatrixTable({
@@ -154,6 +166,7 @@ export function AgreementMatrixTable({
                     <Cell
                       cell={entry.cell}
                       notApplicableTitle={CELL_ALL_DEFINITIONS_PER_RESPONSE_TITLE}
+                      showEqual
                     />
                   </td>
                 ))}

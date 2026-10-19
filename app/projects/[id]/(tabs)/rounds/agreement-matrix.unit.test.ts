@@ -469,3 +469,72 @@ describe('app/projects/[id]/rounds/agreement-matrix — todas as definições', 
     expect(columnCell(together, 'Diversity')).toEqual({ state: 'not_applicable' })
   })
 })
+
+describe('app/projects/[id]/rounds/agreement-matrix — notas iguais por célula', () => {
+  function profileOf(cell: MatrixCell) {
+    if (cell.state !== 'calculated') throw new Error('célula sem notas')
+    return cell.profile
+  }
+
+  function shares(entries: Record<number, number>): Map<number, number> {
+    return new Map(Object.entries(entries).map(([rank, share]) => [Number(rank), share]))
+  }
+
+  it('a célula calculável traz as notas iguais e a distribuição do seu recorte', () => {
+    const [row] = agreementMatrix(
+      [informacional],
+      [criterion('g1', null)],
+      ratings('d1', 'g1', { A: [1, 2, 3, 1], B: [1, 2, 3, 2] }),
+    )
+
+    expect(profileOf(cellOf(row, 'g1'))).toEqual({
+      equal: 0.75,
+      shares: shares({ 1: 0.375, 2: 0.375, 3: 0.25 }),
+    })
+  })
+
+  it('a célula sem variação também traz o perfil, que explica o não calculável', () => {
+    const [row] = agreementMatrix(
+      [informacional],
+      [criterion('g1', null)],
+      ratings('d1', 'g1', { A: [3, 3, 3], B: [3, 3, 3] }),
+    )
+    const cell = cellOf(row, 'g1')
+
+    expect(cell).toMatchObject({
+      state: 'calculated',
+      agreement: { calculable: false, reason: 'no_variation' },
+    })
+    expect(profileOf(cell)).toEqual({ equal: 1, shares: shares({ 3: 1 }) })
+  })
+
+  it('a célula com um avaliador só não tem par de notas, e o perfil é nulo', () => {
+    const [row] = agreementMatrix(
+      [informacional],
+      [criterion('g1', null)],
+      ratings('d1', 'g1', { A: [1, 2, 3, 1] }),
+    )
+
+    expect(profileOf(cellOf(row, 'g1'))).toBeNull()
+  })
+
+  it('cada definição tem as suas notas iguais, e a linha de todas as definições junta as notas da coluna', () => {
+    const definitions = [informacional, transacional, navegacional]
+    const criteria = [criterion('g1', null)]
+    const observations = [
+      ...ratings('d1', 'g1', { A: [1, 2, 3, 1], B: [1, 2, 3, 1] }),
+      ...ratings('d2', 'g1', { A: [1, 2, 3, 1], B: [1, 2, 3, 2] }),
+      ...ratings('d3', 'g1', { A: [3, 3, 3, 1, 2, 2], B: [3, 3, 2, 1, 1, 3] }),
+    ]
+
+    const rows = agreementMatrix(definitions, criteria, observations)
+    const row = allDefinitionsRow(definitions, criteria, observations)
+    const all = row?.find((entry) => entry.column.name === 'g1')?.cell
+
+    expect(rows.map((entry) => profileOf(cellOf(entry, 'g1'))?.equal)).toEqual([1, 0.75, 0.5])
+    expect(all && profileOf(all)?.equal).toBeCloseTo(10 / 14, 10)
+    expect(all && profileOf(all)?.shares).toEqual(
+      shares({ 1: 10 / 28, 2: 8 / 28, 3: 10 / 28 }),
+    )
+  })
+})
