@@ -25,6 +25,7 @@ vi.mock('next/navigation', () => ({
 
 import ProjectRoundsPage from '@/app/projects/[id]/(tabs)/rounds/page'
 import { RoundList } from '@/app/projects/[id]/(tabs)/rounds/round-list'
+import { Badge } from '@/app/components/ui/badge'
 import { EvaluatorRounds } from '@/app/projects/[id]/(tabs)/rounds/evaluator-rounds'
 import { NewRound } from '@/app/projects/[id]/(tabs)/rounds/new-round'
 import { CloseRound } from '@/app/projects/[id]/(tabs)/rounds/close-round'
@@ -869,7 +870,7 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     expect(findElement(tree, GenerateResponses)).toBeNull()
   })
 
-  it('a lista mostra número, estado, versões usadas e data de cada rodada, da mais recente para a mais antiga', async () => {
+  it('a lista mostra número, estado só da rodada aberta, versões usadas e data de cada rodada, da mais recente para a mais antiga', async () => {
     const admin = await newUser('Ana Pesquisadora')
     const { project, codebookVersion, promptVersion } = await readyProject(admin)
     await addRound(ownerDb, project, admin, codebookVersion, promptVersion, {
@@ -886,9 +887,11 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
 
     const text = markupTextOf(createElement(RoundList, list))
     expect(text).toContain('Rodada 1')
-    expect(text).toContain('Fechada')
+    expect(text).not.toContain('Fechada')
     expect(text).toContain('Rodada 2')
-    expect(text).toContain('Aberta')
+    expect(
+      findAll(RoundList(list), Badge).map((badge) => (badge.props as { children: string }).children),
+    ).toEqual(['Aberta'])
     expect(text).toContain('Codebook v1')
     expect(text).toContain('Prompt v1')
     expect(text).toContain(formatDate(list.rounds[1].createdAt))
@@ -1942,9 +1945,8 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     expect(value).toBeTruthy()
 
     const text = markupTextOf(value!)
-    expect(text).toContain('Concordância (ICR): 1,000')
-    expect(text).toContain('Boa')
-    expect(text).toContain('2 notas · 2 avaliadores')
+    expect(text).toContain('Concordância (ICR): 1,000 · 100% de notas iguais · 2 notas · 2 avaliadores')
+    expect(text).not.toContain('Boa')
   })
 
   it('numa rodada da Fase 3, o Administrador vê a Qualidade com porcentagem e contagem', async () => {

@@ -11,7 +11,12 @@ import {
   loadProjectObservations,
   type RoundObservation,
 } from './agreement'
-import { agreementPair, type AgreementPair } from './agreement-pair'
+import {
+  agreementPair,
+  profilePair,
+  type AgreementPair,
+  type ProfilePair,
+} from './agreement-pair'
 import { loadProjectOutliers, loadRoundOutliers } from './outliers'
 import { loadEvaluatorParticipation } from './participation'
 import { participationBefore } from './participation-labels'
@@ -160,6 +165,15 @@ export default async function ProjectRoundsPage({
       ),
     ]),
   )
+  const profiles = new Map<string, ProfilePair>(
+    rounds.map((round) => [
+      round.id,
+      profilePair(
+        observations.get(round.id) ?? [],
+        outliers.get(round.id) ?? EMPTY_SET,
+      ),
+    ]),
+  )
   const quality = new Map<string, QualityPair>(
     rounds
       .filter((round) => hasQuality(round.phase))
@@ -240,6 +254,7 @@ export default async function ProjectRoundsPage({
         projectId={project.id}
         rounds={rounds}
         agreement={agreement}
+        profiles={profiles}
         quality={quality}
       />
     </Section>

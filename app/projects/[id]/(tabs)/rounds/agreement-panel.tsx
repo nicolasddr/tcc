@@ -21,6 +21,7 @@ import {
   bandTone,
   concentrationWarning,
   distributionLine,
+  equalShareText,
   formatAlpha,
   notCalculableMessage,
   profileLine,
@@ -291,10 +292,12 @@ function ValuePart({
   label,
   agreement,
   band,
+  profile,
 }: {
   label: string
   agreement: Agreement
   band: boolean
+  profile: AgreementProfile | null | undefined
 }) {
   return (
     <>
@@ -303,6 +306,13 @@ function ValuePart({
         <span className="font-semibold text-ink">{agreementText(agreement)}</span>
       </span>
       {band && agreement.calculable ? <BandBadge alpha={agreement.alpha} /> : null}
+      {profile ? (
+        <>
+          <span aria-hidden>·</span>
+          <span>{equalShareText(profile)}</span>
+          <span aria-hidden>·</span>
+        </>
+      ) : null}
       <span>{sampleSize(agreement)}</span>
     </>
   )
@@ -311,9 +321,11 @@ function ValuePart({
 export function AgreementValue({
   pair,
   band = true,
+  profiles,
 }: {
   pair: AgreementPair
   band?: boolean
+  profiles?: ProfilePair | undefined
 }) {
   const { all, withoutOutliers } = pair
 
@@ -327,6 +339,7 @@ export function AgreementValue({
         }
         agreement={all}
         band={band}
+        profile={profiles?.all}
       />
       {withoutOutliers ? (
         <>
@@ -335,6 +348,7 @@ export function AgreementValue({
             label={AGREEMENT_WITHOUT_OUTLIERS_LABEL}
             agreement={withoutOutliers}
             band={band}
+            profile={profiles?.withoutOutliers}
           />
         </>
       ) : null}

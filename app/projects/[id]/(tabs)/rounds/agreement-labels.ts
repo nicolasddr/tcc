@@ -230,9 +230,13 @@ export function distributionLine(profile: AgreementProfile): string {
   ).join(' · ')
 }
 
+export function equalShareText(profile: AgreementProfile): string {
+  return `${formatShare(profile.equal)} de notas iguais`
+}
+
 export function profileLine(profile: AgreementProfile): string {
   return (
-    `${formatShare(profile.equal)} de notas iguais · ` +
+    `${equalShareText(profile)} · ` +
     `${formatShare(profile.adjacent)} de ${divergenceLabel('adjacent').toLowerCase()} · ` +
     `${formatShare(profile.extreme)} de ${divergenceLabel('extreme').toLowerCase()}`
   )

@@ -5,7 +5,7 @@ import { EmptyState } from '@/app/components/ui/empty-state'
 import { InfoTooltip } from '@/app/components/ui/tooltip'
 import { formatDate } from '@/app/notifications/labels'
 import { AgreementValue } from './agreement-panel'
-import type { AgreementPair } from './agreement-pair'
+import type { AgreementPair, ProfilePair } from './agreement-pair'
 import { phaseRuns } from './agreement-series'
 import { QualitySummary } from './quality-panel'
 import type { QualityPair } from './quality'
@@ -37,11 +37,13 @@ export function RoundList({
   projectId,
   rounds,
   agreement,
+  profiles,
   quality,
 }: {
   projectId: string
   rounds: RoundSummary[]
   agreement: Map<string, AgreementPair>
+  profiles: Map<string, ProfilePair>
   quality: Map<string, QualityPair>
 }) {
   if (rounds.length === 0) {
@@ -69,11 +71,7 @@ export function RoundList({
                       <span className="text-sm font-semibold text-ink">
                         Rodada {round.roundNumber}
                       </span>
-                      {isOpen(round) ? (
-                        <Badge tone="info">Aberta</Badge>
-                      ) : (
-                        <Badge tone="neutral">Fechada</Badge>
-                      )}
+                      {isOpen(round) ? <Badge tone="info">Aberta</Badge> : null}
                       <InfoTooltip text={openedText(round)} />
                     </span>
                     {isOpen(round) ? null : (
@@ -104,7 +102,11 @@ export function RoundList({
                   </div>
 
                   {agreement.has(round.id) ? (
-                    <AgreementValue pair={agreement.get(round.id)!} />
+                    <AgreementValue
+                      pair={agreement.get(round.id)!}
+                      profiles={profiles.get(round.id)}
+                      band={false}
+                    />
                   ) : null}
 
                   {quality.has(round.id) ? (
