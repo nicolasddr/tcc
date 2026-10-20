@@ -28,7 +28,6 @@ import {
   bandTone,
   byDefinitionSummary,
   cellNotCalculableLabel,
-  cellTitle,
   concentrationWarning,
   distributionLine,
   formatAlpha,
@@ -345,22 +344,6 @@ describe('app/projects/[id]/rounds/agreement-labels — notas iguais e distribui
 })
 
 describe('app/projects/[id]/rounds/agreement-labels — notas iguais na matriz', () => {
-  it('o título da célula traz o N e as notas iguais', () => {
-    expect(cellTitle({ units: 10, raters: 2 }, profile(0.9, { 3: 0.95, 2: 0.05 }))).toBe(
-      '10 notas · 2 avaliadores · 90% de notas iguais',
-    )
-  })
-
-  it('o título da célula usa uma casa decimal com vírgula', () => {
-    expect(cellTitle({ units: 3, raters: 2 }, profile(1 / 3, { 3: 1 }))).toBe(
-      '3 notas · 2 avaliadores · 33,3% de notas iguais',
-    )
-  })
-
-  it('sem perfil, o título da célula é só o N', () => {
-    expect(cellTitle({ units: 4, raters: 1 }, null)).toBe(sampleSize({ units: 4, raters: 1 }))
-  })
-
   it('a distribuição traz os três níveis na ordem da escala, sem as notas iguais', () => {
     expect(distributionLine(CONCENTRATED)).toBe('Alto 94% · Médio 6% · Baixo 0%')
     expect(distributionLine(profile(0.945, { 3: 0.5, 2: 0.255, 1: 0.245 }))).toBe(

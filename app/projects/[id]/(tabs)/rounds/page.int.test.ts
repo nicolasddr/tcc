@@ -748,7 +748,7 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
   }
 
   function columnTitlesOf(markup: string): string[] {
-    return [...markup.matchAll(/<th scope="col"[^>]*>(.*?)<\/th>/g)].map((match) =>
+    return [...markup.matchAll(/<th scope="col(?:group)?"[^>]*>(.*?)<\/th>/g)].map((match) =>
       match[1]
         .replace(/<[^>]*>/g, ' ')
         .replace(/\s+/g, ' ')
@@ -2613,7 +2613,7 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     ])
   })
 
-  it('a matriz por definição perde a linha “Todas as definições” e as notas iguais visíveis, e cada célula as mantém no título', async () => {
+  it('a matriz por definição traz, em cada critério, o ICR, as notas iguais e as duas divergências, com o N no título do ICR', async () => {
     const admin = await newUser('Admin')
     const scene = await twoDefinitionsScene(admin)
 
@@ -2623,11 +2623,23 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     const markup = renderToStaticMarkup(matrix)
 
     expect(rowTitlesOf(markup)).toEqual(['Informacional', 'Transacional'])
+    expect(columnTitlesOf(markup)).toEqual([
+      'Definição',
+      'Clareza Geral',
+      'ICR',
+      'Notas iguais',
+      'Divergência adjacente',
+      'Divergência extrema',
+    ])
+    expect(visibleTextOf(matrix)).toBe(
+      'Definição Clareza Geral ICR Notas iguais Divergência adjacente Divergência extrema ' +
+        'Informacional 1,000 100% 0% 0% ' +
+        'Transacional -0,667 33,3% 0% 66,7%',
+    )
     expect(markupTextOf(matrix)).not.toContain('Todas as definições')
-    expect(markupTextOf(matrix)).not.toContain('iguais')
     expect(tooltipTextsOf(AgreementMatrixTable(matrixOf(tree)))).toEqual([])
-    expect(markup).toContain('title="3 notas · 2 avaliadores · 100% de notas iguais"')
-    expect(markup).toContain('title="3 notas · 2 avaliadores · 33,3% de notas iguais"')
+    expect(titleCountOf(markup, '3 notas · 2 avaliadores')).toBe(2)
+    expect(markup).not.toContain('de notas iguais')
     expect(markup).not.toContain('6 notas')
   })
 
@@ -2717,7 +2729,17 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
       'Definição',
       'Relevance Geral',
       `Diversity ${PER_RESPONSE_LABEL}`,
+      ...['Relevance', 'Diversity'].flatMap(() => [
+        'ICR',
+        'Notas iguais',
+        'Divergência adjacente',
+        'Divergência extrema',
+      ]),
     ])
+    expect(visibleTextOf(createElement(AgreementMatrixTable, matrixOf(tree)))).toContain(
+      `Query 5 1,000 100% 0% 0% ${CELL_NOT_APPLICABLE} ` +
+        `${PER_RESPONSE_LABEL} ${CELL_NOT_APPLICABLE} 0,833 50% 50% 0%`,
+    )
     expect(titleCountOf(markup, CELL_PER_RESPONSE_ROW_TITLE)).toBe(1)
     expect(titleCountOf(markup, CELL_PER_RESPONSE_COLUMN_TITLE)).toBe(5)
     expect(titleCountOf(markup, CELL_NOT_APPLICABLE_TITLE)).toBe(0)

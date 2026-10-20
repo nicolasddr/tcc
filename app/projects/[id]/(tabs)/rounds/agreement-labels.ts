@@ -158,14 +158,6 @@ export function sampleSize({
   )}`
 }
 
-export function cellTitle(
-  agreement: Pick<Agreement, 'units' | 'raters'>,
-  profile: AgreementProfile | null,
-): string {
-  const size = sampleSize(agreement)
-  return profile ? `${size} · ${formatShare(profile.equal)} de notas iguais` : size
-}
-
 export function smallSampleWarning({
   raters,
   responses,
