@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
-import { and, eq } from 'drizzle-orm'
+import { and, desc, eq } from 'drizzle-orm'
 import { requireUserId } from '@/lib/supabase/server'
 import {
   transaction,
@@ -34,7 +34,7 @@ export async function acceptInvitation(formData: FormData): Promise<void> {
     // Idempotência (re-clique / já aceitou antes): se a linha já existe, NÃO reinsere e
     // trata como sucesso (segue para o onboarding).
     const [existing] = await tx
-      .select({ id: projectMembers.id })
+      .select({ id: projectMembers.id, status: projectMembers.status })
       .from(projectMembers)
       .where(
         and(
@@ -44,18 +44,25 @@ export async function acceptInvitation(formData: FormData): Promise<void> {
         ),
       )
       .limit(1)
-    if (existing) return true
+    if (existing && existing.status !== 'inactive') return true
 
     // Sem convite pendente, não materializa a linha. Evita que qualquer um se
     // auto-adicione a um projeto ao chamar esta action.
     if (!(await hasPendingInvitation(userId, projectId, tx))) return false
 
-    await tx.insert(projectMembers).values({
-      projectId,
-      userId: userId,
-      role: 'evaluator',
-      status: 'pending_onboarding',
-    })
+    if (existing) {
+      await tx
+        .update(projectMembers)
+        .set({ status: 'pending_onboarding' })
+        .where(and(eq(projectMembers.id, existing.id), eq(projectMembers.status, 'inactive')))
+    } else {
+      await tx.insert(projectMembers).values({
+        projectId,
+        userId: userId,
+        role: 'evaluator',
+        status: 'pending_onboarding',
+      })
+    }
 
     await tx
       .update(projectInvitations)
@@ -143,6 +150,9 @@ export async function completeOnboarding(
       answers.push({ projectMemberId: member.id, questionId: q.id, answer })
     }
 
+    await tx
+      .delete(onboardingResponses)
+      .where(eq(onboardingResponses.projectMemberId, member.id))
     if (answers.length > 0) {
       await tx.insert(onboardingResponses).values(answers)
     }
@@ -186,8 +196,9 @@ export async function abandonOnboarding(formData: FormData): Promise<void> {
   if (!projectId) redirect('/dashboard')
 
   await transaction(async (tx) => {
-    await tx
-      .delete(projectMembers)
+    const [member] = await tx
+      .select({ id: projectMembers.id, consentAcceptedAt: projectMembers.consentAcceptedAt })
+      .from(projectMembers)
       .where(
         and(
           eq(projectMembers.projectId, projectId),
@@ -196,10 +207,21 @@ export async function abandonOnboarding(formData: FormData): Promise<void> {
           eq(projectMembers.status, 'pending_onboarding'),
         ),
       )
+      .limit(1)
+    if (!member) return
 
-    await tx
-      .update(projectInvitations)
-      .set({ status: 'pending', resolvedAt: null })
+    if (member.consentAcceptedAt) {
+      await tx
+        .update(projectMembers)
+        .set({ status: 'inactive' })
+        .where(eq(projectMembers.id, member.id))
+    } else {
+      await tx.delete(projectMembers).where(eq(projectMembers.id, member.id))
+    }
+
+    const [accepted] = await tx
+      .select({ id: projectInvitations.id })
+      .from(projectInvitations)
       .where(
         and(
           eq(projectInvitations.projectId, projectId),
@@ -207,6 +229,14 @@ export async function abandonOnboarding(formData: FormData): Promise<void> {
           eq(projectInvitations.status, 'accepted'),
         ),
       )
+      .orderBy(desc(projectInvitations.resolvedAt))
+      .limit(1)
+    if (!accepted) return
+
+    await tx
+      .update(projectInvitations)
+      .set({ status: 'pending', resolvedAt: null })
+      .where(eq(projectInvitations.id, accepted.id))
   })
 
   revalidatePath('/dashboard')

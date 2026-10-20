@@ -7,6 +7,7 @@ import {
   type EvaluatorRoleState,
 } from '@/app/projects/actions'
 import {
+  canAssumeEvaluatorRole,
   canRevokeEvaluatorRole,
   REVOKE_EVALUATIONS_SUBMITTED,
   type EvaluatorRoleView,
@@ -42,48 +43,46 @@ export function EvaluatorRolePanel({
       {state && 'error' in state ? <Alert tone="error">{state.error}</Alert> : null}
       {state && 'ok' in state ? <Alert tone="success">{state.ok}</Alert> : null}
 
-      {link ? (
-        <>
-          <p className="m-0 text-[13px] text-muted">{statusText[link.status]}</p>
+      {link ? <p className="m-0 text-[13px] text-muted">{statusText[link.status]}</p> : null}
 
-          <div className="flex flex-wrap items-center gap-3">
-            {link.status === 'pending_onboarding' ? (
-              <ButtonLink href={`/projects/${projectId}/onboarding`}>
-                Concluir onboarding
-              </ButtonLink>
-            ) : null}
+      {link && !canAssumeEvaluatorRole(view) ? (
+        <div className="flex flex-wrap items-center gap-3">
+          {link.status === 'pending_onboarding' ? (
+            <ButtonLink href={`/projects/${projectId}/onboarding`}>
+              Concluir onboarding
+            </ButtonLink>
+          ) : null}
 
-            {canRevokeEvaluatorRole(view) ? (
-              <ConfirmDialog
-                trigger={(open) => (
-                  <Button
-                    variant="danger"
-                    onClick={open}
-                    loading={revoking}
-                    loadingText="Desfazendo…"
-                  >
-                    Desfazer papel de avaliador
-                  </Button>
-                )}
-                title="Desfazer o papel de avaliador?"
-                confirmLabel="Desfazer papel"
-                pendingLabel="Desfazendo…"
-                tone="danger"
-                action={revoke}
-                fields={{ project_id: projectId }}
-              >
-                <DialogLines
-                  lines={[
-                    'Você deixa de participar como avaliador e o consentimento e as respostas de perfil desse vínculo são apagados.',
-                    'Seu acesso de administrador não muda.',
-                  ]}
-                />
-              </ConfirmDialog>
-            ) : (
-              <p className="m-0 text-[13px] text-muted">{REVOKE_EVALUATIONS_SUBMITTED}</p>
-            )}
-          </div>
-        </>
+          {canRevokeEvaluatorRole(view) ? (
+            <ConfirmDialog
+              trigger={(open) => (
+                <Button
+                  variant="danger"
+                  onClick={open}
+                  loading={revoking}
+                  loadingText="Desfazendo…"
+                >
+                  Desfazer papel de avaliador
+                </Button>
+              )}
+              title="Desfazer o papel de avaliador?"
+              confirmLabel="Desfazer papel"
+              pendingLabel="Desfazendo…"
+              tone="danger"
+              action={revoke}
+              fields={{ project_id: projectId }}
+            >
+              <DialogLines
+                lines={[
+                  'Você deixa de participar como avaliador e o consentimento e as respostas de perfil desse vínculo são apagados.',
+                  'Seu acesso de administrador não muda.',
+                ]}
+              />
+            </ConfirmDialog>
+          ) : (
+            <p className="m-0 text-[13px] text-muted">{REVOKE_EVALUATIONS_SUBMITTED}</p>
+          )}
+        </div>
       ) : (
         <form action={assume} className="flex flex-col gap-3">
           <input type="hidden" name="project_id" value={projectId} />

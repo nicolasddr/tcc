@@ -6,6 +6,7 @@ import { listProjectMembers } from '@/lib/authz'
 import { acceptInvitation } from '@/app/onboarding/actions'
 import { declineInvitation } from '@/app/invitations/actions'
 import { groupMembers } from '../../members'
+import { accessRows, canViewProject } from '../../project-access'
 import { LeaveProjectButton } from '../member-actions'
 import { PhaseBar } from '../phase-bar'
 import { PipelineChecklist } from '../pipeline/pipeline-checklist'
@@ -167,14 +168,13 @@ export default async function ProjectPage({
   const userId = await requireUserId()
 
 
-  const { project, memberships, pendingInvitation, memberRows, artifacts, agreement } = await transaction(async (tx) => {
+  const { project, memberships: rows, pendingInvitation, memberRows, artifacts, agreement } = await transaction(async (tx) => {
     const [project] = await tx
       .select({
         id: projects.id,
         name: projects.name,
         status: projects.status,
         phase: projects.phase,
-        createdBy: projects.createdBy,
       })
       .from(projects)
       .where(eq(projects.id, id))
@@ -237,12 +237,11 @@ export default async function ProjectPage({
   })
   if (!project) notFound()
 
-  const canView =
-    project.createdBy === userId ||
-    memberships.length > 0 ||
-    Boolean(pendingInvitation)
-  if (!canView) notFound()
+  if (!canViewProject({ memberships: rows, hasInvitation: Boolean(pendingInvitation) })) {
+    notFound()
+  }
 
+  const memberships = accessRows(rows)
   const onboardingPending = memberships.some(
     (m) => m.role === 'evaluator' && m.status === 'pending_onboarding',
   )

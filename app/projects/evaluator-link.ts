@@ -40,7 +40,7 @@ export function evaluatorLinkOf(
 
 export function assumeEvaluatorRefusal(view: EvaluatorRoleView): string | null {
   if (!view.isAdmin) return ASSUME_DENIED
-  if (view.link) return ASSUME_ALREADY_EVALUATOR
+  if (view.link && view.link.status !== 'inactive') return ASSUME_ALREADY_EVALUATOR
   return null
 }
 

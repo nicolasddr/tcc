@@ -431,6 +431,42 @@ describe('app/projects/actions — autorização explícita', () => {
     expect(again).toHaveLength(2)
   })
 
+  it('assumeEvaluatorRole: o admin com o vínculo de avaliador inativo volta a pending_onboarding na mesma linha', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin)
+    const evaluatorLink = await addActiveEvaluator(ownerDb, project, admin)
+    await ownerDb
+      .update(projectMembers)
+      .set({ status: 'inactive' })
+      .where(eq(projectMembers.id, evaluatorLink))
+
+    auth.userId = admin
+    let redirected = ''
+    try {
+      await assumeEvaluatorRole(null, fd({ project_id: project }))
+    } catch (e) {
+      redirected = (e as Error).message
+    }
+    expect(redirected).toBe(`NEXT_REDIRECT:/projects/${project}/onboarding`)
+
+    const rows = await ownerDb
+      .select({ id: projectMembers.id, role: projectMembers.role, status: projectMembers.status })
+      .from(projectMembers)
+      .where(
+        and(eq(projectMembers.projectId, project), eq(projectMembers.userId, admin)),
+      )
+    expect(rows).toHaveLength(2)
+    expect(rows.find((r) => r.role === 'evaluator')).toEqual({
+      id: evaluatorLink,
+      role: 'evaluator',
+      status: 'pending_onboarding',
+    })
+
+    expect(await assumeEvaluatorRole(null, fd({ project_id: project }))).toEqual({
+      error: ASSUME_ALREADY_EVALUATOR,
+    })
+  })
+
   it('revokeEvaluatorRole: desfaz enquanto não há avaliação e preserva o vínculo de administrador', async () => {
     const admin = await newUser('Admin')
     const evaluator = await newUser('Avaliador')

@@ -18,6 +18,7 @@ import { PageShell } from '@/app/components/ui/shell'
 import { formatDate } from '@/app/notifications/labels'
 import { memberStatusLabel, projectStatusLabel, roleLabel } from '@/app/projects/labels'
 import { PROJECT_PHASES, TOTAL_PHASES } from '@/app/projects/[id]/phase-bar'
+import { accessRows } from '@/app/projects/project-access'
 
 type ListedProject = {
   id: string
@@ -63,7 +64,7 @@ export default async function Dashboard({
 
   const byProject = new Map<string, ListedProject>()
   let hasArchived = false
-  for (const row of membershipRows) {
+  for (const row of accessRows(membershipRows)) {
     const p = row.project
     if (p.status === 'archived') {
       hasArchived = true

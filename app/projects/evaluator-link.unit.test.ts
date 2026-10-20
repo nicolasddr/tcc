@@ -50,8 +50,8 @@ describe('assumeEvaluatorRefusal', () => {
     expect(canAssumeEvaluatorRole({ isAdmin: false, link: null })).toBe(false)
   })
 
-  it('recusa quem já tem o vínculo de avaliador, em qualquer status', () => {
-    for (const status of ['pending_onboarding', 'active', 'inactive'] as const) {
+  it('recusa quem já tem o vínculo de avaliador ativo ou em onboarding', () => {
+    for (const status of ['pending_onboarding', 'active'] as const) {
       expect(assumeEvaluatorRefusal({ isAdmin: true, link: link({ status }) })).toBe(
         ASSUME_ALREADY_EVALUATOR,
       )
@@ -61,6 +61,12 @@ describe('assumeEvaluatorRefusal', () => {
   it('libera o administrador que ainda não é avaliador', () => {
     expect(assumeEvaluatorRefusal({ isAdmin: true, link: null })).toBeNull()
     expect(canAssumeEvaluatorRole({ isAdmin: true, link: null })).toBe(true)
+  })
+
+  it('libera o administrador cujo vínculo de avaliador está inativo', () => {
+    const view = { isAdmin: true, link: link({ status: 'inactive', submittedEvaluations: 2 }) }
+    expect(assumeEvaluatorRefusal(view)).toBeNull()
+    expect(canAssumeEvaluatorRole(view)).toBe(true)
   })
 })
 

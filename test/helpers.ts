@@ -152,6 +152,26 @@ export async function addPendingMember(
   return row.id
 }
 
+/** Muda o status da linha de `role` de `userId` no projeto (ex.: desativar). */
+export async function setMemberStatus(
+  tx: DbExecutor,
+  projectId: string,
+  userId: string,
+  role: 'administrator' | 'evaluator',
+  status: 'active' | 'pending_onboarding' | 'inactive',
+): Promise<void> {
+  await tx
+    .update(projectMembers)
+    .set({ status })
+    .where(
+      and(
+        eq(projectMembers.projectId, projectId),
+        eq(projectMembers.userId, userId),
+        eq(projectMembers.role, role),
+      ),
+    )
+}
+
 /** Cria um convite PENDENTE para `inviteeId` no projeto e devolve o id. */
 export async function addPendingInvitation(
   tx: DbExecutor,

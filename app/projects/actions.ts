@@ -385,8 +385,24 @@ export async function assumeEvaluatorRole(
   let refusal: string | null
   try {
     refusal = await transaction(async (tx) => {
-      const refused = assumeEvaluatorRefusal(await evaluatorRoleView(userId, projectId, tx))
+      const view = await evaluatorRoleView(userId, projectId, tx)
+      const refused = assumeEvaluatorRefusal(view)
       if (refused) return refused
+
+      if (view.link) {
+        await tx
+          .update(projectMembers)
+          .set({ status: 'pending_onboarding' })
+          .where(
+            and(
+              eq(projectMembers.projectId, projectId),
+              eq(projectMembers.userId, userId),
+              eq(projectMembers.role, 'evaluator'),
+              eq(projectMembers.status, 'inactive'),
+            ),
+          )
+        return null
+      }
 
       await tx.insert(projectMembers).values({
         projectId,

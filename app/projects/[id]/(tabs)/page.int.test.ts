@@ -27,8 +27,10 @@ vi.mock('next/navigation', () => ({
   },
   usePathname: () => '/',
 }))
+vi.mock('next/cache', () => ({ revalidatePath: () => {} }))
 
 import ProjectPage from '@/app/projects/[id]/(tabs)/page'
+import { deactivateMember, leaveProject, revokeAdminRole } from '@/app/projects/actions'
 import ProjectRoundsPage from '@/app/projects/[id]/(tabs)/rounds/page'
 import ProjectTabsLayout from '@/app/projects/[id]/(tabs)/layout'
 import { ProjectTabs } from '@/app/projects/[id]/project-tabs'
@@ -87,9 +89,11 @@ import { ownerDb, projects, rounds } from '@/lib/db'
 import {
   createUser,
   createProject as seedProject,
+  addActiveAdmin,
   addActiveEvaluator,
   addPendingMember,
   addPendingInvitation,
+  setMemberStatus,
   addCodebookVersion,
   addPromptVersion,
   addInputItem,
@@ -217,6 +221,12 @@ type ScaleValue = NonNullable<CellFixture['value']>
 
 function render(id: string) {
   return ProjectPage({ params: Promise.resolve({ id }) })
+}
+
+function form(fields: Record<string, string>): FormData {
+  const data = new FormData()
+  for (const [key, value] of Object.entries(fields)) data.set(key, value)
+  return data
 }
 
 function renderRounds(id: string) {
@@ -507,19 +517,101 @@ describe('app/projects/[id]/page — escopo de visibilidade', () => {
     await expect(renderLayout(project)).rejects.toThrow('NEXT_NOTFOUND')
   })
 
-  it('o criador/admin, um membro e um convidado pendente enxergam', async () => {
+  it('o criador/admin, um membro, um membro em onboarding e um convidado pendente enxergam', async () => {
     const admin = await newUser('Admin')
     const evaluator = await newUser('Avaliador')
+    const pending = await newUser('Em onboarding')
     const invited = await newUser('Convidado')
     const project = await newProject(admin)
     await addActiveEvaluator(ownerDb, project, evaluator)
+    await addPendingMember(ownerDb, project, pending)
     await addPendingInvitation(ownerDb, project, invited, admin)
 
-    for (const userId of [admin, evaluator, invited]) {
+    for (const userId of [admin, evaluator, pending, invited]) {
       auth.userId = userId
       await expect(render(project)).resolves.toBeTruthy()
       await expect(renderLayout(project)).resolves.toBeTruthy()
     }
+  })
+
+  it('quem só tem vínculo inativo não enxerga o projeto, nem o criador rebaixado (notFound)', async () => {
+    const creator = await newUser('Criador')
+    const admin = await newUser('Admin')
+    const deactivated = await newUser('Desativado')
+    const formerAdmin = await newUser('Ex-admin')
+    const project = await newProject(creator)
+    await addActiveAdmin(ownerDb, project, admin)
+    await addActiveEvaluator(ownerDb, project, deactivated)
+    await addActiveAdmin(ownerDb, project, formerAdmin)
+    await setMemberStatus(ownerDb, project, deactivated, 'evaluator', 'inactive')
+    await setMemberStatus(ownerDb, project, formerAdmin, 'administrator', 'inactive')
+    await setMemberStatus(ownerDb, project, creator, 'administrator', 'inactive')
+
+    for (const userId of [deactivated, formerAdmin, creator]) {
+      auth.userId = userId
+      await expect(render(project)).rejects.toThrow('NEXT_NOTFOUND')
+      await expect(renderLayout(project)).rejects.toThrow('NEXT_NOTFOUND')
+    }
+  })
+
+  it('depois de desativado, de sair ou de perder o acesso de administrador sem ser avaliador, a visão geral dá notFound', async () => {
+    const admin = await newUser('Admin')
+    const deactivated = await newUser('Desativado')
+    const leaver = await newUser('Saiu')
+    const formerAdmin = await newUser('Ex-admin')
+    const project = await newProject(admin)
+    await addActiveEvaluator(ownerDb, project, deactivated)
+    await addActiveEvaluator(ownerDb, project, leaver)
+    await addActiveAdmin(ownerDb, project, formerAdmin)
+
+    auth.userId = admin
+    await deactivateMember(form({ project_id: project, member_user_id: deactivated }))
+
+    auth.userId = leaver
+    await expect(leaveProject(form({ project_id: project }))).rejects.toThrow(
+      'NEXT_REDIRECT:/dashboard',
+    )
+
+    auth.userId = formerAdmin
+    await expect(
+      revokeAdminRole(null, form({ project_id: project, member_user_id: formerAdmin })),
+    ).rejects.toThrow('NEXT_REDIRECT:/dashboard')
+
+    for (const userId of [deactivated, leaver, formerAdmin]) {
+      auth.userId = userId
+      await expect(render(project)).rejects.toThrow('NEXT_NOTFOUND')
+      await expect(renderLayout(project)).rejects.toThrow('NEXT_NOTFOUND')
+    }
+  })
+
+  it('o administrador com o vínculo de avaliador inativo vê o projeto, e o cabeçalho diz só Administrador', async () => {
+    const admin = await newUser('Admin')
+    const project = await newProject(admin)
+    await addActiveEvaluator(ownerDb, project, admin)
+    await setMemberStatus(ownerDb, project, admin, 'evaluator', 'inactive')
+
+    auth.userId = admin
+    await expect(render(project)).resolves.toBeTruthy()
+    const header = deepText(await renderLayout(project))
+    expect(header).toContain('Administrador')
+    expect(header).not.toContain('Avaliador')
+  })
+
+  it('quem tem vínculo inativo e foi reconvidado vê o convite com Aceitar e Recusar', async () => {
+    const admin = await newUser('Admin')
+    const readmitted = await newUser('Reconvidado')
+    const project = await newProject(admin)
+    await addActiveEvaluator(ownerDb, project, readmitted)
+    await setMemberStatus(ownerDb, project, readmitted, 'evaluator', 'inactive')
+    await addPendingInvitation(ownerDb, project, readmitted, admin)
+
+    auth.userId = readmitted
+    const tree = await render(project)
+    expect(deepText(tree)).toContain('Você foi convidado para este projeto')
+    expect(deepText(tree)).toContain('Aceitar convite')
+    expect(deepText(tree)).toContain('Recusar')
+    expect(findElement(tree, PhaseBar)).toBeNull()
+    expect(findElement(await renderLayout(project), ProjectTabs)).toBeNull()
   })
 
   it('o Administrador vê o checklist de avanço, e cada pendência aponta a tela do artefato', async () => {

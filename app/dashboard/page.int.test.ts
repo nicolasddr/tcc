@@ -22,7 +22,10 @@ import { ownerDb } from '@/lib/db'
 import {
   createUser,
   createProject as seedProject,
+  addActiveAdmin,
   addActiveEvaluator,
+  addPendingInvitation,
+  setMemberStatus,
   cleanup,
 } from '@/test/helpers'
 
@@ -107,6 +110,60 @@ describe('app/dashboard — fase de cada projeto', () => {
       'Administrador · Avaliador · Fase 3 de 4, Validação do prompt',
     )
     expect(cardTextOf(tree, evaluatorOnly)).toContain('Avaliador · Fase 4 de 4, Validação final')
+  })
+
+  it('não lista o projeto de quem só tem vínculo inativo, nem o do criador rebaixado', async () => {
+    const creator = await newUser('Criador')
+    const admin = await newUser('Admin')
+    const deactivated = await newUser('Desativado')
+    const formerAdmin = await newUser('Ex-admin')
+    const project = await seedProject(ownerDb, creator, 'Projeto de onde saíram')
+    projs.push(project)
+    await addActiveAdmin(ownerDb, project, admin)
+    await addActiveEvaluator(ownerDb, project, deactivated)
+    await addActiveAdmin(ownerDb, project, formerAdmin)
+    await setMemberStatus(ownerDb, project, deactivated, 'evaluator', 'inactive')
+    await setMemberStatus(ownerDb, project, formerAdmin, 'administrator', 'inactive')
+    await setMemberStatus(ownerDb, project, creator, 'administrator', 'inactive')
+
+    for (const userId of [deactivated, formerAdmin, creator]) {
+      auth.userId = userId
+      const tree = await render()
+      expect(findByHref(tree, `/projects/${project}`)).toBeNull()
+      expect(textOf(tree)).toContain('Você ainda não participa de nenhum projeto')
+    }
+  })
+
+  it('o administrador com o vínculo de avaliador inativo aparece só como Administrador', async () => {
+    const admin = await newUser('Admin')
+    const project = await seedProject(ownerDb, admin, 'Projeto na Fase 1')
+    projs.push(project)
+    await addActiveEvaluator(ownerDb, project, admin)
+    await setMemberStatus(ownerDb, project, admin, 'evaluator', 'inactive')
+
+    auth.userId = admin
+    const text = cardTextOf(await render(), project)
+
+    expect(text).toContain('Administrador · Fase 1 de 4')
+    expect(text).not.toContain('Avaliador')
+  })
+
+  it('o convite para quem tem vínculo inativo aparece com Aceitar e Recusar', async () => {
+    const admin = await newUser('Admin')
+    const readmitted = await newUser('Reconvidado')
+    const project = await seedProject(ownerDb, admin, 'Projeto de volta')
+    projs.push(project)
+    await addActiveEvaluator(ownerDb, project, readmitted)
+    await setMemberStatus(ownerDb, project, readmitted, 'evaluator', 'inactive')
+    await addPendingInvitation(ownerDb, project, readmitted, admin)
+
+    auth.userId = readmitted
+    const text = textOf(await render()).replace(/\s+/g, ' ')
+
+    expect(text).toContain('Convite pendente')
+    expect(text).toContain('Aceitar')
+    expect(text).toContain('Recusar')
+    expect(text).not.toContain('Avaliador')
   })
 
   it('usa a barra do topo comum, com a trilha em Meus projetos', async () => {

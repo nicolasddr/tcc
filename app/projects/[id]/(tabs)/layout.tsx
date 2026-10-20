@@ -12,6 +12,7 @@ import { cx } from '@/app/components/ui/cx'
 import { AppTopBar } from '@/app/components/app-top-bar'
 import { loadTopBar } from '@/app/components/app-top-bar-data'
 import { PROJECT_PHASES, TOTAL_PHASES } from '../phase-bar'
+import { accessRows, canViewProject } from '../../project-access'
 
 export default async function ProjectTabsLayout({
   params,
@@ -24,7 +25,7 @@ export default async function ProjectTabsLayout({
   const userId = await requireUserId()
   void loadTopBar(userId)
 
-  const { project, memberships, hasInvitation } = await transaction(async (tx) => {
+  const { project, memberships: rows, hasInvitation } = await transaction(async (tx) => {
     const [project] = await tx
       .select({
         id: projects.id,
@@ -33,7 +34,6 @@ export default async function ProjectTabsLayout({
         status: projects.status,
         phase: projects.phase,
         taskType: projects.taskType,
-        createdBy: projects.createdBy,
       })
       .from(projects)
       .where(eq(projects.id, id))
@@ -60,10 +60,9 @@ export default async function ProjectTabsLayout({
   })
   if (!project) notFound()
 
-  const canView =
-    project.createdBy === userId || memberships.length > 0 || hasInvitation
-  if (!canView) notFound()
+  if (!canViewProject({ memberships: rows, hasInvitation })) notFound()
 
+  const memberships = accessRows(rows)
   const roles = memberships.map((m) => roleLabel(m.role))
   const onboardingPending = memberships.some(
     (m) => m.role === 'evaluator' && m.status === 'pending_onboarding',

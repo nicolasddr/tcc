@@ -22,9 +22,15 @@ vi.mock('next/navigation', () => ({
   },
 }))
 
-import { acceptInvitation, completeOnboarding } from '@/app/onboarding/actions'
+import { abandonOnboarding, acceptInvitation, completeOnboarding } from '@/app/onboarding/actions'
 import { CONSENT_TEXT } from '@/app/onboarding/consent'
-import { ownerDb, projectMembers, projectInvitations, onboardingResponses } from '@/lib/db'
+import {
+  ownerDb,
+  projectMembers,
+  projectInvitations,
+  onboardingResponses,
+  evaluations,
+} from '@/lib/db'
 import {
   createUser,
   createProject as seedProject,
@@ -32,6 +38,14 @@ import {
   addPendingMember,
   addActiveEvaluator,
   addOnboardingQuestion,
+  addOnboardingResponse,
+  addCodebookVersion,
+  addPromptVersion,
+  addInputItem,
+  addRound,
+  addResponse,
+  addEvaluation,
+  setMemberStatus,
   cleanup,
 } from '@/test/helpers'
 
@@ -207,5 +221,169 @@ describe('app/onboarding/actions — entrar/responder com checagem explícita', 
       .from(onboardingResponses)
       .where(eq(onboardingResponses.projectMemberId, evaluatorLink))
     expect(answers).toHaveLength(1)
+  })
+})
+
+describe('app/onboarding/actions — readmissão pelo mesmo vínculo', () => {
+  let users: string[]
+  let projs: string[]
+
+  async function newUser(name?: string): Promise<string> {
+    const id = await createUser(ownerDb, name)
+    users.push(id)
+    return id
+  }
+  async function newProject(admin: string): Promise<string> {
+    const id = await seedProject(ownerDb, admin)
+    projs.push(id)
+    return id
+  }
+
+  async function memberOf(project: string, userId: string) {
+    const rows = await ownerDb
+      .select({
+        id: projectMembers.id,
+        status: projectMembers.status,
+        consentTextSnapshot: projectMembers.consentTextSnapshot,
+      })
+      .from(projectMembers)
+      .where(
+        and(
+          eq(projectMembers.projectId, project),
+          eq(projectMembers.userId, userId),
+          eq(projectMembers.role, 'evaluator'),
+        ),
+      )
+    expect(rows).toHaveLength(1)
+    return rows[0]
+  }
+
+  async function invitationStatuses(project: string, userId: string) {
+    const rows = await ownerDb
+      .select({ status: projectInvitations.status })
+      .from(projectInvitations)
+      .where(
+        and(eq(projectInvitations.projectId, project), eq(projectInvitations.inviteeId, userId)),
+      )
+    return rows.map((r) => r.status).toSorted()
+  }
+
+  async function evaluated(project: string, admin: string, memberRow: string) {
+    const codebook = await addCodebookVersion(ownerDb, project, admin)
+    const prompt = await addPromptVersion(ownerDb, project, admin)
+    const item = await addInputItem(ownerDb, project, admin)
+    const round = await addRound(ownerDb, project, admin, codebook, prompt)
+    const response = await addResponse(ownerDb, round, item, admin)
+    return addEvaluation(ownerDb, round, response, memberRow)
+  }
+
+  beforeEach(() => {
+    users = []
+    projs = []
+    auth.userId = null
+  })
+  afterEach(async () => {
+    await cleanup(projs, users)
+  })
+
+  it('o desativado reconvidado aceita, refaz o onboarding e volta ativo na mesma linha, com as respostas novas no lugar das antigas', async () => {
+    const admin = await newUser('Admin')
+    const evaluator = await newUser('Avaliador')
+    const project = await newProject(admin)
+    const question = await addOnboardingQuestion(ownerDb, project, { text: 'Sua formação?' })
+    const memberRow = await addActiveEvaluator(ownerDb, project, evaluator)
+    await addOnboardingResponse(ownerDb, memberRow, question, 'Resposta antiga')
+    const evaluation = await evaluated(project, admin, memberRow)
+    await setMemberStatus(ownerDb, project, evaluator, 'evaluator', 'inactive')
+    await addPendingInvitation(ownerDb, project, evaluator, admin)
+
+    auth.userId = evaluator
+    expect(await redirectOf(() => acceptInvitation(fd({ project_id: project })))).toBe(
+      `NEXT_REDIRECT:/projects/${project}/onboarding`,
+    )
+    const accepted = await memberOf(project, evaluator)
+    expect(accepted.id).toBe(memberRow)
+    expect(accepted.status).toBe('pending_onboarding')
+    expect(await invitationStatuses(project, evaluator)).toEqual(['accepted'])
+
+    expect(
+      await redirectOf(() =>
+        completeOnboarding(
+          null,
+          fd({ project_id: project, consent: 'on', [`q_${question}`]: 'Resposta nova' }),
+        ),
+      ),
+    ).toBe(`NEXT_REDIRECT:/projects/${project}`)
+
+    const back = await memberOf(project, evaluator)
+    expect(back.id).toBe(memberRow)
+    expect(back.status).toBe('active')
+    expect(back.consentTextSnapshot).toBe(CONSENT_TEXT)
+
+    const answers = await ownerDb
+      .select({ answer: onboardingResponses.answer })
+      .from(onboardingResponses)
+      .where(eq(onboardingResponses.projectMemberId, memberRow))
+    expect(answers.map((a) => a.answer)).toEqual(['Resposta nova'])
+
+    const kept = await ownerDb
+      .select({ projectMemberId: evaluations.projectMemberId })
+      .from(evaluations)
+      .where(eq(evaluations.id, evaluation))
+    expect(kept).toEqual([{ projectMemberId: memberRow }])
+  })
+
+  it('sem convite pendente, aceitar não mexe no vínculo inativo', async () => {
+    const admin = await newUser('Admin')
+    const evaluator = await newUser('Avaliador')
+    const project = await newProject(admin)
+    await addActiveEvaluator(ownerDb, project, evaluator)
+    await setMemberStatus(ownerDb, project, evaluator, 'evaluator', 'inactive')
+
+    auth.userId = evaluator
+    expect(await redirectOf(() => acceptInvitation(fd({ project_id: project })))).toBe(
+      `NEXT_REDIRECT:/projects/${project}`,
+    )
+    expect((await memberOf(project, evaluator)).status).toBe('inactive')
+
+    await redirectOf(() => completeOnboarding(null, fd({ project_id: project, consent: 'on' })))
+    expect((await memberOf(project, evaluator)).status).toBe('inactive')
+  })
+
+  it('desistir do onboarding da readmissão devolve o vínculo a inativo e o convite a pendente, sem apagar as avaliações', async () => {
+    const admin = await newUser('Admin')
+    const evaluator = await newUser('Avaliador')
+    const project = await newProject(admin)
+    const memberRow = await addActiveEvaluator(ownerDb, project, evaluator)
+    const evaluation = await evaluated(project, admin, memberRow)
+    await ownerDb
+      .insert(projectInvitations)
+      .values({
+        projectId: project,
+        inviteeId: evaluator,
+        inviteeEmail: 'primeiro-convite@example.com',
+        invitedBy: admin,
+        status: 'accepted',
+        resolvedAt: '2026-01-01T00:00:00Z',
+      })
+    await setMemberStatus(ownerDb, project, evaluator, 'evaluator', 'inactive')
+    await addPendingInvitation(ownerDb, project, evaluator, admin)
+
+    auth.userId = evaluator
+    await redirectOf(() => acceptInvitation(fd({ project_id: project })))
+    expect(await redirectOf(() => abandonOnboarding(fd({ project_id: project })))).toBe(
+      'NEXT_REDIRECT:/dashboard',
+    )
+
+    const after = await memberOf(project, evaluator)
+    expect(after.id).toBe(memberRow)
+    expect(after.status).toBe('inactive')
+    expect(await invitationStatuses(project, evaluator)).toEqual(['accepted', 'pending'])
+
+    const kept = await ownerDb
+      .select({ id: evaluations.id })
+      .from(evaluations)
+      .where(eq(evaluations.id, evaluation))
+    expect(kept).toHaveLength(1)
   })
 })
