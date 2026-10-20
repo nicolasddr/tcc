@@ -536,6 +536,8 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     return id
   }
 
+  const DASHES = Array(4).fill(CELL_NOT_APPLICABLE).join(' ')
+
   const ONE_DEFINITION: CodebookShape = {
     definitions: [
       { title: 'Informacional', type: 'category', criteria: [{ name: 'Clareza' }] },
@@ -2761,11 +2763,11 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
       ]),
     ])
     expect(visibleTextOf(createElement(AgreementMatrixTable, matrixOf(tree)))).toContain(
-      `Query 5 1,000 100% 0% 0% ${CELL_NOT_APPLICABLE} ` +
-        `${PER_RESPONSE_LABEL} ${CELL_NOT_APPLICABLE} 0,833 50% 50% 0%`,
+      `Query 5 1,000 100% 0% 0% ${DASHES} ` +
+        `${PER_RESPONSE_LABEL} ${DASHES} 0,833 50% 50% 0%`,
     )
-    expect(titleCountOf(markup, CELL_PER_RESPONSE_ROW_TITLE)).toBe(1)
-    expect(titleCountOf(markup, CELL_PER_RESPONSE_COLUMN_TITLE)).toBe(5)
+    expect(titleCountOf(markup, CELL_PER_RESPONSE_ROW_TITLE)).toBe(4)
+    expect(titleCountOf(markup, CELL_PER_RESPONSE_COLUMN_TITLE)).toBe(20)
     expect(titleCountOf(markup, CELL_NOT_APPLICABLE_TITLE)).toBe(0)
     expect(howToReadOf(AgreementMatrixTable(matrixOf(tree)))).toEqual([])
   })
@@ -2787,7 +2789,7 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     expect(visibleTextOf(table)).toContain('10 notas · 2 avaliadores')
     expect(visibleTextOf(table)).toContain(`Diversity ${PER_RESPONSE_LABEL} 0,833 50%`)
     expect(visibleTextOf(table)).not.toContain(CELL_NOT_APPLICABLE)
-    expect(markupTextOf(matrix)).toContain(`${PER_RESPONSE_LABEL} ${CELL_NOT_APPLICABLE} 0,833`)
+    expect(markupTextOf(matrix)).toContain(`${PER_RESPONSE_LABEL} ${DASHES} 0,833`)
     expect(summaryOf(byDefinitionOf(tree))).toBe('Por definição (5 definições × 2 critérios)')
   })
 

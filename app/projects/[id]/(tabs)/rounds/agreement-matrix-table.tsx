@@ -45,13 +45,13 @@ function Cells({
   notApplicableTitle: string
 }) {
   if (cell.state === 'not_applicable') {
-    return (
-      <td colSpan={MEASURES.length} className={cx(cellClass, groupStartClass)}>
+    return MEASURES.map((measure, index) => (
+      <td key={measure} className={cx(cellClass, index === 0 && groupStartClass)}>
         <span className="text-muted" title={notApplicableTitle}>
           {CELL_NOT_APPLICABLE}
         </span>
       </td>
-    )
+    ))
   }
 
   if (cell.state === 'unrated') {
