@@ -270,6 +270,8 @@ describe('app/projects/[id]/rounds/agreement-labels — o coeficiente na tela', 
 function profile(equal: number, shares: Record<number, number>): AgreementProfile {
   return {
     equal,
+    adjacent: 0,
+    extreme: 0,
     shares: new Map(Object.entries(shares).map(([rank, share]) => [Number(rank), share])),
   }
 }

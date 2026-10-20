@@ -493,6 +493,8 @@ describe('app/projects/[id]/rounds/agreement-matrix — notas iguais por célula
 
     expect(profileOf(cellOf(row, 'g1'))).toEqual({
       equal: 0.75,
+      adjacent: 0.25,
+      extreme: 0,
       shares: shares({ 1: 0.375, 2: 0.375, 3: 0.25 }),
     })
   })
@@ -509,7 +511,7 @@ describe('app/projects/[id]/rounds/agreement-matrix — notas iguais por célula
       state: 'calculated',
       agreement: { calculable: false, reason: 'no_variation' },
     })
-    expect(profileOf(cell)).toEqual({ equal: 1, shares: shares({ 3: 1 }) })
+    expect(profileOf(cell)).toEqual({ equal: 1, adjacent: 0, extreme: 0, shares: shares({ 3: 1 }) })
   })
 
   it('a célula com um avaliador só não tem par de notas, e o perfil é nulo', () => {

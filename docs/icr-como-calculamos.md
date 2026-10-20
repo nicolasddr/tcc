@@ -75,6 +75,13 @@ calculados sobre os mesmos valores pareáveis que ele usa (`agreementProfile` em
   deram o mesmo nível; com mais, cada par pesa `1 / (mᵤ − 1)`, como no alpha;
 - **distribuição** = `n_c / n` para cada nível, sempre com Alto, Médio e Baixo, inclusive 0%.
 
+Da mesma matriz saem as **divergências adjacentes** (`Σ o[c][k] / n` com `|c − k| = 1`, Alto com
+Médio ou Médio com Baixo) e as **divergências extremas** (`|c − k| ≥ 2`, Alto com Baixo). As três
+partes somam 100%. Como as notas iguais, contam por par: com dois avaliadores, batem com a
+classificação de cada unidade na revisão de discordâncias; com mais, uma unidade com Alto, Alto e
+Baixo pesa um terço como igual e dois terços como extrema, enquanto a revisão a chama de extrema
+inteira. Elas aparecem só na tabela por critério.
+
 Unidades com uma nota só ficam fora, como no alpha, e os números batem com o N mostrado. Sem unidade
 pareável não há números. Com a rodada sem variação (seção 4), eles aparecem mesmo assim e explicam o
 "não calculável". Com avaliador marcado como outlier, cada valor ("com todos" e "sem os marcados")
@@ -109,9 +116,9 @@ da literatura.
   as da resposta inteira, no critério por resposta. As unidades continuam as mesmas: cada nota só
   se compara com as da mesma resposta e da mesma definição. É um alpha sobre essas notas, e **não
   a média** dos alphas das células, e também é calculado **com todos**. A tabela aparece mesmo com
-  uma definição só, e traz ao lado do alpha as notas iguais, a distribuição pelos níveis e o N. É a
-  leitura do critério quando as definições são posições (Query 1, Query 2…) e não textos
-  diferentes.
+  uma definição só, e traz ao lado do alpha as notas iguais, a distribuição pelos níveis, as
+  divergências adjacentes e extremas e o N. É a leitura do critério quando as definições são
+  posições (Query 1, Query 2…) e não textos diferentes.
 - **Série entre rodadas** (`rounds/agreement-series.ts`). Um ponto por rodada, com a versão do
   codebook e a fase ao lado, também **com todos**. A série é uma só para as Fases 2, 3 e 4. **Não
   existe média, soma nem "ICR do projeto"** em tela nenhuma.

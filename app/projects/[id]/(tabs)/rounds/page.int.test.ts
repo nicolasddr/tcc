@@ -1621,7 +1621,7 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     expect(props.pair.all).toMatchObject({ calculable: true, units: 10, raters: 2 })
     expect(props.pair.all.calculable && props.pair.all.alpha).toBeCloseTo(0, 10)
     expect(props.profiles).toEqual({
-      all: { equal: 0.9, shares: new Map([[3, 0.95], [2, 0.05]]) },
+      all: { equal: 0.9, adjacent: 0.1, extreme: 0, shares: new Map([[3, 0.95], [2, 0.05]]) },
       withoutOutliers: null,
     })
 
@@ -1648,8 +1648,8 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
         excluded: 1,
       },
       profiles: {
-        all: { equal: 0.85, shares: new Map([[3, 0.9], [2, 0.1]]) },
-        withoutOutliers: { equal: 0.7, shares: new Map([[3, 0.4], [2, 0.3], [1, 0.3]]) },
+        all: { equal: 0.85, adjacent: 0.15, extreme: 0, shares: new Map([[3, 0.9], [2, 0.1]]) },
+        withoutOutliers: { equal: 0.7, adjacent: 0.3, extreme: 0, shares: new Map([[3, 0.4], [2, 0.3], [1, 0.3]]) },
       },
       responses: { all: 30, withoutOutliers: 30 },
       effort: [],
@@ -1675,7 +1675,7 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
       },
       profiles: {
         ...props.profiles,
-        withoutOutliers: { equal: 0.9, shares: new Map([[3, 0.95], [2, 0.05]]) },
+        withoutOutliers: { equal: 0.9, adjacent: 0.1, extreme: 0, shares: new Map([[3, 0.95], [2, 0.05]]) },
       },
     }
     const both = findAll(AgreementPanel(bothConcentrated), Alert).map((alert) =>
@@ -1696,7 +1696,10 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
         withoutOutliers: null,
         excluded: 0,
       },
-      profiles: { all: { equal: 1, shares: new Map([[3, 1]]) }, withoutOutliers: null },
+      profiles: {
+        all: { equal: 1, adjacent: 0, extreme: 0, shares: new Map([[3, 1]]) },
+        withoutOutliers: null,
+      },
       responses: { all: 12, withoutOutliers: 12 },
       effort: [],
       outliers: [],
@@ -2589,11 +2592,19 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     const table = createElement(CriterionAgreementTable, criterionTableOf(tree))
     const markup = renderToStaticMarkup(table)
 
-    expect(columnTitlesOf(markup)).toEqual(['Critério', 'ICR', 'Notas iguais', 'Notas'])
+    expect(columnTitlesOf(markup)).toEqual([
+      'Critério',
+      'ICR',
+      'Notas iguais',
+      'Divergência adjacente',
+      'Divergência extrema',
+      'Notas',
+    ])
     expect(rowTitlesOf(markup)).toEqual(['Clareza Geral'])
     expect(visibleTextOf(table)).toBe(
-      'Critério ICR Notas iguais Notas Clareza Geral 0,083 66,7% ' +
-        'Alto 33,3% · Médio 33,3% · Baixo 33,3% 6 notas · 2 avaliadores ' +
+      'Critério ICR Notas iguais Divergência adjacente Divergência extrema Notas ' +
+        'Clareza Geral 0,083 66,7% Alto 33,3% · Médio 33,3% · Baixo 33,3% 0% 33,3% ' +
+        '6 notas · 2 avaliadores ' +
         `${CRITERION_TABLE_NOTE} i`,
     )
     expect(markupTextOf(table)).not.toContain('0,167')
@@ -2640,7 +2651,9 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     const markup = renderToStaticMarkup(createElement(AgreementMatrixTable, matrixOf(tree)))
 
     expect(rowTitlesOf(markup)).toEqual(['Informacional'])
-    expect(criterionTableTextOf(tree)).toContain('Clareza 1,000 100% Alto 50% · Médio 0% · Baixo 50%')
+    expect(criterionTableTextOf(tree)).toContain(
+      'Clareza 1,000 100% Alto 50% · Médio 0% · Baixo 50% 0% 0% 2 notas',
+    )
     expect(glanceTextOf(byDefinitionOf(tree))).toBe(
       'Ver por definição (1 definição × 1 critério)',
     )

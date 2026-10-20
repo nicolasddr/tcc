@@ -148,7 +148,8 @@ Não existe média, soma nem "ICR do projeto" em tela nenhuma: a leitura entre r
 ponto por rodada com a sua versão de codebook e a sua fase ao lado. A série é uma só para as Fases 2,
 3 e 4, porque a passagem de uma fase para a seguinte com a mesma versão de codebook é uma comparação
 legítima. A tabela **por critério** também não é média: cada linha é um α sobre todas as notas
-daquele critério na rodada, juntando as definições numa conta só.
+daquele critério na rodada, juntando as definições numa conta só, e traz ao lado das notas iguais
+a parte dos pares em divergência adjacente e em divergência extrema (as três somam 100%).
 E na matriz por célula, **não aplicável** é o
 par definição × critério que não existe naquela versão — critério específico de outra definição,
 critério de definição na linha por resposta, ou critério por resposta na linha de uma definição —, o

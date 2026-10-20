@@ -104,6 +104,8 @@ export function ordinalAlpha(observations: readonly Observation[]): Agreement {
 
 export type AgreementProfile = {
   equal: number
+  adjacent: number
+  extreme: number
   shares: ReadonlyMap<number, number>
 }
 
@@ -120,10 +122,19 @@ export function agreementProfile(
   for (const total of totals.values()) n += total
 
   let diagonal = 0
-  for (const [c, row] of matrix) diagonal += row.get(c) ?? 0
+  let adjacent = 0
+  let extreme = 0
+  for (const [c, row] of matrix) {
+    for (const [k, weight] of row) {
+      const distance = Math.abs(c - k)
+      if (distance === 0) diagonal += weight
+      else if (distance === 1) adjacent += weight
+      else extreme += weight
+    }
+  }
 
   const shares = new Map<number, number>()
   for (const [c, total] of totals) shares.set(c, total / n)
 
-  return { equal: diagonal / n, shares }
+  return { equal: diagonal / n, adjacent: adjacent / n, extreme: extreme / n, shares }
 }

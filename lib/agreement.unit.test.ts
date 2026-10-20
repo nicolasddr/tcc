@@ -216,6 +216,41 @@ describe('agreementProfile', () => {
     expect(shares.map(([rank]) => rank)).toEqual([1, 2, 3, 4, 5])
     const expected = [9 / 40, 13 / 40, 10 / 40, 5 / 40, 3 / 40]
     shares.forEach(([, share], index) => expect(share).toBeCloseTo(expected[index], 10))
+    expect(profile?.adjacent).toBeCloseTo(6 / 40, 10)
+    expect(profile?.extreme).toBeCloseTo(2 / 40, 10)
+  })
+
+  it('divergências adjacentes e extremas: pares a um ponto e a dois pontos da escala, que somam 100% com as notas iguais', () => {
+    const profile = agreementProfile(
+      fromPairs([
+        [3, 3],
+        [3, 3],
+        [2, 2],
+        [1, 1],
+        [3, 2],
+        [2, 1],
+        [3, 1],
+        [1, 3],
+      ]),
+    )
+
+    expect(profile?.equal).toBeCloseTo(0.5, 10)
+    expect(profile?.adjacent).toBeCloseTo(0.25, 10)
+    expect(profile?.extreme).toBeCloseTo(0.25, 10)
+  })
+
+  it('com três avaliadores, Alto, Alto e Baixo na mesma unidade pesam por par: um terço igual e dois terços extremos', () => {
+    const profile = agreementProfile(
+      fromMatrix({
+        A: [3, 2],
+        B: [3, 2],
+        C: [1, 2],
+      }),
+    )
+
+    expect(profile?.equal).toBeCloseTo(4 / 6, 10)
+    expect(profile?.adjacent).toBe(0)
+    expect(profile?.extreme).toBeCloseTo(2 / 6, 10)
   })
 
   it('unidade com uma nota só fica fora: o perfil não muda ao acrescentá-la', () => {

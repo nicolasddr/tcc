@@ -8,6 +8,7 @@ import type {
 import { PER_RESPONSE_LABEL } from '../../pipeline/criteria'
 import type { RoundObservation } from './agreement'
 import { criterionCells, type MatrixCell } from './agreement-matrix'
+import { divergenceLabel } from './divergence'
 import {
   CELL_UNRATED_LABEL,
   CRITERION_TABLE_HELP,
@@ -55,6 +56,12 @@ function Equal({ cell }: { cell: MatrixCell }) {
   )
 }
 
+function Divergence({ cell, kind }: { cell: MatrixCell; kind: 'adjacent' | 'extreme' }) {
+  if (cell.state !== 'calculated' || !cell.profile) return null
+
+  return <span className="text-ink">{formatShare(cell.profile[kind])}</span>
+}
+
 export function CriterionAgreementTable({
   definitions,
   criteria,
@@ -82,6 +89,12 @@ export function CriterionAgreementTable({
                 Notas iguais
               </th>
               <th scope="col" className={headerClass}>
+                {divergenceLabel('adjacent')}
+              </th>
+              <th scope="col" className={headerClass}>
+                {divergenceLabel('extreme')}
+              </th>
+              <th scope="col" className={headerClass}>
                 Notas
               </th>
             </tr>
@@ -106,6 +119,12 @@ export function CriterionAgreementTable({
                 </td>
                 <td className={cellClass}>
                   <Equal cell={cell} />
+                </td>
+                <td className={cellClass}>
+                  <Divergence cell={cell} kind="adjacent" />
+                </td>
+                <td className={cellClass}>
+                  <Divergence cell={cell} kind="extreme" />
                 </td>
                 <td className={cx(cellClass, 'text-muted')}>
                   {cell.state === 'calculated' ? sampleSize(cell.agreement) : null}
