@@ -2,7 +2,11 @@ import { roleLabel, memberStatusLabel } from '../labels'
 import type { ListedMember } from '../members'
 import type { RoundMark } from './round-usage'
 import { RoundMarkBadge } from './round-mark-badge'
-import { DeactivateMemberButton } from './member-actions'
+import {
+  DeactivateMemberButton,
+  GrantAdminButton,
+  RevokeAdminButton,
+} from './member-actions'
 import { ButtonLink } from '@/app/components/ui/button'
 import { StatusBadge } from '@/app/components/ui/badge'
 import { Avatar } from '@/app/components/ui/avatar'
@@ -20,15 +24,17 @@ export function MemberList({
   canManage: boolean
   participation?: Readonly<Record<string, RoundMark>>
 }) {
+  const adminCount = members.filter((m) => m.activeRoles.includes('administrator')).length
+
   return (
     <ul className="m-0 flex list-none flex-col gap-0.5 p-0">
       {members.map((m) => (
         <li
           key={m.userId}
-          className="flex items-center gap-2.5 rounded-control px-1 py-1.5"
+          className="flex flex-wrap items-center gap-2.5 rounded-control px-1 py-1.5"
         >
           <Avatar fallback={m.name.charAt(0)} />
-          <span className="flex min-w-0 flex-1 flex-col">
+          <span className="flex min-w-36 flex-1 flex-col">
             <span className="truncate text-[13px] font-semibold text-ink">{m.name}</span>
             <span className="truncate text-[11px] text-muted">
               {m.roles.map(roleLabel).join(' · ')}
@@ -40,7 +46,7 @@ export function MemberList({
               </span>
             ) : null}
           </span>
-          <span className="flex shrink-0 items-center gap-2.5">
+          <span className="ml-auto flex max-w-full shrink-0 flex-wrap items-center justify-end gap-2.5">
             {m.status !== 'active' ? (
               <StatusBadge status={m.status}>{memberStatusLabel(m.status)}</StatusBadge>
             ) : null}
@@ -53,6 +59,24 @@ export function MemberList({
               >
                 Ver respostas
               </ButtonLink>
+            ) : null}
+            {canManage &&
+            m.activeRoles.includes('evaluator') &&
+            !m.activeRoles.includes('administrator') ? (
+              <GrantAdminButton
+                projectId={projectId}
+                memberUserId={m.userId}
+                memberName={m.name}
+              />
+            ) : null}
+            {canManage && m.activeRoles.includes('administrator') && adminCount > 1 ? (
+              <RevokeAdminButton
+                projectId={projectId}
+                memberUserId={m.userId}
+                memberName={m.name}
+                self={m.userId === viewerId}
+                keepsEvaluator={m.activeRoles.includes('evaluator')}
+              />
             ) : null}
             {/* HU-021: o admin desativa um avaliador ativo (não a si mesmo,
                 nem outro administrador). */}

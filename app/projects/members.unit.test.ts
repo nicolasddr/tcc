@@ -65,6 +65,21 @@ describe('groupMembers', () => {
     expect(member.status).toBe('inactive')
   })
 
+  it('activeRoles traz só os papéis de linhas ativas', () => {
+    const [adminInOnboarding] = groupMembers([
+      row({ userId: 'u1', role: 'administrator', status: 'active' }),
+      row({ userId: 'u1', role: 'evaluator', status: 'pending_onboarding' }),
+    ])
+    expect(adminInOnboarding.roles).toEqual(['administrator', 'evaluator'])
+    expect(adminInOnboarding.activeRoles).toEqual(['administrator'])
+
+    const [inactive] = groupMembers([
+      row({ userId: 'u1', role: 'administrator', status: 'inactive' }),
+      row({ userId: 'u1', role: 'evaluator', status: 'inactive' }),
+    ])
+    expect(inactive.activeRoles).toEqual([])
+  })
+
   it('agrega o status do usuário a partir das linhas', () => {
     const result = groupMembers([
       row({ userId: 'u1', role: 'administrator', status: 'active' }),

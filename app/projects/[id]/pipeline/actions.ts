@@ -94,7 +94,7 @@ type ParsedCodebook = {
 }
 
 const DENIED =
-  'Não foi possível salvar as definições. Apenas o administrador do projeto pode editá-las.'
+  'Não foi possível salvar as definições. Apenas um administrador do projeto pode editá-las.'
 
 const STALE =
   'Esta não é mais a versão vigente do codebook, e versão congelada não é editável. Recarregue a página para continuar da versão atual.'
@@ -418,7 +418,7 @@ export async function saveCodebook(
 export type PromptState = { error: string } | { ok: true; nonce: number } | null
 
 const PROMPT_DENIED =
-  'Não foi possível salvar o prompt. Apenas o administrador do projeto pode editá-lo.'
+  'Não foi possível salvar o prompt. Apenas um administrador do projeto pode editá-lo.'
 
 const PROMPT_STALE =
   'Esta não é mais a versão vigente do prompt, e versão congelada não é editável. Recarregue a página para continuar da versão atual.'
@@ -517,7 +517,7 @@ export type PromptMetadataState =
   | null
 
 const METADATA_DENIED =
-  'Não foi possível salvar os dados do prompt. Apenas o administrador do projeto pode editá-los.'
+  'Não foi possível salvar os dados do prompt. Apenas um administrador do projeto pode editá-los.'
 
 const METADATA_STALE =
   'Só a versão mais recente do prompt aceita nome, descrição e registro de mudanças. Recarregue a página para continuar da versão atual.'
@@ -630,13 +630,13 @@ export type ItemState = { error: string } | { ok: true; nonce: number } | null
 type ParsedItem = { name: string; content: string }
 
 const ITEM_CREATE_DENIED =
-  'Não foi possível cadastrar o item. Apenas o administrador do projeto pode cadastrá-lo.'
+  'Não foi possível cadastrar o item. Apenas um administrador do projeto pode cadastrá-lo.'
 
 const ITEM_UPDATE_DENIED =
-  'Não foi possível salvar o item. Apenas o administrador do projeto pode editá-lo.'
+  'Não foi possível salvar o item. Apenas um administrador do projeto pode editá-lo.'
 
 const ITEM_DELETE_DENIED =
-  'Não foi possível remover o item. Apenas o administrador do projeto pode removê-lo.'
+  'Não foi possível remover o item. Apenas um administrador do projeto pode removê-lo.'
 
 const ITEM_USED =
   'Este item já foi usado em uma rodada e não pode mais ser editado nem removido, porque isso mudaria o que os avaliadores viram. Cadastre um item novo com o conteúdo corrigido.'
@@ -861,7 +861,7 @@ export type PromptTestState =
   | null
 
 const TEST_DENIED =
-  'Não foi possível testar o prompt. Apenas o administrador do projeto pode testá-lo.'
+  'Não foi possível testar o prompt. Apenas um administrador do projeto pode testá-lo.'
 
 const TEST_ITEM_MISSING =
   'Escolha um item de entrada deste projeto para o teste. Recarregue a página se a lista estiver desatualizada.'
@@ -973,7 +973,7 @@ export type AdvancePhaseState =
   | null
 
 const ADVANCE_DENIED =
-  'Não foi possível avançar a fase. Apenas o administrador do projeto pode avançá-la.'
+  'Não foi possível avançar a fase. Apenas um administrador do projeto pode avançá-la.'
 
 type AdvanceOutcome =
   | { status: 'advanced'; phase: number }
@@ -1062,7 +1062,7 @@ export async function advancePhase(
 export type ReturnPhaseState = AdvancePhaseState
 
 const RETURN_DENIED =
-  'Não foi possível voltar de fase. Apenas o administrador do projeto pode fazê-lo.'
+  'Não foi possível voltar de fase. Apenas um administrador do projeto pode fazê-lo.'
 
 type ReturnOutcome =
   | { status: 'returned' }

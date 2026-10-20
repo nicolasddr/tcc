@@ -15,6 +15,7 @@ export type ListedMember = {
   name: string
   email: string
   roles: string[]
+  activeRoles: string[]
   status: string // status agregado do usuário no projeto
 }
 
@@ -40,6 +41,7 @@ export function groupMembers(rows: MemberRow[]): ListedMember[] {
         name: row.name,
         email: row.email,
         roles: [],
+        activeRoles: [],
         status: row.status,
         _rows: [],
       }
@@ -51,6 +53,7 @@ export function groupMembers(rows: MemberRow[]): ListedMember[] {
     .map(({ _rows, ...m }) => ({
       ...m,
       roles: rolesOf(_rows),
+      activeRoles: [...new Set(_rows.filter((r) => r.status === 'active').map((r) => r.role))],
       status: aggregateStatus(_rows.map((r) => r.status)),
     }))
     .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'))

@@ -3,6 +3,7 @@
 import { useEffect, useId, useRef, useState, type RefObject } from 'react'
 import { useFormStatus } from 'react-dom'
 import { Button } from './button'
+import { Alert } from './alert'
 
 export const dialogClass =
   'm-auto w-[min(32rem,calc(100vw-2rem))] rounded-card border border-line bg-surface ' +
@@ -72,6 +73,7 @@ export function ConfirmDialog({
   tone = 'default',
   action,
   fields = {},
+  error,
 }: {
   trigger: (open: () => void) => React.ReactNode
   title: React.ReactNode
@@ -81,6 +83,7 @@ export function ConfirmDialog({
   tone?: ConfirmTone
   action: (formData: FormData) => void | Promise<void>
   fields?: Record<string, string>
+  error?: string | null
 }) {
   const dialog = useRef<HTMLDialogElement>(null)
   const cancel = useRef<HTMLButtonElement>(null)
@@ -106,6 +109,8 @@ export function ConfirmDialog({
     setOpened(false)
   }
 
+  function keepOpen() {}
+
   return (
     <>
       {trigger(open)}
@@ -127,13 +132,15 @@ export function ConfirmDialog({
 
           {children}
 
+          {error ? <Alert tone="error">{error}</Alert> : null}
+
           <ConfirmActions
             cancelRef={cancel}
             confirmLabel={confirmLabel}
             pendingLabel={pendingLabel}
             tone={tone}
             onCancel={close}
-            onDone={close}
+            onDone={error ? keepOpen : close}
           />
         </form>
       </dialog>

@@ -75,7 +75,7 @@ const ONE_CELL: DefinitionFixture[] = [
 const FROZEN = '2026-01-01T12:00:00.000Z'
 
 const RETURN_DENIED =
-  'Não foi possível voltar de fase. Apenas o administrador do projeto pode fazê-lo.'
+  'Não foi possível voltar de fase. Apenas um administrador do projeto pode fazê-lo.'
 
 type Cell = { definitionId: string | null; criterionId: string }
 

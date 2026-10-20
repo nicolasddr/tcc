@@ -703,7 +703,7 @@ describe('app/projects/[id]/rounds/actions — criar, fechar e travar o codebook
     auth.userId = evaluator
     const result = await createRound(null, newRoundForm(project))
     expect(result).toMatchObject({
-      error: expect.stringContaining('Apenas o administrador'),
+      error: expect.stringContaining('Apenas um administrador'),
     })
     expect(await roundsOf(project)).toHaveLength(0)
   })
@@ -716,7 +716,7 @@ describe('app/projects/[id]/rounds/actions — criar, fechar e travar o codebook
 
     auth.userId = evaluator
     expect(await createRound(null, newRoundForm(project))).toEqual({
-      error: 'Não foi possível criar a rodada. Apenas o administrador do projeto pode criá-la.',
+      error: 'Não foi possível criar a rodada. Apenas um administrador do projeto pode criá-la.',
     })
     expect(await roundsOf(project)).toHaveLength(1)
   })
@@ -738,7 +738,7 @@ describe('app/projects/[id]/rounds/actions — criar, fechar e travar o codebook
     auth.userId = evaluator
     const result = await closeRound(null, closeRoundForm(project, round))
     expect(result).toMatchObject({
-      error: expect.stringContaining('Apenas o administrador'),
+      error: expect.stringContaining('Apenas um administrador'),
     })
     expect((await roundsOf(project))[0].status).toBe('open')
   })
@@ -758,10 +758,10 @@ describe('app/projects/[id]/rounds/actions — criar, fechar e travar o codebook
 
     auth.userId = stranger
     expect(await createRound(null, newRoundForm(project))).toMatchObject({
-      error: expect.stringContaining('Apenas o administrador'),
+      error: expect.stringContaining('Apenas um administrador'),
     })
     expect(await closeRound(null, closeRoundForm(project, round))).toMatchObject({
-      error: expect.stringContaining('Apenas o administrador'),
+      error: expect.stringContaining('Apenas um administrador'),
     })
     expect(await roundsOf(project)).toHaveLength(1)
   })

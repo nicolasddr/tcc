@@ -67,7 +67,7 @@ export async function addQuestion(
   if (!(await isProjectAdmin(userId, projectId))) {
     return {
       error:
-        'Não foi possível adicionar a pergunta. Apenas o administrador do projeto pode defini-las.',
+        'Não foi possível adicionar a pergunta. Apenas um administrador do projeto pode defini-las.',
     }
   }
 
@@ -112,7 +112,7 @@ export async function updateQuestion(
   if (!(await isProjectAdmin(userId, projectId))) {
     return {
       error:
-        'Não foi possível atualizar a pergunta. Apenas o administrador do projeto pode editá-las.',
+        'Não foi possível atualizar a pergunta. Apenas um administrador do projeto pode editá-las.',
     }
   }
 

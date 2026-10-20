@@ -561,7 +561,7 @@ describe('app/projects/[id]/rounds — o ciclo completo de uma rodada da Fase 4'
 
       auth.userId = s.carla.user
       expect(await createRound(null, projectForm(s.project))).toMatchObject({
-        error: expect.stringContaining('Apenas o administrador do projeto pode criá-la'),
+        error: expect.stringContaining('Apenas um administrador do projeto pode criá-la'),
       })
       expect(await roundsOf(s.project)).toHaveLength(1)
 
@@ -569,7 +569,7 @@ describe('app/projects/[id]/rounds — o ciclo completo de uma rodada da Fase 4'
 
       auth.userId = s.carla.user
       expect(await closeRound(null, roundForm(s.project, round))).toMatchObject({
-        error: expect.stringContaining('Apenas o administrador do projeto pode fechá-la'),
+        error: expect.stringContaining('Apenas um administrador do projeto pode fechá-la'),
       })
       const [, open] = await roundsOf(s.project)
       expect(open.status).toBe('open')

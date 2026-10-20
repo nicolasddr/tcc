@@ -541,7 +541,7 @@ export default async function ProjectPage({
         <Section
           title="Sair do projeto"
           hint="Você deixa de participar como avaliador."
-          help="Suas avaliações são preservadas, mas só o administrador poderá readmiti-lo depois."
+          help="Suas avaliações são preservadas, mas só um administrador poderá readmiti-lo depois."
         >
           <LeaveProjectButton projectId={project.id} />
         </Section>

@@ -323,9 +323,9 @@ describe('app/projects/[id]/pipeline/actions — Fase 4 congela codebook e texto
     )
     const prompt = await savePrompt(null, promptForm(project, 'Texto novo.', promptVersion))
 
-    expect(codebook).toEqual({ error: expect.stringContaining('Apenas o administrador') })
+    expect(codebook).toEqual({ error: expect.stringContaining('Apenas um administrador') })
     expect(codebook).not.toEqual({ error: frozenMessage('codebook') })
-    expect(prompt).toEqual({ error: expect.stringContaining('Apenas o administrador') })
+    expect(prompt).toEqual({ error: expect.stringContaining('Apenas um administrador') })
     expect(prompt).not.toEqual({ error: frozenMessage('prompt') })
     expect(await codebookSnapshot(project)).toEqual(codebookBefore)
     expect(await promptVersionsOf(project)).toEqual(promptBefore)

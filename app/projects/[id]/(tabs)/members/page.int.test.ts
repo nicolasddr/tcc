@@ -28,13 +28,20 @@ vi.mock('next/navigation', () => ({
 import ProjectMembersPage from '@/app/projects/[id]/(tabs)/members/page'
 import { EvaluatorRolePanel } from '@/app/projects/[id]/evaluator-role'
 import { MemberList } from '@/app/projects/[id]/member-list'
+import {
+  DeactivateMemberButton,
+  GrantAdminButton,
+  RevokeAdminButton,
+} from '@/app/projects/[id]/member-actions'
 import { Section } from '@/app/components/ui/section'
 import { TEAM_MORE } from '@/app/projects/[id]/(tabs)/members/team-help'
-import { ownerDb } from '@/lib/db'
+import { eq } from 'drizzle-orm'
+import { ownerDb, projectMembers } from '@/lib/db'
 import {
   createUser,
   createProject as seedProject,
   addActiveEvaluator,
+  addActiveAdmin,
   addPendingMember,
   addPendingInvitation,
   addCodebookVersion,
@@ -199,8 +206,9 @@ describe('app/projects/[id]/members — só quem participa ativamente entra', ()
     expect(forAdmin.hint).toBeUndefined()
     expect(forAdmin.help).toBeUndefined()
     expect(forAdmin.more).toEqual(TEAM_MORE)
-    expect(TEAM_MORE.summary).toBe('Desativar ou marcar como outlier?')
-    expect(TEAM_MORE.points).toHaveLength(2)
+    expect(TEAM_MORE.summary).toBe('Desativar, marcar como outlier ou tornar administrador?')
+    expect(TEAM_MORE.points).toHaveLength(3)
+    expect(TEAM_MORE.points[2]).toContain('vários administradores, todos com os mesmos poderes')
 
     auth.userId = evaluator
     const forEvaluator = await teamOf()
@@ -321,5 +329,101 @@ describe('app/projects/[id]/members — só quem participa ativamente entra', ()
 
     auth.userId = ana.user
     expect((await listOf(s.project)).participation).toBeUndefined()
+  })
+
+  type ButtonsByUser = Record<string, string[]>
+
+  async function buttonsOf(id: string): Promise<ButtonsByUser> {
+    const list = MemberList(await listOf(id))
+    const byUser: ButtonsByUser = {}
+    const kinds = [
+      ['grant', GrantAdminButton],
+      ['revoke', RevokeAdminButton],
+      ['deactivate', DeactivateMemberButton],
+    ] as const
+    for (const [kind, type] of kinds) {
+      for (const button of findAll(list, type)) {
+        const { memberUserId } = button.props as { memberUserId: string }
+        ;(byUser[memberUserId] ??= []).push(kind)
+      }
+    }
+    return byUser
+  }
+
+  it('o Administrador vê Tornar administrador só para o avaliador ativo, e o único administrador não tem Remover', async () => {
+    const admin = await newUser('Admin')
+    const ana = await newUser('Ana')
+    const pending = await newUser('Em Onboarding')
+    const project = await newProject(admin)
+    await addActiveEvaluator(ownerDb, project, ana)
+    await addPendingMember(ownerDb, project, pending)
+
+    auth.userId = admin
+    expect(await buttonsOf(project)).toEqual({ [ana]: ['grant', 'deactivate'] })
+  })
+
+  it('com dois administradores, cada um tem Remover, e o próprio vem como Deixar de ser', async () => {
+    const admin = await newUser('Admin')
+    const ana = await newUser('Ana')
+    const project = await newProject(admin)
+    await addActiveEvaluator(ownerDb, project, ana)
+    await addActiveAdmin(ownerDb, project, ana)
+
+    auth.userId = admin
+    expect(await buttonsOf(project)).toEqual({ [admin]: ['revoke'], [ana]: ['revoke'] })
+
+    const revokes = findAll(MemberList(await listOf(project)), RevokeAdminButton).map(
+      (button) => button.props as Parameters<typeof RevokeAdminButton>[0],
+    )
+    expect(
+      revokes.map(({ memberUserId, self, keepsEvaluator }) => ({
+        memberUserId,
+        self,
+        keepsEvaluator,
+      })),
+    ).toEqual([
+      { memberUserId: admin, self: true, keepsEvaluator: false },
+      { memberUserId: ana, self: false, keepsEvaluator: true },
+    ])
+  })
+
+  it('o administrador com o vínculo de avaliador em onboarding perde o acesso ao deixar de ser administrador', async () => {
+    const admin = await newUser('Admin')
+    const ana = await newUser('Ana')
+    const project = await newProject(admin)
+    await addActiveEvaluator(ownerDb, project, ana)
+    await addActiveAdmin(ownerDb, project, ana)
+    await addPendingMember(ownerDb, project, admin)
+
+    auth.userId = admin
+    const own = findAll(MemberList(await listOf(project)), RevokeAdminButton)
+      .map((button) => button.props as Parameters<typeof RevokeAdminButton>[0])
+      .find((props) => props.self)
+    expect(own?.keepsEvaluator).toBe(false)
+  })
+
+  it('o ex-administrador que segue avaliando volta a ter Tornar administrador', async () => {
+    const admin = await newUser('Admin')
+    const ana = await newUser('Ana')
+    const project = await newProject(admin)
+    await addActiveEvaluator(ownerDb, project, ana)
+    const anaAdmin = await addActiveAdmin(ownerDb, project, ana)
+    await ownerDb
+      .update(projectMembers)
+      .set({ status: 'inactive' })
+      .where(eq(projectMembers.id, anaAdmin))
+
+    auth.userId = admin
+    expect(await buttonsOf(project)).toEqual({ [ana]: ['grant', 'deactivate'] })
+  })
+
+  it('o Avaliador não vê botão de administração nenhum', async () => {
+    const admin = await newUser('Admin')
+    const ana = await newUser('Ana')
+    const project = await newProject(admin)
+    await addActiveEvaluator(ownerDb, project, ana)
+
+    auth.userId = ana
+    expect(await buttonsOf(project)).toEqual({})
   })
 })

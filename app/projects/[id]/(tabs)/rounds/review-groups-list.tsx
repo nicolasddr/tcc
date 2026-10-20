@@ -43,7 +43,7 @@ export const PRIVATE_LABEL = 'Minha anotação (só você vê)'
 export const PRIVATE_FIELD_LABEL = 'O que você quer levar para a reunião'
 
 export const PRIVATE_HINT =
-  'Este espaço é só seu: nem os outros avaliadores nem o Administrador leem o que está ' +
+  'Este espaço é só seu: nem os outros avaliadores nem os administradores leem o que está ' +
   `aqui. Até ${CONSENSUS_NOTE_MAX} caracteres. Salvar com o campo vazio remove a anotação.`
 
 export type ConsensusContext = {

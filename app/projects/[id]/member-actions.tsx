@@ -1,6 +1,18 @@
 'use client'
 
-import { deactivateMember, leaveProject } from '@/app/projects/actions'
+import { useActionState } from 'react'
+import {
+  deactivateMember,
+  grantAdminRole,
+  leaveProject,
+  revokeAdminRole,
+  type GrantAdminState,
+  type RevokeAdminState,
+} from '@/app/projects/actions'
+import {
+  grantAdminConfirmationLines,
+  revokeAdminConfirmationLines,
+} from '@/app/projects/admin-role'
 import { Button } from '@/app/components/ui/button'
 import { ConfirmDialog, DialogLines } from '@/app/components/ui/confirm-dialog'
 
@@ -60,8 +72,84 @@ export function LeaveProjectButton({ projectId }: { projectId: string }) {
       <DialogLines
         lines={[
           'Você deixa de participar como avaliador. Suas avaliações são preservadas.',
-          'Você não poderá reativar sozinho: só o administrador pode readmiti-lo.',
+          'Você não poderá reativar sozinho: só um administrador pode readmiti-lo.',
         ]}
+      />
+    </ConfirmDialog>
+  )
+}
+
+const initialGrant: GrantAdminState = null
+
+export function GrantAdminButton({
+  projectId,
+  memberUserId,
+  memberName,
+}: {
+  projectId: string
+  memberUserId: string
+  memberName: string
+}) {
+  const [state, grant] = useActionState(grantAdminRole, initialGrant)
+
+  return (
+    <ConfirmDialog
+      trigger={(open) => (
+        <Button variant="secondary" size="sm" onClick={open}>
+          Tornar administrador
+        </Button>
+      )}
+      title={`Tornar ${memberName} administrador(a)?`}
+      confirmLabel="Tornar administrador"
+      pendingLabel="Concedendo…"
+      action={grant}
+      fields={{ project_id: projectId, member_user_id: memberUserId }}
+      error={state && 'error' in state ? state.error : null}
+    >
+      <DialogLines lines={grantAdminConfirmationLines(memberName)} />
+    </ConfirmDialog>
+  )
+}
+
+const initialRevoke: RevokeAdminState = null
+
+export function RevokeAdminButton({
+  projectId,
+  memberUserId,
+  memberName,
+  self,
+  keepsEvaluator,
+}: {
+  projectId: string
+  memberUserId: string
+  memberName: string
+  self: boolean
+  keepsEvaluator: boolean
+}) {
+  const [state, revoke] = useActionState(revokeAdminRole, initialRevoke)
+  const label = self ? 'Deixar de ser administrador' : 'Remover administrador'
+
+  return (
+    <ConfirmDialog
+      trigger={(open) => (
+        <Button variant="danger" size="sm" onClick={open}>
+          {label}
+        </Button>
+      )}
+      title={
+        self
+          ? 'Deixar de ser administrador(a) deste projeto?'
+          : `Remover o acesso de administrador de ${memberName}?`
+      }
+      confirmLabel={label}
+      pendingLabel="Removendo…"
+      tone="danger"
+      action={revoke}
+      fields={{ project_id: projectId, member_user_id: memberUserId }}
+      error={state && 'error' in state ? state.error : null}
+    >
+      <DialogLines
+        lines={revokeAdminConfirmationLines({ name: memberName, self, keepsEvaluator })}
       />
     </ConfirmDialog>
   )

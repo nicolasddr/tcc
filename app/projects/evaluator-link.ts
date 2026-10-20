@@ -16,13 +16,13 @@ export type EvaluatorRoleView = {
 }
 
 export const ASSUME_DENIED =
-  'Apenas o administrador do projeto pode assumir o papel de avaliador.'
+  'Apenas um administrador do projeto pode assumir o papel de avaliador.'
 
 export const ASSUME_ALREADY_EVALUATOR =
   'Você já tem o papel de avaliador neste projeto.'
 
 export const REVOKE_DENIED =
-  'Apenas o administrador do projeto pode desfazer o próprio papel de avaliador.'
+  'Apenas um administrador do projeto pode desfazer o próprio papel de avaliador.'
 
 export const REVOKE_NO_LINK = 'Você não tem o papel de avaliador neste projeto.'
 

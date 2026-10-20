@@ -140,7 +140,7 @@ export async function inviteEvaluator(
   if (!EMAIL_RE.test(email)) return { error: 'Informe um e-mail válido.' }
 
   if (!(await isProjectAdmin(userId, projectId))) {
-    return { error: 'Apenas o administrador do projeto pode convidar avaliadores.' }
+    return { error: 'Apenas um administrador do projeto pode convidar avaliadores.' }
   }
 
   const invitee = await findInviteeByEmail(userId, projectId, email)
@@ -240,7 +240,7 @@ export async function updateProject(
   }
 
   if (!(await isProjectAdmin(userId, projectId))) {
-    return { error: 'Não foi possível salvar. Apenas o administrador edita, e só em projeto ativo.' }
+    return { error: 'Não foi possível salvar. Apenas um administrador edita, e só em projeto ativo.' }
   }
 
   const updated = await transaction((tx) =>

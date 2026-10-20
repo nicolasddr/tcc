@@ -17,10 +17,10 @@ import { OUTLIER_REASON_MAX } from '@/lib/limits'
 export type OutlierState = { error: string } | { ok: true; nonce: number } | null
 
 const MARK_DENIED =
-  'Não foi possível marcar o outlier. Apenas o administrador do projeto pode marcar.'
+  'Não foi possível marcar o outlier. Apenas um administrador do projeto pode marcar.'
 
 const UNMARK_DENIED =
-  'Não foi possível remover a marca. Apenas o administrador do projeto pode removê-la.'
+  'Não foi possível remover a marca. Apenas um administrador do projeto pode removê-la.'
 
 const REASON_REQUIRED =
   'Escreva por que estas notas saem do cálculo. Tirar um avaliador do coeficiente é uma decisão de método, e a justificativa escrita é o que torna a exclusão defensável e revisável depois.'

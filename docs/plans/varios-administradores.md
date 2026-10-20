@@ -282,3 +282,31 @@ Feito em 2026-10-19:
    administradores na revisão de uma rodada encerrada.
 8. Varredura: cada decisão da seção 3 tem teste ou verificação; `npm run lint`, `npx tsc --noEmit`,
    `npm test`.
+
+Feito em 2026-10-19:
+- `member-actions.tsx` exporta `GrantAdminButton` e `RevokeAdminButton` (`self`, `keepsEvaluator`),
+  cada um com o próprio `useActionState`. O `ConfirmDialog` ganhou `error`: com erro, o diálogo
+  mostra o `Alert` e fica aberto; sem erro, fecha como antes.
+- **Divergência no item 2.** `ListedMember` ganhou `activeRoles` (papéis só de linhas `active`),
+  porque `roles` + `status` não distinguem "admin ativo + avaliador em onboarding" de "admin ativo +
+  avaliador ativo", e o `keepsEvaluator` da confirmação dependia disso. `MemberList` calcula o número
+  de administradores por `activeRoles`; não recebe `adminCount`. "Tornar" aparece para quem tem
+  avaliador ativo e não tem administrador ativo; "Remover/Deixar de ser" para quem tem administrador
+  ativo, só quando há mais de um.
+- Largura: a linha de membro quebra (`flex-wrap`, nome com `min-w-36`, botões com `ml-auto
+  max-w-full flex-wrap justify-end`). A 375 px, com os três botões, eles descem para baixo do nome;
+  no desktop ficam numa linha só. Medido em `iframe` de 375 px: sem estouro.
+- Textos (item 4): todas as recusas "Apenas o administrador do projeto pode…" viraram "Apenas um
+  administrador…" (o mesmo molde da Parte 1), inclusive as do pipeline, das rodadas, dos outliers e
+  das perguntas; o "só o administrador pode readmiti-lo" do botão e do ⓘ de "Sair do projeto" virou
+  "só um administrador"; a dica da anotação privada diz "nem os administradores leem". Ficaram no
+  singular as frases sobre o papel ("A decisão de avançar é do Administrador", "aguardando o
+  administrador abrir uma rodada", "Você se torna o Administrador deste projeto" na criação).
+- `TEAM_MORE`: resumo "Desativar, marcar como outlier ou tornar administrador?" e terceiro ponto
+  sobre vários administradores.
+- Navegador: promover (linha nova), recusa com o diálogo aberto (avaliador desativado por fora),
+  remover, re-promover (mesmo `id`), último administrador recusado com diálogo desatualizado,
+  deixar de ser mantendo avaliador (fica na página, visão de avaliador), promovido vê as abas de
+  administrador (promoção simulada no banco, porque o `/dev/login` só entra com uma conta), duas
+  atas de administradores lado a lado numa rodada encerrada, com a de quem perdeu o acesso ainda
+  assinada.

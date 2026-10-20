@@ -53,10 +53,10 @@ export type CloseRoundState =
   | null
 
 const CREATE_DENIED =
-  'Não foi possível criar a rodada. Apenas o administrador do projeto pode criá-la.'
+  'Não foi possível criar a rodada. Apenas um administrador do projeto pode criá-la.'
 
 const CLOSE_DENIED =
-  'Não foi possível fechar a rodada. Apenas o administrador do projeto pode fechá-la.'
+  'Não foi possível fechar a rodada. Apenas um administrador do projeto pode fechá-la.'
 
 const PROJECT_MISSING =
   'Este projeto não existe mais. Recarregue a página para ver a lista atual.'
@@ -243,7 +243,7 @@ export type GenerateResponsesState =
   | null
 
 const GENERATE_DENIED =
-  'Não foi possível gerar as respostas. Apenas o administrador do projeto pode gerá-las.'
+  'Não foi possível gerar as respostas. Apenas um administrador do projeto pode gerá-las.'
 
 const GENERATE_ROUND_MISSING =
   'Esta rodada não existe mais neste projeto. Recarregue a página para ver a lista atual.'
