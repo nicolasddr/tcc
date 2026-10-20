@@ -51,6 +51,7 @@ function revalidateOutliers(projectId: string, roundId: string): void {
   revalidatePath(`/projects/${projectId}/members`)
   revalidatePath(`/projects/${projectId}/rounds`)
   revalidatePath(`/projects/${projectId}/rounds/${roundId}`)
+  revalidatePath(`/projects/${projectId}/rounds/${roundId}/agreement`)
   revalidatePath(`/projects/${projectId}`)
 }
 

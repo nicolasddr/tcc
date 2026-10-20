@@ -1,5 +1,5 @@
 import { requireUserId } from '@/lib/supabase/server'
-import { transaction, type DbExecutor } from '@/lib/db'
+import { transaction } from '@/lib/db'
 import {
   loadCodebookVersion,
   type CodebookCriterion,
@@ -11,11 +11,8 @@ import {
   type ResponseForAdmin,
 } from '../../../pipeline/responses'
 import { responseLabel } from '../../evaluate/queue'
-import { isOpen, listRounds, type RoundSummary } from '../rounds'
-import { previousRoundOf, roundChanges, type RoundChanges } from '../round-changes'
-import { RoundChangeChips } from '../round-changes-note'
-import { roundInputSummary } from '../preconditions'
-import { closedOn } from '../reference-comparison-labels'
+import { isOpen } from '../rounds'
+import { loadRoundHeader, roundHeaderChips, type RoundHeader } from '../round-header'
 import { AdminResponseCard } from '../sent-input'
 import { loadResponseNotes, type ResponseNote, type ReviewRound } from '../review'
 import {
@@ -33,7 +30,6 @@ import {
   type ConsensusContext,
 } from '../review-groups-list'
 import { QueueNav } from '@/app/components/ui/queue-nav'
-import { Chip } from '@/app/components/ui/chip'
 import { EmptyState } from '@/app/components/ui/empty-state'
 import { Section } from '@/app/components/ui/section'
 import { BackLink } from '@/app/components/ui/shell'
@@ -51,19 +47,6 @@ function markOutliers(
     const reason = reasons.get(note.projectMemberId) ?? null
     return { ...note, isOutlier: reason !== null, outlierReason: reason }
   })
-}
-
-type RoundHeader = { round: RoundSummary; changes: RoundChanges | null }
-
-async function headerOf(
-  projectId: string,
-  roundId: string,
-  tx: DbExecutor,
-): Promise<RoundHeader | null> {
-  const rounds = await listRounds(projectId, tx)
-  const round = rounds.find((candidate) => candidate.id === roundId)
-  if (!round) return null
-  return { round, changes: roundChanges(round, previousRoundOf(rounds, round)) }
 }
 
 function evaluatorHint(round: ReviewRound): string {
@@ -105,7 +88,7 @@ export default async function RoundReviewPage({
     const access = await requireReviewAccess(id, userId, tx)
     const round = await requireReviewableRound(access, roundId, tx)
     const header = access.isAdmin
-      ? await headerOf(access.project.id, round.id, tx)
+      ? await loadRoundHeader(access.project.id, round.id, tx)
       : null
 
     const empty = {
@@ -200,19 +183,7 @@ export default async function RoundReviewPage({
         <BackLink href={`/projects/${id}/rounds`}>Voltar às rodadas</BackLink>
       </div>
 
-      {isAdmin && header ? (
-        <div className="mt-4">
-          <RoundChangeChips
-            round={header.round}
-            changes={header.changes}
-            phaseHelp={roundInputSummary(round.phase)}
-            leading={
-              <Chip className="font-semibold text-ink">Rodada {round.roundNumber}</Chip>
-            }
-            trailing={round.closedAt ? <Chip>{closedOn(round.closedAt)}</Chip> : null}
-          />
-        </div>
-      ) : null}
+      {isAdmin && header ? roundHeaderChips(header) : null}
 
       <Section
         title={`Revisão de discordâncias da rodada ${round.roundNumber}`}

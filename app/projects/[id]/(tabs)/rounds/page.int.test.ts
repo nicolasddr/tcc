@@ -905,7 +905,14 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
 
     const cards = cardsOf(list)
     expect(findAll(cards[0], ButtonLink)).toHaveLength(0)
-    expect(findAll(cards[1], ButtonLink)).toHaveLength(1)
+    const closed = findAll(cards[1], ButtonLink).map((link) => {
+      const props = link.props as { href: string; children: unknown }
+      return [props.children, props.href]
+    })
+    expect(closed).toEqual([
+      ['Abrir concordância', `/projects/${project}/rounds/${list.rounds[0].id}/agreement`],
+      ['Abrir revisão', `/projects/${project}/rounds/${list.rounds[0].id}`],
+    ])
   })
 
   it('a lista mostra a fase de cada rodada, e o painel da rodada aberta não diz o que vai à LLM', async () => {

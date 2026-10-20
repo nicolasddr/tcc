@@ -11,13 +11,7 @@ import {
   loadProjectObservations,
   type RoundObservation,
 } from './agreement'
-import {
-  agreementPair,
-  evaluatedResponses,
-  profilePair,
-  withoutExcluded,
-  type AgreementPair,
-} from './agreement-pair'
+import { agreementPair, type AgreementPair } from './agreement-pair'
 import { loadProjectOutliers, loadRoundOutliers } from './outliers'
 import { loadEvaluatorParticipation } from './participation'
 import { participationBefore } from './participation-labels'
@@ -37,11 +31,9 @@ import { GENERATE_PANEL_ID, OpenRoundCard } from './open-round-card'
 import { EvaluatorRounds } from './evaluator-rounds'
 import { listReviewableRounds } from './review'
 import { requireReviewAccess } from './review-access'
-import { AgreementPanel } from './agreement-panel'
-import { AgreementMatrixTable } from './agreement-matrix-table'
+import { roundAgreementSection } from './round-agreement-section'
 import { matrixColumns } from './agreement-matrix'
 import { byDefinitionSummary } from './agreement-labels'
-import { CriterionAgreementTable } from './criterion-agreement-table'
 import { ByDefinition } from './by-definition'
 import { QualityPanel } from './quality-panel'
 import { QualityMatrixNotes, QualityMatrixTable } from './quality-matrix-table'
@@ -52,12 +44,7 @@ import {
   readingGuidance,
 } from './reading-guidance'
 import { ReadingGuidanceNote } from './reading-guidance-note'
-import {
-  AGREEMENT_SECTION_ID,
-  ROUNDS_SECTION_ID,
-  ReadingShortcuts,
-  readingShortcuts,
-} from './reading-shortcuts'
+import { ROUNDS_SECTION_ID, ReadingShortcuts, readingShortcuts } from './reading-shortcuts'
 import { referenceComparison } from './reference-comparison'
 import {
   REFERENCE_COMPARISON_HELP,
@@ -205,14 +192,6 @@ export default async function ProjectRoundsPage({
     focusDefinitions.length,
     matrixColumns(focusDefinitions, focusCriteria).length,
   )
-  const focusMatrix = focusRound ? (
-    <AgreementMatrixTable
-      definitions={focusDefinitions}
-      criteria={focusCriteria}
-      observations={focusObservations}
-      codebookVersionNumber={focusRound.codebookVersionNumber}
-    />
-  ) : null
   const focusQualityMatrix = focusRound ? (
     <QualityMatrixTable
       definitions={focusDefinitions}
@@ -222,12 +201,6 @@ export default async function ProjectRoundsPage({
       codebookVersionNumber={focusRound.codebookVersionNumber}
     />
   ) : null
-  const responses = {
-    all: evaluatedResponses(focusObservations),
-    withoutOutliers: evaluatedResponses(
-      withoutExcluded(focusObservations, focusExcluded),
-    ),
-  }
 
   const openSummary = openRound
     ? rounds.find((round) => round.id === openRound.id)
@@ -364,47 +337,17 @@ export default async function ProjectRoundsPage({
         </Section>
       ) : null}
 
-      {focusRound ? (
-        <Section
-          id={AGREEMENT_SECTION_ID}
-          className="scroll-mt-6"
-          title={
-            focusRound.closedAt
-              ? `Concordância na rodada ${focusRound.roundNumber}, fechada`
-              : `Concordância na rodada ${focusRound.roundNumber}`
-          }
-          help="Krippendorff's Alpha ordinal"
-        >
-          <div className="flex flex-col gap-4">
-            <AgreementPanel
-              pair={focusPair}
-              profiles={profilePair(focusObservations, focusExcluded)}
-              responses={responses}
-              effort={openRound ? [] : effort}
-              outliers={focusOutliers}
-              distribution={hasQuality(focusRound.phase)}
-              {...(focusParticipation && !openRound
-                ? { participation: focusParticipation }
-                : {})}
-            />
-
-            {focusDefinitions.length > 0 && focusCriteria.length > 0 ? (
-              <>
-                <CriterionAgreementTable
-                  definitions={focusDefinitions}
-                  criteria={focusCriteria}
-                  observations={focusObservations}
-                  distribution={hasQuality(focusRound.phase)}
-                />
-
-                <ByDefinition summary={focusByDefinition}>{focusMatrix}</ByDefinition>
-              </>
-            ) : (
-              focusMatrix
-            )}
-          </div>
-        </Section>
-      ) : null}
+      {focusRound
+        ? roundAgreementSection({
+            round: focusRound,
+            observations: focusObservations,
+            outliers: focusOutliers,
+            effort,
+            definitions: focusDefinitions,
+            criteria: focusCriteria,
+            ...(focusParticipation ? { participation: focusParticipation } : {}),
+          })
+        : null}
 
       {focusRound && focusQuality ? (
         <Section

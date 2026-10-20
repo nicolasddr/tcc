@@ -77,13 +77,22 @@ export function RoundList({
                       <InfoTooltip text={openedText(round)} />
                     </span>
                     {isOpen(round) ? null : (
-                      <ButtonLink
-                        href={`/projects/${projectId}/rounds/${round.id}`}
-                        variant="secondary"
-                        size="sm"
-                      >
-                        Abrir revisão
-                      </ButtonLink>
+                      <span className="flex flex-wrap items-center gap-2">
+                        <ButtonLink
+                          href={`/projects/${projectId}/rounds/${round.id}/agreement`}
+                          variant="secondary"
+                          size="sm"
+                        >
+                          Abrir concordância
+                        </ButtonLink>
+                        <ButtonLink
+                          href={`/projects/${projectId}/rounds/${round.id}`}
+                          variant="secondary"
+                          size="sm"
+                        >
+                          Abrir revisão
+                        </ButtonLink>
+                      </span>
                     )}
                   </div>
 
