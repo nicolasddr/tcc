@@ -244,9 +244,9 @@ describe('app/projects/[id]/rounds/agreement-labels — o coeficiente na tela', 
   })
 
   it('o resumo da matriz recolhida conta as definições e os critérios', () => {
-    expect(BY_DEFINITION_LABEL).toBe('Ver por definição')
-    expect(byDefinitionSummary(5, 2)).toBe('Ver por definição (5 definições × 2 critérios)')
-    expect(byDefinitionSummary(1, 1)).toBe('Ver por definição (1 definição × 1 critério)')
+    expect(BY_DEFINITION_LABEL).toBe('Por definição')
+    expect(byDefinitionSummary(5, 2)).toBe('Por definição (5 definições × 2 critérios)')
+    expect(byDefinitionSummary(1, 1)).toBe('Por definição (1 definição × 1 critério)')
   })
 
   it('a linha de todas as definições e os seus textos saíram', () => {
@@ -282,16 +282,16 @@ function calculated(alpha: number): Agreement {
 const CONCENTRATED = profile(0.96, { 3: 0.94, 2: 0.06 })
 
 describe('app/projects/[id]/rounds/agreement-labels — notas iguais e distribuição', () => {
-  it('a linha do perfil traz as notas iguais e os três níveis na ordem da escala, inclusive 0%', () => {
-    expect(profileLine(CONCENTRATED)).toBe(
-      '96% de notas iguais · Alto 94% · Médio 6% · Baixo 0%',
+  it('a linha do perfil traz as notas iguais e as duas divergências, inclusive 0%, sem os níveis', () => {
+    expect(profileLine({ ...CONCENTRATED, adjacent: 0.04 })).toBe(
+      '96% de notas iguais · 4% de divergência adjacente · 0% de divergência extrema',
     )
   })
 
   it('a linha do perfil usa uma casa decimal com vírgula', () => {
-    expect(profileLine(profile(0.945, { 3: 0.5, 2: 0.255, 1: 0.245 }))).toBe(
-      '94,5% de notas iguais · Alto 50% · Médio 25,5% · Baixo 24,5%',
-    )
+    expect(
+      profileLine({ ...profile(0.7, {}), adjacent: 0.183, extreme: 0.117 }),
+    ).toBe('70% de notas iguais · 18,3% de divergência adjacente · 11,7% de divergência extrema')
   })
 
   it('o aviso cita o nível de maior parte e as duas porcentagens', () => {

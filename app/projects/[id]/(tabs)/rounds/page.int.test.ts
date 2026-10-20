@@ -81,6 +81,7 @@ import {
 import { Section } from '@/app/components/ui/section'
 import { Alert } from '@/app/components/ui/alert'
 import { Disclosure } from '@/app/components/ui/disclosure'
+import { ByDefinition } from './by-definition'
 import {
   DEACTIVATED_HELP,
   EFFORT_MORE_SUMMARY,
@@ -453,8 +454,12 @@ function matrixTextOf(tree: unknown): string {
   return markupTextOf(createElement(AgreementMatrixTable, matrixOf(tree)))
 }
 
+function summaryOf(element: ReactElement): string {
+  return (element.props as { summary: string }).summary
+}
+
 function byDefinitionOf(tree: unknown): ReactElement {
-  const element = findElement(findSection(tree, AgreementMatrixTable), Disclosure)
+  const element = findElement(findSection(tree, AgreementMatrixTable), ByDefinition)
   expect(element).toBeTruthy()
   return element!
 }
@@ -476,7 +481,7 @@ function criterionQualityTextOf(tree: unknown): string {
 }
 
 function qualityByDefinitionOf(tree: unknown): ReactElement {
-  const element = findElement(findSection(tree, QualityMatrixTable), Disclosure)
+  const element = findElement(findSection(tree, QualityMatrixTable), ByDefinition)
   expect(element).toBeTruthy()
   return element!
 }
@@ -1599,7 +1604,7 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     expect(tooltipTextsOf(AgreementPanel(panelOf(tree)))).toContain(SMALL_SAMPLE_HELP)
   })
 
-  it('notas concentradas: o painel mostra notas iguais, distribuição e o aviso ao lado do α', async () => {
+  it('notas concentradas na Fase 2: o painel mostra notas iguais e divergências, sem a distribuição, e o aviso ao lado do α', async () => {
     const admin = await newUser('Admin')
     const scene = await roundWith(admin, 10)
     const ana = await newEvaluator(scene.project, 'Ana')
@@ -1629,7 +1634,11 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     expect(visible).toContain(
       `10 notas · 2 avaliadores · 10 respostas avaliadas · ${BAND_REFERENCE_LABEL}`,
     )
-    expect(visible).toContain('90% de notas iguais · Alto 95% · Médio 5% · Baixo 0%')
+    expect(props.distribution).toBe(false)
+    expect(visible).toContain(
+      '90% de notas iguais · 10% de divergência adjacente · 0% de divergência extrema',
+    )
+    expect(visible).not.toContain('Alto 95%')
 
     const alerts = findAll(AgreementPanel(props), Alert).map((alert) => visibleTextOf(alert))
     expect(alerts).toContain(
@@ -1654,11 +1663,18 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
       responses: { all: 30, withoutOutliers: 30 },
       effort: [],
       outliers: [],
+      distribution: true,
     }
 
     const visible = visibleTextOf(createElement(AgreementPanel, props))
-    expect(visible).toContain('85% de notas iguais · Alto 90% · Médio 10% · Baixo 0%')
-    expect(visible).toContain('70% de notas iguais · Alto 40% · Médio 30% · Baixo 30%')
+    expect(visible).toContain(
+      '85% de notas iguais · 15% de divergência adjacente · 0% de divergência extrema ' +
+        'Alto 90% · Médio 10% · Baixo 0%',
+    )
+    expect(visible).toContain(
+      '70% de notas iguais · 30% de divergência adjacente · 0% de divergência extrema ' +
+        'Alto 40% · Médio 30% · Baixo 30%',
+    )
 
     const alerts = findAll(AgreementPanel(props), Alert).map((alert) => visibleTextOf(alert))
     expect(alerts).toEqual([
@@ -1703,10 +1719,12 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
       responses: { all: 12, withoutOutliers: 12 },
       effort: [],
       outliers: [],
+      distribution: true,
     }
 
     expect(visibleTextOf(createElement(AgreementPanel, props))).toContain(
-      '100% de notas iguais · Alto 100% · Médio 0% · Baixo 0%',
+      '100% de notas iguais · 0% de divergência adjacente · 0% de divergência extrema ' +
+        'Alto 100% · Médio 0% · Baixo 0%',
     )
     expect(findAll(AgreementPanel(props), Alert)).toEqual([])
   })
@@ -1983,6 +2001,7 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     expect(findElement(qualitySection, AgreementPanel)).toBeNull()
 
     expect(Object.keys(panelOf(tree)).sort()).toEqual([
+      'distribution',
       'effort',
       'outliers',
       'pair',
@@ -2441,9 +2460,7 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     type SectionProps = { hint: string; help: string; more?: { points: readonly string[] } }
 
     const agreement = findSection(tree, AgreementMatrixTable)!.props as SectionProps
-    expect(agreement.hint).toBe(
-      "Krippendorff's Alpha ordinal, sobre a versão de codebook que a rodada fixou.",
-    )
+    expect(agreement.hint).toBeUndefined()
     expect(agreement.help).toBe("Krippendorff's Alpha ordinal")
 
     const rounds = findSection(tree, RoundList)!.props as SectionProps
@@ -2457,7 +2474,7 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     expect(QUALITY_POINTS.join(' ')).not.toContain('distribuição das notas desta rodada')
   })
 
-  it('com a rodada aberta, o ⓘ da Concordância nomeia o coeficiente, e a frase continua a mesma', async () => {
+  it('com a rodada aberta, o ⓘ da Concordância nomeia o coeficiente, sem frase embaixo do título', async () => {
     const admin = await newUser('Admin')
     const scene = await roundWith(admin, 1)
 
@@ -2468,9 +2485,7 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
       hint: string
       help: string
     }
-    expect(agreement.hint).toBe(
-      "Krippendorff's Alpha ordinal, sobre a versão de codebook que a rodada fixou.",
-    )
+    expect(agreement.hint).toBeUndefined()
     expect(agreement.help).toBe("Krippendorff's Alpha ordinal")
   })
 
@@ -2553,7 +2568,7 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     return scene
   }
 
-  it('a Concordância abre com a tabela por critério, e a matriz por definição vem depois, recolhida', async () => {
+  it('a Concordância abre com a tabela por critério, e a matriz por definição vem depois, à mostra', async () => {
     const admin = await newUser('Admin')
     const scene = await twoDefinitionsScene(admin)
 
@@ -2566,19 +2581,23 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
       typeOrderOf(section, [
         AgreementPanel,
         CriterionAgreementTable,
-        Disclosure,
+        ByDefinition,
         AgreementMatrixTable,
       ]),
-    ).toEqual([AgreementPanel, CriterionAgreementTable, Disclosure, AgreementMatrixTable])
+    ).toEqual([AgreementPanel, CriterionAgreementTable, ByDefinition, AgreementMatrixTable])
 
-    const disclosure = findElement(section, Disclosure)!
-    expect(findElement(disclosure, AgreementMatrixTable)).toBeTruthy()
-    expect(findElement(disclosure, CriterionAgreementTable)).toBeNull()
-    expect(opensClosed(disclosure)).toBe(true)
-    expect(glanceTextOf(disclosure)).toBe('Ver por definição (2 definições × 1 critério)')
+    const byDefinition = byDefinitionOf(tree)
+    expect(findElement(byDefinition, AgreementMatrixTable)).toBeTruthy()
+    expect(findElement(byDefinition, CriterionAgreementTable)).toBeNull()
+    expect(findElement(section, Disclosure)).toBeNull()
+    expect(summaryOf(byDefinition)).toBe('Por definição (2 definições × 1 critério)')
+    expect(visibleTextOf(byDefinition)).toContain(
+      'Por definição (2 definições × 1 critério) Definição Clareza Geral ICR',
+    )
     expect(Object.keys(criterionTableOf(tree)).sort()).toEqual([
       'criteria',
       'definitions',
+      'distribution',
       'observations',
     ])
   })
@@ -2589,6 +2608,7 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
 
     auth.userId = admin
     const tree = await render(scene.project)
+    expect(criterionTableOf(tree).distribution).toBe(false)
     const table = createElement(CriterionAgreementTable, criterionTableOf(tree))
     const markup = renderToStaticMarkup(table)
 
@@ -2603,7 +2623,7 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     expect(rowTitlesOf(markup)).toEqual(['Clareza Geral'])
     expect(visibleTextOf(table)).toBe(
       'Critério ICR Notas iguais Divergência adjacente Divergência extrema Notas ' +
-        'Clareza Geral 0,083 66,7% Alto 33,3% · Médio 33,3% · Baixo 33,3% 0% 33,3% ' +
+        'Clareza Geral 0,083 66,7% 0% 33,3% ' +
         '6 notas · 2 avaliadores ' +
         `${CRITERION_TABLE_NOTE} i`,
     )
@@ -2643,9 +2663,9 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     expect(markup).not.toContain('6 notas')
   })
 
-  it('com uma definição só, a tabela por critério também aparece', async () => {
+  it('com uma definição só, a tabela por critério também aparece, e na Fase 3 traz a distribuição', async () => {
     const admin = await newUser('Admin')
-    const scene = await roundWith(admin, 2)
+    const scene = await roundWith(admin, 2, { phase: PHASE_3 })
     const ana = await newEvaluator(scene.project, 'Ana')
     const bruno = await newEvaluator(scene.project, 'Bruno')
 
@@ -2663,15 +2683,19 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     const markup = renderToStaticMarkup(createElement(AgreementMatrixTable, matrixOf(tree)))
 
     expect(rowTitlesOf(markup)).toEqual(['Informacional'])
+    expect(criterionTableOf(tree).distribution).toBe(true)
     expect(criterionTableTextOf(tree)).toContain(
       'Clareza 1,000 100% Alto 50% · Médio 0% · Baixo 50% 0% 0% 2 notas',
     )
-    expect(glanceTextOf(byDefinitionOf(tree))).toBe(
-      'Ver por definição (1 definição × 1 critério)',
+    expect(panelOf(tree).distribution).toBe(true)
+    expect(panelTextOf(tree)).toContain(
+      '100% de notas iguais · 0% de divergência adjacente · 0% de divergência extrema ' +
+        'Alto 50% · Médio 0% · Baixo 50%',
     )
+    expect(summaryOf(byDefinitionOf(tree))).toBe('Por definição (1 definição × 1 critério)')
   })
 
-  it('sem definição no codebook da rodada, a matriz diz que não há o que cruzar, sem tabela por critério nem recolher', async () => {
+  it('sem definição no codebook da rodada, a matriz diz que não há o que cruzar, sem tabela por critério nem título por definição', async () => {
     const admin = await newUser('Admin')
     const scene = await roundWith(admin, 1, { shape: { definitions: [] } })
 
@@ -2681,7 +2705,7 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
 
     expect(section).toBeTruthy()
     expect(findElement(section, CriterionAgreementTable)).toBeNull()
-    expect(findElement(section, Disclosure)).toBeNull()
+    expect(findElement(section, ByDefinition)).toBeNull()
     expect(matrixTextOf(tree)).toContain('não tem definição e critério para cruzar')
   })
 
@@ -2764,9 +2788,7 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     expect(visibleTextOf(table)).toContain(`Diversity ${PER_RESPONSE_LABEL} 0,833 50%`)
     expect(visibleTextOf(table)).not.toContain(CELL_NOT_APPLICABLE)
     expect(markupTextOf(matrix)).toContain(`${PER_RESPONSE_LABEL} ${CELL_NOT_APPLICABLE} 0,833`)
-    expect(glanceTextOf(byDefinitionOf(tree))).toBe(
-      'Ver por definição (5 definições × 2 critérios)',
-    )
+    expect(summaryOf(byDefinitionOf(tree))).toBe('Por definição (5 definições × 2 critérios)')
   })
 
   it('a matriz de Qualidade traz a linha “Por resposta” com a distribuição das notas por resposta', async () => {
@@ -2825,7 +2847,7 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     )
   })
 
-  it('a Qualidade abre com a tabela por critério, a matriz por definição vem recolhida, e a legenda e o Como ler ficam fora dela', async () => {
+  it('a Qualidade abre com a tabela por critério, a matriz por definição vem à mostra, e a legenda e o Como ler ficam fora dela', async () => {
     const admin = await newUser('Admin')
     const { scene } = await qualityMatrixScene(admin)
 
@@ -2839,24 +2861,24 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
       typeOrderOf(section, [
         QualityPanel,
         CriterionQualityTable,
-        Disclosure,
+        ByDefinition,
         QualityMatrixTable,
         QualityMatrixNotes,
       ]),
     ).toEqual([
       QualityPanel,
       CriterionQualityTable,
-      Disclosure,
+      ByDefinition,
       QualityMatrixTable,
       QualityMatrixNotes,
     ])
 
-    const disclosure = qualityByDefinitionOf(tree)
-    expect(findElement(disclosure, QualityMatrixTable)).toBeTruthy()
-    expect(findElement(disclosure, CriterionQualityTable)).toBeNull()
-    expect(findElement(disclosure, QualityMatrixNotes)).toBeNull()
-    expect(opensClosed(disclosure)).toBe(true)
-    expect(glanceTextOf(disclosure)).toBe('Ver por definição (2 definições × 3 critérios)')
+    const byDefinition = qualityByDefinitionOf(tree)
+    expect(findElement(byDefinition, QualityMatrixTable)).toBeTruthy()
+    expect(findElement(byDefinition, CriterionQualityTable)).toBeNull()
+    expect(findElement(byDefinition, QualityMatrixNotes)).toBeNull()
+    expect(findElement(section, Disclosure)).toBeNull()
+    expect(summaryOf(byDefinition)).toBe('Por definição (2 definições × 3 critérios)')
 
     const markup = renderToStaticMarkup(section!)
     expect(markup.split('em %')).toHaveLength(2)
@@ -2923,12 +2945,12 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     expect(criterionQualityTextOf(tree)).toBe(
       `Critério Notas Relevance Geral 50 · 0 · 50 Diversity ${PER_RESPONSE_LABEL} 25 · 25 · 50`,
     )
-    expect(glanceTextOf(qualityByDefinitionOf(tree))).toBe(
-      'Ver por definição (5 definições × 2 critérios)',
+    expect(summaryOf(qualityByDefinitionOf(tree))).toBe(
+      'Por definição (5 definições × 2 critérios)',
     )
   })
 
-  it('sem definição no codebook da rodada, a Qualidade diz que não há o que cruzar, sem tabela por critério, recolher nem legenda', async () => {
+  it('sem definição no codebook da rodada, a Qualidade diz que não há o que cruzar, sem tabela por critério, título por definição nem legenda', async () => {
     const admin = await newUser('Admin')
     const scene = await roundWith(admin, 1, { shape: { definitions: [] }, phase: PHASE_3 })
 
@@ -2938,7 +2960,7 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
 
     expect(section).toBeTruthy()
     expect(findElement(section, CriterionQualityTable)).toBeNull()
-    expect(findElement(section, Disclosure)).toBeNull()
+    expect(findElement(section, ByDefinition)).toBeNull()
     expect(findElement(section, QualityMatrixNotes)).toBeNull()
     expect(qualityMatrixTextOf(tree)).toContain('não tem definição e critério para cruzar')
   })

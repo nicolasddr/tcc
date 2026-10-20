@@ -45,13 +45,15 @@ function Agreement({ cell }: { cell: MatrixCell }) {
   )
 }
 
-function Equal({ cell }: { cell: MatrixCell }) {
+function Equal({ cell, distribution }: { cell: MatrixCell; distribution: boolean }) {
   if (cell.state !== 'calculated' || !cell.profile) return null
 
   return (
     <span className="flex flex-col items-start gap-0.5">
       <span className="text-ink">{formatShare(cell.profile.equal)}</span>
-      <span className="text-[11.5px] text-muted">{distributionLine(cell.profile)}</span>
+      {distribution ? (
+        <span className="text-[11.5px] text-muted">{distributionLine(cell.profile)}</span>
+      ) : null}
     </span>
   )
 }
@@ -66,10 +68,12 @@ export function CriterionAgreementTable({
   definitions,
   criteria,
   observations,
+  distribution,
 }: {
   definitions: CodebookDefinition[]
   criteria: CodebookCriterion[]
   observations: RoundObservation[]
+  distribution: boolean
 }) {
   const rows = criterionCells(definitions, criteria, observations)
 
@@ -118,7 +122,7 @@ export function CriterionAgreementTable({
                   <Agreement cell={cell} />
                 </td>
                 <td className={cellClass}>
-                  <Equal cell={cell} />
+                  <Equal cell={cell} distribution={distribution} />
                 </td>
                 <td className={cellClass}>
                   <Divergence cell={cell} kind="adjacent" />

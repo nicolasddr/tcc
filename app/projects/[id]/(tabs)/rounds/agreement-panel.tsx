@@ -20,6 +20,7 @@ import {
   bandLabel,
   bandTone,
   concentrationWarning,
+  distributionLine,
   formatAlpha,
   notCalculableMessage,
   profileLine,
@@ -71,12 +72,24 @@ function AgreementStat({
   )
 }
 
-function ProfileLine({ profile }: { profile: AgreementProfile | null }) {
+function ProfileLine({
+  profile,
+  distribution,
+}: {
+  profile: AgreementProfile | null
+  distribution: boolean
+}) {
   if (!profile) return null
   return (
     <>
       <br />
       {profileLine(profile)}
+      {distribution ? (
+        <>
+          <br />
+          {distributionLine(profile)}
+        </>
+      ) : null}
     </>
   )
 }
@@ -118,6 +131,7 @@ export function AgreementPanel({
   responses,
   effort,
   outliers,
+  distribution,
   participation,
 }: {
   pair: AgreementPair
@@ -125,6 +139,7 @@ export function AgreementPanel({
   responses: ResponseCounts
   effort: EvaluatorEffort[]
   outliers: OutlierMark[]
+  distribution: boolean
   participation?: Readonly<Record<string, RoundMark>>
 }) {
   const { all, withoutOutliers } = pair
@@ -190,11 +205,11 @@ export function AgreementPanel({
           <span className="whitespace-nowrap">
             {BAND_REFERENCE_LABEL} <InfoTooltip text={BAND_REFERENCE} />
           </span>
-          <ProfileLine profile={profiles.all} />
+          <ProfileLine profile={profiles.all} distribution={distribution} />
         </>
       ) : (
         <>
-          <ProfileLine profile={profiles.all} />
+          <ProfileLine profile={profiles.all} distribution={distribution} />
           <br />
           {notCalculableMessage(all.reason)}
         </>
@@ -224,7 +239,10 @@ export function AgreementPanel({
                     'respostas avaliadas',
                   )}{' '}
                   · {plural(pair.excluded, 'avaliador fora', 'avaliadores fora')}
-                  <ProfileLine profile={profiles.withoutOutliers} />
+                  <ProfileLine
+                    profile={profiles.withoutOutliers}
+                    distribution={distribution}
+                  />
                   {withoutOutliers.calculable ? null : (
                     <>
                       <br />

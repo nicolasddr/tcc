@@ -42,6 +42,7 @@ import { AgreementMatrixTable } from './agreement-matrix-table'
 import { matrixColumns } from './agreement-matrix'
 import { byDefinitionSummary } from './agreement-labels'
 import { CriterionAgreementTable } from './criterion-agreement-table'
+import { ByDefinition } from './by-definition'
 import { QualityPanel } from './quality-panel'
 import { QualityMatrixNotes, QualityMatrixTable } from './quality-matrix-table'
 import { CriterionQualityTable } from './criterion-quality-table'
@@ -70,7 +71,6 @@ import { llmModel } from '@/lib/ai'
 import { projectResponsesLeft, projectResponsesMax } from '@/lib/ai/quota'
 import { Section } from '@/app/components/ui/section'
 import { ButtonLink } from '@/app/components/ui/button'
-import { Disclosure } from '@/app/components/ui/disclosure'
 
 const EMPTY_SET: ReadonlySet<string> = new Set<string>()
 
@@ -373,7 +373,6 @@ export default async function ProjectRoundsPage({
               ? `Concordância na rodada ${focusRound.roundNumber}, fechada`
               : `Concordância na rodada ${focusRound.roundNumber}`
           }
-          hint="Krippendorff's Alpha ordinal, sobre a versão de codebook que a rodada fixou."
           help="Krippendorff's Alpha ordinal"
         >
           <div className="flex flex-col gap-4">
@@ -383,6 +382,7 @@ export default async function ProjectRoundsPage({
               responses={responses}
               effort={openRound ? [] : effort}
               outliers={focusOutliers}
+              distribution={hasQuality(focusRound.phase)}
               {...(focusParticipation && !openRound
                 ? { participation: focusParticipation }
                 : {})}
@@ -394,11 +394,10 @@ export default async function ProjectRoundsPage({
                   definitions={focusDefinitions}
                   criteria={focusCriteria}
                   observations={focusObservations}
+                  distribution={hasQuality(focusRound.phase)}
                 />
 
-                <Disclosure summary={focusByDefinition}>
-                  <div className="mt-2">{focusMatrix}</div>
-                </Disclosure>
+                <ByDefinition summary={focusByDefinition}>{focusMatrix}</ByDefinition>
               </>
             ) : (
               focusMatrix
@@ -431,9 +430,9 @@ export default async function ProjectRoundsPage({
                   excluded={focusExcluded}
                 />
 
-                <Disclosure summary={focusByDefinition}>
-                  <div className="mt-2">{focusQualityMatrix}</div>
-                </Disclosure>
+                <ByDefinition summary={focusByDefinition}>
+                  {focusQualityMatrix}
+                </ByDefinition>
 
                 <QualityMatrixNotes
                   criteria={focusCriteria}

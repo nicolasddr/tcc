@@ -4,6 +4,7 @@ import { PHASE_2, PHASE_3, PHASE_4 } from '../../pipeline/preconditions'
 import { PER_RESPONSE_LABEL } from '../../pipeline/criteria'
 import { SCALE, scaleLabel, scaleRank, type ScaleValue } from '../evaluate/scale'
 import { formatShare } from './share'
+import { divergenceLabel } from './divergence'
 
 export type AgreementBand = 'questionable' | 'acceptable' | 'good'
 
@@ -43,15 +44,15 @@ export const MATRIX_PER_RESPONSE_LEGEND =
   'colunas dos critérios de definição, e nas linhas das definições na coluna do critério ' +
   'por resposta.'
 
-export const BY_DEFINITION_LABEL = 'Ver por definição'
+export const BY_DEFINITION_LABEL = 'Por definição'
 
 export const CRITERION_TABLE_NOTE =
   'Cada linha junta as notas do critério em todas as definições que o têm, numa conta só.'
 
 export const CRITERION_TABLE_HELP =
   'É um α sobre essas notas, e não a média das células da matriz. Para ver se alguma ' +
-  `definição puxa o número para baixo, abra ${BY_DEFINITION_LABEL}. Quando as definições ` +
-  'são só posições (Query 1, Query 2…), a leitura é esta tabela.'
+  `definição puxa o número para baixo, veja ${BY_DEFINITION_LABEL}, logo abaixo. Quando as ` +
+  'definições são só posições (Query 1, Query 2…), a leitura é esta tabela.'
 
 export function byDefinitionSummary(definitions: number, criteria: number): string {
   return (
@@ -230,7 +231,11 @@ export function distributionLine(profile: AgreementProfile): string {
 }
 
 export function profileLine(profile: AgreementProfile): string {
-  return `${formatShare(profile.equal)} de notas iguais · ${distributionLine(profile)}`
+  return (
+    `${formatShare(profile.equal)} de notas iguais · ` +
+    `${formatShare(profile.adjacent)} de ${divergenceLabel('adjacent').toLowerCase()} · ` +
+    `${formatShare(profile.extreme)} de ${divergenceLabel('extreme').toLowerCase()}`
+  )
 }
 
 export function concentrationWarning(
