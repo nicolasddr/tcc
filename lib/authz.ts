@@ -324,16 +324,19 @@ export function listPendingPermissionRequests(
  * `{ id, name }` (nunca o e-mail nem outro dado), ou `null` se não achar.
  *
  * ⚠️ GUARDA ANTI-ENUMERAÇÃO: só resolve o perfil se QUEM convida (`callerId`) tem
- * `can_create_projects`. Sem essa permissão devolve `null` de forma INDISTINGUÍVEL de
+ * `can_create_projects` ou é administrador ativo de `projectId`. Sem isso devolve `null` de forma INDISTINGUÍVEL de
  * "e-mail não cadastrado" — quem não pode convidar não consegue sondar se um e-mail
  * existe. Comparação de e-mail case-insensitive (`lower(email)`).
  */
 export async function findInviteeByEmail(
   callerId: string,
+  projectId: string,
   email: string,
   db: DbExecutor = ownerDb,
 ): Promise<{ id: string; name: string } | null> {
-  if (!(await canCreateProjects(callerId, db))) return null
+  const mayResolve =
+    (await canCreateProjects(callerId, db)) || (await isProjectAdmin(callerId, projectId, db))
+  if (!mayResolve) return null
   const [row] = await db
     .select({ id: profiles.id, name: profiles.name })
     .from(profiles)

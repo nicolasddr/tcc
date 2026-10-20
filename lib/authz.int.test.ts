@@ -28,6 +28,7 @@ import {
   createUser,
   createProject,
   addActiveEvaluator,
+  addActiveAdmin,
   addPendingMember,
   addPendingInvitation,
   addCodebookVersion,
@@ -160,6 +161,8 @@ describe('lib/authz — predicados de autorização', () => {
     await inRollbackTx(async (tx) => {
       const inviter = await createUser(tx, 'Convidante')
       const invitee = await createUser(tx, 'Convidado')
+      const owner = await createUser(tx, 'Dono')
+      const project = await createProject(tx, owner)
       const [{ email }] = await tx
         .select({ email: profiles.email })
         .from(profiles)
@@ -167,23 +170,52 @@ describe('lib/authz — predicados de autorização', () => {
 
       // GUARDA ANTI-ENUMERAÇÃO: sem can_create_projects, devolve null mesmo p/ e-mail
       // que EXISTE — indistinguível de "não cadastrado". Quem não pode convidar não sonda.
-      expect(await findInviteeByEmail(inviter, email, tx)).toBeNull()
+      expect(await findInviteeByEmail(inviter, project, email, tx)).toBeNull()
 
       // Com a permissão ligada, resolve só id+name (nada além disso vaza).
       await grantCreatePermission(tx, inviter)
-      expect(await findInviteeByEmail(inviter, email, tx)).toEqual({
+      expect(await findInviteeByEmail(inviter, project, email, tx)).toEqual({
         id: invitee,
         name: 'Convidado',
       })
 
       // Case-insensitive (`lower(email)`).
-      expect(await findInviteeByEmail(inviter, email.toUpperCase(), tx)).toEqual({
+      expect(await findInviteeByEmail(inviter, project, email.toUpperCase(), tx)).toEqual({
         id: invitee,
         name: 'Convidado',
       })
 
       // E-mail inexistente → null (mesmo com permissão).
-      expect(await findInviteeByEmail(inviter, 'ninguem@test.local', tx)).toBeNull()
+      expect(await findInviteeByEmail(inviter, project, 'ninguem@test.local', tx)).toBeNull()
+    })
+  })
+
+  it('findInviteeByEmail: administrador ativo do projeto resolve sem can_create_projects, só nesse projeto', async () => {
+    await inRollbackTx(async (tx) => {
+      const owner = await createUser(tx, 'Dono')
+      const promoted = await createUser(tx, 'Promovido')
+      const invitee = await createUser(tx, 'Convidado')
+      const project = await createProject(tx, owner)
+      const otherProject = await createProject(tx, owner, 'Outro Projeto')
+      await addActiveEvaluator(tx, project, promoted)
+      await addActiveEvaluator(tx, otherProject, promoted)
+      const adminRow = await addActiveAdmin(tx, project, promoted)
+      const [{ email }] = await tx
+        .select({ email: profiles.email })
+        .from(profiles)
+        .where(eq(profiles.id, invitee))
+
+      expect(await findInviteeByEmail(promoted, project, email, tx)).toEqual({
+        id: invitee,
+        name: 'Convidado',
+      })
+      expect(await findInviteeByEmail(promoted, otherProject, email, tx)).toBeNull()
+
+      await tx
+        .update(projectMembers)
+        .set({ status: 'inactive' })
+        .where(eq(projectMembers.id, adminRow))
+      expect(await findInviteeByEmail(promoted, project, email, tx)).toBeNull()
     })
   })
 

@@ -36,7 +36,17 @@ import {
   inviteEvaluator,
   assumeEvaluatorRole,
   revokeEvaluatorRole,
+  grantAdminRole,
+  revokeAdminRole,
 } from '@/app/projects/actions'
+import {
+  GRANT_ALREADY_ADMIN,
+  GRANT_DENIED,
+  GRANT_NOT_ACTIVE_EVALUATOR,
+  REVOKE_ADMIN_DENIED,
+  REVOKE_LAST_ADMIN,
+  REVOKE_NOT_ADMIN,
+} from '@/app/projects/admin-role'
 import {
   ASSUME_ALREADY_EVALUATOR,
   ASSUME_DENIED,
@@ -51,16 +61,25 @@ import {
   projectInvitations,
   notifications,
   onboardingResponses,
+  codebookCriteria,
+  consensusNotes,
 } from '@/lib/db'
 import {
   createUser,
   createProject as seedProject,
   addActiveEvaluator,
+  addActiveAdmin,
   addPendingMember,
   addPendingInvitation,
   addOnboardingQuestion,
   addOnboardingResponse,
   grantCreatePermission,
+  addCodebookVersion,
+  addPromptVersion,
+  addInputItem,
+  addRound,
+  addResponse,
+  addConsensusNote,
   cleanup,
 } from '@/test/helpers'
 
@@ -249,8 +268,7 @@ describe('app/projects/actions — autorização explícita', () => {
     expect(created.status).toBe('pending')
   })
 
-  // findInviteeByEmail (guarda anti-enumeração) flui pela action.
-  it('inviteEvaluator: resolve invitee só quando o admin pode criar projetos (anti-enumeração)', async () => {
+  it('inviteEvaluator: administrador do projeto resolve o convidado mesmo sem can_create_projects', async () => {
     const admin = await newUser('Admin')
     const invitee = await newUser('Convidado')
     const project = await newProject(admin)
@@ -259,27 +277,13 @@ describe('app/projects/actions — autorização explícita', () => {
       .from(profiles)
       .where(eq(profiles.id, invitee))
 
-    // Admin SEM can_create_projects: findInviteeByEmail devolve null mesmo p/ e-mail que
-    // existe → o convite cai no ramo "sem conta" (invitee_id NULL), sem vazar que há perfil.
     auth.userId = admin
-    const asStranger = await inviteEvaluator(null, fd({ project_id: project, email }))
-    expect(asStranger).toEqual({ ok: `Convite enviado para ${email}.` })
-    const [unresolved] = await ownerDb
-      .select({ inviteeId: projectInvitations.inviteeId })
-      .from(projectInvitations)
-      .where(eq(projectInvitations.projectId, project))
-    expect(unresolved.inviteeId).toBeNull()
-
-    // Com a permissão ligada, um novo convite (outro projeto) resolve o invitee_id e o
-    // sucesso traz o NOME do convidado.
-    await grantCreatePermission(ownerDb, admin)
-    const project2 = await newProject(admin)
-    const asInviter = await inviteEvaluator(null, fd({ project_id: project2, email }))
+    const asInviter = await inviteEvaluator(null, fd({ project_id: project, email }))
     expect(asInviter).toEqual({ ok: expect.stringContaining('Convidado') })
     const [resolved] = await ownerDb
       .select({ id: projectInvitations.id, inviteeId: projectInvitations.inviteeId })
       .from(projectInvitations)
-      .where(eq(projectInvitations.projectId, project2))
+      .where(eq(projectInvitations.projectId, project))
     expect(resolved.inviteeId).toBe(invitee)
 
     // O convidado já-cadastrado recebe EXATAMENTE uma notificação: a guarda not-exists por
@@ -292,7 +296,7 @@ describe('app/projects/actions — autorização explícita', () => {
     expect(notes[0].type).toBe('project_invitation')
     expect(notes[0].payload).toMatchObject({
       invitation_id: resolved.id,
-      project_id: project2,
+      project_id: project,
       invited_by: admin,
       inviter_name: 'Admin',
     })
@@ -325,9 +329,6 @@ describe('app/projects/actions — autorização explícita', () => {
     const evaluator = await newUser('Avaliador Ativo')
     const project = await newProject(admin)
     await addActiveEvaluator(ownerDb, project, evaluator)
-    // find_invitee_by_email só resolve o perfil se QUEM convida tem can_create_projects
-    // (guarda anti-enumeração da RPC); sem isso o convite cairia no ramo "sem conta".
-    await grantCreatePermission(ownerDb, admin)
     const [{ email }] = await ownerDb
       .select({ email: profiles.email })
       .from(profiles)
@@ -476,6 +477,267 @@ describe('app/projects/actions — autorização explícita', () => {
 
     expect(await revokeEvaluatorRole(null, fd({ project_id: project }))).toEqual({
       error: REVOKE_NO_LINK,
+    })
+  })
+
+  describe('grantAdminRole', () => {
+    async function adminRowsOf(project: string, user: string) {
+      return ownerDb
+        .select({ id: projectMembers.id, role: projectMembers.role, status: projectMembers.status })
+        .from(projectMembers)
+        .where(and(eq(projectMembers.projectId, project), eq(projectMembers.userId, user)))
+    }
+
+    it('avaliador ativo vira administrador e mantém a linha de avaliador', async () => {
+      const admin = await newUser('Admin')
+      const evaluator = await newUser('Avaliador')
+      const project = await newProject(admin)
+      const evaluatorRow = await addActiveEvaluator(ownerDb, project, evaluator)
+
+      auth.userId = admin
+      expect(
+        await grantAdminRole(null, fd({ project_id: project, member_user_id: evaluator })),
+      ).toEqual({ ok: expect.any(String) })
+
+      const rows = await adminRowsOf(project, evaluator)
+      expect(rows).toHaveLength(2)
+      expect(rows.find((r) => r.role === 'evaluator')).toEqual({
+        id: evaluatorRow,
+        role: 'evaluator',
+        status: 'active',
+      })
+      expect(rows.find((r) => r.role === 'administrator')!.status).toBe('active')
+    })
+
+    it('re-promoção reativa a mesma linha de administrador', async () => {
+      const admin = await newUser('Admin')
+      const evaluator = await newUser('Avaliador')
+      const project = await newProject(admin)
+      await addActiveEvaluator(ownerDb, project, evaluator)
+      const adminRow = await addActiveAdmin(ownerDb, project, evaluator)
+      await ownerDb
+        .update(projectMembers)
+        .set({ status: 'inactive' })
+        .where(eq(projectMembers.id, adminRow))
+
+      auth.userId = admin
+      expect(
+        await grantAdminRole(null, fd({ project_id: project, member_user_id: evaluator })),
+      ).toEqual({ ok: expect.any(String) })
+
+      const admins = (await adminRowsOf(project, evaluator)).filter(
+        (r) => r.role === 'administrator',
+      )
+      expect(admins).toEqual([{ id: adminRow, role: 'administrator', status: 'active' }])
+    })
+
+    it('recusas chegam como { error } e não mudam nada no banco', async () => {
+      const admin = await newUser('Admin')
+      const evaluator = await newUser('Avaliador')
+      const pending = await newUser('Em Onboarding')
+      const inactive = await newUser('Desativado')
+      const outsider = await newUser('De Fora')
+      const project = await newProject(admin)
+      await addActiveEvaluator(ownerDb, project, evaluator)
+      await addPendingMember(ownerDb, project, pending)
+      const inactiveRow = await addActiveEvaluator(ownerDb, project, inactive)
+      await ownerDb
+        .update(projectMembers)
+        .set({ status: 'inactive' })
+        .where(eq(projectMembers.id, inactiveRow))
+
+      for (const caller of [evaluator, outsider]) {
+        auth.userId = caller
+        expect(
+          await grantAdminRole(null, fd({ project_id: project, member_user_id: evaluator })),
+        ).toEqual({ error: GRANT_DENIED })
+      }
+
+      auth.userId = admin
+      for (const target of [pending, inactive, outsider]) {
+        expect(
+          await grantAdminRole(null, fd({ project_id: project, member_user_id: target })),
+        ).toEqual({ error: GRANT_NOT_ACTIVE_EVALUATOR })
+      }
+      expect(
+        await grantAdminRole(null, fd({ project_id: project, member_user_id: admin })),
+      ).toEqual({ error: GRANT_ALREADY_ADMIN })
+
+      const admins = await ownerDb
+        .select({ userId: projectMembers.userId })
+        .from(projectMembers)
+        .where(
+          and(eq(projectMembers.projectId, project), eq(projectMembers.role, 'administrator')),
+        )
+      expect(admins).toEqual([{ userId: admin }])
+    })
+  })
+
+  describe('revokeAdminRole', () => {
+    async function adminStatusOf(project: string, user: string) {
+      const [row] = await ownerDb
+        .select({ id: projectMembers.id, status: projectMembers.status })
+        .from(projectMembers)
+        .where(
+          and(
+            eq(projectMembers.projectId, project),
+            eq(projectMembers.userId, user),
+            eq(projectMembers.role, 'administrator'),
+          ),
+        )
+      return row
+    }
+
+    async function writeMinutes(project: string, admin: string, authorRow: string) {
+      const codebook = await addCodebookVersion(ownerDb, project, admin, {
+        perResponseCriteria: [{ name: 'Clareza' }],
+      })
+      const [criterion] = await ownerDb
+        .select({ id: codebookCriteria.id })
+        .from(codebookCriteria)
+        .where(eq(codebookCriteria.codebookVersionId, codebook))
+      const prompt = await addPromptVersion(ownerDb, project, admin)
+      const item = await addInputItem(ownerDb, project, admin)
+      const round = await addRound(ownerDb, project, admin, codebook, prompt, {
+        status: 'closed',
+      })
+      const response = await addResponse(ownerDb, round, item, admin)
+      return addConsensusNote(ownerDb, {
+        roundId: round,
+        responseId: response,
+        definitionId: null,
+        criterionId: criterion.id,
+        projectMemberId: authorRow,
+        visibility: 'shared',
+        text: 'Ata do segundo administrador.',
+      })
+    }
+
+    it('desativa a linha sem apagá-la, e a ata escrita continua lá', async () => {
+      const admin = await newUser('Admin')
+      const second = await newUser('Segundo')
+      const project = await newProject(admin)
+      await addActiveEvaluator(ownerDb, project, second)
+      const secondAdminRow = await addActiveAdmin(ownerDb, project, second)
+      const note = await writeMinutes(project, admin, secondAdminRow)
+
+      auth.userId = admin
+      expect(
+        await revokeAdminRole(null, fd({ project_id: project, member_user_id: second })),
+      ).toEqual({ ok: expect.any(String) })
+
+      expect(await adminStatusOf(project, second)).toEqual({
+        id: secondAdminRow,
+        status: 'inactive',
+      })
+      const notes = await ownerDb
+        .select({ id: consensusNotes.id, author: consensusNotes.projectMemberId })
+        .from(consensusNotes)
+        .where(eq(consensusNotes.id, note))
+      expect(notes).toEqual([{ id: note, author: secondAdminRow }])
+    })
+
+    it('recusa quem não é admin, alvo sem papel e o último administrador', async () => {
+      const admin = await newUser('Admin')
+      const evaluator = await newUser('Avaliador')
+      const project = await newProject(admin)
+      await addActiveEvaluator(ownerDb, project, evaluator)
+
+      auth.userId = evaluator
+      expect(
+        await revokeAdminRole(null, fd({ project_id: project, member_user_id: admin })),
+      ).toEqual({ error: REVOKE_ADMIN_DENIED })
+
+      auth.userId = admin
+      expect(
+        await revokeAdminRole(null, fd({ project_id: project, member_user_id: evaluator })),
+      ).toEqual({ error: REVOKE_NOT_ADMIN })
+      expect(
+        await revokeAdminRole(null, fd({ project_id: project, member_user_id: admin })),
+      ).toEqual({ error: REVOKE_LAST_ADMIN })
+
+      expect((await adminStatusOf(project, admin)).status).toBe('active')
+    })
+
+    it('remover a si mesmo com vínculo de avaliador devolve { ok }', async () => {
+      const admin = await newUser('Admin')
+      const second = await newUser('Segundo')
+      const project = await newProject(admin)
+      await addActiveEvaluator(ownerDb, project, second)
+      await addActiveAdmin(ownerDb, project, second)
+
+      auth.userId = second
+      expect(
+        await revokeAdminRole(null, fd({ project_id: project, member_user_id: second })),
+      ).toEqual({ ok: expect.any(String) })
+      expect((await adminStatusOf(project, second)).status).toBe('inactive')
+    })
+
+    it('remover a si mesmo sem vínculo de avaliador redireciona ao painel', async () => {
+      const admin = await newUser('Admin')
+      const second = await newUser('Segundo')
+      const project = await newProject(admin)
+      await addActiveEvaluator(ownerDb, project, second)
+      await addActiveAdmin(ownerDb, project, second)
+
+      auth.userId = admin
+      let redirected = ''
+      try {
+        await revokeAdminRole(null, fd({ project_id: project, member_user_id: admin }))
+      } catch (e) {
+        redirected = (e as Error).message
+      }
+      expect(redirected).toBe('NEXT_REDIRECT:/dashboard')
+      expect((await adminStatusOf(project, admin)).status).toBe('inactive')
+      expect((await adminStatusOf(project, second)).status).toBe('active')
+    })
+
+    it('remoção cruzada espera a outra terminar e não deixa o projeto sem administrador', async () => {
+      const first = await newUser('Primeiro')
+      const second = await newUser('Segundo')
+      const project = await newProject(first)
+      await addActiveAdmin(ownerDb, project, second)
+      const activeAdminsOf = () =>
+        and(
+          eq(projectMembers.projectId, project),
+          eq(projectMembers.role, 'administrator'),
+          eq(projectMembers.status, 'active'),
+        )
+
+      let release!: () => void
+      const held = new Promise<void>((resolve) => (release = resolve))
+      let markLocked!: () => void
+      const locked = new Promise<void>((resolve) => (markLocked = resolve))
+      const secondRemovesFirst = ownerDb.transaction(async (tx) => {
+        await tx
+          .select({ id: projectMembers.id })
+          .from(projectMembers)
+          .where(activeAdminsOf())
+          .for('update')
+        await tx
+          .update(projectMembers)
+          .set({ status: 'inactive' })
+          .where(and(activeAdminsOf(), eq(projectMembers.userId, first)))
+        markLocked()
+        await held
+      })
+      await locked
+
+      auth.userId = first
+      const firstRemovesSecond = revokeAdminRole(
+        null,
+        fd({ project_id: project, member_user_id: second }),
+      )
+      await new Promise((resolve) => setTimeout(resolve, 200))
+      release()
+      await secondRemovesFirst
+
+      expect(await firstRemovesSecond).toEqual({ error: REVOKE_ADMIN_DENIED })
+      const active = await ownerDb
+        .select({ userId: projectMembers.userId })
+        .from(projectMembers)
+        .where(activeAdminsOf())
+      expect(active).toEqual([{ userId: second }])
     })
   })
 })

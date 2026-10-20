@@ -127,6 +127,18 @@ export async function addActiveEvaluator(
   return row.id
 }
 
+export async function addActiveAdmin(
+  tx: DbExecutor,
+  projectId: string,
+  userId: string,
+): Promise<string> {
+  const [row] = await tx
+    .insert(projectMembers)
+    .values({ projectId, userId, role: 'administrator', status: 'active' })
+    .returning({ id: projectMembers.id })
+  return row.id
+}
+
 /** Insere um avaliador ainda em `pending_onboarding` (sem consentimento exigido). */
 export async function addPendingMember(
   tx: DbExecutor,

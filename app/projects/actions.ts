@@ -30,6 +30,7 @@ import {
   revokeEvaluatorRefusal,
   type EvaluatorRoleView,
 } from './evaluator-link'
+import { grantAdminRefusal, revokeAdminOutcome, revokeAdminRefusal } from './admin-role'
 import { EMAIL_MAX, PROJECT_DESCRIPTION_MAX, PROJECT_NAME_MAX } from '@/lib/limits'
 
 export type CreateProjectState = { error: string } | null
@@ -41,6 +42,10 @@ export type InviteEvaluatorState = { error: string } | { ok: string } | null
 export type UpdateProjectState = { error: string } | { ok: string } | null
 
 export type EvaluatorRoleState = { error: string } | { ok: string } | null
+
+export type GrantAdminState = { error: string } | { ok: string } | null
+
+export type RevokeAdminState = { error: string } | { ok: string } | null
 
 
 export async function createProject(
@@ -138,7 +143,7 @@ export async function inviteEvaluator(
     return { error: 'Apenas o administrador do projeto pode convidar avaliadores.' }
   }
 
-  const invitee = await findInviteeByEmail(userId, email)
+  const invitee = await findInviteeByEmail(userId, projectId, email)
 
   const target = invitee ? invitee.name : email
 
@@ -348,15 +353,19 @@ export async function leaveProject(formData: FormData): Promise<void> {
   redirect('/dashboard')
 }
 
+async function membershipRowsOf(userId: string, projectId: string, db: DbExecutor) {
+  return db
+    .select({ role: projectMembers.role, status: projectMembers.status })
+    .from(projectMembers)
+    .where(and(eq(projectMembers.projectId, projectId), eq(projectMembers.userId, userId)))
+}
+
 async function evaluatorRoleView(
   userId: string,
   projectId: string,
   db: DbExecutor,
 ): Promise<EvaluatorRoleView> {
-  const memberships = await db
-    .select({ role: projectMembers.role, status: projectMembers.status })
-    .from(projectMembers)
-    .where(and(eq(projectMembers.projectId, projectId), eq(projectMembers.userId, userId)))
+  const memberships = await membershipRowsOf(userId, projectId, db)
 
   return {
     isAdmin: await isProjectAdmin(userId, projectId, db),
@@ -435,4 +444,99 @@ export async function revokeEvaluatorRole(
   return {
     ok: 'Você deixou de participar como avaliador. Seu acesso de administrador continua o mesmo.',
   }
+}
+
+function revalidateMembership(projectId: string) {
+  revalidatePath(`/projects/${projectId}`)
+  revalidatePath(`/projects/${projectId}/members`)
+  revalidatePath('/dashboard')
+}
+
+export async function grantAdminRole(
+  _prev: GrantAdminState,
+  formData: FormData,
+): Promise<GrantAdminState> {
+  const userId = await requireUserId()
+
+  const projectId = String(formData.get('project_id') ?? '')
+  const memberUserId = String(formData.get('member_user_id') ?? '')
+  if (!projectId || !memberUserId) return { error: 'Projeto inválido.' }
+
+  const refusal = await transaction(async (tx) => {
+    const refused = grantAdminRefusal({
+      callerIsAdmin: await isProjectAdmin(userId, projectId, tx),
+      target: await membershipRowsOf(memberUserId, projectId, tx),
+    })
+    if (refused) return refused
+
+    await tx
+      .insert(projectMembers)
+      .values({ projectId, userId: memberUserId, role: 'administrator', status: 'active' })
+      .onConflictDoUpdate({
+        target: [projectMembers.projectId, projectMembers.userId, projectMembers.role],
+        set: { status: 'active' },
+      })
+    return null
+  })
+
+  if (refusal) return { error: refusal }
+
+  revalidateMembership(projectId)
+  return { ok: 'Acesso de administrador concedido.' }
+}
+
+export async function revokeAdminRole(
+  _prev: RevokeAdminState,
+  formData: FormData,
+): Promise<RevokeAdminState> {
+  const userId = await requireUserId()
+
+  const projectId = String(formData.get('project_id') ?? '')
+  const memberUserId = String(formData.get('member_user_id') ?? '')
+  if (!projectId || !memberUserId) return { error: 'Projeto inválido.' }
+
+  const result = await transaction(async (tx) => {
+    const activeAdmins = await tx
+      .select({ userId: projectMembers.userId })
+      .from(projectMembers)
+      .where(
+        and(
+          eq(projectMembers.projectId, projectId),
+          eq(projectMembers.role, 'administrator'),
+          eq(projectMembers.status, 'active'),
+        ),
+      )
+      .for('update')
+
+    const refused = revokeAdminRefusal({
+      callerIsAdmin: activeAdmins.some((a) => a.userId === userId),
+      targetIsAdmin: activeAdmins.some((a) => a.userId === memberUserId),
+      activeAdminCount: activeAdmins.length,
+    })
+    if (refused) return { refusal: refused }
+
+    await tx
+      .update(projectMembers)
+      .set({ status: 'inactive' })
+      .where(
+        and(
+          eq(projectMembers.projectId, projectId),
+          eq(projectMembers.userId, memberUserId),
+          eq(projectMembers.role, 'administrator'),
+          eq(projectMembers.status, 'active'),
+        ),
+      )
+
+    return {
+      refusal: null,
+      outcome: revokeAdminOutcome(await membershipRowsOf(memberUserId, projectId, tx)),
+    }
+  })
+
+  if (result.refusal) return { error: result.refusal }
+
+  revalidateMembership(projectId)
+  if (memberUserId !== userId) return { ok: 'Acesso de administrador removido.' }
+  if (result.outcome === 'loses_access') redirect('/dashboard')
+  return { ok: 'Você deixou de ser administrador(a). Continua participando como avaliador(a).' }
 }

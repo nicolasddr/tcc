@@ -231,6 +231,30 @@ Feito em 2026-10-19:
 
 **O que a Parte 3 herda:** assinatura das actions e os campos do `FormData`.
 
+Feito em 2026-10-19:
+- `actions.ts` exporta `GrantAdminState` e `RevokeAdminState` (`{ error } | { ok } | null`) e
+  `grantAdminRole(_prev, formData)` / `revokeAdminRole(_prev, formData)`, no formato de
+  `useActionState`. `FormData`: `project_id` e `member_user_id` (o alvo; no "deixar de ser" é o
+  próprio id). Campo faltando → `{ error: 'Projeto inválido.' }`.
+- Sucessos: promover → `{ ok: 'Acesso de administrador concedido.' }`; remover outro →
+  `{ ok: 'Acesso de administrador removido.' }`; remover a si mesmo mantendo avaliador ativo →
+  `{ ok: 'Você deixou de ser administrador(a). Continua participando como avaliador(a).' }`; sem
+  avaliador ativo → `redirect('/dashboard')` (o `ConfirmDialog` não recebe resposta nesse caso).
+- A remoção trava as linhas de administrador ativas (`for update`) e tira dali as três entradas de
+  `revokeAdminRefusal`. Por isso, na corrida, quem perde recebe `REVOKE_ADMIN_DENIED` (já não é
+  admin), não `REVOKE_LAST_ADMIN`.
+- `findInviteeByEmail(callerId, projectId, email, db?)`: resolve com `can_create_projects` **ou**
+  administrador ativo do projeto.
+- **Divergência no teste da D7.** O `Promise.all` com duas actions passava mesmo sem o `for update`
+  (as transações não chegavam a se cruzar). Ficou um teste determinístico: uma transação segura as
+  linhas de admin e desativa um, a action do outro espera e é recusada; sem o `for update` ele fica
+  vermelho (conferido por mutação).
+- **Teste antigo reescrito.** "inviteEvaluator: resolve invitee só quando o admin pode criar
+  projetos" afirmava que o administrador sem `can_create_projects` convidava às cegas; com a D3 isso
+  deixou de existir pela action (só administrador chega ao `findInviteeByEmail`). Virou "administrador
+  do projeto resolve o convidado mesmo sem can_create_projects". A guarda anti-enumeração segue
+  testada em `lib/authz.int.test.ts`.
+
 ## Parte 3 — Tela
 
 1. `member-actions.tsx`: `GrantAdminButton` e `RevokeAdminButton`, no molde de
