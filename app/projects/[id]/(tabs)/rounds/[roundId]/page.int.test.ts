@@ -980,7 +980,8 @@ describe('app/projects/[id]/rounds/[roundId] — a revisão de discordâncias', 
     const text = changesTextOf(await render(second.project, second.round))
 
     expect(text).toContain('Rodada 2')
-    expect(text).toContain('Codebook v1 → v2')
+    expect(text).toContain('Codebook v2')
+    expect(text).not.toContain('Codebook v1')
     expect(text).toContain('Prompt v1 → v2')
     expect(text).toContain(`Fase ${PHASE_2}`)
     expect(text).not.toContain(`Fase ${PHASE_2} →`)
@@ -999,7 +1000,8 @@ describe('app/projects/[id]/rounds/[roundId] — a revisão de discordâncias', 
     auth.userId = admin
     const text = changesTextOf(await render(second.project, second.round))
 
-    expect(text).toContain('Codebook v1 → v2')
+    expect(text).toContain('Codebook v2')
+    expect(text).not.toContain('Codebook v1')
     expect(text).toContain('Prompt v1')
     expect(text).not.toContain('Prompt v1 →')
     expect(text).toContain(`Fase ${PHASE_2}`)
@@ -1250,7 +1252,8 @@ describe('app/projects/[id]/rounds/[roundId] — a revisão de discordâncias', 
 
     expect(textOf(tree)).toContain('abre quando ela fechar')
     const text = changesTextOf(tree)
-    expect(text).toContain('Codebook v1 → v2')
+    expect(text).toContain('Codebook v2')
+    expect(text).not.toContain('Codebook v1')
     expect(text).toContain('Prompt v1 → v2')
     expect(text).toContain(CODEBOOK_AND_PROMPT_NOTICE)
     expect(text).not.toContain('fechada em')

@@ -989,7 +989,8 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     const second = cardChangesOf(cards[1])
     expect(second.changes?.previousRoundNumber).toBe(1)
     const secondText = cardChangesTextOf(cards[1])
-    expect(secondText).toContain('Codebook v1 → v2')
+    expect(secondText).toContain('Codebook v2 Prompt v1 → v2')
+    expect(secondText).not.toContain('Codebook v1')
     expect(secondText).toContain('Prompt v1 → v2')
     expect(secondText).not.toContain('Fase')
     expect(secondText).toContain(CODEBOOK_AND_PROMPT_NOTICE)
@@ -1011,7 +1012,7 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
         ).matchAll(/<span class="[^"]*border-brand![^"]*">([^<]*)/g),
       ].map((match) => match[1])
     expect(highlightedOf(cards[2])).toEqual([])
-    expect(highlightedOf(cards[1])).toEqual(['Codebook v1 → v2', 'Prompt v1 → v2'])
+    expect(highlightedOf(cards[1])).toEqual(['Codebook v2', 'Prompt v1 → v2'])
     expect(highlightedOf(cards[0])).toEqual([`Fase ${PHASE_2} → ${PHASE_3}`])
   })
 

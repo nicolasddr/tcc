@@ -3,7 +3,7 @@ import { QUALITY_LABEL } from './quality-labels'
 import type { Change } from './round-changes'
 
 export function codebookChipText(change: Change): string {
-  return change.changed ? `Codebook v${change.from} → v${change.to}` : `Codebook v${change.to}`
+  return `Codebook v${change.to}`
 }
 
 export function promptChipText(change: Change): string {
