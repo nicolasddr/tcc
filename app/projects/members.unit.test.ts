@@ -41,6 +41,30 @@ describe('groupMembers', () => {
     expect(result[0].roles).toEqual(['administrator', 'evaluator'])
   })
 
+  it('papel de linha inativa sai quando o usuário tem outro papel vigente', () => {
+    const exAdmin = groupMembers([
+      row({ userId: 'u1', role: 'administrator', status: 'inactive' }),
+      row({ userId: 'u1', role: 'evaluator', status: 'active' }),
+    ])
+    expect(exAdmin[0].roles).toEqual(['evaluator'])
+    expect(exAdmin[0].status).toBe('active')
+
+    const deactivatedEvaluator = groupMembers([
+      row({ userId: 'u1', role: 'evaluator', status: 'inactive' }),
+      row({ userId: 'u1', role: 'administrator', status: 'active' }),
+    ])
+    expect(deactivatedEvaluator[0].roles).toEqual(['administrator'])
+  })
+
+  it('quem não tem papel vigente mantém os papéis e aparece como inativo', () => {
+    const [member] = groupMembers([
+      row({ userId: 'u1', role: 'administrator', status: 'inactive' }),
+      row({ userId: 'u1', role: 'evaluator', status: 'inactive' }),
+    ])
+    expect(member.roles).toEqual(['administrator', 'evaluator'])
+    expect(member.status).toBe('inactive')
+  })
+
   it('agrega o status do usuário a partir das linhas', () => {
     const result = groupMembers([
       row({ userId: 'u1', role: 'administrator', status: 'active' }),
@@ -57,9 +81,9 @@ describe('groupMembers', () => {
     expect(result.map((m) => m.name)).toEqual(['Ábner', 'Bruno'])
   })
 
-  it('não expõe o campo interno _statuses', () => {
+  it('não expõe o campo interno _rows', () => {
     const [member] = groupMembers([row({})])
-    expect(member).not.toHaveProperty('_statuses')
+    expect(member).not.toHaveProperty('_rows')
   })
 
   it('lista vazia devolve array vazio', () => {

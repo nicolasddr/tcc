@@ -294,18 +294,21 @@ Evitar: usar desativação de membro como forma de tirar alguém do cálculo; a 
 
 **Administrador de Projeto**
 Conduz o processo: cria o projeto, autora o codebook, itera o prompt e acompanha as métricas.
-Todo usuário com permissão que cria um projeto vira seu Administrador.
+Todo usuário com permissão que cria um projeto vira seu Administrador. Um projeto pode ter vários,
+todos com os mesmos poderes; além de quem cria, vira Administrador o avaliador ativo promovido por
+outro Administrador. O projeto nunca fica sem nenhum.
 Evitar: Pesquisador (não existe esse papel).
 
 **Avaliador**
 Avalia respostas da LLM de forma independente, seguindo o codebook. Não autora o codebook.
 
 **Administrador-avaliador**
-Administrador que também assumiu o papel de Avaliador no próprio projeto, ganhando um segundo
-vínculo e passando pelo mesmo consentimento e questionário dos demais. Como ele autora o codebook
-e avalia com ele, continua sendo fonte conhecida de viés, e o instrumento para tratá-lo é a marca
-de Outlier: ele marca a si mesmo na rodada, de forma declarada e justificada, e a rodada passa a
-mostrar o valor com todos ao lado do valor sem os marcados.
+Administrador que também assumiu o papel de Avaliador no próprio projeto, ou Avaliador promovido a
+Administrador, ganhando um segundo vínculo. Quem assume o papel de Avaliador passa pelo mesmo
+consentimento e questionário dos demais. Como ele autora o codebook e avalia com ele, continua
+sendo fonte conhecida de viés, e o instrumento para tratá-lo é a marca de Outlier: ele marca a si
+mesmo na rodada, de forma declarada e justificada, e a rodada passa a mostrar o valor com todos ao
+lado do valor sem os marcados.
 
 **Super-admin**
 Administrador da plataforma; aprova ou rejeita permissão para criar projetos.

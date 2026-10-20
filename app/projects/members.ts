@@ -25,8 +25,13 @@ export function aggregateStatus(statuses: string[]): string {
   return 'inactive'
 }
 
+function rolesOf(rows: readonly MemberRow[]): string[] {
+  const current = rows.filter((r) => r.status !== 'inactive')
+  return [...new Set((current.length > 0 ? current : rows).map((r) => r.role))]
+}
+
 export function groupMembers(rows: MemberRow[]): ListedMember[] {
-  const byUser = new Map<string, ListedMember & { _statuses: string[] }>()
+  const byUser = new Map<string, ListedMember & { _rows: MemberRow[] }>()
   for (const row of rows) {
     let entry = byUser.get(row.userId)
     if (!entry) {
@@ -36,15 +41,18 @@ export function groupMembers(rows: MemberRow[]): ListedMember[] {
         email: row.email,
         roles: [],
         status: row.status,
-        _statuses: [],
+        _rows: [],
       }
       byUser.set(row.userId, entry)
     }
-    if (!entry.roles.includes(row.role)) entry.roles.push(row.role)
-    entry._statuses.push(row.status)
+    entry._rows.push(row)
   }
   return [...byUser.values()]
-    .map(({ _statuses, ...m }) => ({ ...m, status: aggregateStatus(_statuses) }))
+    .map(({ _rows, ...m }) => ({
+      ...m,
+      roles: rolesOf(_rows),
+      status: aggregateStatus(_rows.map((r) => r.status)),
+    }))
     .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'))
 }
 
