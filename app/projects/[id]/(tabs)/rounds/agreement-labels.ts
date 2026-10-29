@@ -4,7 +4,6 @@ import { PHASE_2, PHASE_3, PHASE_4 } from '../../pipeline/preconditions'
 import { PER_RESPONSE_LABEL } from '../../pipeline/criteria'
 import { SCALE, scaleLabel, scaleRank, type ScaleValue } from '../evaluate/scale'
 import { formatShare } from './share'
-import { divergenceLabel } from './divergence'
 
 export type AgreementBand = 'questionable' | 'acceptable' | 'good'
 
@@ -234,21 +233,11 @@ export function equalShareText(profile: AgreementProfile): string {
   return `${formatShare(profile.equal)} de notas iguais`
 }
 
-export function profileLine(profile: AgreementProfile): string {
-  return (
-    `${equalShareText(profile)} · ` +
-    `${formatShare(profile.adjacent)} de ${divergenceLabel('adjacent').toLowerCase()} · ` +
-    `${formatShare(profile.extreme)} de ${divergenceLabel('extreme').toLowerCase()}`
-  )
-}
-
 export function concentrationWarning(
   agreement: Agreement,
   profile: AgreementProfile | null,
 ): string | null {
-  if (!profile || !agreement.calculable) return null
-  if (agreement.alpha >= AGREEMENT_BANDS.acceptable) return null
-  if (profile.equal < CONCENTRATION_EQUAL) return null
+  if (!profile || !isConcentrated(agreement, profile)) return null
 
   const top = SCALE.reduce((best, value) =>
     levelShare(profile, value) > levelShare(profile, best) ? value : best,
@@ -260,4 +249,22 @@ export function concentrationWarning(
     'pouca variação na escala, poucas divergências bastam para derrubar o α. Leia o número ' +
     'junto com a matriz.'
   )
+}
+
+export function isConcentrated(
+  agreement: Agreement,
+  profile: AgreementProfile | null,
+): boolean {
+  if (!profile || !agreement.calculable) return false
+  if (agreement.alpha >= AGREEMENT_BANDS.acceptable) return false
+  return profile.equal >= CONCENTRATION_EQUAL
+}
+
+export function criterionConcentrationWarning(
+  name: string,
+  agreement: Agreement,
+  profile: AgreementProfile | null,
+): string | null {
+  const warning = concentrationWarning(agreement, profile)
+  return warning ? `${name}: ${warning}` : null
 }

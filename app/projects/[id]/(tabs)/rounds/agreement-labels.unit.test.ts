@@ -29,12 +29,13 @@ import {
   byDefinitionSummary,
   cellNotCalculableLabel,
   concentrationWarning,
+  criterionConcentrationWarning,
   distributionLine,
   formatAlpha,
   matrixVersionLabel,
   matrixVersionNote,
+  isConcentrated,
   notCalculableMessage,
-  profileLine,
   sampleSize,
   smallSampleWarning,
 } from '@/app/projects/[id]/(tabs)/rounds/agreement-labels'
@@ -282,18 +283,6 @@ function calculated(alpha: number): Agreement {
 const CONCENTRATED = profile(0.96, { 3: 0.94, 2: 0.06 })
 
 describe('app/projects/[id]/rounds/agreement-labels — notas iguais e distribuição', () => {
-  it('a linha do perfil traz as notas iguais e as duas divergências, inclusive 0%, sem os níveis', () => {
-    expect(profileLine({ ...CONCENTRATED, adjacent: 0.04 })).toBe(
-      '96% de notas iguais · 4% de divergência adjacente · 0% de divergência extrema',
-    )
-  })
-
-  it('a linha do perfil usa uma casa decimal com vírgula', () => {
-    expect(
-      profileLine({ ...profile(0.7, {}), adjacent: 0.183, extreme: 0.117 }),
-    ).toBe('70% de notas iguais · 18,3% de divergência adjacente · 11,7% de divergência extrema')
-  })
-
   it('o aviso cita o nível de maior parte e as duas porcentagens', () => {
     expect(concentrationWarning(calculated(-0.01), CONCENTRATED)).toBe(
       'As notas se concentram em Alto (94%), e os avaliadores deram a mesma nota em 96% ' +
@@ -332,6 +321,36 @@ describe('app/projects/[id]/rounds/agreement-labels — notas iguais e distribui
 
   it('sem perfil não há aviso', () => {
     expect(concentrationWarning(calculated(0.1), null)).toBeNull()
+  })
+
+  it('o aviso por critério leva o nome do critério na frente', () => {
+    expect(criterionConcentrationWarning('Relevance', calculated(-0.031), CONCENTRATED)).toBe(
+      `Relevance: ${concentrationWarning(calculated(-0.031), CONCENTRATED)}`,
+    )
+    expect(criterionConcentrationWarning('Relevance', calculated(0.9), CONCENTRATED)).toBeNull()
+    expect(criterionConcentrationWarning('Relevance', calculated(0.1), null)).toBeNull()
+  })
+
+  it('isConcentrated diz se o aviso sai, pela mesma regra', () => {
+    const cases: [Agreement, AgreementProfile | null][] = [
+      [calculated(-0.01), CONCENTRATED],
+      [calculated(AGREEMENT_BANDS.acceptable), CONCENTRATED],
+      [calculated(0.1), profile(0.8, { 3: 0.9, 2: 0.1 })],
+      [calculated(0.1), profile(0.799, { 3: 0.9, 2: 0.1 })],
+      [calculated(0.1), null],
+      [{ calculable: false, reason: 'no_variation', units: 10, raters: 2 }, profile(1, { 3: 1 })],
+    ]
+    expect(cases.map(([agreement, shape]) => isConcentrated(agreement, shape))).toEqual([
+      true,
+      false,
+      true,
+      false,
+      false,
+      false,
+    ])
+    for (const [agreement, shape] of cases) {
+      expect(isConcentrated(agreement, shape)).toBe(concentrationWarning(agreement, shape) !== null)
+    }
   })
 
   it('a ajuda do aviso nomeia o paradoxo, os dois cortes e diz que são convenção da ferramenta', () => {

@@ -26,9 +26,10 @@ import { ItemPanel, PromptPanel } from '@/app/projects/[id]/(tabs)/evaluate/cont
 import { formatDate } from '@/app/notifications/labels'
 import { QueueNav } from '@/app/components/ui/queue-nav'
 import {
-  AgreementPanel,
+  AgreementWarnings,
   AgreementValue,
 } from '@/app/projects/[id]/(tabs)/rounds/agreement-panel'
+import { CriterionAgreementTable } from '@/app/projects/[id]/(tabs)/rounds/criterion-agreement-table'
 import { buildQueue } from '@/app/projects/[id]/(tabs)/evaluate/queue'
 import { PROGRESS_HELP } from '@/app/projects/[id]/(tabs)/evaluate/progress'
 import { loadCodebookVersion } from '@/app/projects/[id]/pipeline/codebook'
@@ -1121,7 +1122,8 @@ describe('app/projects/[id]/evaluate — a tela do avaliador', () => {
     auth.userId = bruno
     const tree = await open(scene.project)
 
-    expect(findElement(tree, AgreementPanel)).toBeNull()
+    expect(findElement(tree, AgreementWarnings)).toBeNull()
+    expect(findElement(tree, CriterionAgreementTable)).toBeNull()
     expect(findElement(tree, AgreementValue)).toBeNull()
 
     const page = `${deepText(tree)} ${markupOf(formOf(tree))}`

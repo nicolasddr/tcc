@@ -67,8 +67,8 @@ O resultado é **não calculável**, e nunca vira 0 nem 1, em três casos:
 
 Quando quase toda nota cai num nível só, a discordância esperada ao acaso (D_e) fica perto de zero,
 e uma divergência só já derruba o alpha, mesmo com os avaliadores quase sempre de acordo (paradoxo
-da prevalência). Para ler esse caso, o painel da rodada mostra dois números **ao lado** do alpha,
-calculados sobre os mesmos valores pareáveis que ele usa (`agreementProfile` em
+da prevalência). Para ler esse caso, a tabela por critério mostra dois números **ao lado** do alpha
+de cada critério, calculados sobre os mesmos valores pareáveis que ele usa (`agreementProfile` em
 `lib/agreement.ts`), pela matriz de coincidências da seção 3:
 
 - **notas iguais** = `Σ_c o[c][c] / n`. Com dois avaliadores, é a parte das unidades em que os dois
@@ -84,23 +84,30 @@ inteira. Elas aparecem só na tabela por critério.
 
 Unidades com uma nota só ficam fora, como no alpha, e os números batem com o N mostrado. Sem unidade
 pareável não há números. Com a rodada sem variação (seção 4), eles aparecem mesmo assim e explicam o
-"não calculável". Com avaliador marcado como outlier, cada valor ("com todos" e "sem os marcados")
-traz os seus.
+"não calculável". Esses números são sempre **com todos**: com avaliador marcado como outlier, só a
+coluna do alpha mostra os dois valores ("com todos" e "sem os marcados").
 
 Os dois números não substituem o alpha, não entram na série nem na faixa de referência, e o
 Avaliador não os vê (ADR 0011).
 
-**Aviso de notas concentradas** (`rounds/agreement-labels.ts`): o painel avisa quando o alpha é
-calculável, está na faixa questionável (abaixo de 0,667) e as notas iguais são 80% ou mais. O aviso
-cita o nível de maior parte e as duas porcentagens. O corte de 80% é convenção da ferramenta, e não
+**Aviso de notas concentradas** (`rounds/agreement-labels.ts`): a seção de Concordância dá um aviso
+**por critério**, com o nome do critério na frente, quando o alpha dele é calculável, está na faixa
+questionável (abaixo de 0,667) e as notas iguais dele são 80% ou mais. O aviso cita o nível de
+maior parte e as duas porcentagens. O corte de 80% é convenção da ferramenta, e não
 da literatura.
 
 ## 5. Onde o número aparece
 
-- **Coeficiente da rodada** (`rounds/agreement-pair.ts`). Se há avaliadores marcados como outlier
-  naquela rodada, a ferramenta mostra dois valores lado a lado: **com todos**, que é o resultado
-  da rodada, e **sem os marcados**, que refaz a conta retirando as notas de quem foi marcado. A
-  marca é por rodada, exige justificativa escrita, é reversível e nenhuma nota é apagada (ADR 0011).
+- **A página da rodada não tem um alpha da rodada inteira.** O alpha mede uma variável por vez
+  (Krippendorff, 2011), e juntar critérios diferentes numa conta só infla o número: na rodada 8 do
+  PoC, as notas juntas davam 0,811 ("Boa"), com Relevance em −0,031 e Diversity em 0,548. Com
+  várias variáveis, mede-se cada uma, e vale a menor (Krippendorff, 2004). A leitura da rodada é a
+  tabela por critério, abaixo.
+- **Outliers** (`rounds/agreement-matrix.ts`, `criterionAgreements`). Se há avaliadores marcados
+  como outlier naquela rodada, a coluna do alpha da tabela por critério mostra dois valores: **com
+  todos**, que é o resultado da rodada, e **sem os marcados**, que refaz a conta do critério
+  retirando as notas de quem foi marcado. A marca é por rodada, exige justificativa escrita, é
+  reversível e nenhuma nota é apagada (ADR 0011).
 - **Matriz por célula** (`rounds/agreement-matrix.ts`). Um alpha por par definição × critério,
   sempre calculado **com todos**. A matriz distingue três estados sem coeficiente:
   - *não aplicável*: o par não existe naquela versão do codebook (critério específico de outra
@@ -115,7 +122,7 @@ da literatura.
   critério geral; as das definições que têm o critério, nos critérios específicos de mesmo nome; e
   as da resposta inteira, no critério por resposta. As unidades continuam as mesmas: cada nota só
   se compara com as da mesma resposta e da mesma definição. É um alpha sobre essas notas, e **não
-  a média** dos alphas das células, e também é calculado **com todos**. A tabela aparece mesmo com
+  a média** dos alphas das células. A tabela aparece mesmo com
   uma definição só, e traz ao lado do alpha as notas iguais, a distribuição pelos níveis, as
   divergências adjacentes e extremas e o N. É a leitura do critério quando as definições são
   posições (Query 1, Query 2…) e não textos diferentes.
@@ -130,11 +137,16 @@ da literatura.
 - **Faixa de referência de Krippendorff (2004):** abaixo de 0,667 é questionável, de 0,667 a 0,8
   é aceitável, e 0,8 ou mais é boa (`rounds/agreement-labels.ts`). É referência de leitura e **não
   trava nenhuma transição de fase**: o avanço é decisão do Administrador (ADR 0004).
-- **Orientação de leitura nas Fases 3 e 4** (`rounds/reading-guidance.ts`):
+- **Orientação de leitura nas Fases 3 e 4** (`rounds/reading-guidance.ts`). Ela parte do
+  **critério mais fraco** (`weakestCriterion` em `rounds/agreement-matrix.ts`) e diz o nome dele: um
+  critério não calculável vence, inclusive por falta de variação; senão, vale o menor alpha; no
+  empate, vale a ordem da tabela; critério sem nota não entra. Se o mais fraco tem o aviso de notas
+  concentradas, a orientação acrescenta que o alpha baixo pode vir da pouca variação:
   - na Fase 3, com alpha na faixa questionável, a ferramenta sugere refinar o codebook; da faixa
     aceitável para cima, sugere olhar a Qualidade;
   - na Fase 4 não se refina: alpha baixo indica que o codebook não generalizou para os
-    avaliadores novos; alpha alto leva à Qualidade ao lado da rodada de referência.
+    avaliadores novos; com todos os critérios da faixa aceitável para cima, leva à Qualidade ao
+    lado da rodada de referência.
 - **Aviso de amostra pequena:** com menos de 3 avaliadores ou menos de 10 respostas avaliadas, a
   tela avisa que o coeficiente oscila muito e deve ser lido com cautela. O corte é convenção da
   ferramenta, e não da literatura, e o valor calculado continua valendo.

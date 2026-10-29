@@ -24,7 +24,15 @@ vi.mock('next/navigation', () => ({
 
 import ProjectRoundsPage from '@/app/projects/[id]/(tabs)/rounds/page'
 import { RoundList } from '@/app/projects/[id]/(tabs)/rounds/round-list'
-import { AgreementPanel } from '@/app/projects/[id]/(tabs)/rounds/agreement-panel'
+import {
+  AgreementNotes,
+  AgreementWarnings,
+} from '@/app/projects/[id]/(tabs)/rounds/agreement-panel'
+import { CriterionAgreementTable } from '@/app/projects/[id]/(tabs)/rounds/criterion-agreement-table'
+import {
+  criterionAgreements,
+  weakestCriterion,
+} from '@/app/projects/[id]/(tabs)/rounds/agreement-matrix'
 import { OpenRoundCard } from '@/app/projects/[id]/(tabs)/rounds/open-round-card'
 import { QualityPanel } from '@/app/projects/[id]/(tabs)/rounds/quality-panel'
 import { formatShare } from '@/app/projects/[id]/(tabs)/rounds/quality-labels'
@@ -52,13 +60,13 @@ import {
 } from '@/app/projects/[id]/(tabs)/rounds/agreement-labels'
 import { ReadingGuidanceNote } from '@/app/projects/[id]/(tabs)/rounds/reading-guidance-note'
 import {
-  BELOW_BAND_GUIDANCE,
   CODEBOOK_SHORTCUT,
   GUIDANCE_HEADING,
-  PHASE_4_BELOW_BAND_GUIDANCE,
   PHASE_4_WITHIN_BAND_GUIDANCE,
   WITHIN_BAND_GUIDANCE,
+  belowBandGuidance,
   notCalculableGuidance,
+  phase4BelowBandGuidance,
   phase4NotCalculableGuidance,
 } from '@/app/projects/[id]/(tabs)/rounds/reading-guidance-labels'
 import { RoundChangeChips } from '@/app/projects/[id]/(tabs)/rounds/round-changes-note'
@@ -172,7 +180,8 @@ function blockIndexOf(tree: unknown, type: unknown): number {
 }
 
 type ListProps = Parameters<typeof RoundList>[0]
-type PanelProps = Parameters<typeof AgreementPanel>[0]
+type NotesProps = Parameters<typeof AgreementNotes>[0]
+type CriterionTableProps = Parameters<typeof CriterionAgreementTable>[0]
 type ComparisonProps = Parameters<typeof ReferenceComparisonPanel>[0]
 type LineProps = Parameters<typeof ReferenceRoundLine>[0]
 type GuidanceProps = Parameters<typeof ReadingGuidanceNote>[0]
@@ -198,10 +207,21 @@ function cardOf(tree: unknown): Parameters<typeof OpenRoundCard>[0] {
   return element!.props as Parameters<typeof OpenRoundCard>[0]
 }
 
-function panelOf(tree: unknown): PanelProps {
-  const element = findElement(tree, AgreementPanel)
+function notesOf(tree: unknown): NotesProps {
+  const element = findElement(tree, AgreementNotes)
   expect(element).toBeTruthy()
-  return element!.props as PanelProps
+  return element!.props as NotesProps
+}
+
+function weakestOf(tree: unknown) {
+  const element = findElement(tree, CriterionAgreementTable)
+  expect(element).toBeTruthy()
+  const { definitions, criteria, observations, excluded } = element!.props as CriterionTableProps
+  const weakest = weakestCriterion(
+    criterionAgreements(definitions, criteria, observations, excluded),
+  )
+  expect(weakest).toBeTruthy()
+  return { name: weakest!.column.name, agreement: weakest!.agreement }
 }
 
 function comparisonOf(tree: unknown): ComparisonProps {
@@ -298,20 +318,20 @@ const RETURN_AND_VERDICT_WORDS = [
   'confirmad',
 ]
 
+const WEAKEST = 'Clareza'
+
+const REASONS = ['few_evaluators', 'no_shared_units', 'no_variation'] as const
+
 const PHASE_3_GUIDANCE_TEXTS = [
-  BELOW_BAND_GUIDANCE,
+  belowBandGuidance(WEAKEST),
   WITHIN_BAND_GUIDANCE,
-  notCalculableGuidance('few_evaluators'),
-  notCalculableGuidance('no_shared_units'),
-  notCalculableGuidance('no_variation'),
+  ...REASONS.map((reason) => notCalculableGuidance(reason, WEAKEST)),
 ]
 
 const PHASE_4_GUIDANCE_TEXTS = [
-  PHASE_4_BELOW_BAND_GUIDANCE,
+  phase4BelowBandGuidance(WEAKEST),
   PHASE_4_WITHIN_BAND_GUIDANCE,
-  phase4NotCalculableGuidance('few_evaluators'),
-  phase4NotCalculableGuidance('no_shared_units'),
-  phase4NotCalculableGuidance('no_variation'),
+  ...REASONS.map((reason) => phase4NotCalculableGuidance(reason, WEAKEST)),
 ]
 
 function expectNoJudgment(element: ReactElement) {
@@ -451,7 +471,7 @@ describe('app/projects/[id]/rounds — a rodada da Fase 4 ao lado da rodada de r
     const tree = await render(scene.project)
 
     const guidance = blockIndexOf(tree, ReadingGuidanceNote)
-    const agreement = blockIndexOf(tree, AgreementPanel)
+    const agreement = blockIndexOf(tree, AgreementWarnings)
     const quality = blockIndexOf(tree, QualityPanel)
     const comparison = blockIndexOf(tree, ReferenceComparisonPanel)
     const list = blockIndexOf(tree, RoundList)
@@ -738,15 +758,18 @@ describe('app/projects/[id]/rounds — a rodada da Fase 4 ao lado da rodada de r
     auth.userId = admin
     const tree = await render(scene.project)
 
-    const all = panelOf(tree).pair.all
-    expect(all.calculable).toBe(true)
-    expect(all.calculable && all.alpha).toBeLessThan(AGREEMENT_BANDS.acceptable)
+    const { name, agreement } = weakestOf(tree)
+    expect(name).toBe(WEAKEST)
+    expect(agreement.calculable).toBe(true)
+    expect(agreement.calculable && agreement.alpha).toBeLessThan(AGREEMENT_BANDS.acceptable)
 
     expect(guidanceOf(tree)).toEqual({
-      guidance: { phase: PHASE_4, kind: 'below_band' },
+      guidance: { phase: PHASE_4, kind: 'below_band', criterion: WEAKEST, concentrated: false },
       projectId: scene.project,
     })
-    expect(guidanceTextOf(tree)).toBe(`${GUIDANCE_HEADING} ${PHASE_4_BELOW_BAND_GUIDANCE}`)
+    expect(guidanceTextOf(tree)).toBe(
+      `${GUIDANCE_HEADING} ${phase4BelowBandGuidance(WEAKEST)}`,
+    )
   })
 
   it('numa rodada da Fase 4 dentro da faixa, a orientação manda olhar a Qualidade ao lado da referência', async () => {
@@ -759,7 +782,7 @@ describe('app/projects/[id]/rounds — a rodada da Fase 4 ao lado da rodada de r
     auth.userId = admin
     const tree = await render(scene.project)
 
-    expect(panelOf(tree).pair.all).toMatchObject({ calculable: true, alpha: 1 })
+    expect(weakestOf(tree).agreement).toMatchObject({ calculable: true, alpha: 1 })
 
     expect(guidanceOf(tree)).toEqual({
       guidance: { phase: PHASE_4, kind: 'within_band' },
@@ -778,16 +801,21 @@ describe('app/projects/[id]/rounds — a rodada da Fase 4 ao lado da rodada de r
     auth.userId = admin
     const tree = await render(scene.project)
 
-    expect(panelOf(tree).pair.all).toMatchObject({
-      calculable: false,
-      reason: 'few_evaluators',
+    expect(weakestOf(tree)).toMatchObject({
+      name: WEAKEST,
+      agreement: { calculable: false, reason: 'few_evaluators' },
     })
     expect(guidanceOf(tree)).toEqual({
-      guidance: { phase: PHASE_4, kind: 'not_calculable', reason: 'few_evaluators' },
+      guidance: {
+        phase: PHASE_4,
+        kind: 'not_calculable',
+        criterion: WEAKEST,
+        reason: 'few_evaluators',
+      },
       projectId: scene.project,
     })
     expect(guidanceTextOf(tree)).toBe(
-      `${GUIDANCE_HEADING} ${phase4NotCalculableGuidance('few_evaluators')}`,
+      `${GUIDANCE_HEADING} ${phase4NotCalculableGuidance('few_evaluators', WEAKEST)}`,
     )
   })
 
@@ -830,11 +858,11 @@ describe('app/projects/[id]/rounds — a rodada da Fase 4 ao lado da rodada de r
     const tree = await render(scene.project)
 
     expect(guidanceOf(tree)).toEqual({
-      guidance: { phase: PHASE_3, kind: 'below_band' },
+      guidance: { phase: PHASE_3, kind: 'below_band', criterion: WEAKEST, concentrated: false },
       projectId: scene.project,
     })
     expect(guidanceTextOf(tree)).toBe(
-      `${GUIDANCE_HEADING} ${BELOW_BAND_GUIDANCE} ${CODEBOOK_SHORTCUT}`,
+      `${GUIDANCE_HEADING} ${belowBandGuidance(WEAKEST)} ${CODEBOOK_SHORTCUT}`,
     )
   })
 
@@ -873,9 +901,9 @@ describe('app/projects/[id]/rounds — a rodada da Fase 4 ao lado da rodada de r
     const tree = await render(scene.project)
 
     const mark = { short: PARTICIPATED_BEFORE, full: 'avaliou na rodada 1 (Fase 3)' }
-    expect(panelOf(tree).participation).toEqual({ [scene.ana]: mark, [scene.bruno]: mark })
+    expect(notesOf(tree).participation).toEqual({ [scene.ana]: mark, [scene.bruno]: mark })
 
-    const element = createElement(AgreementPanel, panelOf(tree))
+    const element = createElement(AgreementNotes, notesOf(tree))
     const text = markupTextOf(element)
     expect(text).toContain('Ana Já avaliou antes')
     expect(text).toContain('Bruno Já avaliou antes')
@@ -900,7 +928,7 @@ describe('app/projects/[id]/rounds — a rodada da Fase 4 ao lado da rodada de r
 
     const mark = { short: PARTICIPATED_BEFORE, full: 'avaliou na rodada 1 (Fase 3)' }
     expect(cardOf(tree).participation).toEqual({ [scene.ana]: mark, [scene.bruno]: mark })
-    expect(panelOf(tree).participation).toBeUndefined()
+    expect(notesOf(tree).participation).toBeUndefined()
 
     const text = markupTextOf(createElement(OpenRoundCard, cardOf(tree)))
     expect(text).toContain('Ana Já avaliou antes')
@@ -938,7 +966,7 @@ describe('app/projects/[id]/rounds — a rodada da Fase 4 ao lado da rodada de r
     auth.userId = admin
     const tree = await render(scene.project)
 
-    expect(panelOf(tree).participation?.[adminAsEvaluator]).toEqual({
+    expect(notesOf(tree).participation?.[adminAsEvaluator]).toEqual({
       short: PARTICIPATED_BEFORE,
       full: 'avaliou na rodada 1 (Fase 3)',
     })
@@ -951,7 +979,7 @@ describe('app/projects/[id]/rounds — a rodada da Fase 4 ao lado da rodada de r
     auth.userId = admin
     const tree = await render(scene.project)
 
-    const markup = renderToStaticMarkup(createElement(AgreementPanel, panelOf(tree)))
+    const markup = renderToStaticMarkup(createElement(AgreementNotes, notesOf(tree)))
     const tooltips = [...markup.matchAll(/<span [^>]*role="tooltip"[^>]*>([^<]*)<\/span>/g)].map(
       (match) => match[1].replaceAll('&quot;', '"'),
     )
@@ -977,8 +1005,8 @@ describe('app/projects/[id]/rounds — a rodada da Fase 4 ao lado da rodada de r
     auth.userId = admin
     for (const scene of [phase3, phase2]) {
       const tree = await render(scene.project)
-      expect(panelOf(tree).participation).toBeUndefined()
-      const text = markupTextOf(createElement(AgreementPanel, panelOf(tree)))
+      expect(notesOf(tree).participation).toBeUndefined()
+      const text = markupTextOf(createElement(AgreementNotes, notesOf(tree)))
       expect(text).not.toContain('avaliou n')
       expect(text).not.toContain(PARTICIPATED_BEFORE)
     }
@@ -991,7 +1019,8 @@ describe('app/projects/[id]/rounds — a rodada da Fase 4 ao lado da rodada de r
     auth.userId = scene.anaUser
     const tree = await render(scene.project)
 
-    expect(findElement(tree, AgreementPanel)).toBeNull()
+    expect(findElement(tree, AgreementNotes)).toBeNull()
+    expect(findElement(tree, CriterionAgreementTable)).toBeNull()
     expect(allTextOf(tree)).not.toContain('avaliou n')
     expect(allTextOf(tree)).not.toContain(PARTICIPATED_BEFORE)
   })

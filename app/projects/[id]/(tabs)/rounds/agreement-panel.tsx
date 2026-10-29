@@ -1,4 +1,3 @@
-import { plural } from '@/lib/plural'
 import type { Agreement, AgreementProfile } from '@/lib/agreement'
 import type { EvaluatorEffort } from './agreement'
 import { EffortList } from './effort-list'
@@ -9,8 +8,6 @@ import {
   AGREEMENT_ALL_LABEL,
   AGREEMENT_LABEL,
   AGREEMENT_WITHOUT_OUTLIERS_LABEL,
-  BAND_REFERENCE,
-  BAND_REFERENCE_LABEL,
   CONCENTRATION_HELP,
   NOT_CALCULABLE_LABEL,
   OUTLIER_PAIR_POINTS,
@@ -19,12 +16,8 @@ import {
   agreementBand,
   bandLabel,
   bandTone,
-  concentrationWarning,
-  distributionLine,
   equalShareText,
   formatAlpha,
-  notCalculableMessage,
-  profileLine,
   SMALL_SAMPLE_HELP,
   sampleSize,
   smallSampleWarning,
@@ -33,14 +26,15 @@ import { Alert } from '@/app/components/ui/alert'
 import { Badge } from '@/app/components/ui/badge'
 import { Card } from '@/app/components/ui/card'
 import { Disclosure } from '@/app/components/ui/disclosure'
-import { StatCard } from '@/app/components/ui/stat'
 import { InfoTooltip } from '@/app/components/ui/tooltip'
 import { LearnMore } from '@/app/components/ui/learn-more'
 import { cx } from '@/app/components/ui/cx'
 import { preWrapClass, scrollBoxClass } from '@/app/components/ui/prose'
 import { formatDate } from '@/app/notifications/labels'
 
-export type ResponseCounts = { all: number; withoutOutliers: number }
+export type RoundSample = { raters: number; responses: number }
+
+export type SamplePair = { all: RoundSample; withoutOutliers: RoundSample | null }
 
 const reasonClass =
   'm-0 mt-1.5 rounded-card border border-line bg-surface px-3 py-2 text-[13px] text-ink'
@@ -52,47 +46,6 @@ function BandBadge({ alpha }: { alpha: number }) {
 
 function agreementText(agreement: Agreement): string {
   return agreement.calculable ? formatAlpha(agreement.alpha) : NOT_CALCULABLE_LABEL
-}
-
-function AgreementStat({
-  label,
-  agreement,
-  hint,
-}: {
-  label: string
-  agreement: Agreement
-  hint: React.ReactNode
-}) {
-  return (
-    <StatCard
-      label={label}
-      value={agreementText(agreement)}
-      badge={agreement.calculable ? <BandBadge alpha={agreement.alpha} /> : null}
-      hint={hint}
-    />
-  )
-}
-
-function ProfileLine({
-  profile,
-  distribution,
-}: {
-  profile: AgreementProfile | null
-  distribution: boolean
-}) {
-  if (!profile) return null
-  return (
-    <>
-      <br />
-      {profileLine(profile)}
-      {distribution ? (
-        <>
-          <br />
-          {distributionLine(profile)}
-        </>
-      ) : null}
-    </>
-  )
 }
 
 function ExcludedList({ outliers }: { outliers: OutlierMark[] }) {
@@ -126,31 +79,17 @@ function ExcludedList({ outliers }: { outliers: OutlierMark[] }) {
   )
 }
 
-export function AgreementPanel({
-  pair,
-  profiles,
-  responses,
-  effort,
-  outliers,
-  distribution,
-  participation,
+export function AgreementWarnings({
+  sample,
+  concentrations,
 }: {
-  pair: AgreementPair
-  profiles: ProfilePair
-  responses: ResponseCounts
-  effort: EvaluatorEffort[]
-  outliers: OutlierMark[]
-  distribution: boolean
-  participation?: Readonly<Record<string, RoundMark>>
+  sample: SamplePair
+  concentrations: string[]
 }) {
-  const { all, withoutOutliers } = pair
-  const excluded = new Set(outliers.map((mark) => mark.projectMemberId))
+  const { all, withoutOutliers } = sample
 
   const warnings: { key: string; text: string; help: string }[] = []
-  const allWarning = smallSampleWarning({
-    raters: all.raters,
-    responses: responses.all,
-  })
+  const allWarning = smallSampleWarning(all)
   if (allWarning) {
     warnings.push({
       key: 'all',
@@ -159,10 +98,7 @@ export function AgreementPanel({
     })
   }
   if (withoutOutliers) {
-    const filteredWarning = smallSampleWarning({
-      raters: withoutOutliers.raters,
-      responses: responses.withoutOutliers,
-    })
+    const filteredWarning = smallSampleWarning(withoutOutliers)
     if (filteredWarning) {
       warnings.push({
         key: 'without',
@@ -171,90 +107,40 @@ export function AgreementPanel({
       })
     }
   }
-  const allConcentration = concentrationWarning(all, profiles.all)
-  if (allConcentration) {
-    warnings.push({
-      key: 'all-concentration',
-      text: withoutOutliers
-        ? `${AGREEMENT_ALL_LABEL} — ${allConcentration}`
-        : allConcentration,
-      help: CONCENTRATION_HELP,
-    })
-  }
-  if (withoutOutliers) {
-    const filteredConcentration = concentrationWarning(
-      withoutOutliers,
-      profiles.withoutOutliers,
-    )
-    if (filteredConcentration) {
-      warnings.push({
-        key: 'without-concentration',
-        text: `${AGREEMENT_WITHOUT_OUTLIERS_LABEL} — ${filteredConcentration}`,
-        help: CONCENTRATION_HELP,
-      })
-    }
-  }
+  concentrations.forEach((text, index) => {
+    warnings.push({ key: `concentration-${index}`, text, help: CONCENTRATION_HELP })
+  })
 
-  const allHint = (
-    <>
-      {sampleSize(all)} ·{' '}
-      {plural(responses.all, 'resposta avaliada', 'respostas avaliadas')}
-      {all.calculable ? (
-        <>
-          {' '}
-          ·{' '}
-          <span className="whitespace-nowrap">
-            {BAND_REFERENCE_LABEL} <InfoTooltip text={BAND_REFERENCE} />
-          </span>
-          <ProfileLine profile={profiles.all} distribution={distribution} />
-        </>
-      ) : (
-        <>
-          <ProfileLine profile={profiles.all} distribution={distribution} />
-          <br />
-          {notCalculableMessage(all.reason)}
-        </>
-      )}
-    </>
-  )
+  if (warnings.length === 0) return null
 
   return (
     <div className="flex flex-col gap-3">
-      {withoutOutliers ? (
-        <>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <AgreementStat
-              label={`${AGREEMENT_LABEL} — ${AGREEMENT_ALL_LABEL}`}
-              agreement={all}
-              hint={allHint}
-            />
-            <AgreementStat
-              label={`${AGREEMENT_LABEL} — ${AGREEMENT_WITHOUT_OUTLIERS_LABEL}`}
-              agreement={withoutOutliers}
-              hint={
-                <>
-                  {sampleSize(withoutOutliers)} ·{' '}
-                  {plural(
-                    responses.withoutOutliers,
-                    'resposta avaliada',
-                    'respostas avaliadas',
-                  )}{' '}
-                  · {plural(pair.excluded, 'avaliador fora', 'avaliadores fora')}
-                  <ProfileLine
-                    profile={profiles.withoutOutliers}
-                    distribution={distribution}
-                  />
-                  {withoutOutliers.calculable ? null : (
-                    <>
-                      <br />
-                      {notCalculableMessage(withoutOutliers.reason)}
-                    </>
-                  )}
-                </>
-              }
-            />
-          </div>
+      {warnings.map((warning) => (
+        <Alert key={warning.key} tone="notice">
+          {warning.text} <InfoTooltip text={warning.help} />
+        </Alert>
+      ))}
+    </div>
+  )
+}
 
+export function AgreementNotes({
+  effort,
+  outliers,
+  participation,
+}: {
+  effort: EvaluatorEffort[]
+  outliers: OutlierMark[]
+  participation?: Readonly<Record<string, RoundMark>>
+}) {
+  const excluded = new Set(outliers.map((mark) => mark.projectMemberId))
+
+  if (outliers.length === 0 && effort.length === 0) return null
+
+  return (
+    <div className="flex flex-col gap-3">
+      {outliers.length > 0 ? (
+        <>
           <p className="m-0 flex flex-wrap items-center gap-2 text-xs text-muted">
             <span>{OUTLIER_PAIR_RESULT}</span>
             <InfoTooltip text={OUTLIER_PAIR_SUMMARY} />
@@ -264,15 +150,7 @@ export function AgreementPanel({
 
           <ExcludedList outliers={outliers} />
         </>
-      ) : (
-        <AgreementStat label={AGREEMENT_LABEL} agreement={all} hint={allHint} />
-      )}
-
-      {warnings.map((warning) => (
-        <Alert key={warning.key} tone="notice">
-          {warning.text} <InfoTooltip text={warning.help} />
-        </Alert>
-      ))}
+      ) : null}
 
       {effort.length > 0 ? (
         <Card tone="subtle" padding="sm">

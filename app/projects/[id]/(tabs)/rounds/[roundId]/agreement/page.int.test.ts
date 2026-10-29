@@ -19,8 +19,8 @@ vi.mock('next/navigation', () => ({
 
 import RoundAgreementPage from '@/app/projects/[id]/(tabs)/rounds/[roundId]/agreement/page'
 import ProjectRoundsPage from '@/app/projects/[id]/(tabs)/rounds/page'
-import { AgreementPanel } from '@/app/projects/[id]/(tabs)/rounds/agreement-panel'
-import { agreementPair } from '@/app/projects/[id]/(tabs)/rounds/agreement-pair'
+import { AgreementNotes } from '@/app/projects/[id]/(tabs)/rounds/agreement-panel'
+import { CriterionAgreementTable } from '@/app/projects/[id]/(tabs)/rounds/criterion-agreement-table'
 import { loadRoundObservations } from '@/app/projects/[id]/(tabs)/rounds/agreement'
 import { AGREEMENT_SECTION_ID } from '@/app/projects/[id]/(tabs)/rounds/reading-shortcuts'
 import { Section } from '@/app/components/ui/section'
@@ -184,13 +184,16 @@ describe('app/projects/[id]/rounds/[roundId]/agreement — a concordância de um
     const section = agreementSectionOf(await render(project, rounds[0]))
     expect(titleOf(section)).toBe('Concordância e confiabilidade na rodada 1, fechada')
 
-    const [panel] = findAll(section, AgreementPanel)
-    const { pair, outliers } = panel.props as Parameters<typeof AgreementPanel>[0]
-    expect(outliers).toEqual([])
-    expect(pair).toEqual(agreementPair(await loadRoundObservations(rounds[0]), new Set()))
-    expect(pair).not.toEqual(
-      agreementPair(await loadRoundObservations(rounds[1]), new Set()),
-    )
+    const [notes] = findAll(section, AgreementNotes)
+    expect((notes.props as Parameters<typeof AgreementNotes>[0]).outliers).toEqual([])
+
+    const [table] = findAll(section, CriterionAgreementTable)
+    const { observations, excluded } = table.props as Parameters<
+      typeof CriterionAgreementTable
+    >[0]
+    expect(excluded).toEqual(new Set())
+    expect(observations).toEqual(await loadRoundObservations(rounds[0]))
+    expect(observations).not.toEqual(await loadRoundObservations(rounds[1]))
   })
 
   it('o avaliador não abre a concordância da rodada', async () => {

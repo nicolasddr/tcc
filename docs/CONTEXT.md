@@ -151,8 +151,11 @@ um critério por resposta rende uma unidade por resposta. Avaliação que
 não existe é dado faltante, nunca exclusão de avaliador — a unidade sem par sai do cálculo e a
 pessoa continua nele. E o coeficiente é **não calculável**, nunca zero e nunca 1, em três casos:
 menos de dois avaliadores, nenhuma unidade avaliada por dois deles, e nenhuma variação nas notas.
-Ao lado do α, o painel da rodada mostra a concordância (notas iguais e distribuição), para ler um
-α baixo quando as notas se concentram num nível só; ela não substitui o α. A série entre rodadas e
+Na página da rodada, o α é **por critério**, e não há α da rodada inteira: o α mede uma variável
+por vez, e juntar critérios numa conta só infla o número. A orientação de leitura parte do critério
+mais fraco (o não calculável, senão o de menor α) e diz o nome dele. Ao lado do α de cada critério,
+a tabela mostra a concordância (notas iguais e distribuição), para ler um α baixo quando as notas
+se concentram num nível só; ela não substitui o α. A série entre rodadas e
 a comparação da Fase 4 com a rodada de referência mostram só o α.
 Não existe média, soma nem "ICR do projeto" em tela nenhuma: a leitura entre rodadas é a série, um
 ponto por rodada com a sua versão de codebook e a sua fase ao lado. A série é uma só para as Fases 2,

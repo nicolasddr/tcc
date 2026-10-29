@@ -37,8 +37,8 @@ import { EvaluatorRounds } from './evaluator-rounds'
 import { listReviewableRounds } from './review'
 import { requireReviewAccess } from './review-access'
 import { roundAgreementSection } from './round-agreement-section'
-import { matrixColumns } from './agreement-matrix'
-import { byDefinitionSummary } from './agreement-labels'
+import { criterionAgreements, matrixColumns, weakestCriterion } from './agreement-matrix'
+import { byDefinitionSummary, isConcentrated } from './agreement-labels'
 import { ByDefinition } from './by-definition'
 import { QualityPanel } from './quality-panel'
 import { QualityMatrixNotes, QualityMatrixTable } from './quality-matrix-table'
@@ -185,9 +185,6 @@ export default async function ProjectRoundsPage({
         ),
       ]),
   )
-  const focusPair =
-    (focusRound ? agreement.get(focusRound.id) : undefined) ??
-    agreementPair([], EMPTY_SET)
   const focusQuality = focusRound ? quality.get(focusRound.id) : undefined
   const focusComparison = focusRound
     ? referenceComparison(rounds, focusRound, agreement, quality)
@@ -202,6 +199,9 @@ export default async function ProjectRoundsPage({
     : EMPTY_SET
   const focusDefinitions = focusCodebook?.definitions ?? []
   const focusCriteria = focusCodebook?.criteria ?? []
+  const focusWeakest = weakestCriterion(
+    criterionAgreements(focusDefinitions, focusCriteria, focusObservations, focusExcluded),
+  )
   const focusByDefinition = byDefinitionSummary(
     focusDefinitions.length,
     matrixColumns(focusDefinitions, focusCriteria).length,
@@ -326,7 +326,14 @@ export default async function ProjectRoundsPage({
 
       {focusRound && hasReadingGuidance(focusRound.phase) ? (
         <ReadingGuidanceNote
-          guidance={readingGuidance(focusPair.all, focusRound.phase)}
+          guidance={readingGuidance(
+            focusWeakest && {
+              name: focusWeakest.column.name,
+              agreement: focusWeakest.agreement,
+              concentrated: isConcentrated(focusWeakest.agreement, focusWeakest.profile),
+            },
+            focusRound.phase,
+          )}
           projectId={project.id}
         />
       ) : null}

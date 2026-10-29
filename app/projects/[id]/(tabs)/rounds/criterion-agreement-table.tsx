@@ -7,9 +7,12 @@ import type {
 } from '../../pipeline/codebook'
 import { PER_RESPONSE_LABEL } from '../../pipeline/criteria'
 import type { RoundObservation } from './agreement'
-import { criterionCells, type MatrixCell } from './agreement-matrix'
+import { criterionAgreements, type MatrixCell } from './agreement-matrix'
 import { divergenceLabel } from './divergence'
 import {
+  AGREEMENT_ALL_LABEL,
+  AGREEMENT_WITHOUT_OUTLIERS_LABEL,
+  BAND_REFERENCE,
   CELL_UNRATED_LABEL,
   CRITERION_TABLE_HELP,
   CRITERION_TABLE_NOTE,
@@ -26,7 +29,7 @@ const headerClass =
   'border-b border-line px-3 py-2 text-left align-bottom text-[11px] font-semibold ' +
   'tracking-[0.06em] text-muted uppercase'
 
-const cellClass = 'border-b border-line px-3 py-2 whitespace-nowrap'
+const cellClass = 'border-b border-line px-3 py-2 align-top whitespace-nowrap'
 
 function Agreement({ cell }: { cell: MatrixCell }) {
   if (cell.state !== 'calculated') {
@@ -42,6 +45,29 @@ function Agreement({ cell }: { cell: MatrixCell }) {
     <Badge tone={bandTone(agreementBand(agreement.alpha))}>
       {formatAlpha(agreement.alpha)}
     </Badge>
+  )
+}
+
+function AgreementPair({
+  cell,
+  withoutOutliers,
+}: {
+  cell: MatrixCell
+  withoutOutliers: MatrixCell | null
+}) {
+  if (!withoutOutliers) return <Agreement cell={cell} />
+
+  return (
+    <span className="flex flex-col items-start gap-1.5">
+      <span className="flex flex-col items-start gap-0.5">
+        <span className="text-[11px] text-muted">{AGREEMENT_ALL_LABEL}</span>
+        <Agreement cell={cell} />
+      </span>
+      <span className="flex flex-col items-start gap-0.5">
+        <span className="text-[11px] text-muted">{AGREEMENT_WITHOUT_OUTLIERS_LABEL}</span>
+        <Agreement cell={withoutOutliers} />
+      </span>
+    </span>
   )
 }
 
@@ -68,14 +94,16 @@ export function CriterionAgreementTable({
   definitions,
   criteria,
   observations,
+  excluded,
   distribution,
 }: {
   definitions: CodebookDefinition[]
   criteria: CodebookCriterion[]
   observations: RoundObservation[]
+  excluded: ReadonlySet<string>
   distribution: boolean
 }) {
-  const rows = criterionCells(definitions, criteria, observations)
+  const rows = criterionAgreements(definitions, criteria, observations, excluded)
 
   return (
     <div className="flex flex-col gap-2">
@@ -87,7 +115,9 @@ export function CriterionAgreementTable({
                 Critério
               </th>
               <th scope="col" className={headerClass}>
-                ICR
+                <span className="inline-flex items-center gap-1">
+                  ICR <InfoTooltip text={BAND_REFERENCE} />
+                </span>
               </th>
               <th scope="col" className={headerClass}>
                 Notas iguais
@@ -104,11 +134,11 @@ export function CriterionAgreementTable({
             </tr>
           </thead>
           <tbody>
-            {rows.map(({ column, cell }) => (
+            {rows.map(({ column, cell, withoutOutliers }) => (
               <tr key={column.key}>
                 <th
                   scope="row"
-                  className="border-b border-line px-3 py-2 text-left font-semibold whitespace-nowrap text-ink"
+                  className="border-b border-line px-3 py-2 text-left align-top font-semibold whitespace-nowrap text-ink"
                 >
                   <span className="flex items-center gap-1.5">
                     {column.name}
@@ -119,7 +149,7 @@ export function CriterionAgreementTable({
                   </span>
                 </th>
                 <td className={cellClass}>
-                  <Agreement cell={cell} />
+                  <AgreementPair cell={cell} withoutOutliers={withoutOutliers} />
                 </td>
                 <td className={cellClass}>
                   <Equal cell={cell} distribution={distribution} />

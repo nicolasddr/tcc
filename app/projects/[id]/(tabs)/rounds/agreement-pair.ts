@@ -58,3 +58,7 @@ export function evaluatedResponses(
 ): number {
   return new Set(observations.map((observation) => observation.responseId)).size
 }
+
+export function evaluatedRaters(observations: readonly RoundObservation[]): number {
+  return new Set(observations.map((observation) => observation.raterId)).size
+}

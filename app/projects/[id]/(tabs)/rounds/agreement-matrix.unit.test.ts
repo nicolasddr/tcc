@@ -2,8 +2,10 @@ import { describe, it, expect } from 'vitest'
 import type { Scope } from '@/app/projects/[id]/pipeline/criteria'
 import {
   agreementMatrix,
+  criterionAgreements,
   criterionCells,
   matrixColumns,
+  weakestCriterion,
   type MatrixCell,
   type MatrixRow,
 } from '@/app/projects/[id]/(tabs)/rounds/agreement-matrix'
@@ -13,6 +15,14 @@ import {
   CELL_NOT_APPLICABLE,
   cellNotCalculableLabel,
 } from '@/app/projects/[id]/(tabs)/rounds/agreement-labels'
+import { scaleRank } from '@/app/projects/[id]/(tabs)/evaluate/scale'
+import {
+  ROUND_8_QUERIES,
+  ROUND_8_RESPONSES,
+  round8Diversity,
+  round8Relevance,
+  type Round8Rater,
+} from '@/test/round-8-scene'
 
 type Definition = { id: string; title: string }
 type Criterion = { id: string; definitionId: string | null; scope: Scope; name: string }
@@ -543,5 +553,211 @@ describe('app/projects/[id]/rounds/agreement-matrix — notas iguais por célula
     expect(all && profileOf(all)?.shares).toEqual(
       shares({ 1: 10 / 28, 2: 8 / 28, 3: 10 / 28 }),
     )
+  })
+})
+
+describe('app/projects/[id]/rounds/agreement-matrix — ICR por critério, com e sem os marcados', () => {
+  const queries: Definition[] = ROUND_8_QUERIES.map((title, index) => ({
+    id: `q${index + 1}`,
+    title,
+  }))
+  const round8Criteria = [criterion('relevance', null, 'Relevance'), perResponse('diversity', 'Diversity')]
+
+  function round8Observations(): RoundObservation[] {
+    const raters: Round8Rater[] = ['ana', 'bruno']
+    return raters.flatMap((rater) =>
+      Array.from({ length: ROUND_8_RESPONSES }, (_, response) => [
+        ...queries.map((query, index) =>
+          score(`r${response}`, query.id, 'relevance', rater, scaleRank(round8Relevance(rater, response, index))),
+        ),
+        score(`r${response}`, null, 'diversity', rater, scaleRank(round8Diversity(rater, response))),
+      ]).flat(),
+    )
+  }
+
+  function rowOf<C>(rows: { column: { name: string } }[], name: string) {
+    const found = rows.find((row) => row.column.name === name)
+    if (!found) throw new Error(`critério ${name} não está na tabela`)
+    return found as C
+  }
+
+  function cellNamed(rows: { column: { name: string }; cell: MatrixCell }[], name: string) {
+    return rowOf<{ cell: MatrixCell }>(rows, name).cell
+  }
+
+  it('sem marcados, cada linha é a do critério com todos, e o sem os marcados fica nulo', () => {
+    const definitions = [informacional, transacional]
+    const criteria = [criterion('g1', null), criterion('c1', 'd1'), perResponse('p1')]
+    const observations = [
+      ...ratings('d1', 'g1', { A: [1, 2, 3, 1], B: [1, 2, 3, 2] }),
+      ...ratings('d2', 'g1', { A: [3, 3, 1], B: [3, 2, 1] }),
+      ...ratings('d1', 'c1', { A: [1, 2], B: [2, 2] }),
+    ]
+
+    const rows = criterionAgreements(definitions, criteria, observations, new Set())
+
+    expect(rows).toEqual(
+      criterionCells(definitions, criteria, observations).map((row) => ({
+        ...row,
+        withoutOutliers: null,
+      })),
+    )
+    expect(rows.map((row) => row.column.name)).toEqual(['g1', 'c1', 'p1'])
+  })
+
+  it('com marcado, o sem os marcados é o α do critério sem as notas dele', () => {
+    const definitions = [informacional]
+    const criteria = [criterion('g1', null), criterion('g2', null)]
+    const observations = [
+      ...ratings('d1', 'g1', { A: [1, 2, 3, 1], B: [1, 2, 3, 1], C: [3, 1, 1, 3] }),
+      ...ratings('d1', 'g2', { A: [1, 2, 3], B: [1, 2, 2] }),
+    ]
+    const kept = observations.filter((observation) => observation.projectMemberId !== 'C')
+
+    const rows = criterionAgreements(definitions, criteria, observations, new Set(['C']))
+    const g1 = rowOf<(typeof rows)[number]>(rows, 'g1')
+    const g2 = rowOf<(typeof rows)[number]>(rows, 'g2')
+
+    expect(g1.cell).toEqual(cellNamed(criterionCells(definitions, criteria, observations), 'g1'))
+    expect(g1.withoutOutliers).toEqual(cellNamed(criterionCells(definitions, criteria, kept), 'g1'))
+    expect(g1.withoutOutliers).toMatchObject({
+      state: 'calculated',
+      agreement: { calculable: true, alpha: 1, units: 4, raters: 2 },
+    })
+    expect(alphaOf(g1.cell)).toBeLessThan(1)
+    expect(g2.withoutOutliers).toEqual(g2.cell)
+  })
+
+  it('com marcado, o critério sem nota continua sem nota dos dois lados', () => {
+    const criteria = [criterion('g1', null), criterion('g2', null)]
+    const observations = ratings('d1', 'g1', { A: [1, 2, 3], B: [1, 2, 3], C: [3, 3, 1] })
+
+    const rows = criterionAgreements([informacional], criteria, observations, new Set(['C']))
+
+    expect(rowOf<(typeof rows)[number]>(rows, 'g2')).toMatchObject({
+      cell: { state: 'unrated' },
+      withoutOutliers: { state: 'unrated' },
+    })
+  })
+
+  it('na cena da rodada 8, Relevance dá −0,031 e Diversity 0,548, e nenhum dos dois é o 0,811 das notas juntas', () => {
+    const rows = criterionAgreements(queries, round8Criteria, round8Observations(), new Set())
+
+    const relevance = rowOf<(typeof rows)[number]>(rows, 'Relevance')
+    const diversity = rowOf<(typeof rows)[number]>(rows, 'Diversity')
+
+    expect(relevance.cell).toMatchObject({
+      state: 'calculated',
+      agreement: { calculable: true, units: 50, raters: 2 },
+      profile: { equal: 0.92 },
+    })
+    expect(alphaOf(relevance.cell)).toBeCloseTo(-0.03125, 10)
+    expect(diversity.cell).toMatchObject({
+      state: 'calculated',
+      agreement: { calculable: true, units: 10, raters: 2 },
+      profile: { equal: 0.8 },
+    })
+    expect(alphaOf(diversity.cell)).toBeCloseTo(0.5476190476, 10)
+
+    const pooled = criterionAgreements(
+      [queries[0]],
+      [criterion('pooled', null)],
+      round8Observations().map((observation) => ({
+        ...observation,
+        definitionId: 'q1',
+        criterionId: 'pooled',
+      })),
+      new Set(),
+    )
+    expect(alphaOf(pooled[0].cell)).toBeCloseTo(0.8111842105, 10)
+    expect(alphaOf(relevance.cell)).not.toBeCloseTo(0.811, 2)
+    expect(alphaOf(diversity.cell)).not.toBeCloseTo(0.811, 2)
+  })
+})
+
+describe('app/projects/[id]/rounds/agreement-matrix — o critério mais fraco decide a rodada', () => {
+  type Row = Parameters<typeof weakestCriterion<Criterion>>[0][number]
+
+  const PROFILE = { equal: 0.5, adjacent: 0.5, extreme: 0, shares: new Map([[3, 0.5], [2, 0.5]]) }
+
+  function row(name: string, cell: MatrixCell): Row {
+    return {
+      column: { key: name, name, isGeneral: true, isPerResponse: false, criteria: new Map() },
+      cell,
+    }
+  }
+
+  function alpha(name: string, value: number): Row {
+    return row(name, {
+      state: 'calculated',
+      agreement: { calculable: true, alpha: value, units: 10, raters: 2 },
+      profile: PROFILE,
+    })
+  }
+
+  function notCalculable(
+    name: string,
+    reason: 'few_evaluators' | 'no_shared_units' | 'no_variation',
+  ): Row {
+    return row(name, {
+      state: 'calculated',
+      agreement: { calculable: false, reason, units: 4, raters: 2 },
+      profile: null,
+    })
+  }
+
+  function nameOf(rows: Row[]): string | null {
+    return weakestCriterion(rows)?.column.name ?? null
+  }
+
+  it('o de menor α decide, com o α e o perfil dele', () => {
+    const rows = [alpha('Relevance', 0.9), alpha('Diversity', 0.548), alpha('Clareza', 0.7)]
+
+    expect(weakestCriterion(rows)).toEqual({
+      column: rows[1].column,
+      agreement: { calculable: true, alpha: 0.548, units: 10, raters: 2 },
+      profile: PROFILE,
+    })
+  })
+
+  it('α negativo é menor que zero, e decide', () => {
+    expect(nameOf([alpha('Diversity', 0.548), alpha('Relevance', -0.031)])).toBe('Relevance')
+  })
+
+  it('o não calculável vence qualquer α, qualquer que seja o motivo', () => {
+    for (const reason of ['few_evaluators', 'no_shared_units', 'no_variation'] as const) {
+      expect(nameOf([alpha('Relevance', -0.4), notCalculable('Diversity', reason)])).toBe(
+        'Diversity',
+      )
+    }
+  })
+
+  it('sem variação também vence quando outro critério tem número', () => {
+    expect(
+      weakestCriterion([
+        row('Vazio', { state: 'unrated' }),
+        alpha('Diversity', 0.2),
+        notCalculable('Relevance', 'no_variation'),
+      ]),
+    ).toMatchObject({
+      column: { name: 'Relevance' },
+      agreement: { calculable: false, reason: 'no_variation' },
+    })
+  })
+
+  it('empate fica com o primeiro na ordem das linhas', () => {
+    expect(nameOf([alpha('Relevance', 0.5), alpha('Diversity', 0.5)])).toBe('Relevance')
+    expect(
+      nameOf([
+        notCalculable('Relevance', 'no_shared_units'),
+        notCalculable('Diversity', 'few_evaluators'),
+      ]),
+    ).toBe('Relevance')
+  })
+
+  it('o critério sem nota não entra, e lista sem número nenhum dá nulo', () => {
+    expect(nameOf([row('Vazio', { state: 'unrated' }), alpha('Relevance', 0.95)])).toBe('Relevance')
+    expect(weakestCriterion([row('Vazio', { state: 'unrated' })])).toBeNull()
+    expect(weakestCriterion([])).toBeNull()
   })
 })

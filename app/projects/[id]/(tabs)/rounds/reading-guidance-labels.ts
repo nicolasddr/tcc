@@ -23,27 +23,41 @@ export function shortcutLabel(kind: GuidanceShortcutKind): string {
   }
 }
 
-export const BELOW_BAND_GUIDANCE =
-  'O ICR desta rodada ficou abaixo da faixa de referência: os avaliadores não estão ' +
-  'aplicando o codebook da mesma forma. O caminho é refinar o codebook antes de olhar a ' +
-  `${QUALITY_LABEL}, porque, enquanto eles não concordam entre si, a distribuição das ` +
-  'notas ainda não diz se a LLM segue o codebook.'
+export function belowBandGuidance(criterion: string): string {
+  return (
+    `O ICR de ${criterion} ficou abaixo da faixa de referência: os avaliadores não estão ` +
+    'aplicando o codebook da mesma forma. O caminho é refinar o codebook antes de olhar a ' +
+    `${QUALITY_LABEL}, porque, enquanto eles não concordam entre si, a distribuição das ` +
+    'notas ainda não diz se a LLM segue o codebook.'
+  )
+}
 
 export const WITHIN_BAND_GUIDANCE =
-  'O ICR desta rodada está dentro da faixa de referência: os avaliadores concordam, e é ' +
+  'O ICR de todos os critérios está dentro da faixa de referência: os avaliadores ' +
+  'concordam, e é ' +
   `hora de olhar a ${QUALITY_LABEL}. Notas concentradas em ${scaleLabel('medium')} e ` +
   `${scaleLabel('low')} indicam que a LLM não está seguindo o codebook, e o refinamento ` +
   'pode ser no prompt, no codebook ou nos dois. Mexer no codebook para ajudar a LLM ' +
   'também muda o que os avaliadores leem.'
 
-export const PHASE_4_BELOW_BAND_GUIDANCE =
-  'O ICR desta rodada ficou abaixo da faixa de referência: os avaliadores não estão ' +
-  'aplicando o codebook da mesma forma, o que indica que ele não se estendeu a essas ' +
-  'pessoas ou a esses itens.'
+export function phase4BelowBandGuidance(criterion: string): string {
+  return (
+    `O ICR de ${criterion} ficou abaixo da faixa de referência: os avaliadores não estão ` +
+    'aplicando o codebook da mesma forma, o que indica que ele não se estendeu a essas ' +
+    'pessoas ou a esses itens.'
+  )
+}
 
 export const PHASE_4_WITHIN_BAND_GUIDANCE =
-  'O ICR desta rodada está dentro da faixa de referência: os avaliadores concordam entre ' +
-  `si, e é hora de olhar a ${QUALITY_LABEL} ao lado da rodada de referência.`
+  'O ICR de todos os critérios está dentro da faixa de referência: os avaliadores ' +
+  `concordam entre si, e é hora de olhar a ${QUALITY_LABEL} ao lado da rodada de referência.`
+
+export function concentratedGuidance(criterion: string): string {
+  return (
+    `As notas de ${criterion} estão concentradas, como diz o aviso na Concordância: o α ` +
+    'baixo pode vir da pouca variação nas notas, e não de avaliadores discordando.'
+  )
+}
 
 export function notCalculableReasonText(reason: NotCalculableReason): string {
   switch (reason) {
@@ -59,36 +73,46 @@ export function notCalculableReasonText(reason: NotCalculableReason): string {
   }
 }
 
-export function notCalculableGuidance(reason: NotCalculableReason): string {
+function noAgreementOf(criterion: string | null): string {
+  return criterion === null ? 'Não há ICR nesta rodada' : `Não há ICR para ${criterion}`
+}
+
+export function notCalculableGuidance(
+  reason: NotCalculableReason,
+  criterion: string | null,
+): string {
   return (
-    `Não há ICR nesta rodada: ${notCalculableReasonText(reason)}. Sem esse número não ` +
+    `${noAgreementOf(criterion)}: ${notCalculableReasonText(reason)}. Sem esse número não ` +
     'se sabe se os avaliadores aplicam o codebook da mesma forma, e por isso a ' +
     `${QUALITY_LABEL} ainda não é uma leitura confiável.`
   )
 }
 
-export function phase4NotCalculableGuidance(reason: NotCalculableReason): string {
+export function phase4NotCalculableGuidance(
+  reason: NotCalculableReason,
+  criterion: string | null,
+): string {
   return (
-    `Não há ICR nesta rodada: ${notCalculableReasonText(reason)}. Sem esse número não ` +
+    `${noAgreementOf(criterion)}: ${notCalculableReasonText(reason)}. Sem esse número não ` +
     'se sabe se os avaliadores aplicam o codebook da mesma forma, e por isso a ' +
     'comparação com a rodada de referência ainda não é possível.'
   )
 }
 
 type PhaseGuidanceTexts = {
-  belowBand: string
+  belowBand: (criterion: string) => string
   withinBand: string
-  notCalculable: (reason: NotCalculableReason) => string
+  notCalculable: (reason: NotCalculableReason, criterion: string | null) => string
 }
 
 const GUIDANCE_TEXTS: Record<GuidedPhase, PhaseGuidanceTexts> = {
   [PHASE_3]: {
-    belowBand: BELOW_BAND_GUIDANCE,
+    belowBand: belowBandGuidance,
     withinBand: WITHIN_BAND_GUIDANCE,
     notCalculable: notCalculableGuidance,
   },
   [PHASE_4]: {
-    belowBand: PHASE_4_BELOW_BAND_GUIDANCE,
+    belowBand: phase4BelowBandGuidance,
     withinBand: PHASE_4_WITHIN_BAND_GUIDANCE,
     notCalculable: phase4NotCalculableGuidance,
   },
@@ -98,9 +122,11 @@ export function guidanceText(guidance: ReadingGuidance): string {
   const texts = GUIDANCE_TEXTS[guidance.phase]
   switch (guidance.kind) {
     case 'below_band':
-      return texts.belowBand
+      return guidance.concentrated
+        ? `${texts.belowBand(guidance.criterion)} ${concentratedGuidance(guidance.criterion)}`
+        : texts.belowBand(guidance.criterion)
     case 'not_calculable':
-      return texts.notCalculable(guidance.reason)
+      return texts.notCalculable(guidance.reason, guidance.criterion)
     case 'within_band':
       return texts.withinBand
   }

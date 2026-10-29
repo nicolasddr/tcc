@@ -13,6 +13,7 @@ import {
 } from '../../pipeline/criteria'
 import { PER_RESPONSE_KEY } from '../evaluate/completeness'
 import type { RoundObservation } from './agreement'
+import { withoutExcluded } from './agreement-pair'
 
 export type CriterionKey = DefinitionKey & CriterionScope & { name: string }
 
@@ -180,5 +181,59 @@ export function criterionCells<C extends CriterionKey>(
 ): { column: MatrixColumn<C>; cell: MatrixCell }[] {
   return measuredByColumn(definitions, criteria, observations, measureAgreement).map(
     ({ column, cell }) => ({ column, cell: agreementCell(cell) }),
+  )
+}
+
+export type CriterionAgreement<C> = {
+  column: MatrixColumn<C>
+  cell: MatrixCell
+  withoutOutliers: MatrixCell | null
+}
+
+export function criterionAgreements<C extends CriterionKey>(
+  definitions: readonly DefinitionKey[],
+  criteria: readonly C[],
+  observations: readonly RoundObservation[],
+  excluded: ReadonlySet<string>,
+): CriterionAgreement<C>[] {
+  const filtered = excluded.size > 0
+
+  return measuredByColumn(definitions, criteria, observations, (group) => ({
+    all: measureAgreement(group),
+    withoutOutliers: filtered ? measureAgreement(withoutExcluded(group, excluded)) : null,
+  })).map(({ column, cell }) =>
+    cell.state === 'measured'
+      ? { column, cell: cell.value.all, withoutOutliers: cell.value.withoutOutliers }
+      : { column, cell, withoutOutliers: filtered ? cell : null },
+  )
+}
+
+export type WeakestCriterion<C> = {
+  column: MatrixColumn<C>
+  agreement: Agreement
+  profile: AgreementProfile | null
+}
+
+export function weakestCriterion<C>(
+  rows: readonly { column: MatrixColumn<C>; cell: MatrixCell }[],
+): WeakestCriterion<C> | null {
+  const measured = rows.flatMap(({ column, cell }) =>
+    cell.state === 'calculated'
+      ? [{ column, agreement: cell.agreement, profile: cell.profile }]
+      : [],
+  )
+
+  const missing = measured.find(({ agreement }) => !agreement.calculable)
+  if (missing) return missing
+
+  return measured.reduce<WeakestCriterion<C> | null>(
+    (lowest, entry) =>
+      !lowest ||
+      (entry.agreement.calculable &&
+        lowest.agreement.calculable &&
+        entry.agreement.alpha < lowest.agreement.alpha)
+        ? entry
+        : lowest,
+    null,
   )
 }

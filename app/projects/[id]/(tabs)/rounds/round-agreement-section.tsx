@@ -2,16 +2,11 @@ import { Section } from '@/app/components/ui/section'
 import type { CodebookCriterion, CodebookDefinition } from '../../pipeline/codebook'
 import type { RoundMark } from '../../round-usage'
 import type { EvaluatorEffort, RoundObservation } from './agreement'
-import {
-  agreementPair,
-  evaluatedResponses,
-  profilePair,
-  withoutExcluded,
-} from './agreement-pair'
-import { AgreementPanel } from './agreement-panel'
+import { evaluatedRaters, evaluatedResponses, withoutExcluded } from './agreement-pair'
+import { AgreementNotes, AgreementWarnings, type RoundSample } from './agreement-panel'
 import { AgreementMatrixTable } from './agreement-matrix-table'
-import { matrixColumns } from './agreement-matrix'
-import { byDefinitionSummary } from './agreement-labels'
+import { criterionAgreements, matrixColumns } from './agreement-matrix'
+import { byDefinitionSummary, criterionConcentrationWarning } from './agreement-labels'
 import { CriterionAgreementTable } from './criterion-agreement-table'
 import { ByDefinition } from './by-definition'
 import { excludedMemberIds, type OutlierMark } from './outliers'
@@ -50,10 +45,29 @@ export function roundAgreementSection({
   const excluded = excludedMemberIds(outliers)
   const open = isOpen(round)
   const distribution = hasQuality(round.phase)
-  const responses = {
-    all: evaluatedResponses(observations),
-    withoutOutliers: evaluatedResponses(withoutExcluded(observations, excluded)),
+  const sampleOf = (group: readonly RoundObservation[]): RoundSample => ({
+    raters: evaluatedRaters(group),
+    responses: evaluatedResponses(group),
+  })
+  const sample = {
+    all: sampleOf(observations),
+    withoutOutliers:
+      excluded.size > 0 ? sampleOf(withoutExcluded(observations, excluded)) : null,
   }
+  const hasCodebook = definitions.length > 0 && criteria.length > 0
+  const concentrations = hasCodebook
+    ? criterionAgreements(definitions, criteria, observations, excluded).flatMap(
+        ({ column, cell }) => {
+          if (cell.state !== 'calculated') return []
+          const warning = criterionConcentrationWarning(
+            column.name,
+            cell.agreement,
+            cell.profile,
+          )
+          return warning ? [warning] : []
+        },
+      )
+    : []
   const matrix = (
     <AgreementMatrixTable
       definitions={definitions}
@@ -71,22 +85,15 @@ export function roundAgreementSection({
       help="Krippendorff's Alpha ordinal"
     >
       <div className="flex flex-col gap-4">
-        <AgreementPanel
-          pair={agreementPair(observations, excluded)}
-          profiles={profilePair(observations, excluded)}
-          responses={responses}
-          effort={open ? [] : effort}
-          outliers={outliers}
-          distribution={distribution}
-          {...(participation && !open ? { participation } : {})}
-        />
+        <AgreementWarnings sample={sample} concentrations={concentrations} />
 
-        {definitions.length > 0 && criteria.length > 0 ? (
+        {hasCodebook ? (
           <>
             <CriterionAgreementTable
               definitions={definitions}
               criteria={criteria}
               observations={observations}
+              excluded={excluded}
               distribution={distribution}
             />
 
@@ -102,6 +109,12 @@ export function roundAgreementSection({
         ) : (
           matrix
         )}
+
+        <AgreementNotes
+          effort={open ? [] : effort}
+          outliers={outliers}
+          {...(participation && !open ? { participation } : {})}
+        />
       </div>
     </Section>
   )

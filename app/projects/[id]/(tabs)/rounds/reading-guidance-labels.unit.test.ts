@@ -1,16 +1,17 @@
 import { describe, it, expect } from 'vitest'
 import * as labels from '@/app/projects/[id]/(tabs)/rounds/reading-guidance-labels'
 import {
-  BELOW_BAND_GUIDANCE,
   CODEBOOK_SHORTCUT,
   GUIDANCE_HEADING,
-  PHASE_4_BELOW_BAND_GUIDANCE,
   PHASE_4_WITHIN_BAND_GUIDANCE,
   QUALITY_SHORTCUT,
   WITHIN_BAND_GUIDANCE,
+  belowBandGuidance,
+  concentratedGuidance,
   guidanceText,
   notCalculableGuidance,
   notCalculableReasonText,
+  phase4BelowBandGuidance,
   phase4NotCalculableGuidance,
   shortcutLabel,
 } from '@/app/projects/[id]/(tabs)/rounds/reading-guidance-labels'
@@ -25,6 +26,14 @@ import { PHASE_3, PHASE_4 } from '@/app/projects/[id]/pipeline/preconditions'
 import type { NotCalculableReason } from '@/lib/agreement'
 
 const REASONS: NotCalculableReason[] = ['few_evaluators', 'no_shared_units', 'no_variation']
+
+const NAME = 'Relevance'
+
+const NAMES = [NAME, null] as const
+
+const BELOW_BAND_GUIDANCE = belowBandGuidance(NAME)
+
+const PHASE_4_BELOW_BAND_GUIDANCE = phase4BelowBandGuidance(NAME)
 
 const PHASE_4_WORDS = ['fase 4', 'avançar', 'avance', 'próxima fase']
 
@@ -63,9 +72,12 @@ const SHARED_REASON_WORDS: Record<NotCalculableReason, string> = {
 
 function allGuidances(phase: GuidedPhase): ReadingGuidance[] {
   return [
-    { phase, kind: 'below_band' },
+    { phase, kind: 'below_band', criterion: NAME, concentrated: false },
+    { phase, kind: 'below_band', criterion: NAME, concentrated: true },
     { phase, kind: 'within_band' },
-    ...REASONS.map((reason) => ({ phase, kind: 'not_calculable' as const, reason })),
+    ...NAMES.flatMap((criterion) =>
+      REASONS.map((reason) => ({ phase, kind: 'not_calculable' as const, criterion, reason })),
+    ),
   ]
 }
 
@@ -76,9 +88,11 @@ function phase3Texts(): string[] {
     WITHIN_BAND_GUIDANCE,
     QUALITY_SHORTCUT,
     CODEBOOK_SHORTCUT,
+    concentratedGuidance(NAME),
   ]
   for (const reason of REASONS) {
-    texts.push(notCalculableReasonText(reason), notCalculableGuidance(reason))
+    texts.push(notCalculableReasonText(reason))
+    for (const name of NAMES) texts.push(notCalculableGuidance(reason, name))
   }
   for (const guidance of allGuidances(PHASE_3)) texts.push(guidanceText(guidance))
   return texts
@@ -87,7 +101,8 @@ function phase3Texts(): string[] {
 function phase4Texts(): string[] {
   const texts = [GUIDANCE_HEADING, PHASE_4_BELOW_BAND_GUIDANCE, PHASE_4_WITHIN_BAND_GUIDANCE]
   for (const reason of REASONS) {
-    texts.push(notCalculableReasonText(reason), phase4NotCalculableGuidance(reason))
+    texts.push(notCalculableReasonText(reason))
+    for (const name of NAMES) texts.push(phase4NotCalculableGuidance(reason, name))
   }
   for (const guidance of allGuidances(PHASE_4)) texts.push(guidanceText(guidance))
   return texts
@@ -106,26 +121,68 @@ describe('app/projects/[id]/rounds/reading-guidance-labels — as palavras da or
   })
 
   it('guidanceText devolve o texto de cada caso', () => {
-    expect(guidanceText({ phase: PHASE_3, kind: 'below_band' })).toBe(BELOW_BAND_GUIDANCE)
+    expect(
+      guidanceText({ phase: PHASE_3, kind: 'below_band', criterion: NAME, concentrated: false }),
+    ).toBe(BELOW_BAND_GUIDANCE)
     expect(guidanceText({ phase: PHASE_3, kind: 'within_band' })).toBe(WITHIN_BAND_GUIDANCE)
     for (const reason of REASONS) {
-      expect(guidanceText({ phase: PHASE_3, kind: 'not_calculable', reason })).toBe(
-        notCalculableGuidance(reason),
-      )
+      for (const criterion of NAMES) {
+        expect(guidanceText({ phase: PHASE_3, kind: 'not_calculable', criterion, reason })).toBe(
+          notCalculableGuidance(reason, criterion),
+        )
+      }
     }
   })
 
   it('na Fase 4, guidanceText devolve os textos da Fase 4', () => {
-    expect(guidanceText({ phase: PHASE_4, kind: 'below_band' })).toBe(
-      PHASE_4_BELOW_BAND_GUIDANCE,
-    )
+    expect(
+      guidanceText({ phase: PHASE_4, kind: 'below_band', criterion: NAME, concentrated: false }),
+    ).toBe(PHASE_4_BELOW_BAND_GUIDANCE)
     expect(guidanceText({ phase: PHASE_4, kind: 'within_band' })).toBe(
       PHASE_4_WITHIN_BAND_GUIDANCE,
     )
     for (const reason of REASONS) {
-      expect(guidanceText({ phase: PHASE_4, kind: 'not_calculable', reason })).toBe(
-        phase4NotCalculableGuidance(reason),
+      for (const criterion of NAMES) {
+        expect(guidanceText({ phase: PHASE_4, kind: 'not_calculable', criterion, reason })).toBe(
+          phase4NotCalculableGuidance(reason, criterion),
+        )
+      }
+    }
+  })
+
+  it('o texto diz o nome do critério mais fraco, e dentro da faixa fala de todos os critérios', () => {
+    expect(belowBandGuidance('Relevance')).toMatch(/^O ICR de Relevance ficou abaixo da faixa/)
+    expect(phase4BelowBandGuidance('Diversity')).toMatch(/^O ICR de Diversity ficou abaixo da faixa/)
+    expect(WITHIN_BAND_GUIDANCE).toMatch(/^O ICR de todos os critérios está dentro da faixa/)
+    expect(PHASE_4_WITHIN_BAND_GUIDANCE).toMatch(
+      /^O ICR de todos os critérios está dentro da faixa/,
+    )
+    for (const reason of REASONS) {
+      expect(notCalculableGuidance(reason, 'Relevance')).toMatch(/^Não há ICR para Relevance: /)
+      expect(phase4NotCalculableGuidance(reason, 'Relevance')).toMatch(
+        /^Não há ICR para Relevance: /,
       )
+    }
+  })
+
+  it('sem critério com nota, o não calculável fala da rodada, sem nome', () => {
+    for (const reason of REASONS) {
+      expect(notCalculableGuidance(reason, null)).toMatch(/^Não há ICR nesta rodada: /)
+      expect(phase4NotCalculableGuidance(reason, null)).toMatch(/^Não há ICR nesta rodada: /)
+    }
+  })
+
+  it('com as notas do mais fraco concentradas, o texto acrescenta a frase que remete ao aviso', () => {
+    expect(concentratedGuidance('Relevance')).toBe(
+      'As notas de Relevance estão concentradas, como diz o aviso na Concordância: o α ' +
+        'baixo pode vir da pouca variação nas notas, e não de avaliadores discordando.',
+    )
+    for (const phase of [PHASE_3, PHASE_4] as const) {
+      const plain = guidanceText({ phase, kind: 'below_band', criterion: NAME, concentrated: false })
+      expect(
+        guidanceText({ phase, kind: 'below_band', criterion: NAME, concentrated: true }),
+      ).toBe(`${plain} ${concentratedGuidance(NAME)}`)
+      expect(plain).not.toContain(concentratedGuidance(NAME))
     }
   })
 
@@ -156,7 +213,7 @@ describe('app/projects/[id]/rounds/reading-guidance-labels — as palavras da or
     const reasons = REASONS.map(notCalculableReasonText)
     expect(new Set(reasons).size).toBe(REASONS.length)
     for (const reason of REASONS) {
-      const text = notCalculableGuidance(reason)
+      const text = notCalculableGuidance(reason, null)
       expect(text).toContain('Não há ICR nesta rodada')
       expect(text).toContain(notCalculableReasonText(reason))
       expect(text).toContain(`a ${QUALITY_LABEL} ainda não é uma leitura confiável`)
@@ -165,7 +222,7 @@ describe('app/projects/[id]/rounds/reading-guidance-labels — as palavras da or
 
   it('na Fase 4, não calculável diz o mesmo motivo e que a comparação com a referência ainda não é possível', () => {
     for (const reason of REASONS) {
-      const text = phase4NotCalculableGuidance(reason)
+      const text = phase4NotCalculableGuidance(reason, null)
       expect(text).toContain('Não há ICR nesta rodada')
       expect(text).toContain(notCalculableReasonText(reason))
       expect(text).toContain('a comparação com a rodada de referência ainda não é possível')
@@ -207,7 +264,10 @@ describe('app/projects/[id]/rounds/reading-guidance-labels — as palavras da or
   it('só dentro da faixa manda olhar a Qualidade agora; os outros dizem que ainda não', () => {
     expect(WITHIN_BAND_GUIDANCE).toContain('é hora de')
     expect(WITHIN_BAND_GUIDANCE).not.toContain('ainda não')
-    const others = [BELOW_BAND_GUIDANCE, ...REASONS.map(notCalculableGuidance)]
+    const others = [
+      BELOW_BAND_GUIDANCE,
+      ...NAMES.flatMap((name) => REASONS.map((reason) => notCalculableGuidance(reason, name))),
+    ]
     for (const text of others) {
       expect(text).not.toContain('é hora de')
       expect(text).toContain('ainda não')
@@ -216,7 +276,12 @@ describe('app/projects/[id]/rounds/reading-guidance-labels — as palavras da or
 
   it('na Fase 4, só dentro da faixa diz que é hora de olhar algo', () => {
     expect(PHASE_4_WITHIN_BAND_GUIDANCE).toContain('é hora de')
-    const others = [PHASE_4_BELOW_BAND_GUIDANCE, ...REASONS.map(phase4NotCalculableGuidance)]
+    const others = [
+      PHASE_4_BELOW_BAND_GUIDANCE,
+      ...NAMES.flatMap((name) =>
+        REASONS.map((reason) => phase4NotCalculableGuidance(reason, name)),
+      ),
+    ]
     for (const text of others) {
       expect(text).not.toContain('é hora de')
     }
@@ -237,8 +302,9 @@ describe('app/projects/[id]/rounds/reading-guidance-labels — as palavras da or
         WITHIN_BAND_GUIDANCE,
         PHASE_4_BELOW_BAND_GUIDANCE,
         PHASE_4_WITHIN_BAND_GUIDANCE,
-        ...REASONS.map(notCalculableGuidance),
-        ...REASONS.map(phase4NotCalculableGuidance),
+        concentratedGuidance(NAME),
+        ...REASONS.map((reason) => notCalculableGuidance(reason, NAME)),
+        ...REASONS.map((reason) => phase4NotCalculableGuidance(reason, null)),
       ]),
     )
   })
