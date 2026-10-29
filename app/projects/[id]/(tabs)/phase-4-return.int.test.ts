@@ -435,7 +435,7 @@ describe('app/projects/[id]/page — painel para voltar da Fase 4 para a Fase 3'
     expect((advance!.props as AdvanceProps).lines.join(' ')).toContain('voltar à Fase 3')
   })
 
-  it('depois do retorno, a série de Concordância mostra as Fases 3, 4 e 3, nessa ordem', async () => {
+  it('depois do retorno, a série de Confiabilidade mostra as Fases 3, 4 e 3, nessa ordem', async () => {
     const admin = await newUser('Admin')
     const project = await newProject(admin, PHASE_4)
     const promptVersion = await addPromptVersion(ownerDb, project, admin)

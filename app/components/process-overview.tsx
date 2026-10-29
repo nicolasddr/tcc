@@ -43,7 +43,7 @@ function RoleCards({ createAction }: { createAction: ReactNode }) {
         <ul className="role-features">
           <li>Crie projetos e convide avaliadores por e-mail</li>
           <li>Defina o codebook com definições e critérios</li>
-          <li>Acompanhe métricas de concordância</li>
+          <li>Acompanhe a concordância e a confiabilidade entre avaliadores</li>
         </ul>
         {createAction}
       </div>
@@ -112,7 +112,7 @@ function ProcessGuide() {
         </div>
         <div className="codebook-note">
           <strong>
-            <span data-tooltip="ICR (Inter-Coder Reliability): grau de concordância entre dois ou mais avaliadores ao aplicar o mesmo codebook. Alta concordância indica que as definições e critérios estão claros o suficiente para serem usados de forma consistente.">
+            <span data-tooltip="Concordância: o quanto dois ou mais avaliadores dão a mesma nota ao aplicar o mesmo codebook. A confiabilidade (ICR, Inter-Coder Reliability) é estimada a partir dela, descontado o acaso. As duas altas indicam que as definições e critérios estão claros o suficiente para serem usados de forma consistente.">
               Concordância entre avaliadores
             </span>{' '}
             = clareza do codebook.
@@ -155,8 +155,8 @@ function ProcessGuide() {
                 <li>Avaliadores aplicam o codebook de forma independente</li>
                 <li>
                   Calcular{' '}
-                  <span data-tooltip="ICR: mede se os avaliadores interpretaram o codebook da mesma forma. ICR baixo significa que alguma definição ou critério precisa ser refinado, não necessariamente que a LLM errou.">
-                    concordância (ICR)
+                  <span data-tooltip="ICR: estima, descontado o acaso, se os avaliadores interpretaram o codebook da mesma forma. ICR baixo significa que alguma definição ou critério precisa ser refinado, não necessariamente que a LLM errou.">
+                    concordância e confiabilidade (ICR)
                   </span>
                 </li>
                 <li>Se baixa: discutir divergências e refinar o codebook</li>
@@ -179,8 +179,8 @@ function ProcessGuide() {
               <ul className="phase-acts">
                 <li>Codebook incorporado ao prompt como contexto</li>
                 <li>Avaliadores julgam a qualidade das respostas pelos critérios</li>
-                <li>Concordância baixa → refinar codebook e repetir</li>
-                <li>Concordância alta, qualidade insatisfatória → ajustar prompt e repetir</li>
+                <li>Confiabilidade baixa → refinar codebook e repetir</li>
+                <li>Confiabilidade alta, qualidade insatisfatória → ajustar prompt e repetir</li>
               </ul>
               <div className="phase-outcome">✓ Prompt validado</div>
             </div>

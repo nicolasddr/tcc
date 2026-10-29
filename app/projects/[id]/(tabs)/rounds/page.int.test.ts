@@ -913,7 +913,7 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
       return [props.children, props.href]
     })
     expect(closed).toEqual([
-      ['Abrir concordância', `/projects/${project}/rounds/${list.rounds[0].id}/agreement`],
+      ['Abrir concordância e confiabilidade', `/projects/${project}/rounds/${list.rounds[0].id}/agreement`],
       ['Abrir revisão', `/projects/${project}/rounds/${list.rounds[0].id}`],
     ])
   })
@@ -1549,7 +1549,7 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     expect(props.responses).toEqual({ all: 3, withoutOutliers: 3 })
 
     const text = panelTextOf(tree)
-    expect(text).toContain('Concordância (ICR)')
+    expect(text).toContain('Confiabilidade (ICR)')
     expect(text).toContain('1,000')
     expect(text).toContain('3 notas · 2 avaliadores')
     expect(text).toContain('Boa')
@@ -1945,7 +1945,7 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     expect(value).toBeTruthy()
 
     const text = markupTextOf(value!)
-    expect(text).toContain('Concordância (ICR): 1,000 · 100% de notas iguais · 2 notas · 2 avaliadores')
+    expect(text).toContain('Confiabilidade (ICR): 1,000 · 100% de notas iguais · 2 notas · 2 avaliadores')
     expect(text).not.toContain('Boa')
   })
 
@@ -3232,7 +3232,7 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     const tree = await render(scene.project)
 
     expect(shortcutsOf(tree)?.links).toEqual([
-      { href: '#concordancia', label: 'Concordância' },
+      { href: '#concordancia', label: 'Concordância e confiabilidade' },
       { href: '#qualidade', label: 'Qualidade' },
       {
         href: `/projects/${scene.project}/rounds/${scene.round}`,
@@ -3240,7 +3240,7 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
       },
     ])
     const text = markupTextOf(createElement(ReadingShortcuts, shortcutsOf(tree)!))
-    expect(text).toBe('Ir para: Concordância · Qualidade · Revisão de discordâncias')
+    expect(text).toBe('Ir para: Concordância e confiabilidade · Qualidade · Revisão de discordâncias')
   })
 
   it('com rodada aberta, os atalhos levam à Concordância, à Qualidade, às rodadas do projeto e à revisão de discordâncias da rodada aberta', async () => {
@@ -3251,7 +3251,7 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     const tree = await render(scene.project)
 
     expect(shortcutsOf(tree)?.links).toEqual([
-      { href: '#concordancia', label: 'Concordância' },
+      { href: '#concordancia', label: 'Concordância e confiabilidade' },
       { href: '#qualidade', label: 'Qualidade' },
       { href: '#rodadas-do-projeto', label: 'Rodadas do projeto (1)' },
       {
@@ -3270,7 +3270,7 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
 
     expect(findSection(tree, QualityPanel)).toBeNull()
     expect(shortcutsOf(tree)?.links).toEqual([
-      { href: '#concordancia', label: 'Concordância' },
+      { href: '#concordancia', label: 'Concordância e confiabilidade' },
       { href: '#rodadas-do-projeto', label: 'Rodadas do projeto (1)' },
       {
         href: `/projects/${scene.project}/rounds/${scene.round}`,
@@ -3471,7 +3471,7 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     const text = `${allTextOf(tree)} ${markupTextOf(createElement(EvaluatorRounds, props))}`
 
     expect(props.rounds.map((round) => round.roundNumber)).toEqual([1])
-    for (const word of ['Krippendorff', 'ICR', 'Alpha', 'Concordância', 'Qualidade', '%']) {
+    for (const word of ['Krippendorff', 'ICR', 'Alpha', 'Concordância', 'Confiabilidade', 'Qualidade', '%']) {
       expect(text).not.toContain(word)
     }
     expect(text).not.toContain(GUIDANCE_HEADING)

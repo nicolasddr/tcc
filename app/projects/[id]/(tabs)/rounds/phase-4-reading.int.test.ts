@@ -850,7 +850,7 @@ describe('app/projects/[id]/rounds — a rodada da Fase 4 ao lado da rodada de r
     expect(findElement(tree, ReferenceRoundLine)).toBeNull()
     expect(findElement(tree, RoundList)).toBeNull()
     expect(findElement(tree, ReadingGuidanceNote)).toBeNull()
-    for (const word of ['rodada de referência', 'concordância', 'qualidade']) {
+    for (const word of ['rodada de referência', 'concordância', 'confiabilidade', 'qualidade']) {
       expect(text).not.toContain(word)
     }
     expect(text).not.toContain(GUIDANCE_HEADING.toLowerCase())

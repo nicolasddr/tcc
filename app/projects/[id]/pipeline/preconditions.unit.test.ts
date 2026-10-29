@@ -282,7 +282,7 @@ describe('phase3ConfirmationLines', () => {
 
   it('diz que a decisão é do Administrador e que a métrica não trava', () => {
     expect(text).toContain('A decisão de avançar é do Administrador.')
-    expect(text).toContain('Nenhum valor de concordância libera nem impede o avanço')
+    expect(text).toContain('Nenhum valor de concordância ou de confiabilidade libera nem impede o avanço')
   })
 
   it('descreve o que a Fase 3 é no processo, sem prometer tela nova', () => {
@@ -525,7 +525,7 @@ describe('phase4ConfirmationLines', () => {
 
   it('diz que a decisão é do Administrador e que nem ICR nem Qualidade travam', () => {
     expect(text).toContain('A decisão de avançar é do Administrador.')
-    expect(text).toContain('Nenhum valor de concordância ou de Qualidade libera nem impede o avanço')
+    expect(text).toContain('Nenhum valor de concordância, de confiabilidade ou de Qualidade libera nem impede o avanço')
     expect(text).toContain('ICR')
   })
 
@@ -637,7 +637,7 @@ describe('returnConfirmationLines', () => {
   it('diz que nenhum valor de concordância ou de Qualidade libera, impede ou sugere o retorno', () => {
     expect(text).toContain('A decisão de voltar é do Administrador.')
     expect(text).toContain(
-      'Nenhum valor de concordância ou de Qualidade libera, impede ou sugere o retorno.',
+      'Nenhum valor de concordância, de confiabilidade ou de Qualidade libera, impede ou sugere o retorno.',
     )
   })
 

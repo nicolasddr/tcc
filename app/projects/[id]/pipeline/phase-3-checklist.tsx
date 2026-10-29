@@ -101,7 +101,7 @@ export function Phase3Checklist({
       ) : (
         <p className="m-0 mt-3 text-[13px] text-muted">
           A Fase {PHASE_3} já foi concluída: o projeto está na Fase {phase}. As rodadas,
-          as avaliações, a concordância e a Qualidade da Fase {PHASE_3} continuam aqui
+          as avaliações, a concordância, a confiabilidade e a Qualidade da Fase {PHASE_3} continuam aqui
           para consulta.
         </p>
       )}

@@ -10,7 +10,7 @@ export type AgreementBand = 'questionable' | 'acceptable' | 'good'
 
 export type BandTone = 'danger' | 'warning' | 'success'
 
-export const AGREEMENT_LABEL = 'Concordância (ICR)'
+export const AGREEMENT_LABEL = 'Confiabilidade (ICR)'
 
 export const AGREEMENT_ALL_LABEL = 'com todos'
 
@@ -79,7 +79,7 @@ export const AGREEMENT_SERIES_POINTS: readonly string[] = [
     `As Fases ${PHASE_2}, ${PHASE_3} e ${PHASE_4} ficam na mesma série.`,
   `Da última rodada da Fase ${PHASE_2} para a primeira da Fase ${PHASE_3}, com a mesma ` +
     'versão de codebook, a diferença mostra o efeito de a LLM passar a receber o codebook.',
-  `Na Fase ${PHASE_3}, o codebook refinado deve aparecer como concordância maior na rodada ` +
+  `Na Fase ${PHASE_3}, o codebook refinado deve aparecer como confiabilidade maior na rodada ` +
     `seguinte. Na Fase ${PHASE_4}, codebook e prompt não mudam: mudam os itens e os ` +
     'avaliadores, e cada rodada se lê ao lado da sua rodada de referência.',
 ]
@@ -193,9 +193,9 @@ export function notCalculableMessage(reason: NotCalculableReason): string {
       )
     case 'no_variation':
       return (
-        'Todas as notas caíram no mesmo ponto da escala. Sem variação não há ' +
-        'concordância por acaso a descontar, e o coeficiente fica indefinido — o que ' +
-        'não é o mesmo que concordância perfeita.'
+        'Todas as notas caíram no mesmo ponto da escala. Sem variação, não há como ' +
+        'separar a concordância do que o acaso produziria, e o coeficiente fica ' +
+        'indefinido — o que não é o mesmo que confiabilidade perfeita.'
       )
   }
 }

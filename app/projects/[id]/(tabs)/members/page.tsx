@@ -129,7 +129,7 @@ export default async function ProjectMembersPage({
       {isAdmin ? (
         <Section
           title="Outliers por rodada"
-          hint="Marcar uma pessoa como outlier tira as notas dela do cálculo de concordância daquela rodada, e só daquela rodada."
+          hint="Marcar uma pessoa como outlier tira as notas dela do cálculo da concordância e da confiabilidade daquela rodada, e só daquela rodada."
           help="A marca não altera o acesso da pessoa ao projeto, não apaga nenhuma avaliação, e a ferramenta não avisa o avaliador."
         >
           <OutlierPanel projectId={project.id} {...outliers} />

@@ -46,7 +46,7 @@ export const QUALITY_MATRIX_LEGEND =
   `“${CELL_NOT_APPLICABLE}” é ${CELL_NOT_APPLICABLE_TITLE}, que não se aplica a esta. ` +
   'Com avaliador marcado como outlier, cada célula traz os dois valores, ' +
   `${AGREEMENT_ALL_LABEL} primeiro e ${AGREEMENT_WITHOUT_OUTLIERS_LABEL} depois, ao ` +
-  `contrário da matriz de Concordância, que fica só ${AGREEMENT_ALL_LABEL}.`
+  `contrário da matriz de concordância e confiabilidade, que fica só ${AGREEMENT_ALL_LABEL}.`
 
 export const QUALITY_SERIES_HINT =
   `A distribuição das notas de cada rodada das Fases ${PHASE_3} e ${PHASE_4}, um ponto por rodada.`

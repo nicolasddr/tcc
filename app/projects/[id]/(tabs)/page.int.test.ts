@@ -1054,7 +1054,7 @@ describe('app/projects/[id]/page — escopo de visibilidade', () => {
     expect(findElement(tree, AgreementSeriesChart)).toBeNull()
     expect(roundsLinksOf(tree, project)).toHaveLength(0)
     const page = deepText(tree)
-    expect(page).not.toContain('Concordância por rodada')
+    expect(page).not.toContain('Confiabilidade por rodada')
     expect(page).not.toContain('Qualidade')
   })
 
@@ -1239,6 +1239,7 @@ describe('app/projects/[id]/page — escopo de visibilidade', () => {
       const tree = await render(project)
       expect(phase2Of(tree)).toBeNull()
       expect(deepText(tree)).not.toContain('Concordância')
+      expect(deepText(tree)).not.toContain('Confiabilidade')
     }
   })
 
@@ -1630,6 +1631,7 @@ describe('app/projects/[id]/page — escopo de visibilidade', () => {
     expect(page).not.toContain('Krippendorff')
     expect(page).not.toContain('ICR')
     expect(page).not.toContain('Concordância')
+    expect(page).not.toContain('Confiabilidade')
   })
 
   it('o Administrador vê a Qualidade da rodada da Fase 3 na visão geral, com os valores da tela de rodadas', async () => {
@@ -1682,7 +1684,7 @@ describe('app/projects/[id]/page — escopo de visibilidade', () => {
     expect(roundsLinksOf(tree, project)).toHaveLength(1)
   })
 
-  it('com uma rodada fechada da Fase 2 e uma aberta da Fase 3, a visão geral tem um só "Abrir rodadas →", depois da Concordância e da Qualidade, e não repete a Qualidade por rodada', async () => {
+  it('com uma rodada fechada da Fase 2 e uma aberta da Fase 3, a visão geral tem um só "Abrir rodadas →", depois da Confiabilidade e da Qualidade, e não repete a Qualidade por rodada', async () => {
     const admin = await newUser('Admin')
     const project = await newProject(admin, PHASE_3)
     const ana = await addActiveEvaluator(ownerDb, project, await newUser('Ana'))
@@ -1720,7 +1722,7 @@ describe('app/projects/[id]/page — escopo de visibilidade', () => {
     )
 
     const page = deepText(tree)
-    expect(page.indexOf('Concordância por rodada')).toBeLessThan(page.indexOf('Abrir rodadas →'))
+    expect(page.indexOf('Confiabilidade por rodada')).toBeLessThan(page.indexOf('Abrir rodadas →'))
     expect(page.indexOf('Qualidade na rodada 2')).toBeLessThan(page.indexOf('Abrir rodadas →'))
   })
 
@@ -1880,7 +1882,7 @@ describe('app/projects/[id]/page — escopo de visibilidade', () => {
     expect(page.indexOf('Qualidade por rodada')).toBeLessThan(page.indexOf('Abrir rodadas →'))
   })
 
-  it('as rodadas da Fase 2 não entram na série de Qualidade, e continuam na de Concordância', async () => {
+  it('as rodadas da Fase 2 não entram na série de Qualidade, e continuam na de Confiabilidade', async () => {
     const admin = await newUser('Admin')
     const { project } = await qualitySeriesScene(admin)
 
@@ -2033,7 +2035,7 @@ describe('app/projects/[id]/page — escopo de visibilidade', () => {
     expect(text).not.toContain('0,000')
   })
 
-  it('a legenda da série de Concordância fica em "Como ler este gráfico", fechado, e a nota de exclusão só entra com marcado', async () => {
+  it('a legenda da série de Confiabilidade fica em "Como ler este gráfico", fechado, e a nota de exclusão só entra com marcado', async () => {
     const admin = await newUser('Admin')
     const { project, bruno, third } = await qualitySeriesScene(admin)
 
@@ -2094,13 +2096,13 @@ describe('app/projects/[id]/page — escopo de visibilidade', () => {
       expect(findElement(tree, QualitySeriesList)).toBeNull()
       expect(roundsLinksOf(tree, project)).toHaveLength(0)
       const page = deepText(tree)
-      expect(page).not.toContain('Concordância por rodada')
+      expect(page).not.toContain('Confiabilidade por rodada')
       expect(page).not.toContain('Qualidade na rodada')
       expect(page).not.toContain('Qualidade por rodada')
     }
   })
 
-  it('só com uma rodada aberta da Fase 2, a visão geral não mostra a Concordância por rodada nem "Abrir rodadas →"', async () => {
+  it('só com uma rodada aberta da Fase 2, a visão geral não mostra a Confiabilidade por rodada nem "Abrir rodadas →"', async () => {
     const admin = await newUser('Admin')
     const project = await newProject(admin, PHASE_2)
     const ana = await addActiveEvaluator(ownerDb, project, await newUser('Ana'))
@@ -2121,7 +2123,7 @@ describe('app/projects/[id]/page — escopo de visibilidade', () => {
     expect(findElement(tree, StatCard)).toBeTruthy()
     expect(findElement(tree, AgreementSeriesChart)).toBeNull()
     expect(roundsLinksOf(tree, project)).toHaveLength(0)
-    expect(deepText(tree)).not.toContain('Concordância por rodada')
+    expect(deepText(tree)).not.toContain('Confiabilidade por rodada')
   })
 
   async function phaseSeriesScene(admin: string): Promise<string> {
@@ -2284,7 +2286,7 @@ describe('app/projects/[id]/page — escopo de visibilidade', () => {
     return project
   }
 
-  it('a série de Concordância põe a rodada da Fase 4 num grupo próprio, depois das Fases 2 e 3', async () => {
+  it('a série de Confiabilidade põe a rodada da Fase 4 num grupo próprio, depois das Fases 2 e 3', async () => {
     const admin = await newUser('Admin')
     const project = await phase4SeriesScene(admin)
 
@@ -2307,7 +2309,7 @@ describe('app/projects/[id]/page — escopo de visibilidade', () => {
     expect(phase4).not.toContain('Rodada 3')
   })
 
-  it('o texto de ajuda da série de Concordância explica a Fase 4', async () => {
+  it('o texto de ajuda da série de Confiabilidade explica a Fase 4', async () => {
     const admin = await newUser('Admin')
     const project = await phase4SeriesScene(admin)
 
@@ -2391,6 +2393,7 @@ describe('app/projects/[id]/page — escopo de visibilidade', () => {
     expect(findElement(tree, QualitySeriesList)).toBeNull()
     const page = deepText(tree)
     expect(page).not.toContain('Concordância')
+    expect(page).not.toContain('Confiabilidade')
     expect(page).not.toContain('Qualidade')
     expect(page).not.toContain('rodada de referência')
   })

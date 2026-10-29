@@ -60,7 +60,7 @@ export function revokeAdminOutcome(targetRows: readonly MembershipRow[]): Revoke
 export function grantAdminConfirmationLines(name: string): string[] {
   return [
     `${name} passa a ter os mesmos poderes que você: ${ADMIN_POWERS}.`,
-    `${name} passa a ver a concordância (ICR) de todas as rodadas. Se ainda for avaliar, considere marcá-la como outlier nas rodadas em que avaliar depois disso.`,
+    `${name} passa a ver a concordância e a confiabilidade (ICR) de todas as rodadas. Se ainda for avaliar, considere marcá-la como outlier nas rodadas em que avaliar depois disso.`,
     `As avaliações que ${name} já enviou não mudam.`,
   ]
 }
@@ -78,7 +78,7 @@ export function revokeAdminConfirmationLines({
   return [
     `${subject} deixa de ${ADMIN_POWERS}.`,
     keepsEvaluator
-      ? `${subject} continua participando como avaliador(a), sem ver a concordância (ICR).`
+      ? `${subject} continua participando como avaliador(a), sem ver a concordância e a confiabilidade (ICR).`
       : `${subject} perde o acesso ao projeto.`,
     `As atas que ${self ? 'você' : name} já escreveu continuam visíveis, com a assinatura.`,
   ]

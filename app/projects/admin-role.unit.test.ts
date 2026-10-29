@@ -101,7 +101,7 @@ describe('grantAdminConfirmationLines', () => {
   it('diz os poderes, a exposição ao ICR e que as avaliações enviadas não mudam', () => {
     expect(grantAdminConfirmationLines('Ana')).toEqual([
       'Ana passa a ter os mesmos poderes que você: editar o codebook e o prompt, abrir e encerrar rodadas, avançar fases, convidar e desativar membros e dar ou remover acesso de administrador.',
-      'Ana passa a ver a concordância (ICR) de todas as rodadas. Se ainda for avaliar, considere marcá-la como outlier nas rodadas em que avaliar depois disso.',
+      'Ana passa a ver a concordância e a confiabilidade (ICR) de todas as rodadas. Se ainda for avaliar, considere marcá-la como outlier nas rodadas em que avaliar depois disso.',
       'As avaliações que Ana já enviou não mudam.',
     ])
   })
@@ -113,7 +113,7 @@ describe('revokeAdminConfirmationLines', () => {
       revokeAdminConfirmationLines({ name: 'Ana', self: false, keepsEvaluator: true }),
     ).toEqual([
       'Ana deixa de editar o codebook e o prompt, abrir e encerrar rodadas, avançar fases, convidar e desativar membros e dar ou remover acesso de administrador.',
-      'Ana continua participando como avaliador(a), sem ver a concordância (ICR).',
+      'Ana continua participando como avaliador(a), sem ver a concordância e a confiabilidade (ICR).',
       'As atas que Ana já escreveu continuam visíveis, com a assinatura.',
     ])
   })
@@ -133,7 +133,7 @@ describe('revokeAdminConfirmationLines', () => {
       revokeAdminConfirmationLines({ name: 'Ana', self: true, keepsEvaluator: true }),
     ).toEqual([
       'Você deixa de editar o codebook e o prompt, abrir e encerrar rodadas, avançar fases, convidar e desativar membros e dar ou remover acesso de administrador.',
-      'Você continua participando como avaliador(a), sem ver a concordância (ICR).',
+      'Você continua participando como avaliador(a), sem ver a concordância e a confiabilidade (ICR).',
       'As atas que você já escreveu continuam visíveis, com a assinatura.',
     ])
   })

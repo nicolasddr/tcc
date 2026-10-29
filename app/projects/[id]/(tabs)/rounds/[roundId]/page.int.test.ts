@@ -913,7 +913,7 @@ describe('app/projects/[id]/rounds/[roundId] — a revisão de discordâncias', 
     const text = `${textOf(tree)} ${listTextOf(tree)}`
 
     expect(text).toContain('Ana Avaliadora')
-    for (const word of ['Krippendorff', 'ICR', 'Alpha', 'Concordância']) {
+    for (const word of ['Krippendorff', 'ICR', 'Alpha', 'Concordância', 'Confiabilidade']) {
       expect(text).not.toContain(word)
     }
     expect(findElement(tree, AgreementPanel)).toBeNull()
@@ -1542,7 +1542,7 @@ describe('app/projects/[id]/rounds/[roundId] — a revisão de discordâncias', 
     expect(text).toContain('Bruno Avaliador')
     expect(text).toContain(divergenceLabel('extreme'))
     expect(text).toContain('Levar à reunião: o que conta como fonte.')
-    for (const word of ['Krippendorff', 'ICR', 'Alpha', 'Concordância']) {
+    for (const word of ['Krippendorff', 'ICR', 'Alpha', 'Concordância', 'Confiabilidade']) {
       expect(text).not.toContain(word)
     }
   })
@@ -1812,7 +1812,7 @@ describe('app/projects/[id]/rounds/[roundId] — a revisão de discordâncias', 
 
       expect(listTextOf(tree)).toContain(`${PER_RESPONSE_LABEL} 1 de 1 célula diverge`)
       expect(text).toContain('Bruno: repete o mesmo ângulo em todas.')
-      for (const word of ['Krippendorff', 'ICR', 'Alpha', 'Concordância']) {
+      for (const word of ['Krippendorff', 'ICR', 'Alpha', 'Concordância', 'Confiabilidade']) {
         expect(text).not.toContain(word)
       }
     })

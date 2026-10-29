@@ -40,7 +40,7 @@ sem definição, porque julga algo que nenhuma definição sozinha tem: o conjun
 **Escala**
 A régua com que o Avaliador julga um critério, ordinal e de três pontos: Alto, Médio e Baixo.
 É fixa na ferramenta e não configurável por projeto, porque o nível de mensuração da métrica
-de concordância, o diff entre versões do codebook e a comparabilidade entre rodadas dependem
+de confiabilidade, o diff entre versões do codebook e a comparabilidade entre rodadas dependem
 dela ser a mesma sempre. A escala nunca vai à LLM, nem na Fase 3: a LLM não se avalia.
 Cada critério pode descrever o que vale Alto, Médio e Baixo nele (*descrição do nível*). É
 instrução para o avaliador e, como a escala, não vai à LLM.
@@ -131,8 +131,18 @@ forma, o que indica que ele não generalizou; com ICR alto, olha-se a Qualidade 
 referência. Refinar de novo exige voltar à Fase 3, e a ferramenta não diz quando fazê-lo.
 Evitar: "refinar itens", porque *item* é o item de entrada, que não se refina.
 
-**Concordância (ICR)**
-Grau em que avaliadores independentes chegam à mesma conclusão. Medida por Krippendorff's
+**Concordância**
+O quanto os avaliadores dão a mesma nota a uma mesma unidade. É o dado observado: o painel da
+rodada a mostra como **notas iguais** (a parte dos pares de notas, na mesma unidade, com o mesmo
+nível), ao lado da distribuição das notas entre Alto, Médio e Baixo. Concordância alta não basta
+para dizer que o codebook está claro: com as notas concentradas num nível só, boa parte dos acordos
+sairia mesmo ao acaso. Por isso ela é lida sempre junto com a confiabilidade, a cada rodada, e
+nunca no lugar dela.
+Evitar: usar concordância como nome do α, e "coincidência".
+
+**Confiabilidade (ICR)**
+O que se estima a partir da concordância, descontado o acaso: se as notas refletem as respostas e
+o codebook, e não o acaso ou o hábito de cada avaliador. Medida por Krippendorff's
 Alpha ordinal, calculado **por rodada**, sobre a versão de codebook que aquela rodada fixou,
 e nunca agregado entre versões diferentes. Cohen's Kappa não é usado: o Alpha cobre também o
 caso de dois avaliadores, sem a restrição de ser par a par. A unidade de análise é resposta ×
@@ -141,9 +151,9 @@ um critério por resposta rende uma unidade por resposta. Avaliação que
 não existe é dado faltante, nunca exclusão de avaliador — a unidade sem par sai do cálculo e a
 pessoa continua nele. E o coeficiente é **não calculável**, nunca zero e nunca 1, em três casos:
 menos de dois avaliadores, nenhuma unidade avaliada por dois deles, e nenhuma variação nas notas.
-Ao lado do α, o painel da rodada mostra as **notas iguais** (a parte dos pares de notas, na mesma
-unidade, com o mesmo nível) e a distribuição das notas entre Alto, Médio e Baixo, para ler um α
-baixo quando as notas se concentram num nível só; elas não substituem o α.
+Ao lado do α, o painel da rodada mostra a concordância (notas iguais e distribuição), para ler um
+α baixo quando as notas se concentram num nível só; ela não substitui o α. A série entre rodadas e
+a comparação da Fase 4 com a rodada de referência mostram só o α.
 Não existe média, soma nem "ICR do projeto" em tela nenhuma: a leitura entre rodadas é a série, um
 ponto por rodada com a sua versão de codebook e a sua fase ao lado. A série é uma só para as Fases 2,
 3 e 4, porque a passagem de uma fase para a seguinte com a mesma versão de codebook é uma comparação
@@ -155,7 +165,7 @@ par definição × critério que não existe naquela versão — critério espec
 critério de definição na linha por resposta, ou critério por resposta na linha de uma definição —, o
 que é diferente de **não calculável** (a célula existe, tem nota e não tem coeficiente) e de **sem
 nota** (a célula existe e ninguém a avaliou ainda).
-Evitar: confiabilidade, acurácia.
+Evitar: acurácia.
 
 **Divergência**
 Célula sem unanimidade entre os avaliadores considerados. É *adjacente* quando as notas ficam a
@@ -191,7 +201,7 @@ de uma rodada das Fases 3 ou 4, lida como porcentagem, na rodada inteira, por c�
 rodadas dessas duas fases. Na tela da rodada, a Qualidade abre **por critério**: cada linha junta as
 notas daquele critério em todas as definições que o têm, somando as contagens, e não tirando a média
 das células; a matriz por definição fica recolhida em *Ver por definição*. Não existe meta de
-qualidade. É uma dimensão independente da Concordância, e as duas aparecem separadas na UI. A
+qualidade. É uma dimensão independente da concordância e da confiabilidade, e aparece separada delas na UI. A
 ferramenta mostra a distribuição e **não diz se a qualidade está boa**: não há regra de "resposta
 que atinge os critérios", nem veredito, nem cor de aprovado. Quem decide se o padrão foi atingido é
 o Administrador. Só é leitura confiável quando o ICR está alto, porque notas em que os avaliadores
@@ -223,7 +233,7 @@ para a Fase 3, e ele só exige que não haja rodada aberta.
 - *Fase 2, validar o codebook*: a LLM gera o lote avaliável ainda só com os títulos (a mesma
   entrada da Fase 1, em escala). Aqui se autoram descrições e critérios, que serão usados
   pelos avaliadores, avalia-se, calcula-se o ICR e refina-se o codebook até a concordância
-  subir. A pergunta da fase é se o codebook está ambíguo; qualidade ainda não importa.
+  e a confiabilidade subirem. A pergunta da fase é se o codebook está ambíguo; qualidade ainda não importa.
 - *Fase 3, validar o prompt*: o codebook completo passa a ir à LLM junto com o prompt ("o
   codebook é o prompt"), e por isso as respostas mudam. O codebook completo, para a LLM, é o título
   e a descrição de cada definição com os critérios específicos dela, mais os critérios gerais uma

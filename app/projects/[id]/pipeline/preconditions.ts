@@ -170,8 +170,8 @@ export function wrongPhaseMessage(phase: number): string {
 
 export function phase3ConfirmationLines(): string[] {
   return [
-    `Na Fase ${PHASE_3}, o codebook completo — com descrições e critérios — passa a ir à LLM junto com o prompt, e por isso as respostas mudam. A Fase ${PHASE_2} continua visível como está: rodadas, avaliações, concordância e anotações ficam onde estão.`,
-    'A decisão de avançar é do Administrador. Nenhum valor de concordância libera nem impede o avanço: a faixa de referência ao lado é leitura, não regra.',
+    `Na Fase ${PHASE_3}, o codebook completo — com descrições e critérios — passa a ir à LLM junto com o prompt, e por isso as respostas mudam. A Fase ${PHASE_2} continua visível como está: rodadas, avaliações, concordância, confiabilidade e anotações ficam onde estão.`,
+    'A decisão de avançar é do Administrador. Nenhum valor de concordância ou de confiabilidade libera nem impede o avanço: a faixa de referência ao lado é leitura, não regra.',
     `Não existe voltar da Fase ${PHASE_3} para a Fase ${PHASE_2}. O único retorno previsto no processo é o da Fase 4 para a Fase ${PHASE_3}.`,
     'Cancelar não muda nada.',
   ]
@@ -245,8 +245,8 @@ export function phase3BlockedMessage(blockers: readonly Phase3Blocker[]): string
 
 export function phase4ConfirmationLines(): string[] {
   return [
-    `Na Fase ${PHASE_4}, a avaliação se repete sobre codebook e prompt congelados enquanto ela durar, para medir se o codebook generaliza. Ela pede itens de entrada novos e avaliadores novos, e quais são é escolha do Administrador: a ferramenta não recusa item já usado nem avaliador que já avaliou antes. A Fase ${PHASE_3} continua visível como está: rodadas, avaliações, concordância, Qualidade e anotações ficam onde estão.`,
-    'A decisão de avançar é do Administrador. Nenhum valor de concordância ou de Qualidade libera nem impede o avanço: a faixa de referência do ICR é leitura, não regra, e a Qualidade não tem faixa.',
+    `Na Fase ${PHASE_4}, a avaliação se repete sobre codebook e prompt congelados enquanto ela durar, para medir se o codebook generaliza. Ela pede itens de entrada novos e avaliadores novos, e quais são é escolha do Administrador: a ferramenta não recusa item já usado nem avaliador que já avaliou antes. A Fase ${PHASE_3} continua visível como está: rodadas, avaliações, concordância, confiabilidade, Qualidade e anotações ficam onde estão.`,
+    'A decisão de avançar é do Administrador. Nenhum valor de concordância, de confiabilidade ou de Qualidade libera nem impede o avanço: a faixa de referência do ICR é leitura, não regra, e a Qualidade não tem faixa.',
     `Se o resultado não for o esperado, é possível voltar à Fase ${PHASE_3} para refinar de novo; as rodadas da Fase ${PHASE_4} ficam como histórico.`,
     'Cancelar não muda nada.',
   ]
@@ -295,7 +295,7 @@ export function returnConfirmationLines(): string[] {
     `As rodadas da Fase ${PHASE_4} ficam como estão: notas, ICR, Qualidade, marcas de outlier e anotações de consenso continuam visíveis, como histórico.`,
     'Codebook e prompt voltam a ser editáveis. As versões que as rodadas usaram não mudam: a próxima edição cria uma versão nova.',
     `Para voltar à Fase ${PHASE_4}, valem de novo as regras do avanço: nenhuma rodada aberta, ao menos uma rodada fechada da Fase ${PHASE_3} e codebook e prompt iguais aos da rodada de referência, a última rodada fechada da Fase ${PHASE_3}. Se você editar o codebook ou o prompt, será preciso abrir e fechar mais uma rodada da Fase ${PHASE_3} antes de avançar.`,
-    'A decisão de voltar é do Administrador. Nenhum valor de concordância ou de Qualidade libera, impede ou sugere o retorno.',
+    'A decisão de voltar é do Administrador. Nenhum valor de concordância, de confiabilidade ou de Qualidade libera, impede ou sugere o retorno.',
     'Cancelar não muda nada.',
   ]
 }

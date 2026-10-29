@@ -19,7 +19,7 @@ export function readingShortcuts({
   review?: string
 }): ReadingShortcut[] {
   return [
-    ...(agreement ? [{ href: `#${AGREEMENT_SECTION_ID}`, label: 'Concordância' }] : []),
+    ...(agreement ? [{ href: `#${AGREEMENT_SECTION_ID}`, label: 'Concordância e confiabilidade' }] : []),
     ...(quality ? [{ href: `#${QUALITY_SECTION_ID}`, label: 'Qualidade' }] : []),
     ...(rounds !== undefined
       ? [{ href: `#${ROUNDS_SECTION_ID}`, label: `Rodadas do projeto (${rounds})` }]

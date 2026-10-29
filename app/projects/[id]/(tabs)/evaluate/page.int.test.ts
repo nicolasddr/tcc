@@ -1128,6 +1128,7 @@ describe('app/projects/[id]/evaluate — a tela do avaliador', () => {
     expect(page).not.toContain('Krippendorff')
     expect(page).not.toContain('ICR')
     expect(page).not.toContain('Concordância')
+    expect(page).not.toContain('Confiabilidade')
   })
 
   it('a tela de avaliação é igual nas Fases 2, 3 e 4', async () => {

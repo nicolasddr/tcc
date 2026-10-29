@@ -26,8 +26,8 @@ export type AgreementRound = Pick<
 
 export function agreementSectionTitle(round: AgreementRound): string {
   return round.closedAt
-    ? `Concordância na rodada ${round.roundNumber}, fechada`
-    : `Concordância na rodada ${round.roundNumber}`
+    ? `Concordância e confiabilidade na rodada ${round.roundNumber}, fechada`
+    : `Concordância e confiabilidade na rodada ${round.roundNumber}`
 }
 
 export function roundAgreementSection({

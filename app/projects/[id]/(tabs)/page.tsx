@@ -486,7 +486,7 @@ export default async function ProjectPage({
 
           {showSeries ? (
             <Section
-              title="Concordância por rodada"
+              title="Confiabilidade por rodada"
               hint="Um ponto por rodada, em ordem cronológica."
               more={{ points: AGREEMENT_SERIES_POINTS }}
             >

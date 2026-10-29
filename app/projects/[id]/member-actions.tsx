@@ -44,7 +44,7 @@ export function DeactivateMemberButton({
       <DialogLines
         lines={[
           'A pessoa perde o acesso a este projeto e deixa de participar como avaliadora.',
-          'As avaliações que ela já enviou continuam gravadas e continuam entrando no cálculo de concordância. Para tirar as notas dela do cálculo de uma rodada, marque-a como outlier naquela rodada.',
+          'As avaliações que ela já enviou continuam gravadas e continuam entrando no cálculo da concordância e da confiabilidade. Para tirar as notas dela do cálculo de uma rodada, marque-a como outlier naquela rodada.',
           'Convites pendentes dela são cancelados.',
         ]}
       />

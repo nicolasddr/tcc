@@ -121,7 +121,7 @@ describe('app/projects/[id]/rounds/agreement-labels — o coeficiente na tela', 
     expect(points).toContain('nenhuma nota é apagada')
   })
 
-  it('a ajuda da série de Concordância vira até três tópicos, sem perder as fases', () => {
+  it('a ajuda da série de Confiabilidade vira até três tópicos, sem perder as fases', () => {
     expect(AGREEMENT_SERIES_POINTS).toHaveLength(3)
     for (const point of AGREEMENT_SERIES_POINTS) {
       expect(wordsOf(point)).toBeLessThanOrEqual(40)
@@ -132,7 +132,7 @@ describe('app/projects/[id]/rounds/agreement-labels — o coeficiente na tela', 
     expect(each).toContain('As Fases 2, 3 e 4 ficam na mesma série')
     expect(twoToThree).toContain('com a mesma versão de codebook')
     expect(twoToThree).toContain('a LLM passar a receber o codebook')
-    expect(threeAndFour).toContain('concordância maior na rodada seguinte')
+    expect(threeAndFour).toContain('confiabilidade maior na rodada seguinte')
     expect(threeAndFour).toContain('Na Fase 4, codebook e prompt não mudam')
     expect(threeAndFour).toContain('os itens e os avaliadores')
     expect(threeAndFour).toContain('ao lado da sua rodada de referência')
@@ -200,7 +200,7 @@ describe('app/projects/[id]/rounds/agreement-labels — o coeficiente na tela', 
     expect(few).toContain('ICR')
     expect(shared).toContain('não se cruzaram')
     expect(variation).toContain('mesmo ponto da escala')
-    expect(variation).toContain('não é o mesmo que concordância perfeita')
+    expect(variation).toContain('não é o mesmo que confiabilidade perfeita')
 
     expect(new Set([few, shared, variation]).size).toBe(3)
   })
