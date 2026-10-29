@@ -1,12 +1,17 @@
 import { Section } from '@/app/components/ui/section'
 import type { CodebookCriterion, CodebookDefinition } from '../../pipeline/codebook'
+import { perResponseCriteria } from '../../pipeline/criteria'
 import type { RoundMark } from '../../round-usage'
 import type { EvaluatorEffort, RoundObservation } from './agreement'
 import { evaluatedRaters, evaluatedResponses, withoutExcluded } from './agreement-pair'
 import { AgreementNotes, AgreementWarnings, type RoundSample } from './agreement-panel'
 import { AgreementMatrixTable } from './agreement-matrix-table'
 import { matrixColumns } from './agreement-matrix'
-import { byDefinitionSummary } from './agreement-labels'
+import {
+  MATRIX_OUTLIERS_NOTE,
+  byDefinitionSummary,
+  matrixPerResponseNote,
+} from './agreement-labels'
 import { CriterionAgreementTable } from './criterion-agreement-table'
 import { ByDefinition } from './by-definition'
 import { excludedMemberIds, type OutlierMark } from './outliers'
@@ -53,6 +58,10 @@ export function roundAgreementSection({
       excluded.size > 0 ? sampleOf(withoutExcluded(observations, excluded)) : null,
   }
   const hasCodebook = definitions.length > 0 && criteria.length > 0
+  const definitionColumns = matrixColumns(definitions, criteria).filter(
+    (column) => !column.isPerResponse,
+  ).length
+  const perResponseNames = perResponseCriteria(criteria).map((criterion) => criterion.name)
   const matrix = (
     <AgreementMatrixTable
       definitions={definitions}
@@ -81,14 +90,21 @@ export function roundAgreementSection({
               excluded={excluded}
             />
 
-            <ByDefinition
-              summary={byDefinitionSummary(
-                definitions.length,
-                matrixColumns(definitions, criteria).length,
-              )}
-            >
-              {matrix}
-            </ByDefinition>
+            {definitionColumns > 0 ? (
+              <ByDefinition
+                summary={byDefinitionSummary(definitions.length, definitionColumns)}
+              >
+                {matrix}
+                {perResponseNames.length > 0 ? (
+                  <p className="m-0 text-xs text-muted">
+                    {matrixPerResponseNote(perResponseNames)}
+                  </p>
+                ) : null}
+                {excluded.size > 0 ? (
+                  <p className="m-0 text-xs text-muted">{MATRIX_OUTLIERS_NOTE}</p>
+                ) : null}
+              </ByDefinition>
+            ) : null}
           </>
         ) : (
           matrix

@@ -70,6 +70,7 @@ import {
   CELL_PER_RESPONSE_COLUMN_TITLE,
   CELL_PER_RESPONSE_ROW_TITLE,
   CELL_UNRATED_LABEL,
+  MATRIX_OUTLIERS_NOTE,
   MATRIX_PER_RESPONSE_LEGEND,
   OUTLIER_PAIR_POINTS,
   OUTLIER_PAIR_RESULT,
@@ -563,8 +564,6 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     users.push(id)
     return id
   }
-
-  const DASHES = Array(4).fill(CELL_NOT_APPLICABLE).join(' ')
 
   const ONE_DEFINITION: CodebookShape = {
     definitions: [
@@ -2654,8 +2653,10 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     expect(findElement(section, Disclosure)).toBeNull()
     expect(summaryOf(byDefinition)).toBe('Por definição (2 definições × 1 critério)')
     expect(visibleTextOf(byDefinition)).toContain(
-      'Por definição (2 definições × 1 critério) Definição Clareza Geral ICR',
+      'Por definição (2 definições × 1 critério) Definição Clareza Geral ' +
+        'Informacional 1,000 Transacional -0,667',
     )
+    expect(visibleTextOf(byDefinition)).not.toContain(MATRIX_OUTLIERS_NOTE)
     expect(Object.keys(criterionTableOf(tree)).sort()).toEqual([
       'criteria',
       'definitions',
@@ -2692,7 +2693,7 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     ])
   })
 
-  it('a matriz por definição traz, em cada critério, o ICR, as notas iguais e as duas divergências, com o N no título do ICR', async () => {
+  it('o mapa por definição traz, em cada critério, o ICR e a barra curta das notas iguais e divergências, com o N no título do ICR', async () => {
     const admin = await newUser('Admin')
     const scene = await twoDefinitionsScene(admin)
 
@@ -2702,19 +2703,16 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     const markup = renderToStaticMarkup(matrix)
 
     expect(rowTitlesOf(markup)).toEqual(['Informacional', 'Transacional'])
-    expect(columnTitlesOf(markup)).toEqual([
-      'Definição',
-      'Clareza Geral',
-      'ICR',
-      'Notas iguais',
-      'Divergência adjacente',
-      'Divergência extrema',
-    ])
+    expect(columnTitlesOf(markup)).toEqual(['Definição', 'Clareza Geral'])
     expect(visibleTextOf(matrix)).toBe(
-      'Definição Clareza Geral ICR Notas iguais Divergência adjacente Divergência extrema ' +
-        'Informacional 1,000 100% 0% 0% ' +
-        'Transacional -0,667 33,3% 0% 66,7%',
+      'Definição Clareza Geral Informacional 1,000 Transacional -0,667',
     )
+    expect(
+      titleCountOf(markup, '100% iguais, 0% divergência adjacente, 0% divergência extrema'),
+    ).toBe(1)
+    expect(
+      titleCountOf(markup, '33,3% iguais, 0% divergência adjacente, 66,7% divergência extrema'),
+    ).toBe(1)
     expect(markupTextOf(matrix)).not.toContain('Todas as definições')
     expect(tooltipTextsOf(AgreementMatrixTable(matrixOf(tree)))).toEqual([])
     expect(titleCountOf(markup, '3 notas · 2 avaliadores')).toBe(2)
@@ -2762,6 +2760,24 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     expect(matrixTextOf(tree)).toContain('não tem definição e critério para cruzar')
   })
 
+  it('com o codebook só de critérios por resposta, a tabela por critério aparece e o mapa por definição não', async () => {
+    const admin = await newUser('Admin')
+    const scene = await roundWith(admin, 1, {
+      shape: {
+        definitions: [{ title: 'Query 1', type: 'category' }],
+        perResponseCriteria: [{ name: 'Diversity' }],
+      },
+    })
+
+    auth.userId = admin
+    const tree = await render(scene.project)
+    const section = findSection(tree, CriterionAgreementTable)
+
+    expect(section).toBeTruthy()
+    expect(findElement(section, ByDefinition)).toBeNull()
+    expect(findElement(section, AgreementMatrixTable)).toBeNull()
+  })
+
   it('o critério específico de uma definição é traço na linha da outra', async () => {
     const admin = await newUser('Admin')
     const scene = await roundWith(admin, 1, {
@@ -2786,7 +2802,7 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     expect(markupTextOf(matrix)).toContain('Profundidade')
   })
 
-  it('a matriz de Concordância traz a linha “Por resposta” por último, com os traços de cada motivo', async () => {
+  it('o mapa por definição deixa o critério por resposta de fora, e o rodapé diz onde ele está', async () => {
     const admin = await newUser('Admin')
     const scene = await perResponseScene(admin)
 
@@ -2794,33 +2810,20 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     const tree = await render(scene.project)
     const markup = renderToStaticMarkup(createElement(AgreementMatrixTable, matrixOf(tree)))
 
-    expect(rowTitlesOf(markup)).toEqual([
-      'Query 1',
-      'Query 2',
-      'Query 3',
-      'Query 4',
-      'Query 5',
-      PER_RESPONSE_LABEL,
-    ])
-    expect(columnTitlesOf(markup)).toEqual([
-      'Definição',
-      'Relevance Geral',
-      `Diversity ${PER_RESPONSE_LABEL}`,
-      ...['Relevance', 'Diversity'].flatMap(() => [
-        'ICR',
-        'Notas iguais',
-        'Divergência adjacente',
-        'Divergência extrema',
-      ]),
-    ])
+    expect(rowTitlesOf(markup)).toEqual(['Query 1', 'Query 2', 'Query 3', 'Query 4', 'Query 5'])
+    expect(columnTitlesOf(markup)).toEqual(['Definição', 'Relevance Geral'])
     expect(visibleTextOf(createElement(AgreementMatrixTable, matrixOf(tree)))).toContain(
-      `Query 5 1,000 100% 0% 0% ${DASHES} ` +
-        `${PER_RESPONSE_LABEL} ${DASHES} 0,833 50% 50% 0%`,
+      'Query 5 1,000',
     )
-    expect(titleCountOf(markup, CELL_PER_RESPONSE_ROW_TITLE)).toBe(4)
-    expect(titleCountOf(markup, CELL_PER_RESPONSE_COLUMN_TITLE)).toBe(20)
+    expect(markup).not.toContain('Diversity')
+    expect(markup).not.toContain(PER_RESPONSE_LABEL)
+    expect(titleCountOf(markup, CELL_PER_RESPONSE_ROW_TITLE)).toBe(0)
+    expect(titleCountOf(markup, CELL_PER_RESPONSE_COLUMN_TITLE)).toBe(0)
     expect(titleCountOf(markup, CELL_NOT_APPLICABLE_TITLE)).toBe(0)
     expect(howToReadOf(AgreementMatrixTable(matrixOf(tree)))).toEqual([])
+    expect(visibleTextOf(byDefinitionOf(tree))).toContain(
+      'Diversity é avaliado por resposta, sem definição: só tem o valor geral, na tabela de cima.',
+    )
   })
 
   it('na cena da rodada 8, a Concordância não traz o α das notas juntas, só o de cada critério', async () => {
@@ -2881,6 +2884,7 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     )
     expect(table).not.toContain('avaliadores')
     expect(agreementSectionTextOf(tree)).not.toContain(ROUND_8_ALPHA.pooled)
+    expect(visibleTextOf(byDefinitionOf(tree))).toContain(MATRIX_OUTLIERS_NOTE)
   })
 
   it('na cena da rodada 8, o aviso de amostra e as avaliações por avaliador continuam na Concordância', async () => {
@@ -2916,8 +2920,8 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     expect(visibleTextOf(table)).toContain('Relevance Geral 10 notas 1,000 100%')
     expect(visibleTextOf(table)).toContain(`Diversity ${PER_RESPONSE_LABEL} 2 notas 0,833 50%`)
     expect(visibleTextOf(table)).not.toContain(CELL_NOT_APPLICABLE)
-    expect(markupTextOf(matrix)).toContain(`${PER_RESPONSE_LABEL} ${DASHES} 0,833`)
-    expect(summaryOf(byDefinitionOf(tree))).toBe('Por definição (5 definições × 2 critérios)')
+    expect(markupTextOf(matrix)).not.toContain('0,833')
+    expect(summaryOf(byDefinitionOf(tree))).toBe('Por definição (5 definições × 1 critério)')
   })
 
   it('a matriz de Qualidade traz a linha “Por resposta” com a distribuição das notas por resposta', async () => {

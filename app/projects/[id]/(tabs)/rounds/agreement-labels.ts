@@ -52,6 +52,17 @@ export function byDefinitionSummary(definitions: number, criteria: number): stri
   )
 }
 
+export function matrixPerResponseNote(names: readonly string[]): string {
+  const subject = new Intl.ListFormat('pt-BR', { type: 'conjunction' }).format(names)
+  const [verb, has] = names.length === 1 ? ['é avaliado', 'tem'] : ['são avaliados', 'têm']
+  return (
+    `${subject} ${verb} por resposta, sem definição: só ${has} o valor geral, na tabela ` +
+    'de cima.'
+  )
+}
+
+export const MATRIX_OUTLIERS_NOTE = `${BY_DEFINITION_LABEL}, os valores são ${AGREEMENT_ALL_LABEL}.`
+
 export const OUTLIER_PAIR_SUMMARY =
   'Os dois valores saem do mesmo dado desta rodada, e o resultado da rodada continua ' +
   `sendo o ${AGREEMENT_ALL_LABEL}.`

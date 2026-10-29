@@ -15,6 +15,7 @@ import {
   CELL_UNRATED_LABEL,
   CONCENTRATED_LABEL,
   CONCENTRATION_HELP,
+  MATRIX_OUTLIERS_NOTE,
   MATRIX_PER_RESPONSE_LEGEND,
   OUTLIER_PAIR_POINTS,
   OUTLIER_PAIR_RESULT,
@@ -29,6 +30,7 @@ import {
   cellNotCalculableLabel,
   concentrationWarning,
   formatAlpha,
+  matrixPerResponseNote,
   matrixVersionLabel,
   matrixVersionNote,
   isConcentrated,
@@ -247,6 +249,20 @@ describe('app/projects/[id]/rounds/agreement-labels — o coeficiente na tela', 
     expect(BY_DEFINITION_LABEL).toBe('Por definição')
     expect(byDefinitionSummary(5, 2)).toBe('Por definição (5 definições × 2 critérios)')
     expect(byDefinitionSummary(1, 1)).toBe('Por definição (1 definição × 1 critério)')
+  })
+
+  it('o rodapé do mapa diz onde ficou o critério por resposta, no singular e no plural', () => {
+    expect(matrixPerResponseNote(['Diversity'])).toBe(
+      'Diversity é avaliado por resposta, sem definição: só tem o valor geral, na tabela de cima.',
+    )
+    expect(matrixPerResponseNote(['Diversity', 'Fluency'])).toBe(
+      'Diversity e Fluency são avaliados por resposta, sem definição: só têm o valor geral, ' +
+        'na tabela de cima.',
+    )
+  })
+
+  it('o rodapé de outliers do mapa diz que os valores são com todos', () => {
+    expect(MATRIX_OUTLIERS_NOTE).toBe('Por definição, os valores são com todos.')
   })
 
   it('a linha de todas as definições e os seus textos saíram', () => {
