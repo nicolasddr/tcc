@@ -1,5 +1,5 @@
 import { PHASE_4 } from '../../pipeline/preconditions'
-import { agreementPair, type AgreementPair } from './agreement-pair'
+import type { RoundAgreements } from './agreement-matrix'
 import type { QualityPair } from './quality'
 import { referenceRoundOf } from './reference-round'
 import type { RoundSummary } from './rounds'
@@ -12,7 +12,7 @@ export type ComparedRound = {
   closedAt: string | null
   codebookVersionNumber: number
   promptVersionNumber: number
-  agreement: AgreementPair
+  agreement: RoundAgreements
   quality: QualityPair | null
 }
 
@@ -21,11 +21,9 @@ export type ReferenceComparison =
   | { kind: 'no_reference' }
   | { kind: 'compared'; round: ComparedRound; reference: ComparedRound }
 
-const NO_AGREEMENT = agreementPair([], new Set())
-
 function comparedRound(
   round: RoundSummary,
-  agreement: ReadonlyMap<string, AgreementPair>,
+  agreement: ReadonlyMap<string, RoundAgreements>,
   quality: ReadonlyMap<string, QualityPair>,
 ): ComparedRound {
   return {
@@ -36,7 +34,7 @@ function comparedRound(
     closedAt: round.closedAt,
     codebookVersionNumber: round.codebookVersionNumber,
     promptVersionNumber: round.promptVersionNumber,
-    agreement: agreement.get(round.id) ?? NO_AGREEMENT,
+    agreement: agreement.get(round.id) ?? [],
     quality: quality.get(round.id) ?? null,
   }
 }
@@ -44,7 +42,7 @@ function comparedRound(
 export function referenceComparison(
   rounds: readonly RoundSummary[],
   round: RoundSummary,
-  agreement: ReadonlyMap<string, AgreementPair>,
+  agreement: ReadonlyMap<string, RoundAgreements>,
   quality: ReadonlyMap<string, QualityPair>,
 ): ReferenceComparison {
   if (round.phase !== PHASE_4) return { kind: 'not_phase_4' }

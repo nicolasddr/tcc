@@ -1,5 +1,7 @@
+import { Fragment } from 'react'
 import type { Agreement, AgreementProfile } from '@/lib/agreement'
 import type { EvaluatorEffort } from './agreement'
+import type { CriterionAgreement, MatrixCell } from './agreement-matrix'
 import { EffortList } from './effort-list'
 import type { AgreementPair, ProfilePair } from './agreement-pair'
 import type { OutlierMark } from './outliers'
@@ -8,6 +10,7 @@ import {
   AGREEMENT_ALL_LABEL,
   AGREEMENT_LABEL,
   AGREEMENT_WITHOUT_OUTLIERS_LABEL,
+  CELL_UNRATED_LABEL,
   CONCENTRATION_HELP,
   NOT_CALCULABLE_LABEL,
   OUTLIER_PAIR_POINTS,
@@ -196,7 +199,7 @@ function ValuePart({
   )
 }
 
-export function AgreementValue({
+export function RoundAgreementValue({
   pair,
   band = true,
   profiles,
@@ -227,6 +230,74 @@ export function AgreementValue({
             agreement={withoutOutliers}
             band={band}
             profile={profiles?.withoutOutliers}
+          />
+        </>
+      ) : null}
+    </p>
+  )
+}
+
+type CriterionValue = { key: string; name: string; cell: MatrixCell }
+
+function CriterionValues({
+  label,
+  values,
+  band,
+}: {
+  label: string
+  values: CriterionValue[]
+  band: boolean
+}) {
+  return (
+    <>
+      <span>{label}:</span>
+      {values.map(({ key, name, cell }, index) => (
+        <Fragment key={key}>
+          {index > 0 ? <span aria-hidden>·</span> : null}
+          <span>
+            {name}{' '}
+            <span className="font-semibold text-ink">
+              {cell.state === 'calculated' ? agreementText(cell.agreement) : CELL_UNRATED_LABEL}
+            </span>
+          </span>
+          {band && cell.state === 'calculated' && cell.agreement.calculable ? (
+            <BandBadge alpha={cell.agreement.alpha} />
+          ) : null}
+        </Fragment>
+      ))}
+    </>
+  )
+}
+
+export function AgreementValue({
+  rows,
+  band = true,
+}: {
+  rows: readonly CriterionAgreement<unknown>[]
+  band?: boolean
+}) {
+  if (rows.length === 0) return null
+
+  const filtered = rows.some((row) => row.withoutOutliers !== null)
+
+  return (
+    <p className="m-0 mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] text-muted">
+      <CriterionValues
+        label={filtered ? `${AGREEMENT_LABEL} ${AGREEMENT_ALL_LABEL}` : AGREEMENT_LABEL}
+        values={rows.map(({ column, cell }) => ({ key: column.key, name: column.name, cell }))}
+        band={band}
+      />
+      {filtered ? (
+        <>
+          <span aria-hidden>·</span>
+          <CriterionValues
+            label={AGREEMENT_WITHOUT_OUTLIERS_LABEL}
+            values={rows.map(({ column, cell, withoutOutliers }) => ({
+              key: column.key,
+              name: column.name,
+              cell: withoutOutliers ?? cell,
+            }))}
+            band={band}
           />
         </>
       ) : null}

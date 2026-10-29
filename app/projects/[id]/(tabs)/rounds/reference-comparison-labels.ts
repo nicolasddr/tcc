@@ -1,12 +1,13 @@
 import { formatDate } from '@/app/notifications/labels'
-import type { Agreement } from '@/lib/agreement'
 import { SCALE, scaleLabel, type ScaleValue } from '../evaluate/scale'
 import { PHASE_3 } from '../../pipeline/preconditions'
 import {
   AGREEMENT_WITHOUT_OUTLIERS_LABEL,
+  CELL_UNRATED_LABEL,
   NOT_CALCULABLE_LABEL,
   formatAlpha,
 } from './agreement-labels'
+import { columnIdentity, type MatrixCell } from './agreement-matrix'
 import type { Quality } from './quality'
 import {
   QUALITY_UNRATED,
@@ -36,6 +37,10 @@ export function referenceComparisonHint(roundNumber: number, referenceNumber: nu
 }
 
 export const COMPARISON_AGREEMENT_ROW = 'ICR'
+
+export function comparisonAgreementRow(criterion: string): string {
+  return `${COMPARISON_AGREEMENT_ROW} · ${criterion}`
+}
 
 export const COMPARISON_TOTAL_ROW = 'Notas'
 
@@ -75,11 +80,15 @@ export function closedOn(closedAt: string): string {
   return `fechada em ${formatDate(closedAt)}`
 }
 
-function agreementCell(agreement: Agreement | null): ComparisonCell {
-  if (!agreement) return null
-  return agreement.calculable
-    ? { text: formatAlpha(agreement.alpha) }
+function agreementValue(cell: MatrixCell): NonNullable<ComparisonCell> {
+  if (cell.state !== 'calculated') return { text: CELL_UNRATED_LABEL, muted: true }
+  return cell.agreement.calculable
+    ? { text: formatAlpha(cell.agreement.alpha) }
     : { text: NOT_CALCULABLE_LABEL, muted: true }
+}
+
+function agreementCell(cell: MatrixCell | null): ComparisonCell {
+  return cell ? agreementValue(cell) : null
 }
 
 function levelCell(quality: Quality | null | undefined, value: ScaleValue): ComparisonCell {
@@ -97,30 +106,51 @@ function withoutOutliers(label: string): string {
   return `${label} ${AGREEMENT_WITHOUT_OUTLIERS_LABEL}`
 }
 
+function agreementRows(sides: readonly ComparedRound[]): ComparisonRow[] {
+  const outliers = sides.some((side) =>
+    side.agreement.some((row) => row.withoutOutliers !== null),
+  )
+  const criteria = new Map<string, string>()
+  for (const side of sides) {
+    for (const { column } of side.agreement) {
+      const identity = columnIdentity(column)
+      if (!criteria.has(identity)) criteria.set(identity, column.name)
+    }
+  }
+
+  return [...criteria].flatMap(([identity, name]) => {
+    const matches = sides.map(
+      (side) => side.agreement.find((row) => columnIdentity(row.column) === identity) ?? null,
+    )
+    const label = comparisonAgreementRow(name)
+    const rows: ComparisonRow[] = [
+      {
+        key: `agreement-${identity}`,
+        label,
+        secondary: false,
+        cells: matches.map((match) => agreementCell(match?.cell ?? null)),
+      },
+    ]
+    if (outliers) {
+      rows.push({
+        key: `agreement-${identity}-without`,
+        label: withoutOutliers(label),
+        secondary: true,
+        cells: matches.map((match) => agreementCell(match?.withoutOutliers ?? null)),
+      })
+    }
+    return rows
+  })
+}
+
 export function comparisonRows(
   reference: ComparedRound,
   round: ComparedRound,
 ): ComparisonRow[] {
   const sides = [reference, round]
-  const agreementOutliers = sides.some((side) => side.agreement.withoutOutliers !== null)
   const qualityOutliers = sides.some((side) => (side.quality?.withoutOutliers ?? null) !== null)
 
-  const rows: ComparisonRow[] = [
-    {
-      key: 'agreement',
-      label: COMPARISON_AGREEMENT_ROW,
-      secondary: false,
-      cells: sides.map((side) => agreementCell(side.agreement.all)),
-    },
-  ]
-  if (agreementOutliers) {
-    rows.push({
-      key: 'agreement-without',
-      label: withoutOutliers(COMPARISON_AGREEMENT_ROW),
-      secondary: true,
-      cells: sides.map((side) => agreementCell(side.agreement.withoutOutliers)),
-    })
-  }
+  const rows: ComparisonRow[] = agreementRows(sides)
 
   for (const value of SCALE) {
     rows.push({
@@ -168,11 +198,12 @@ function referenceQualityText(quality: Quality | null | undefined): string | nul
 }
 
 export function referenceLine(reference: ComparedRound): string {
-  const agreement = reference.agreement.all
-  const alpha = agreement.calculable ? formatAlpha(agreement.alpha) : NOT_CALCULABLE_LABEL
+  const agreement = reference.agreement
+    .map(({ column, cell }) => `${column.name} ${agreementValue(cell).text}`)
+    .join(' · ')
   return [
     `Referência: rodada ${reference.roundNumber}`,
-    `${COMPARISON_AGREEMENT_ROW} ${alpha}`,
+    agreement ? `${COMPARISON_AGREEMENT_ROW} ${agreement}` : null,
     referenceQualityText(reference.quality?.all),
   ]
     .filter((part) => part !== null)

@@ -1,6 +1,10 @@
 import { requireUserId } from '@/lib/supabase/server'
 import { transaction } from '@/lib/db'
-import { loadCodebook, loadCodebookVersion } from '../../pipeline/codebook'
+import {
+  loadCodebook,
+  loadCodebookVersion,
+  loadRoundCodebooks,
+} from '../../pipeline/codebook'
 import { loadPrompt } from '../../pipeline/prompt'
 import { loadItems } from '../../pipeline/items'
 import { listRoundResponses } from '../../pipeline/responses'
@@ -11,12 +15,6 @@ import {
   loadProjectObservations,
   type RoundObservation,
 } from './agreement'
-import {
-  agreementPair,
-  profilePair,
-  type AgreementPair,
-  type ProfilePair,
-} from './agreement-pair'
 import { loadProjectOutliers, loadRoundOutliers } from './outliers'
 import { loadEvaluatorParticipation } from './participation'
 import { participationBefore } from './participation-labels'
@@ -37,7 +35,12 @@ import { EvaluatorRounds } from './evaluator-rounds'
 import { listReviewableRounds } from './review'
 import { requireReviewAccess } from './review-access'
 import { roundAgreementSection } from './round-agreement-section'
-import { criterionAgreements, matrixColumns, weakestCriterion } from './agreement-matrix'
+import {
+  criterionAgreements,
+  matrixColumns,
+  roundAgreements,
+  weakestCriterion,
+} from './agreement-matrix'
 import { byDefinitionSummary, isConcentrated } from './agreement-labels'
 import { ByDefinition } from './by-definition'
 import { QualityPanel } from './quality-panel'
@@ -91,6 +94,7 @@ export default async function ProjectRoundsPage({
     openRound,
     focusRound,
     focusCodebook,
+    roundCodebooks,
     codebook,
     prompt,
     items,
@@ -117,6 +121,7 @@ export default async function ProjectRoundsPage({
         !isAdmin && access.memberId
           ? await listReviewableRounds(projectId, access.memberId, tx)
           : [],
+      roundCodebooks: await loadRoundCodebooks(rounds, tx),
       codebook: isAdmin ? await loadCodebook(projectId, tx) : null,
       focusCodebook: focusRound
         ? await loadCodebookVersion(projectId, focusRound.codebookVersionId, tx)
@@ -156,24 +161,7 @@ export default async function ProjectRoundsPage({
     )
   }
 
-  const agreement = new Map<string, AgreementPair>(
-    rounds.map((round) => [
-      round.id,
-      agreementPair(
-        observations.get(round.id) ?? [],
-        outliers.get(round.id) ?? EMPTY_SET,
-      ),
-    ]),
-  )
-  const profiles = new Map<string, ProfilePair>(
-    rounds.map((round) => [
-      round.id,
-      profilePair(
-        observations.get(round.id) ?? [],
-        outliers.get(round.id) ?? EMPTY_SET,
-      ),
-    ]),
-  )
+  const agreement = roundAgreements(rounds, roundCodebooks, observations, outliers)
   const quality = new Map<string, QualityPair>(
     rounds
       .filter((round) => hasQuality(round.phase))
@@ -254,7 +242,6 @@ export default async function ProjectRoundsPage({
         projectId={project.id}
         rounds={rounds}
         agreement={agreement}
-        profiles={profiles}
         quality={quality}
       />
     </Section>

@@ -1950,11 +1950,13 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     auth.userId = admin
     const list = listOf(await render(scene.project))
 
-    expect(list.agreement.get(scene.round)).toEqual({
-      all: { calculable: true, alpha: 1, units: 2, raters: 2 },
-      withoutOutliers: null,
-      excluded: 0,
-    })
+    expect(
+      list.agreement.get(scene.round)!.map(({ column, cell, withoutOutliers }) => [
+        column.name,
+        cell.state === 'calculated' ? cell.agreement : cell.state,
+        withoutOutliers,
+      ]),
+    ).toEqual([['Clareza', { calculable: true, alpha: 1, units: 2, raters: 2 }, null]])
 
     const rendered = RoundList(list)
     expect(markupTextOf(createElement(RoundList, list))).toContain('Codebook v1 Prompt v1')
@@ -1963,8 +1965,41 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     expect(value).toBeTruthy()
 
     const text = markupTextOf(value!)
-    expect(text).toContain('Confiabilidade (ICR): 1,000 · 100% de notas iguais · 2 notas · 2 avaliadores')
+    expect(text).toContain('Confiabilidade (ICR): Clareza 1,000')
+    expect(text).not.toContain('notas iguais')
     expect(text).not.toContain('Boa')
+  })
+
+  it('na cena da rodada 8, a lista de rodadas traz o ICR de cada critério, sem o α das notas juntas', async () => {
+    const admin = await newUser('Admin')
+    const { scene } = await round8Scene(admin)
+
+    auth.userId = admin
+    const list = listOf(await render(scene.project))
+    const value = findElement(RoundList(list), AgreementValue)
+
+    const text = markupTextOf(value!)
+    expect(text).toContain(
+      `Confiabilidade (ICR): Relevance ${ROUND_8_ALPHA.relevance} · Diversity ${ROUND_8_ALPHA.diversity}`,
+    )
+    expect(text).not.toContain(ROUND_8_ALPHA.pooled)
+  })
+
+  it('na cena da rodada 8 com um marcado, a lista traz o ICR de cada critério com todos e sem os marcados', async () => {
+    const admin = await newUser('Admin')
+    const { scene } = await round8Scene(admin, { carla: true })
+
+    auth.userId = admin
+    const list = listOf(await render(scene.project))
+    const text = markupTextOf(findElement(RoundList(list), AgreementValue)!)
+
+    expect(text).toMatch(
+      new RegExp(
+        `^Confiabilidade \\(ICR\\) ${AGREEMENT_ALL_LABEL}: Relevance -?\\d,\\d{3} · ` +
+          `Diversity -?\\d,\\d{3} · ${AGREEMENT_WITHOUT_OUTLIERS_LABEL}: ` +
+          `Relevance ${ROUND_8_ALPHA.relevance} · Diversity ${ROUND_8_ALPHA.diversity}$`,
+      ),
+    )
   })
 
   it('numa rodada da Fase 3, o Administrador vê a Qualidade com porcentagem e contagem', async () => {

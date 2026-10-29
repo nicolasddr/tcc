@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { referenceComparison } from '@/app/projects/[id]/(tabs)/rounds/reference-comparison'
-import type { AgreementPair } from '@/app/projects/[id]/(tabs)/rounds/agreement-pair'
+import type { RoundAgreements } from '@/app/projects/[id]/(tabs)/rounds/agreement-matrix'
 import type { QualityPair } from '@/app/projects/[id]/(tabs)/rounds/quality'
 import type { RoundSummary } from '@/app/projects/[id]/(tabs)/rounds/rounds'
 import { ROUND_CLOSED, ROUND_OPEN } from '@/app/projects/[id]/(tabs)/rounds/round-status'
@@ -25,13 +25,24 @@ function round(
   }
 }
 
-function agreementOf(alpha: number, excluded = 0): AgreementPair {
+function agreementOf(alpha: number, excluded = 0): RoundAgreements {
   const value = { calculable: true as const, alpha, units: 2, raters: 2 }
-  return {
-    all: value,
-    withoutOutliers: excluded === 0 ? null : { ...value, alpha: alpha / 2 },
-    excluded,
-  }
+  return [
+    {
+      column: {
+        key: 'c1',
+        name: 'Clareza',
+        isGeneral: true,
+        isPerResponse: false,
+        criteria: new Map(),
+      },
+      cell: { state: 'calculated', agreement: value, profile: null },
+      withoutOutliers:
+        excluded === 0
+          ? null
+          : { state: 'calculated', agreement: { ...value, alpha: alpha / 2 }, profile: null },
+    },
+  ]
 }
 
 function qualityOf(total: number, excluded = 0): QualityPair {
@@ -43,7 +54,7 @@ function qualityOf(total: number, excluded = 0): QualityPair {
 }
 
 function mapsOf(rounds: readonly RoundSummary[]) {
-  const agreement = new Map<string, AgreementPair>(
+  const agreement = new Map<string, RoundAgreements>(
     rounds.map((round) => [round.id, agreementOf(round.roundNumber / 10)]),
   )
   const quality = new Map<string, QualityPair>(
@@ -143,9 +154,9 @@ describe('app/projects/[id]/rounds/reference-comparison — referenceComparison'
     expect(result.kind).toBe('compared')
     if (result.kind !== 'compared') return
 
-    expect(result.reference.agreement.withoutOutliers).not.toBeNull()
+    expect(result.reference.agreement[0].withoutOutliers).not.toBeNull()
     expect(result.reference.quality?.withoutOutliers).not.toBeNull()
-    expect(result.round.agreement.withoutOutliers).toBeNull()
+    expect(result.round.agreement[0].withoutOutliers).toBeNull()
     expect(result.round.quality?.withoutOutliers).toBeNull()
   })
 

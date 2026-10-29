@@ -37,7 +37,10 @@ import { ProjectTabs } from '@/app/projects/[id]/project-tabs'
 import { PipelineChecklist } from '@/app/projects/[id]/pipeline/pipeline-checklist'
 import { Phase2Checklist } from '@/app/projects/[id]/pipeline/phase-2-checklist'
 import { Phase3Checklist } from '@/app/projects/[id]/pipeline/phase-3-checklist'
-import { QUALITY_REFERENCE } from '@/app/projects/[id]/pipeline/last-round-summary'
+import {
+  QUALITY_REFERENCE,
+  type LastClosedRound,
+} from '@/app/projects/[id]/pipeline/last-round-summary'
 import { AdvancePhase } from '@/app/projects/[id]/pipeline/advance-phase'
 import { Phase4Return } from '@/app/projects/[id]/pipeline/phase-4-return'
 import { Disclosure } from '@/app/components/ui/disclosure'
@@ -82,7 +85,9 @@ import {
   agreementBand,
   bandLabel,
   formatAlpha,
+  notCalculableMessage,
 } from '@/app/projects/[id]/(tabs)/rounds/agreement-labels'
+import type { Agreement } from '@/lib/agreement'
 import { loadCodebookVersion } from '@/app/projects/[id]/pipeline/codebook'
 import { resolveCells } from '@/app/projects/[id]/pipeline/criteria'
 import { ownerDb, projects, rounds } from '@/lib/db'
@@ -300,6 +305,13 @@ function barBadgeTextOf(tree: unknown): string {
 function phase2Of(tree: unknown): Phase2Props | null {
   const element = findElement(tree, Phase2Checklist)
   return element ? (element.props as Phase2Props) : null
+}
+
+function agreementOf(last: LastClosedRound | null | undefined): Agreement {
+  expect(last?.agreement.map(({ column }) => column.name)).toEqual(['Clareza'])
+  const cell = last!.agreement[0].cell
+  if (cell.state !== 'calculated') throw new Error('o critério deveria ter notas')
+  return cell.agreement
 }
 
 function phase2AdvanceOf(tree: unknown): AdvanceProps | null {
@@ -1112,12 +1124,13 @@ describe('app/projects/[id]/page — escopo de visibilidade', () => {
 
     const last = phase2Of(tree)!.lastRound
     expect(last?.roundNumber).toBe(1)
-    if (!last?.pair.all.calculable) throw new Error('a rodada deveria ter coeficiente')
+    const agreement = agreementOf(last)
+    if (!agreement.calculable) throw new Error('a rodada deveria ter coeficiente')
 
     const text = phase2TextOf(tree)
     expect(text).toContain('Última rodada fechada: rodada 1')
-    expect(text).toContain(formatAlpha(last.pair.all.alpha))
-    expect(text).toContain(bandLabel(agreementBand(last.pair.all.alpha)))
+    expect(text).toContain(`Clareza ${formatAlpha(agreement.alpha)}`)
+    expect(text).toContain(bandLabel(agreementBand(agreement.alpha)))
     expect(text).toContain(BAND_REFERENCE)
     expect(text).toContain('A decisão de avançar é do Administrador.')
     expect(text).toContain(
@@ -1175,9 +1188,11 @@ describe('app/projects/[id]/page — escopo de visibilidade', () => {
     auth.userId = admin
     const tree = await render(project)
 
-    expect(phase2Of(tree)!.lastRound!.pair.all.calculable).toBe(false)
+    expect(agreementOf(phase2Of(tree)!.lastRound).calculable).toBe(false)
     expect(phase2AdvanceOf(tree)).toBeTruthy()
-    expect(phase2TextOf(tree)).toContain(NOT_CALCULABLE_LABEL)
+    expect(phase2TextOf(tree)).toContain(`Clareza ${NOT_CALCULABLE_LABEL}`)
+    expect(phase2TextOf(tree)).toContain(`Clareza: ${notCalculableMessage('few_evaluators')}`)
+    expect(phase2TextOf(tree)).not.toContain(BAND_REFERENCE)
   })
 
   it('o ICR baixo da última rodada aparece como questionável e não trava o avanço', async () => {
@@ -1199,7 +1214,7 @@ describe('app/projects/[id]/page — escopo de visibilidade', () => {
     auth.userId = admin
     const tree = await render(project)
 
-    const all = phase2Of(tree)!.lastRound!.pair.all
+    const all = agreementOf(phase2Of(tree)!.lastRound)
     if (!all.calculable) throw new Error('a rodada deveria ter coeficiente')
     expect(all.alpha).toBeLessThan(AGREEMENT_BANDS.acceptable)
 
@@ -1288,8 +1303,9 @@ describe('app/projects/[id]/page — escopo de visibilidade', () => {
         current: { codebook: 2, prompt: 1 },
       },
     })
-    if (!last?.pair.all.calculable) throw new Error('a rodada deveria ter coeficiente')
-    expect(last.quality).toEqual(qualityOf(await renderRounds(project)).pair)
+    const agreement = agreementOf(last)
+    if (!agreement.calculable) throw new Error('a rodada deveria ter coeficiente')
+    expect(last!.quality).toEqual(qualityOf(await renderRounds(project)).pair)
 
     const text = phase3TextOf(tree)
     expect(text).toContain('Rodada de referência: rodada 2')
@@ -1297,8 +1313,8 @@ describe('app/projects/[id]/page — escopo de visibilidade', () => {
       `Codebook na versão 2 e prompt na versão 1: são as versões que a Fase ${PHASE_4} vai testar.`,
     )
     expect(text).not.toContain('Última rodada fechada')
-    expect(text).toContain(formatAlpha(last.pair.all.alpha))
-    expect(text).toContain(bandLabel(agreementBand(last.pair.all.alpha)))
+    expect(text).toContain(`Clareza ${formatAlpha(agreement.alpha)}`)
+    expect(text).toContain(bandLabel(agreementBand(agreement.alpha)))
     expect(text).toContain(BAND_REFERENCE)
     expect(text).toContain('Alto 62,5% (5) · Médio 25% (2) · Baixo 12,5% (1)')
     expect(text).toContain(
@@ -1505,13 +1521,13 @@ describe('app/projects/[id]/page — escopo de visibilidade', () => {
       expect(phase3AdvanceOf(trees[key])).toBeTruthy()
     }
 
-    const lowAgreement = phase3Of(trees.lowAgreement)!.lastRound!.pair.all
+    const lowAgreement = agreementOf(phase3Of(trees.lowAgreement)!.lastRound)
     if (!lowAgreement.calculable) throw new Error('a rodada deveria ter coeficiente')
     expect(lowAgreement.alpha).toBeLessThan(AGREEMENT_BANDS.acceptable)
     expect(phase3TextOf(trees.lowAgreement)).toContain(bandLabel('questionable'))
 
     const allLow = phase3Of(trees.allLow)!.lastRound!
-    expect(allLow.pair.all.calculable).toBe(false)
+    expect(agreementOf(allLow).calculable).toBe(false)
     if (!allLow.quality?.all.rated) throw new Error('a rodada deveria ter notas')
     expect(allLow.quality.all.levels.find((level) => level.value === 'low')?.share).toBe(1)
     expect(phase3TextOf(trees.allLow)).toContain('Baixo 100% (6)')

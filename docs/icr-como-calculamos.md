@@ -126,6 +126,15 @@ da literatura.
   uma definição só, e traz ao lado do alpha as notas iguais, a distribuição pelos níveis, as
   divergências adjacentes e extremas e o N. É a leitura do critério quando as definições são
   posições (Query 1, Query 2…) e não textos diferentes.
+- **Lista de rodadas e resumo das Fases 2 e 3** (`rounds/agreement-matrix.ts`,
+  `roundAgreements`). Cada rodada traz o alpha de cada critério, com a versão do codebook que ela
+  fixou (`loadRoundCodebooks`): "Relevance −0,031 · Diversity 0,548". Com outliers, a lista
+  repete os critérios **sem os marcados**. O resumo das Fases 2 e 3 traz a faixa de cada critério
+  e, se algum não é calculável, diz por quê, com o nome dele.
+- **Comparação da Fase 4** (`rounds/reference-comparison-labels.ts`, `comparisonRows`). Uma linha
+  "ICR · critério" por critério. Os dois lados se ligam pelo nome e pelo tipo do critério (geral,
+  específico ou por resposta), porque cada versão do codebook dá ids novos; o lado que não tem o
+  critério mostra o traço.
 - **Série entre rodadas** (`rounds/agreement-series.ts`). Um ponto por rodada, com a versão do
   codebook e a fase ao lado, também **com todos**. A série é uma só para as Fases 2, 3 e 4. **Não
   existe média, soma nem "ICR do projeto"** em tela nenhuma.

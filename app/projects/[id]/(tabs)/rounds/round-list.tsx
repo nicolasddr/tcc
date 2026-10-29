@@ -5,7 +5,7 @@ import { EmptyState } from '@/app/components/ui/empty-state'
 import { InfoTooltip } from '@/app/components/ui/tooltip'
 import { formatDate } from '@/app/notifications/labels'
 import { AgreementValue } from './agreement-panel'
-import type { AgreementPair, ProfilePair } from './agreement-pair'
+import type { RoundAgreements } from './agreement-matrix'
 import { phaseRuns } from './agreement-series'
 import { QualitySummary } from './quality-panel'
 import type { QualityPair } from './quality'
@@ -24,7 +24,7 @@ function openedText(round: RoundSummary): string {
 function referenceOf(
   rounds: readonly RoundSummary[],
   round: RoundSummary,
-  agreement: Map<string, AgreementPair>,
+  agreement: Map<string, RoundAgreements>,
   quality: Map<string, QualityPair>,
 ) {
   const comparison = referenceComparison(rounds, round, agreement, quality)
@@ -37,13 +37,11 @@ export function RoundList({
   projectId,
   rounds,
   agreement,
-  profiles,
   quality,
 }: {
   projectId: string
   rounds: RoundSummary[]
-  agreement: Map<string, AgreementPair>
-  profiles: Map<string, ProfilePair>
+  agreement: Map<string, RoundAgreements>
   quality: Map<string, QualityPair>
 }) {
   if (rounds.length === 0) {
@@ -102,11 +100,7 @@ export function RoundList({
                   </div>
 
                   {agreement.has(round.id) ? (
-                    <AgreementValue
-                      pair={agreement.get(round.id)!}
-                      profiles={profiles.get(round.id)}
-                      band={false}
-                    />
+                    <AgreementValue rows={agreement.get(round.id)!} band={false} />
                   ) : null}
 
                   {quality.has(round.id) ? (

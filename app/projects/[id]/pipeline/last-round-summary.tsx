@@ -1,6 +1,9 @@
 import { Card } from '@/app/components/ui/card'
 import { formatDate } from '@/app/notifications/labels'
-import type { AgreementPair } from '../(tabs)/rounds/agreement-pair'
+import {
+  weakestCriterion,
+  type RoundAgreements,
+} from '../(tabs)/rounds/agreement-matrix'
 import type { VersionPair } from '../(tabs)/rounds/reference-round'
 import { AgreementValue } from '../(tabs)/rounds/agreement-panel'
 import {
@@ -15,7 +18,7 @@ import { PHASE_4 } from './preconditions'
 export type LastClosedRound = {
   roundNumber: number
   closedAt: string | null
-  pair: AgreementPair
+  agreement: RoundAgreements
   quality?: QualityPair
 }
 
@@ -30,7 +33,7 @@ export function LastRoundSummary({
   round: LastClosedRound
   reference?: VersionPair
 }) {
-  const { all } = round.pair
+  const weakest = weakestCriterion(round.agreement)
 
   return (
     <Card tone="subtle" padding="sm">
@@ -44,9 +47,11 @@ export function LastRoundSummary({
           versões que a Fase {PHASE_4} vai testar.
         </p>
       ) : null}
-      <AgreementValue pair={round.pair} />
+      <AgreementValue rows={round.agreement} />
       <p className="m-0 mt-1.5 text-xs text-muted">
-        {all.calculable ? BAND_REFERENCE : notCalculableMessage(all.reason)}
+        {weakest && !weakest.agreement.calculable
+          ? `${weakest.column.name}: ${notCalculableMessage(weakest.agreement.reason)}`
+          : BAND_REFERENCE}
       </p>
       {round.quality ? (
         <div className="mt-3 border-t border-line pt-3">

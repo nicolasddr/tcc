@@ -55,6 +55,11 @@ export type Codebook = {
   isOpen: boolean
 }
 
+export type RoundCodebook = {
+  definitions: CodebookDefinition[]
+  criteria: CodebookCriterion[]
+}
+
 export type CodebookVersionDetail = {
   version: CodebookVersionSummary
   definitions: CodebookDefinition[]
@@ -142,6 +147,20 @@ export async function loadCodebook(
     criteria: await loadCriteria(version.id, db),
     isOpen: isVersionOpen(version, version),
   }
+}
+
+export async function loadRoundCodebooks(
+  rounds: readonly { codebookVersionId: string }[],
+  db: DbExecutor = ownerDb,
+): Promise<Map<string, RoundCodebook>> {
+  const codebooks = new Map<string, RoundCodebook>()
+  for (const versionId of new Set(rounds.map((round) => round.codebookVersionId))) {
+    codebooks.set(versionId, {
+      definitions: await loadDefinitions(versionId, db),
+      criteria: await loadCriteria(versionId, db),
+    })
+  }
+  return codebooks
 }
 
 async function countsOf(

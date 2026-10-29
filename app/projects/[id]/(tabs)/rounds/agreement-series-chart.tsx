@@ -2,7 +2,7 @@ import { Badge } from '@/app/components/ui/badge'
 import { Card } from '@/app/components/ui/card'
 import { EmptyState } from '@/app/components/ui/empty-state'
 import { formatDate } from '@/app/notifications/labels'
-import { AgreementValue } from './agreement-panel'
+import { RoundAgreementValue } from './agreement-panel'
 import {
   AGREEMENT_ALL_LABEL,
   AGREEMENT_BANDS,
@@ -205,7 +205,7 @@ export function AgreementSeriesChart({ points }: { points: SeriesPoint[] }) {
                     ) : null}
                   </div>
 
-                  <AgreementValue
+                  <RoundAgreementValue
                     pair={{
                       all: point.agreement,
                       withoutOutliers: null,

@@ -11,6 +11,7 @@ import {
   type CriterionScope,
   type DefinitionKey,
 } from '../../pipeline/criteria'
+import type { CodebookCriterion, RoundCodebook } from '../../pipeline/codebook'
 import { PER_RESPONSE_KEY } from '../evaluate/completeness'
 import type { RoundObservation } from './agreement'
 import { withoutExcluded } from './agreement-pair'
@@ -97,6 +98,11 @@ export function matrixColumns<C extends CriterionKey>(
     ...specific.map((column) => ({ ...column, isGeneral: false, isPerResponse: false })),
     ...perResponse,
   ]
+}
+
+export function columnIdentity(column: MatrixColumn<unknown>): string {
+  const kind = column.isGeneral ? 'general' : column.isPerResponse ? 'per_response' : 'specific'
+  return `${kind}:${column.name.trim()}`
 }
 
 export type MeasuredCell<V> =
@@ -205,6 +211,43 @@ export function criterionAgreements<C extends CriterionKey>(
     cell.state === 'measured'
       ? { column, cell: cell.value.all, withoutOutliers: cell.value.withoutOutliers }
       : { column, cell, withoutOutliers: filtered ? cell : null },
+  )
+}
+
+export type RoundAgreements = CriterionAgreement<CodebookCriterion>[]
+
+const NO_OBSERVATIONS: readonly RoundObservation[] = []
+
+const NO_EXCLUDED: ReadonlySet<string> = new Set<string>()
+
+type RoundKey = { id: string; codebookVersionId: string }
+
+export function roundAgreement(
+  round: RoundKey,
+  codebooks: ReadonlyMap<string, RoundCodebook>,
+  observations: ReadonlyMap<string, readonly RoundObservation[]>,
+  outliers: ReadonlyMap<string, ReadonlySet<string>>,
+): RoundAgreements {
+  const codebook = codebooks.get(round.codebookVersionId)
+  return criterionAgreements(
+    codebook?.definitions ?? [],
+    codebook?.criteria ?? [],
+    observations.get(round.id) ?? NO_OBSERVATIONS,
+    outliers.get(round.id) ?? NO_EXCLUDED,
+  )
+}
+
+export function roundAgreements(
+  rounds: readonly RoundKey[],
+  codebooks: ReadonlyMap<string, RoundCodebook>,
+  observations: ReadonlyMap<string, readonly RoundObservation[]>,
+  outliers: ReadonlyMap<string, ReadonlySet<string>>,
+): Map<string, RoundAgreements> {
+  return new Map(
+    rounds.map((round) => [
+      round.id,
+      roundAgreement(round, codebooks, observations, outliers),
+    ]),
   )
 }
 

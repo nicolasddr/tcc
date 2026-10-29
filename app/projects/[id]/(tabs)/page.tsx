@@ -24,7 +24,7 @@ import {
   type Phase2Inputs,
   type ReturnInputs,
 } from '../pipeline/preconditions'
-import { loadCodebook } from '../pipeline/codebook'
+import { loadCodebook, loadRoundCodebooks, type RoundCodebook } from '../pipeline/codebook'
 import { loadPrompt } from '../pipeline/prompt'
 import { countItems } from '../pipeline/items'
 import { FROZEN_BADGE_HELP, FROZEN_BADGE_LABEL } from '../pipeline/freeze'
@@ -46,7 +46,7 @@ import { ReferenceComparisonPanel } from './rounds/reference-comparison-panel'
 import { loadProjectObservations, type RoundObservation } from './rounds/agreement'
 import { loadProjectOutliers } from './rounds/outliers'
 import { agreementSeries } from './rounds/agreement-series'
-import { agreementPair, type AgreementPair } from './rounds/agreement-pair'
+import { roundAgreement, roundAgreements } from './rounds/agreement-matrix'
 import { AgreementSeriesChart } from './rounds/agreement-series-chart'
 import { hasQuality, qualityPair, type QualityPair } from './rounds/quality'
 import {
@@ -74,6 +74,7 @@ type AgreementData = {
   rounds: readonly RoundSummary[]
   observations: ReadonlyMap<string, RoundObservation[]>
   outliers: ReadonlyMap<string, Set<string>>
+  codebooks: ReadonlyMap<string, RoundCodebook>
 }
 
 function roundCycleInputs(rounds: readonly RoundSummary[], phase: number): Phase2Inputs {
@@ -95,7 +96,12 @@ function lastClosedRoundOf(
   return {
     roundNumber: round.roundNumber,
     closedAt: round.closedAt,
-    pair: agreementPair(observations, excluded),
+    agreement: roundAgreement(
+      round,
+      agreement.codebooks,
+      agreement.observations,
+      agreement.outliers,
+    ),
     quality: hasQuality(round.phase) ? qualityPair(observations, excluded) : undefined,
   }
 }
@@ -132,18 +138,22 @@ function phase4ReturnData(agreement: AgreementData) {
   const compared = [round, referenceRoundOf(agreement.rounds, round)].filter(
     (candidate): candidate is RoundSummary => candidate !== null,
   )
-  const pairs = new Map<string, AgreementPair>()
+  const criteria = roundAgreements(
+    compared,
+    agreement.codebooks,
+    agreement.observations,
+    agreement.outliers,
+  )
   const qualities = new Map<string, QualityPair>()
   for (const candidate of compared) {
     const observations = agreement.observations.get(candidate.id) ?? []
     const excluded = agreement.outliers.get(candidate.id) ?? new Set<string>()
-    pairs.set(candidate.id, agreementPair(observations, excluded))
     if (hasQuality(candidate.phase)) {
       qualities.set(candidate.id, qualityPair(observations, excluded))
     }
   }
 
-  const comparison = referenceComparison(agreement.rounds, round, pairs, qualities)
+  const comparison = referenceComparison(agreement.rounds, round, criteria, qualities)
   if (comparison.kind === 'not_phase_4') return { inputs, summary: null }
 
   return {
@@ -218,11 +228,13 @@ export default async function ProjectPage({
         }
       : null
 
+    const rounds = viewerIsAdmin ? await listRounds(id, tx) : []
     const agreement = viewerIsAdmin
       ? {
-          rounds: await listRounds(id, tx),
+          rounds,
           observations: await loadProjectObservations(id, tx),
           outliers: await loadProjectOutliers(id, tx),
+          codebooks: await loadRoundCodebooks(rounds, tx),
         }
       : null
 

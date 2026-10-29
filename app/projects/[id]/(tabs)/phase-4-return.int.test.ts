@@ -35,8 +35,8 @@ import {
 } from '@/app/projects/[id]/pipeline/preconditions'
 import { ReferenceComparisonPanel } from '@/app/projects/[id]/(tabs)/rounds/reference-comparison-panel'
 import {
-  COMPARISON_AGREEMENT_ROW,
   COMPARISON_TOTAL_ROW,
+  comparisonAgreementRow,
 } from '@/app/projects/[id]/(tabs)/rounds/reference-comparison-labels'
 import { SCALE, scaleLabel } from '@/app/projects/[id]/(tabs)/evaluate/scale'
 import { AgreementSeriesChart } from '@/app/projects/[id]/(tabs)/rounds/agreement-series-chart'
@@ -318,7 +318,11 @@ describe('app/projects/[id]/page — painel para voltar da Fase 4 para a Fase 3'
     expect(markup).toContain('<table')
     expect(markup).not.toContain('group/tooltip')
     const table = markupText(createElement(ReferenceComparisonPanel, comparison))
-    for (const label of [COMPARISON_AGREEMENT_ROW, COMPARISON_TOTAL_ROW, ...SCALE.map(scaleLabel)]) {
+    for (const label of [
+      comparisonAgreementRow('Clareza'),
+      COMPARISON_TOTAL_ROW,
+      ...SCALE.map(scaleLabel),
+    ]) {
       expect(table).toContain(label)
     }
 

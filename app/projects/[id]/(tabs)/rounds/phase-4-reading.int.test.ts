@@ -49,6 +49,7 @@ import {
   REFERENCE_COMPARISON_HELP,
   REFERENCE_COMPARISON_POINTS,
   REFERENCE_COMPARISON_TITLE,
+  comparisonAgreementRow,
   noReferenceMessage,
   referenceComparisonHint,
   referenceLine,
@@ -540,16 +541,23 @@ describe('app/projects/[id]/rounds — a rodada da Fase 4 ao lado da rodada de r
     expect(comparison.reference.quality).toBe(list.quality.get(reference))
     expect(comparison.round.agreement).toBe(list.agreement.get(round))
     expect(comparison.round.quality).toBe(list.quality.get(round))
-    expect(comparison.reference.agreement.all.calculable).toBe(true)
-    expect(comparison.round.agreement.all.calculable).toBe(true)
-
-    const referenceAll = list.agreement.get(reference)!.all
-    const roundAll = list.agreement.get(round)!.all
-    expect(rowOf(tree, COMPARISON_AGREEMENT_ROW)).toEqual([
-      COMPARISON_AGREEMENT_ROW,
-      referenceAll.calculable ? formatAlpha(referenceAll.alpha) : null,
-      roundAll.calculable ? formatAlpha(roundAll.alpha) : null,
-    ])
+    const alphaOf = (roundId: string, name: string) => {
+      const row = list.agreement.get(roundId)!.find(({ column }) => column.name === name)
+      const cell = row?.cell
+      return cell?.state === 'calculated' && cell.agreement.calculable
+        ? formatAlpha(cell.agreement.alpha)
+        : null
+    }
+    for (const name of ['Clareza', 'Profundidade']) {
+      expect(alphaOf(reference, name)).not.toBeNull()
+      expect(alphaOf(round, name)).not.toBeNull()
+      expect(rowOf(tree, comparisonAgreementRow(name))).toEqual([
+        comparisonAgreementRow(name),
+        alphaOf(reference, name),
+        alphaOf(round, name),
+      ])
+    }
+    expect(rowOf(tree, COMPARISON_AGREEMENT_ROW)).toBeUndefined()
 
     const referenceLevels = levelCells(list.quality.get(reference)?.all)
     const roundLevels = levelCells(list.quality.get(round)?.all)
@@ -573,7 +581,8 @@ describe('app/projects/[id]/rounds — a rodada da Fase 4 ao lado da rodada de r
     const rows = withoutOutliersRows(await render(scene.project))
 
     expect(rows.map((row) => row[0])).toEqual([
-      `${COMPARISON_AGREEMENT_ROW} ${AGREEMENT_WITHOUT_OUTLIERS_LABEL}`,
+      `${comparisonAgreementRow('Clareza')} ${AGREEMENT_WITHOUT_OUTLIERS_LABEL}`,
+      `${comparisonAgreementRow('Profundidade')} ${AGREEMENT_WITHOUT_OUTLIERS_LABEL}`,
       `${scaleLabel('high')} ${AGREEMENT_WITHOUT_OUTLIERS_LABEL}`,
       `${scaleLabel('medium')} ${AGREEMENT_WITHOUT_OUTLIERS_LABEL}`,
       `${scaleLabel('low')} ${AGREEMENT_WITHOUT_OUTLIERS_LABEL}`,
@@ -593,7 +602,7 @@ describe('app/projects/[id]/rounds — a rodada da Fase 4 ao lado da rodada de r
     auth.userId = admin
     const rows = withoutOutliersRows(await render(scene.project))
 
-    expect(rows).toHaveLength(5)
+    expect(rows).toHaveLength(6)
     for (const row of rows) {
       expect(row[1]).toBe(COMPARISON_EMPTY)
       expect(row[2]).not.toBe(COMPARISON_EMPTY)
@@ -609,7 +618,7 @@ describe('app/projects/[id]/rounds — a rodada da Fase 4 ao lado da rodada de r
     auth.userId = admin
     const rows = withoutOutliersRows(await render(scene.project))
 
-    expect(rows).toHaveLength(5)
+    expect(rows).toHaveLength(6)
     for (const row of rows) {
       expect(row[1]).not.toBe(COMPARISON_EMPTY)
       expect(row[2]).not.toBe(COMPARISON_EMPTY)
@@ -639,9 +648,9 @@ describe('app/projects/[id]/rounds — a rodada da Fase 4 ao lado da rodada de r
     })
 
     expect(lines[3]).toBeNull()
-    expect(lines[2]).toMatch(/^Referência: rodada 1 · ICR /)
+    expect(lines[2]).toMatch(/^Referência: rodada 1 · ICR Clareza -?\d,\d{3} · Profundidade /)
     expect(lines[1]).toBeNull()
-    expect(lines[0]).toMatch(/^Referência: rodada 3 · ICR /)
+    expect(lines[0]).toMatch(/^Referência: rodada 3 · ICR Clareza -?\d,\d{3} · Profundidade /)
     expect(lines[2]).not.toContain('Codebook')
     expect(lines[2]).not.toContain('Prompt')
 
