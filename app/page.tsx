@@ -13,10 +13,7 @@ export default async function Home() {
     <div className="flex-1 bg-surface text-sm leading-[1.6] text-ink">
       <header className="sticky top-0 z-10 flex items-center justify-between gap-4 border-b border-line bg-surface px-6 py-3">
         <Link className="flex items-center gap-2 text-[15px] font-bold text-brand" href="/">
-          <span className="flex h-7 w-7 items-center justify-center rounded-md bg-brand text-[15px] text-white">
-            ✦
-          </span>
-          Engenharia de Prompt
+          HumanPrompt
           <span className="text-xs font-normal text-muted">protótipo</span>
         </Link>
         <GoogleSignInButton />

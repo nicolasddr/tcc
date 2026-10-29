@@ -14,7 +14,7 @@ const roboto = Roboto({
 });
 
 export const metadata: Metadata = {
-  title: "Engenharia de Prompt",
+  title: "HumanPrompt",
   description:
     "Ferramenta para criar e validar prompts de forma sistemática, baseado em Shah (2025).",
 };

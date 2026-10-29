@@ -20,16 +20,9 @@ export async function AppTopBar({ trail }: { trail: TrailItem[] }) {
     <TopBar>
       <Link
         href="/dashboard"
-        aria-label="Engenharia de Prompt"
-        className="flex shrink-0 items-center gap-2 text-[15px] font-bold text-brand"
+        className="shrink-0 text-[15px] font-bold text-brand"
       >
-        <span
-          aria-hidden="true"
-          className="flex h-7 w-7 items-center justify-center rounded-md bg-brand text-[15px] text-white"
-        >
-          ✦
-        </span>
-        <span className="hidden sm:inline">Engenharia de Prompt</span>
+        HumanPrompt
       </Link>
 
       <nav aria-label="Trilha" className="min-w-0 flex-1">
