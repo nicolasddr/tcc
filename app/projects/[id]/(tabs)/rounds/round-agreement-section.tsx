@@ -5,12 +5,11 @@ import type { EvaluatorEffort, RoundObservation } from './agreement'
 import { evaluatedRaters, evaluatedResponses, withoutExcluded } from './agreement-pair'
 import { AgreementNotes, AgreementWarnings, type RoundSample } from './agreement-panel'
 import { AgreementMatrixTable } from './agreement-matrix-table'
-import { criterionAgreements, matrixColumns } from './agreement-matrix'
-import { byDefinitionSummary, criterionConcentrationWarning } from './agreement-labels'
+import { matrixColumns } from './agreement-matrix'
+import { byDefinitionSummary } from './agreement-labels'
 import { CriterionAgreementTable } from './criterion-agreement-table'
 import { ByDefinition } from './by-definition'
 import { excludedMemberIds, type OutlierMark } from './outliers'
-import { hasQuality } from './quality'
 import { AGREEMENT_SECTION_ID } from './reading-shortcuts'
 import { isOpen, type RoundSummary } from './rounds'
 
@@ -44,7 +43,6 @@ export function roundAgreementSection({
 }) {
   const excluded = excludedMemberIds(outliers)
   const open = isOpen(round)
-  const distribution = hasQuality(round.phase)
   const sampleOf = (group: readonly RoundObservation[]): RoundSample => ({
     raters: evaluatedRaters(group),
     responses: evaluatedResponses(group),
@@ -55,19 +53,6 @@ export function roundAgreementSection({
       excluded.size > 0 ? sampleOf(withoutExcluded(observations, excluded)) : null,
   }
   const hasCodebook = definitions.length > 0 && criteria.length > 0
-  const concentrations = hasCodebook
-    ? criterionAgreements(definitions, criteria, observations, excluded).flatMap(
-        ({ column, cell }) => {
-          if (cell.state !== 'calculated') return []
-          const warning = criterionConcentrationWarning(
-            column.name,
-            cell.agreement,
-            cell.profile,
-          )
-          return warning ? [warning] : []
-        },
-      )
-    : []
   const matrix = (
     <AgreementMatrixTable
       definitions={definitions}
@@ -85,7 +70,7 @@ export function roundAgreementSection({
       help="Krippendorff's Alpha ordinal"
     >
       <div className="flex flex-col gap-4">
-        <AgreementWarnings sample={sample} concentrations={concentrations} />
+        <AgreementWarnings sample={sample} />
 
         {hasCodebook ? (
           <>
@@ -94,7 +79,6 @@ export function roundAgreementSection({
               criteria={criteria}
               observations={observations}
               excluded={excluded}
-              distribution={distribution}
             />
 
             <ByDefinition

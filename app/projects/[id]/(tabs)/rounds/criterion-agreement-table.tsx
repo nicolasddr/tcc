@@ -8,20 +8,22 @@ import type {
 import { PER_RESPONSE_LABEL } from '../../pipeline/criteria'
 import type { RoundObservation } from './agreement'
 import { criterionAgreements, type MatrixCell } from './agreement-matrix'
-import { divergenceLabel } from './divergence'
+import { DIVERGENCE_BAR_HEADER } from './divergence'
+import { DivergenceBar } from './divergence-bar'
 import {
   AGREEMENT_ALL_LABEL,
   AGREEMENT_WITHOUT_OUTLIERS_LABEL,
   BAND_REFERENCE,
   CELL_UNRATED_LABEL,
+  CONCENTRATED_LABEL,
+  CONCENTRATION_HELP,
   agreementBand,
   bandTone,
   cellNotCalculableLabel,
-  distributionLine,
+  concentrationWarning,
   formatAlpha,
-  sampleSize,
+  notesCount,
 } from './agreement-labels'
-import { formatShare } from './share'
 
 const headerClass =
   'border-b border-line px-3 py-2 text-left align-bottom text-[11px] font-semibold ' +
@@ -40,7 +42,7 @@ function Agreement({ cell }: { cell: MatrixCell }) {
   }
 
   return (
-    <Badge tone={bandTone(agreementBand(agreement.alpha))}>
+    <Badge tone={bandTone(agreementBand(agreement.alpha))} className="tabular-nums">
       {formatAlpha(agreement.alpha)}
     </Badge>
   )
@@ -56,12 +58,12 @@ function AgreementPair({
   if (!withoutOutliers) return <Agreement cell={cell} />
 
   return (
-    <span className="flex flex-col items-start gap-1.5">
-      <span className="flex flex-col items-start gap-0.5">
+    <span className="flex flex-col items-end gap-1.5">
+      <span className="flex flex-col items-end gap-0.5">
         <span className="text-[11px] text-muted">{AGREEMENT_ALL_LABEL}</span>
         <Agreement cell={cell} />
       </span>
-      <span className="flex flex-col items-start gap-0.5">
+      <span className="flex flex-col items-end gap-0.5">
         <span className="text-[11px] text-muted">{AGREEMENT_WITHOUT_OUTLIERS_LABEL}</span>
         <Agreement cell={withoutOutliers} />
       </span>
@@ -69,23 +71,10 @@ function AgreementPair({
   )
 }
 
-function Equal({ cell, distribution }: { cell: MatrixCell; distribution: boolean }) {
+function Divergence({ cell }: { cell: MatrixCell }) {
   if (cell.state !== 'calculated' || !cell.profile) return null
 
-  return (
-    <span className="flex flex-col items-start gap-0.5">
-      <span className="text-ink">{formatShare(cell.profile.equal)}</span>
-      {distribution ? (
-        <span className="text-[11.5px] text-muted">{distributionLine(cell.profile)}</span>
-      ) : null}
-    </span>
-  )
-}
-
-function Divergence({ cell, kind }: { cell: MatrixCell; kind: 'adjacent' | 'extreme' }) {
-  if (cell.state !== 'calculated' || !cell.profile) return null
-
-  return <span className="text-ink">{formatShare(cell.profile[kind])}</span>
+  return <DivergenceBar profile={cell.profile} />
 }
 
 export function CriterionAgreementTable({
@@ -93,13 +82,11 @@ export function CriterionAgreementTable({
   criteria,
   observations,
   excluded,
-  distribution,
 }: {
   definitions: CodebookDefinition[]
   criteria: CodebookCriterion[]
   observations: RoundObservation[]
   excluded: ReadonlySet<string>
-  distribution: boolean
 }) {
   const rows = criterionAgreements(definitions, criteria, observations, excluded)
 
@@ -112,57 +99,59 @@ export function CriterionAgreementTable({
               <th scope="col" className={headerClass}>
                 Critério
               </th>
-              <th scope="col" className={headerClass}>
+              <th scope="col" className={cx(headerClass, 'text-right')}>
                 <span className="inline-flex items-center gap-1">
                   ICR <InfoTooltip text={BAND_REFERENCE} />
                 </span>
               </th>
-              <th scope="col" className={headerClass}>
-                Notas iguais
+              <th scope="col" className={cx(headerClass, 'whitespace-nowrap')}>
+                {DIVERGENCE_BAR_HEADER}
               </th>
-              <th scope="col" className={headerClass}>
-                {divergenceLabel('adjacent')}
-              </th>
-              <th scope="col" className={headerClass}>
-                {divergenceLabel('extreme')}
-              </th>
-              <th scope="col" className={headerClass}>
-                Notas
-              </th>
+              <td className="w-full border-b border-line" />
             </tr>
           </thead>
           <tbody>
-            {rows.map(({ column, cell, withoutOutliers }) => (
-              <tr key={column.key}>
-                <th
-                  scope="row"
-                  className="border-b border-line px-3 py-2 text-left align-top font-semibold whitespace-nowrap text-ink"
-                >
-                  <span className="flex items-center gap-1.5">
-                    {column.name}
-                    {column.isGeneral ? <Badge tone="neutral">Geral</Badge> : null}
-                    {column.isPerResponse ? (
-                      <Badge tone="neutral">{PER_RESPONSE_LABEL}</Badge>
+            {rows.map(({ column, cell, withoutOutliers }) => {
+              const warning =
+                cell.state === 'calculated'
+                  ? concentrationWarning(cell.agreement, cell.profile)
+                  : null
+
+              return (
+                <tr key={column.key}>
+                  <th
+                    scope="row"
+                    className="border-b border-line px-3 py-2 text-left align-top font-semibold whitespace-nowrap text-ink"
+                  >
+                    <span className="flex items-center gap-1.5">
+                      {column.name}
+                      {column.isGeneral ? <Badge tone="neutral">Geral</Badge> : null}
+                      {column.isPerResponse ? (
+                        <Badge tone="neutral">{PER_RESPONSE_LABEL}</Badge>
+                      ) : null}
+                      {warning ? (
+                        <>
+                          <Badge tone="warning">{CONCENTRATED_LABEL}</Badge>
+                          <InfoTooltip text={`${warning} ${CONCENTRATION_HELP}`} />
+                        </>
+                      ) : null}
+                    </span>
+                    {cell.state === 'calculated' ? (
+                      <span className="block text-[11.5px] font-normal text-muted">
+                        {notesCount(cell.agreement)}
+                      </span>
                     ) : null}
-                  </span>
-                </th>
-                <td className={cellClass}>
-                  <AgreementPair cell={cell} withoutOutliers={withoutOutliers} />
-                </td>
-                <td className={cellClass}>
-                  <Equal cell={cell} distribution={distribution} />
-                </td>
-                <td className={cellClass}>
-                  <Divergence cell={cell} kind="adjacent" />
-                </td>
-                <td className={cellClass}>
-                  <Divergence cell={cell} kind="extreme" />
-                </td>
-                <td className={cx(cellClass, 'text-muted')}>
-                  {cell.state === 'calculated' ? sampleSize(cell.agreement) : null}
-                </td>
-              </tr>
-            ))}
+                  </th>
+                  <td className={cx(cellClass, 'text-right')}>
+                    <AgreementPair cell={cell} withoutOutliers={withoutOutliers} />
+                  </td>
+                  <td className={cellClass}>
+                    <Divergence cell={cell} />
+                  </td>
+                  <td className="border-b border-line" />
+                </tr>
+              )
+            })}
           </tbody>
         </table>
       </div>

@@ -1,5 +1,7 @@
 import { PER_RESPONSE_LABEL } from '../../pipeline/criteria'
+import type { AgreementProfile } from '@/lib/agreement'
 import { scaleLabel, scaleRank, type ScaleValue } from '../evaluate/scale'
+import { formatShare } from './share'
 
 export type CellDivergence = 'unrated' | 'single' | 'unanimous' | 'adjacent' | 'extreme'
 
@@ -26,6 +28,16 @@ export const DIVERGENCE_LEGEND =
 export const DIVERGENCE_PER_RESPONSE_LEGEND =
   `No grupo “${PER_RESPONSE_LABEL}” não há definição: ali a divergência extrema costuma ` +
   'apontar para o próprio critério, e pede descrição mais precisa nele.'
+
+export const DIVERGENCE_BAR_HEADER = 'Notas iguais · adjacente · extrema'
+
+export function divergenceBarLabel(profile: AgreementProfile): string {
+  return (
+    `${formatShare(profile.equal)} iguais, ` +
+    `${formatShare(profile.adjacent)} ${divergenceLabel('adjacent').toLowerCase()}, ` +
+    `${formatShare(profile.extreme)} ${divergenceLabel('extreme').toLowerCase()}`
+  )
+}
 
 export function classifyDivergence(values: readonly ScaleValue[]): CellDivergence {
   if (values.length === 0) return 'unrated'

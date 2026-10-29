@@ -150,6 +150,10 @@ export function sampleSize({
   )}`
 }
 
+export function notesCount({ units }: Pick<Agreement, 'units'>): string {
+  return plural(units, 'nota', 'notas')
+}
+
 export function smallSampleWarning({
   raters,
   responses,
@@ -204,6 +208,8 @@ export function cellNotCalculableLabel(reason: NotCalculableReason): string {
 
 export const CONCENTRATION_EQUAL = 0.8
 
+export const CONCENTRATED_LABEL = 'Notas concentradas'
+
 export const CONCENTRATION_HELP =
   'É o paradoxo da prevalência: com quase todas as notas num nível só, a discordância ' +
   'esperada ao acaso fica perto de zero, e poucas divergências derrubam o α. O aviso ' +
@@ -213,12 +219,6 @@ export const CONCENTRATION_HELP =
 
 function levelShare(profile: AgreementProfile, value: ScaleValue): number {
   return profile.shares.get(scaleRank(value)) ?? 0
-}
-
-export function distributionLine(profile: AgreementProfile): string {
-  return SCALE.map(
-    (value) => `${scaleLabel(value)} ${formatShare(levelShare(profile, value))}`,
-  ).join(' · ')
 }
 
 export function equalShareText(profile: AgreementProfile): string {
@@ -250,13 +250,4 @@ export function isConcentrated(
   if (!profile || !agreement.calculable) return false
   if (agreement.alpha >= AGREEMENT_BANDS.acceptable) return false
   return profile.equal >= CONCENTRATION_EQUAL
-}
-
-export function criterionConcentrationWarning(
-  name: string,
-  agreement: Agreement,
-  profile: AgreementProfile | null,
-): string | null {
-  const warning = concentrationWarning(agreement, profile)
-  return warning ? `${name}: ${warning}` : null
 }

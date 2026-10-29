@@ -75,6 +75,7 @@ import {
   OUTLIER_PAIR_RESULT,
   OUTLIER_PAIR_SUMMARY,
   SMALL_SAMPLE_HELP,
+  CONCENTRATED_LABEL,
   CONCENTRATION_HELP,
   matrixVersionNote,
 } from '@/app/projects/[id]/(tabs)/rounds/agreement-labels'
@@ -1607,7 +1608,7 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     const tree = await render(scene.project)
 
     const table = CriterionAgreementTable(criterionTableOf(tree))
-    expect(visibleTextOf(table)).toContain('Clareza 1,000 100% 0% 0% 3 notas · 2 avaliadores')
+    expect(visibleTextOf(table)).toContain('Clareza 3 notas 1,000 100% 0% 0%')
     expect(renderToStaticMarkup(table)).toMatch(/class="[^"]*bg-success-bg[^"]*">1,000</)
     expect(tooltipTextsOf(table)).toContain(BAND_REFERENCE)
     expect(BAND_REFERENCE).toContain(AGREEMENT_SOURCE)
@@ -1637,7 +1638,7 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     const tree = await render(scene.project)
 
     expect(visibleTextOf(CriterionAgreementTable(criterionTableOf(tree)))).toContain(
-      'Clareza 1 avaliador 0 notas · 1 avaliador',
+      'Clareza 0 notas 1 avaliador',
     )
     expect(agreementSectionTextOf(tree)).not.toContain('não calculável')
   })
@@ -1669,10 +1670,10 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     )
     expect(tooltipTextsOf(AgreementWarnings(warningsOf(tree))!)).toContain(SMALL_SAMPLE_HELP)
     expect(criterionTableTextOf(tree)).toContain('1,000')
-    expect(criterionTableTextOf(tree)).toContain('2 notas · 2 avaliadores')
+    expect(criterionTableTextOf(tree)).toContain('Clareza 2 notas 1,000')
   })
 
-  it('notas concentradas na Fase 2: a tabela mostra notas iguais e divergências, sem a distribuição, e o aviso leva o nome do critério', async () => {
+  it('notas concentradas na Fase 2: a tabela mostra notas iguais e divergências, sem a distribuição, e o selo fica na linha do critério', async () => {
     const admin = await newUser('Admin')
     const scene = await roundWith(admin, 10)
     const ana = await newEvaluator(scene.project, 'Ana')
@@ -1690,30 +1691,29 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     auth.userId = admin
     const tree = await render(scene.project)
 
-    expect(criterionTableOf(tree).distribution).toBe(false)
-    const table = visibleTextOf(CriterionAgreementTable(criterionTableOf(tree)))
-    expect(table).toContain('Clareza 0,000 90% 10% 0% 10 notas · 2 avaliadores')
+    const element = CriterionAgreementTable(criterionTableOf(tree))
+    const table = visibleTextOf(element)
+    expect(table).toContain(`Clareza ${CONCENTRATED_LABEL} i 10 notas 0,000 90% 10% 0%`)
     expect(table).not.toContain('Alto 95%')
-
-    expect(warningsOf(tree).concentrations).toEqual([
-      'Clareza: As notas se concentram em Alto (95%), e os avaliadores deram a mesma nota ' +
+    expect(
+      findAll(element, Badge).filter(
+        (badge) => (badge.props as { children: unknown }).children === CONCENTRATED_LABEL,
+      ),
+    ).toHaveLength(1)
+    expect(tooltipTextsOf(element)).toContain(
+      'As notas se concentram em Alto (95%), e os avaliadores deram a mesma nota ' +
         'em 90% dos pares. Com pouca variação na escala, poucas divergências bastam para ' +
-        'derrubar o α. Leia o número junto com a matriz.',
-    ])
-    const alerts = findAll(AgreementWarnings(warningsOf(tree)), Alert).map((alert) =>
-      visibleTextOf(alert),
+        `derrubar o α. Leia o número junto com a matriz. ${CONCENTRATION_HELP}`,
     )
-    expect(alerts).toContain(`${warningsOf(tree).concentrations[0]} i`)
-    expect(tooltipTextsOf(AgreementWarnings(warningsOf(tree))!)).toContain(CONCENTRATION_HELP)
+    expect(warningsTextOf(tree)).not.toContain('se concentram')
   })
 
-  it('com outliers, o aviso de amostra leva o rótulo de cada valor, e os de concentração vêm um por critério', () => {
+  it('com outliers, o aviso de amostra leva o rótulo de cada valor', () => {
     const props: WarningsProps = {
       sample: {
         all: { raters: 4, responses: 8 },
         withoutOutliers: { raters: 3, responses: 8 },
       },
-      concentrations: ['Relevance: aviso um.', 'Diversity: aviso dois.'],
     }
 
     const alerts = findAll(AgreementWarnings(props), Alert).map((alert) => visibleTextOf(alert))
@@ -1721,19 +1721,14 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
       `${AGREEMENT_ALL_LABEL} — Amostra pequena (4 avaliadores, 8 respostas): leia com cautela. i`,
       `${AGREEMENT_WITHOUT_OUTLIERS_LABEL} — Amostra pequena (3 avaliadores, 8 respostas): ` +
         'leia com cautela. i',
-      'Relevance: aviso um. i',
-      'Diversity: aviso dois. i',
     ])
     expect(tooltipTextsOf(AgreementWarnings(props)!)).toEqual([
       SMALL_SAMPLE_HELP,
       SMALL_SAMPLE_HELP,
-      CONCENTRATION_HELP,
-      CONCENTRATION_HELP,
     ])
     expect(
       AgreementWarnings({
         sample: { all: { raters: 3, responses: 10 }, withoutOutliers: null },
-        concentrations: [],
       }),
     ).toBeNull()
   })
@@ -1755,9 +1750,9 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     const tree = await render(scene.project)
 
     expect(criterionTableTextOf(tree)).toContain(
-      'Clareza sem variação 100% Alto 100% · Médio 0% · Baixo 0% 0% 0% 3 notas',
+      'Clareza 3 notas sem variação 100% 0% 0%',
     )
-    expect(warningsOf(tree).concentrations).toEqual([])
+    expect(criterionTableTextOf(tree)).not.toContain(CONCENTRATED_LABEL)
   })
 
   it('o esforço por avaliador mostra a contagem de cada um, inclusive quem enviou zero', async () => {
@@ -1854,7 +1849,7 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     })
     expect(visibleTextOf(CriterionAgreementTable(criterionTableOf(tree)))).toMatch(
       new RegExp(
-        `Clareza ${AGREEMENT_ALL_LABEL} -?\\d,\\d{3} ${AGREEMENT_WITHOUT_OUTLIERS_LABEL} 1,000 `,
+        `Clareza \\d+ notas ${AGREEMENT_ALL_LABEL} -?\\d,\\d{3} ${AGREEMENT_WITHOUT_OUTLIERS_LABEL} 1,000 `,
       ),
     )
 
@@ -2041,7 +2036,7 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     const tree = await render(scene.project)
 
     expect(findElement(tree, QualityPanel)).toBeNull()
-    expect(criterionTableTextOf(tree)).toMatch(/Clareza -?\d,\d{3} /)
+    expect(criterionTableTextOf(tree)).toMatch(/Clareza \d+ notas -?\d,\d{3} /)
 
     const list = listOf(tree)
     expect(list.quality.has(scene.round)).toBe(false)
@@ -2065,12 +2060,11 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     expect(findElement(qualitySection, AgreementWarnings)).toBeNull()
     expect(findElement(qualitySection, CriterionAgreementTable)).toBeNull()
 
-    expect(Object.keys(warningsOf(tree)).sort()).toEqual(['concentrations', 'sample'])
+    expect(Object.keys(warningsOf(tree)).sort()).toEqual(['sample'])
     expect(Object.keys(notesOf(tree)).sort()).toEqual(['effort', 'outliers'])
     expect(Object.keys(criterionTableOf(tree)).sort()).toEqual([
       'criteria',
       'definitions',
-      'distribution',
       'excluded',
       'observations',
     ])
@@ -2573,7 +2567,7 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
 
     expect(findElement(tree, NewRound)).toBeTruthy()
     expect(agreementTitleOf(tree)).toContain('fechada')
-    expect(criterionTableTextOf(tree)).toContain('Clareza Geral 1,000')
+    expect(criterionTableTextOf(tree)).toContain('Clareza Geral 4 notas 1,000')
     expect(matrixTextOf(tree)).toContain('1,000')
   })
 
@@ -2665,7 +2659,6 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     expect(Object.keys(criterionTableOf(tree)).sort()).toEqual([
       'criteria',
       'definitions',
-      'distribution',
       'excluded',
       'observations',
     ])
@@ -2677,24 +2670,22 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
 
     auth.userId = admin
     const tree = await render(scene.project)
-    expect(criterionTableOf(tree).distribution).toBe(false)
     const table = createElement(CriterionAgreementTable, criterionTableOf(tree))
     const markup = renderToStaticMarkup(table)
 
     expect(columnTitlesOf(markup)).toEqual([
       'Critério',
       `ICR i ${BAND_REFERENCE}`,
-      'Notas iguais',
-      'Divergência adjacente',
-      'Divergência extrema',
-      'Notas',
+      'Notas iguais · adjacente · extrema',
     ])
-    expect(rowTitlesOf(markup)).toEqual(['Clareza Geral'])
+    expect(rowTitlesOf(markup)).toEqual(['Clareza Geral 6 notas'])
     expect(visibleTextOf(table)).toBe(
-      'Critério ICR i Notas iguais Divergência adjacente Divergência extrema Notas ' +
-        'Clareza Geral 0,083 66,7% 0% 33,3% ' +
-        '6 notas · 2 avaliadores',
+      'Critério ICR i Notas iguais · adjacente · extrema ' +
+        'Clareza Geral 6 notas 0,083 66,7% 0% 33,3%',
     )
+    expect(
+      titleCountOf(markup, '66,7% iguais, 0% divergência adjacente, 33,3% divergência extrema'),
+    ).toBe(1)
     expect(markupTextOf(table)).not.toContain('0,167')
     expect(tooltipTextsOf(CriterionAgreementTable(criterionTableOf(tree)))).toEqual([
       BAND_REFERENCE,
@@ -2731,7 +2722,7 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     expect(markup).not.toContain('6 notas')
   })
 
-  it('com uma definição só, a tabela por critério também aparece, e na Fase 3 traz a distribuição', async () => {
+  it('com uma definição só, a tabela por critério também aparece, e na Fase 3 não traz a distribuição', async () => {
     const admin = await newUser('Admin')
     const scene = await roundWith(admin, 2, { phase: PHASE_3 })
     const ana = await newEvaluator(scene.project, 'Ana')
@@ -2751,10 +2742,8 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     const markup = renderToStaticMarkup(createElement(AgreementMatrixTable, matrixOf(tree)))
 
     expect(rowTitlesOf(markup)).toEqual(['Informacional'])
-    expect(criterionTableOf(tree).distribution).toBe(true)
-    expect(criterionTableTextOf(tree)).toContain(
-      'Clareza 1,000 100% Alto 50% · Médio 0% · Baixo 50% 0% 0% 2 notas',
-    )
+    expect(criterionTableTextOf(tree)).toContain('Clareza 2 notas 1,000 100% 0% 0%')
+    expect(criterionTableTextOf(tree)).not.toContain('Alto 50%')
     expect(agreementSectionTextOf(tree)).not.toContain('de notas iguais')
     expect(summaryOf(byDefinitionOf(tree))).toBe('Por definição (1 definição × 1 critério)')
   })
@@ -2844,28 +2833,28 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     const section = agreementSectionTextOf(tree)
     expect(section).not.toContain(ROUND_8_ALPHA.pooled)
     expect(visibleTextOf(CriterionAgreementTable(criterionTableOf(tree)))).toContain(
-      `Relevance Geral ${ROUND_8_ALPHA.relevance} 92% Alto 96% · Médio 4% · Baixo 0% 8% 0% ` +
-        '50 notas · 2 avaliadores ' +
-        `Diversity ${PER_RESPONSE_LABEL} ${ROUND_8_ALPHA.diversity} 80% ` +
-        'Alto 0% · Médio 70% · Baixo 30% 20% 0% 10 notas · 2 avaliadores',
+      `Relevance Geral ${CONCENTRATED_LABEL} i 50 notas ${ROUND_8_ALPHA.relevance} 92% 8% 0% ` +
+        `Diversity ${PER_RESPONSE_LABEL} ${CONCENTRATED_LABEL} i 10 notas ` +
+        `${ROUND_8_ALPHA.diversity} 80% 20% 0%`,
     )
     expect(section).not.toContain('Confiabilidade (ICR)')
   })
 
-  it('na cena da rodada 8, cada critério concentrado tem o seu aviso, com o nome na frente', async () => {
+  it('na cena da rodada 8, cada critério concentrado tem o seu selo, com o aviso no ⓘ da linha', async () => {
     const admin = await newUser('Admin')
     const { scene } = await round8Scene(admin)
 
     auth.userId = admin
     const tree = await render(scene.project)
 
-    expect(warningsOf(tree).concentrations).toEqual([
-      'Relevance: As notas se concentram em Alto (96%), e os avaliadores deram a mesma nota ' +
+    expect(tooltipTextsOf(CriterionAgreementTable(criterionTableOf(tree)))).toEqual([
+      BAND_REFERENCE,
+      'As notas se concentram em Alto (96%), e os avaliadores deram a mesma nota ' +
         'em 92% dos pares. Com pouca variação na escala, poucas divergências bastam para ' +
-        'derrubar o α. Leia o número junto com a matriz.',
-      'Diversity: As notas se concentram em Médio (70%), e os avaliadores deram a mesma nota ' +
+        `derrubar o α. Leia o número junto com a matriz. ${CONCENTRATION_HELP}`,
+      'As notas se concentram em Médio (70%), e os avaliadores deram a mesma nota ' +
         'em 80% dos pares. Com pouca variação na escala, poucas divergências bastam para ' +
-        'derrubar o α. Leia o número junto com a matriz.',
+        `derrubar o α. Leia o número junto com a matriz. ${CONCENTRATION_HELP}`,
     ])
     expect(warningsTextOf(tree)).not.toContain(ROUND_8_ALPHA.pooled)
   })
@@ -2880,19 +2869,17 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     const table = visibleTextOf(CriterionAgreementTable(criterionTableOf(tree)))
     expect(table).toMatch(
       new RegExp(
-        `Relevance Geral ${AGREEMENT_ALL_LABEL} -?\\d,\\d{3} ` +
+        `Relevance Geral 50 notas ${AGREEMENT_ALL_LABEL} -?\\d,\\d{3} ` +
           `${AGREEMENT_WITHOUT_OUTLIERS_LABEL} ${ROUND_8_ALPHA.relevance} \\d`,
       ),
     )
     expect(table).toMatch(
       new RegExp(
-        `Diversity ${PER_RESPONSE_LABEL} ${AGREEMENT_ALL_LABEL} -?\\d,\\d{3} ` +
+        `Diversity ${PER_RESPONSE_LABEL} 10 notas ${AGREEMENT_ALL_LABEL} -?\\d,\\d{3} ` +
           `${AGREEMENT_WITHOUT_OUTLIERS_LABEL} ${ROUND_8_ALPHA.diversity} \\d`,
       ),
     )
-    expect(table).toContain('50 notas · 3 avaliadores')
-    expect(table).toContain('10 notas · 3 avaliadores')
-    expect(table).not.toContain('2 avaliadores')
+    expect(table).not.toContain('avaliadores')
     expect(agreementSectionTextOf(tree)).not.toContain(ROUND_8_ALPHA.pooled)
   })
 
@@ -2923,12 +2910,11 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     const matrix = createElement(AgreementMatrixTable, matrixOf(tree))
 
     expect(rowTitlesOf(renderToStaticMarkup(table))).toEqual([
-      'Relevance Geral',
-      `Diversity ${PER_RESPONSE_LABEL}`,
+      'Relevance Geral 10 notas',
+      `Diversity ${PER_RESPONSE_LABEL} 2 notas`,
     ])
-    expect(visibleTextOf(table)).toContain('Relevance Geral 1,000 100%')
-    expect(visibleTextOf(table)).toContain('10 notas · 2 avaliadores')
-    expect(visibleTextOf(table)).toContain(`Diversity ${PER_RESPONSE_LABEL} 0,833 50%`)
+    expect(visibleTextOf(table)).toContain('Relevance Geral 10 notas 1,000 100%')
+    expect(visibleTextOf(table)).toContain(`Diversity ${PER_RESPONSE_LABEL} 2 notas 0,833 50%`)
     expect(visibleTextOf(table)).not.toContain(CELL_NOT_APPLICABLE)
     expect(markupTextOf(matrix)).toContain(`${PER_RESPONSE_LABEL} ${DASHES} 0,833`)
     expect(summaryOf(byDefinitionOf(tree))).toBe('Por definição (5 definições × 2 critérios)')
@@ -3115,7 +3101,7 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     auth.userId = admin
     const tree = await render(scene.project)
 
-    expect(criterionTableTextOf(tree)).toContain('Clareza -0,667')
+    expect(criterionTableTextOf(tree)).toContain('Clareza 3 notas -0,667')
 
     expect(guidanceOf(tree)).toEqual({
       guidance: { phase: PHASE_3, kind: 'below_band', criterion: 'Clareza', concentrated: false },
@@ -3134,7 +3120,7 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     auth.userId = admin
     const tree = await render(scene.project)
 
-    expect(criterionTableTextOf(tree)).toContain('Clareza 1,000')
+    expect(criterionTableTextOf(tree)).toContain('Clareza 3 notas 1,000')
 
     expect(guidanceOf(tree)).toEqual({
       guidance: { phase: PHASE_3, kind: 'within_band' },
@@ -3159,7 +3145,7 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     auth.userId = admin
     const tree = await render(scene.project)
 
-    expect(criterionTableTextOf(tree)).toContain('Clareza 1 avaliador')
+    expect(criterionTableTextOf(tree)).toContain('Clareza 0 notas 1 avaliador')
     expect(guidanceOf(tree)).toEqual({
       guidance: {
         phase: PHASE_3,
@@ -3249,7 +3235,7 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
 
     expect(visibleTextOf(CriterionAgreementTable(criterionTableOf(tree)))).toMatch(
       new RegExp(
-        `Clareza ${AGREEMENT_ALL_LABEL} 0,\\d{3} ${AGREEMENT_WITHOUT_OUTLIERS_LABEL} 1,000 `,
+        `Clareza \\d+ notas ${AGREEMENT_ALL_LABEL} 0,\\d{3} ${AGREEMENT_WITHOUT_OUTLIERS_LABEL} 1,000 `,
       ),
     )
 
@@ -3266,7 +3252,7 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     auth.userId = admin
     const tree = await render(scene.project)
 
-    expect(criterionTableTextOf(tree)).toContain('Clareza 1,000')
+    expect(criterionTableTextOf(tree)).toContain('Clareza 3 notas 1,000')
     expect(guidanceOf(tree)).toBeNull()
 
     const text = allTextOf(tree)

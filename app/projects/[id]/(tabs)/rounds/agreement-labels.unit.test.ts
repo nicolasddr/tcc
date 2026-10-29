@@ -13,6 +13,7 @@ import {
   CELL_PER_RESPONSE_COLUMN_TITLE,
   CELL_PER_RESPONSE_ROW_TITLE,
   CELL_UNRATED_LABEL,
+  CONCENTRATED_LABEL,
   CONCENTRATION_HELP,
   MATRIX_PER_RESPONSE_LEGEND,
   OUTLIER_PAIR_POINTS,
@@ -27,13 +28,12 @@ import {
   byDefinitionSummary,
   cellNotCalculableLabel,
   concentrationWarning,
-  criterionConcentrationWarning,
-  distributionLine,
   formatAlpha,
   matrixVersionLabel,
   matrixVersionNote,
   isConcentrated,
   notCalculableMessage,
+  notesCount,
   sampleSize,
   smallSampleWarning,
 } from '@/app/projects/[id]/(tabs)/rounds/agreement-labels'
@@ -141,6 +141,11 @@ describe('app/projects/[id]/rounds/agreement-labels — o coeficiente na tela', 
     expect(sampleSize({ units: 12, raters: 3 })).toBe('12 notas · 3 avaliadores')
     expect(sampleSize({ units: 1, raters: 1 })).toBe('1 nota · 1 avaliador')
     expect(sampleSize({ units: 0, raters: 0 })).toBe('0 notas · 0 avaliadores')
+  })
+
+  it('a contagem embaixo do critério traz só as notas', () => {
+    expect(notesCount({ units: 360 })).toBe('360 notas')
+    expect(notesCount({ units: 1 })).toBe('1 nota')
   })
 
   it('a amostra pequena avisa por poucos avaliadores ou por poucas respostas', () => {
@@ -317,12 +322,8 @@ describe('app/projects/[id]/rounds/agreement-labels — notas iguais e distribui
     expect(concentrationWarning(calculated(0.1), null)).toBeNull()
   })
 
-  it('o aviso por critério leva o nome do critério na frente', () => {
-    expect(criterionConcentrationWarning('Relevance', calculated(-0.031), CONCENTRATED)).toBe(
-      `Relevance: ${concentrationWarning(calculated(-0.031), CONCENTRATED)}`,
-    )
-    expect(criterionConcentrationWarning('Relevance', calculated(0.9), CONCENTRATED)).toBeNull()
-    expect(criterionConcentrationWarning('Relevance', calculated(0.1), null)).toBeNull()
+  it('o selo do aviso diz só que as notas estão concentradas', () => {
+    expect(CONCENTRATED_LABEL).toBe('Notas concentradas')
   })
 
   it('isConcentrated diz se o aviso sai, pela mesma regra', () => {
@@ -353,14 +354,5 @@ describe('app/projects/[id]/rounds/agreement-labels — notas iguais e distribui
     expect(CONCENTRATION_HELP).toContain('80%')
     expect(CONCENTRATION_HELP).toContain('convenção desta ferramenta')
     expect(wordsOf(CONCENTRATION_HELP)).toBeLessThanOrEqual(50)
-  })
-})
-
-describe('app/projects/[id]/rounds/agreement-labels — notas iguais na matriz', () => {
-  it('a distribuição traz os três níveis na ordem da escala, sem as notas iguais', () => {
-    expect(distributionLine(CONCENTRATED)).toBe('Alto 94% · Médio 6% · Baixo 0%')
-    expect(distributionLine(profile(0.945, { 3: 0.5, 2: 0.255, 1: 0.245 }))).toBe(
-      'Alto 50% · Médio 25,5% · Baixo 24,5%',
-    )
   })
 })

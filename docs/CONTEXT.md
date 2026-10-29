@@ -134,7 +134,7 @@ Evitar: "refinar itens", porque *item* é o item de entrada, que não se refina.
 **Concordância**
 O quanto os avaliadores dão a mesma nota a uma mesma unidade. É o dado observado: o painel da
 rodada a mostra como **notas iguais** (a parte dos pares de notas, na mesma unidade, com o mesmo
-nível), ao lado da distribuição das notas entre Alto, Médio e Baixo. Concordância alta não basta
+nível), ao lado da divergência adjacente e da extrema. Concordância alta não basta
 para dizer que o codebook está claro: com as notas concentradas num nível só, boa parte dos acordos
 sairia mesmo ao acaso. Por isso ela é lida sempre junto com a confiabilidade, a cada rodada, e
 nunca no lugar dela.
@@ -154,8 +154,8 @@ menos de dois avaliadores, nenhuma unidade avaliada por dois deles, e nenhuma va
 Na página da rodada, o α é **por critério**, e não há α da rodada inteira: o α mede uma variável
 por vez, e juntar critérios numa conta só infla o número. A orientação de leitura parte do critério
 mais fraco (o não calculável, senão o de menor α) e diz o nome dele. Ao lado do α de cada critério,
-a tabela mostra a concordância (notas iguais e distribuição), para ler um α baixo quando as notas
-se concentram num nível só; ela não substitui o α. A série entre rodadas e
+a tabela mostra a concordância (notas iguais, divergência adjacente e extrema), e marca as notas
+concentradas, para ler um α baixo quando as notas se concentram num nível só; ela não substitui o α. A série entre rodadas e
 a comparação da Fase 4 com a rodada de referência mostram só o α, também por critério.
 Não existe α da rodada inteira, média, soma nem "ICR do projeto" em tela nenhuma: a leitura entre
 rodadas é a série, um gráfico por critério com um ponto por rodada e a sua versão de codebook e a

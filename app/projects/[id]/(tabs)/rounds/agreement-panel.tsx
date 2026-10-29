@@ -10,7 +10,6 @@ import {
   AGREEMENT_LABEL,
   AGREEMENT_WITHOUT_OUTLIERS_LABEL,
   CELL_UNRATED_LABEL,
-  CONCENTRATION_HELP,
   NOT_CALCULABLE_LABEL,
   OUTLIER_PAIR_POINTS,
   OUTLIER_PAIR_RESULT,
@@ -79,13 +78,7 @@ function ExcludedList({ outliers }: { outliers: OutlierMark[] }) {
   )
 }
 
-export function AgreementWarnings({
-  sample,
-  concentrations,
-}: {
-  sample: SamplePair
-  concentrations: string[]
-}) {
+export function AgreementWarnings({ sample }: { sample: SamplePair }) {
   const { all, withoutOutliers } = sample
 
   const warnings: { key: string; text: string; help: string }[] = []
@@ -107,9 +100,6 @@ export function AgreementWarnings({
       })
     }
   }
-  concentrations.forEach((text, index) => {
-    warnings.push({ key: `concentration-${index}`, text, help: CONCENTRATION_HELP })
-  })
 
   if (warnings.length === 0) return null
 

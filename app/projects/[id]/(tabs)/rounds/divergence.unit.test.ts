@@ -1,10 +1,12 @@
 import { describe, it, expect } from 'vitest'
 import {
+  DIVERGENCE_BAR_HEADER,
   DIVERGENCE_LEGEND,
   DIVERGENCE_PER_RESPONSE_LEGEND,
   NO_JUSTIFICATION_HINT,
   NO_JUSTIFICATION_MARK,
   classifyDivergence,
+  divergenceBarLabel,
   divergenceLabel,
   divergenceMeaning,
   divergenceTone,
@@ -139,5 +141,20 @@ describe('app/projects/[id]/rounds/divergence — a divergência de uma célula'
     expect(DIVERGENCE_PER_RESPONSE_LEGEND).toContain('não há definição')
     expect(DIVERGENCE_PER_RESPONSE_LEGEND).toContain('próprio critério')
     expect(DIVERGENCE_PER_RESPONSE_LEGEND).not.toContain(DIVERGENCE_LEGEND)
+  })
+})
+
+describe('app/projects/[id]/rounds/divergence — a barra de notas iguais e divergências', () => {
+  it('o cabeçalho curto nomeia as três partes da barra', () => {
+    expect(DIVERGENCE_BAR_HEADER).toBe('Notas iguais · adjacente · extrema')
+  })
+
+  it('o rótulo da barra traz as três partes com os termos completos', () => {
+    expect(
+      divergenceBarLabel({ equal: 0.81, adjacent: 0.17, extreme: 0.02, shares: new Map() }),
+    ).toBe('81% iguais, 17% divergência adjacente, 2% divergência extrema')
+    expect(
+      divergenceBarLabel({ equal: 0.875, adjacent: 0.125, extreme: 0, shares: new Map() }),
+    ).toBe('87,5% iguais, 12,5% divergência adjacente, 0% divergência extrema')
   })
 })
