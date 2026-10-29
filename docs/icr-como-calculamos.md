@@ -102,7 +102,7 @@ da literatura.
   (Krippendorff, 2011), e juntar critérios diferentes numa conta só infla o número: na rodada 8 do
   PoC, as notas juntas davam 0,811 ("Boa"), com Relevance em −0,031 e Diversity em 0,548. Com
   várias variáveis, mede-se cada uma, e vale a menor (Krippendorff, 2004). A leitura da rodada é a
-  tabela por critério, abaixo.
+  tabela por critério, abaixo (ADR 0015).
 - **Outliers** (`rounds/agreement-matrix.ts`, `criterionAgreements`). Se há avaliadores marcados
   como outlier naquela rodada, a coluna do alpha da tabela por critério mostra dois valores: **com
   todos**, que é o resultado da rodada, e **sem os marcados**, que refaz a conta do critério
@@ -135,9 +135,12 @@ da literatura.
   "ICR · critério" por critério. Os dois lados se ligam pelo nome e pelo tipo do critério (geral,
   específico ou por resposta), porque cada versão do codebook dá ids novos; o lado que não tem o
   critério mostra o traço.
-- **Série entre rodadas** (`rounds/agreement-series.ts`). Um ponto por rodada, com a versão do
-  codebook e a fase ao lado, também **com todos**. A série é uma só para as Fases 2, 3 e 4. **Não
-  existe média, soma nem "ICR do projeto"** em tela nenhuma.
+- **Série entre rodadas** (`rounds/agreement-series.ts`, `agreementSeries`). Um gráfico por
+  critério, com um ponto por rodada, também **com todos**. As rodadas se ligam pelo nome e pelo
+  tipo do critério, como na comparação da Fase 4; a rodada cuja versão do codebook não tem o
+  critério fica vazia no gráfico dele. Abaixo dos gráficos, um card por rodada traz a versão do
+  codebook, a fase e o alpha de cada critério. A série é uma só para as Fases 2, 3 e 4. **Não
+  existe alpha da rodada inteira, média, soma nem "ICR do projeto"** em tela nenhuma (ADR 0015).
 - **O Avaliador não vê o coeficiente** em tela nenhuma, nem durante a rodada nem depois do
   fechamento. A métrica, exposta a quem produz o dado dela, deixa de medir o dado (ADR 0011).
 

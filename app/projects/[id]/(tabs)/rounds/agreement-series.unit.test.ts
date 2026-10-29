@@ -6,6 +6,8 @@ import {
 } from '@/app/projects/[id]/(tabs)/rounds/agreement-series'
 import type { RoundObservation } from '@/app/projects/[id]/(tabs)/rounds/agreement'
 import type { RoundSummary } from '@/app/projects/[id]/(tabs)/rounds/rounds'
+import type { MatrixCell } from '@/app/projects/[id]/(tabs)/rounds/agreement-matrix'
+import type { RoundCodebook } from '@/app/projects/[id]/pipeline/codebook'
 
 function round(
   id: string,
@@ -28,104 +30,238 @@ function round(
   }
 }
 
+type Codebook = RoundCodebook
+
+function codebook(criteria: { id: string; name: string; general?: boolean }[]): Codebook {
+  return {
+    definitions: [
+      { id: 'd1', title: 'Navegacional', type: null, description: null, orderIndex: 0 },
+    ],
+    criteria: criteria.map(({ id, name, general }, orderIndex) => ({
+      id,
+      name,
+      definitionId: general ? null : 'd1',
+      scope: general ? 'general' : 'specific',
+      description: null,
+      levels: { high: null, medium: null, low: null },
+      orderIndex,
+    })),
+  }
+}
+
 function score(
   responseId: string,
   raterId: string,
   value: number,
+  criterionId = 'c1',
 ): RoundObservation {
   return {
-    unitId: `${responseId}:d1:c1`,
+    unitId: `${responseId}:d1:${criterionId}`,
     raterId,
     value,
     responseId,
     definitionId: 'd1',
-    criterionId: 'c1',
+    criterionId,
     projectMemberId: raterId,
   }
 }
 
-function ratings(byRater: Record<string, readonly number[]>): RoundObservation[] {
+function ratings(
+  byRater: Record<string, readonly number[]>,
+  criterionId = 'c1',
+): RoundObservation[] {
   return Object.entries(byRater).flatMap(([raterId, values]) =>
-    values.map((value, index) => score(`r${index + 1}`, raterId, value)),
+    values.map((value, index) => score(`r${index + 1}`, raterId, value, criterionId)),
   )
+}
+
+const ONE_CRITERION = new Map<string, Codebook>([
+  ['cv1', codebook([{ id: 'c1', name: 'Clareza' }])],
+  ['cv2', codebook([{ id: 'c2', name: 'Clareza' }])],
+  ['cv3', codebook([{ id: 'c3', name: 'Clareza' }])],
+])
+
+function alphaOf(cell: MatrixCell | null) {
+  return cell?.state === 'calculated' ? cell.agreement : null
 }
 
 describe('agreementSeries — um ponto por rodada, sem agregação', () => {
   it('preserva a ordem cronológica recebida', () => {
     const rounds = [round('a', 1, 1), round('b', 2, 2), round('c', 3, 2)]
 
-    const points = agreementSeries(rounds, new Map())
+    const { rounds: points, criteria } = agreementSeries(rounds, ONE_CRITERION, new Map())
 
     expect(points.map((point) => point.roundNumber)).toEqual([1, 2, 3])
     expect(points.map((point) => point.roundId)).toEqual(['a', 'b', 'c'])
+    expect(criteria[0].points.map((point) => point.roundId)).toEqual(['a', 'b', 'c'])
   })
 
-  it('a rodada sem nenhuma avaliação vira ponto não calculável, e não some da série', () => {
-    const points = agreementSeries([round('a', 1, 1)], new Map())
+  it('a rodada sem nenhuma avaliação fica sem nota no critério, e não some da série', () => {
+    const { rounds, criteria } = agreementSeries([round('a', 1, 1)], ONE_CRITERION, new Map())
 
-    expect(points).toHaveLength(1)
-    expect(points[0].agreement).toEqual({
-      calculable: false,
-      reason: 'few_evaluators',
-      units: 0,
-      raters: 0,
-    })
+    expect(rounds).toHaveLength(1)
+    expect(criteria).toHaveLength(1)
+    expect(criteria[0].points[0].cell).toEqual({ state: 'unrated' })
   })
 
   it('duas rodadas produzem exatamente dois pontos, cada um com a sua versão', () => {
     const rounds = [round('a', 1, 1, '2026-02-01T00:00:00.000Z'), round('b', 2, 2)]
     const observations = new Map<string, RoundObservation[]>([
       ['a', ratings({ ana: [1, 2, 3], bruno: [1, 2, 3] })],
-      ['b', ratings({ ana: [1, 2, 3], bruno: [3, 2, 1] })],
+      ['b', ratings({ ana: [1, 2, 3], bruno: [3, 2, 1] }, 'c2')],
     ])
 
-    const points = agreementSeries(rounds, observations)
+    const { criteria } = agreementSeries(rounds, ONE_CRITERION, observations)
+    const points = criteria[0].points
 
     expect(points).toHaveLength(2)
     expect(points.map((point) => point.codebookVersionNumber)).toEqual([1, 2])
     expect(points[0].closedAt).toBe('2026-02-01T00:00:00.000Z')
     expect(points[1].closedAt).toBeNull()
-    expect(points[0].agreement).toMatchObject({ calculable: true, alpha: 1 })
-    expect(points[1].agreement).toMatchObject({ calculable: true })
-    expect(points[0].agreement).not.toEqual(points[1].agreement)
+    expect(alphaOf(points[0].cell)).toMatchObject({ calculable: true, alpha: 1 })
+    expect(alphaOf(points[1].cell)).toMatchObject({ calculable: true })
+    expect(points[0].cell).not.toEqual(points[1].cell)
   })
 
   it('sem o mapa de marcas, nenhuma rodada aparece com exclusão', () => {
-    const points = agreementSeries([round('a', 1, 1), round('b', 2, 2)], new Map())
+    const { rounds } = agreementSeries(
+      [round('a', 1, 1), round('b', 2, 2)],
+      ONE_CRITERION,
+      new Map(),
+    )
 
-    expect(points.map((point) => point.hasOutlier)).toEqual([false, false])
+    expect(rounds.map((point) => point.hasOutlier)).toEqual([false, false])
   })
 
   it('marca só as rodadas com exclusão ativa, e a coluna continua sendo o valor com todos', () => {
     const rounds = [round('a', 1, 1), round('b', 2, 2), round('c', 3, 2)]
     const observations = new Map<string, RoundObservation[]>([
       ['a', ratings({ ana: [1, 2, 3], bruno: [1, 2, 3], carla: [3, 1, 2] })],
-      ['b', ratings({ ana: [1, 2, 3], bruno: [1, 2, 3] })],
+      ['b', ratings({ ana: [1, 2, 3], bruno: [1, 2, 3] }, 'c2')],
     ])
     const outliers = new Map<string, ReadonlySet<string>>([
       ['a', new Set(['carla'])],
       ['c', new Set()],
     ])
 
-    const points = agreementSeries(rounds, observations, outliers)
+    const series = agreementSeries(rounds, ONE_CRITERION, observations, outliers)
 
-    expect(points.map((point) => point.hasOutlier)).toEqual([true, false, false])
-    expect(points[0].agreement).toEqual(
-      agreementSeries(rounds, observations)[0].agreement,
+    expect(series.rounds.map((point) => point.hasOutlier)).toEqual([true, false, false])
+    expect(series.criteria[0].points.map((point) => point.hasOutlier)).toEqual([
+      true,
+      false,
+      false,
+    ])
+    expect(series.criteria[0].points[0].cell).toEqual(
+      agreementSeries(rounds, ONE_CRITERION, observations).criteria[0].points[0].cell,
     )
   })
 
   it('o módulo não exporta nenhuma função de agregação entre rodadas', () => {
     expect(Object.keys(series)).toEqual(['agreementSeries', 'phaseRuns'])
 
-    const points = agreementSeries(
+    const { rounds } = agreementSeries(
       [round('a', 1, 1, null, 2), round('b', 2, 2, null, 3)],
+      ONE_CRITERION,
       new Map(),
     )
-    const grouped = phaseRuns(points).flatMap((run) => run.points)
+    const grouped = phaseRuns(rounds).flatMap((run) => run.points)
 
-    expect(grouped).toHaveLength(points.length)
-    grouped.forEach((point, index) => expect(point).toBe(points[index]))
+    expect(grouped).toHaveLength(rounds.length)
+    grouped.forEach((point, index) => expect(point).toBe(rounds[index]))
+  })
+})
+
+describe('agreementSeries — uma série por critério', () => {
+  it('cada critério tem a sua série, com o seu α, sem um valor que junte os dois', () => {
+    const codebooks = new Map<string, Codebook>([
+      [
+        'cv1',
+        codebook([
+          { id: 'rel', name: 'Relevance' },
+          { id: 'div', name: 'Diversity' },
+        ]),
+      ],
+    ])
+    const observations = new Map<string, RoundObservation[]>([
+      [
+        'a',
+        [
+          ...ratings({ ana: [1, 2, 3], bruno: [1, 2, 3] }, 'rel'),
+          ...ratings({ ana: [1, 2, 3], bruno: [3, 2, 1] }, 'div'),
+        ],
+      ],
+    ])
+
+    const { criteria } = agreementSeries([round('a', 1, 1)], codebooks, observations)
+
+    expect(criteria.map((criterion) => criterion.column.name)).toEqual([
+      'Relevance',
+      'Diversity',
+    ])
+    expect(alphaOf(criteria[0].points[0].cell)).toMatchObject({ calculable: true, alpha: 1 })
+    expect(alphaOf(criteria[1].points[0].cell)).toMatchObject({ calculable: true })
+    expect(alphaOf(criteria[1].points[0].cell)).not.toEqual(alphaOf(criteria[0].points[0].cell))
+  })
+
+  it('liga as rodadas pelo nome e pelo tipo, mesmo com ids novos a cada versão', () => {
+    const rounds = [round('a', 1, 1), round('b', 2, 2)]
+
+    const { criteria } = agreementSeries(rounds, ONE_CRITERION, new Map())
+
+    expect(criteria).toHaveLength(1)
+    expect(criteria[0].key).toBe('specific:Clareza')
+    expect(criteria[0].points.map((point) => point.cell)).toEqual([
+      { state: 'unrated' },
+      { state: 'unrated' },
+    ])
+  })
+
+  it('o mesmo nome em tipos diferentes vira duas séries', () => {
+    const codebooks = new Map<string, Codebook>([
+      ['cv1', codebook([{ id: 'c1', name: 'Clareza' }])],
+      ['cv2', codebook([{ id: 'c2', name: 'Clareza', general: true }])],
+    ])
+
+    const { criteria } = agreementSeries(
+      [round('a', 1, 1), round('b', 2, 2)],
+      codebooks,
+      new Map(),
+    )
+
+    expect(criteria.map((criterion) => criterion.key)).toEqual([
+      'specific:Clareza',
+      'general:Clareza',
+    ])
+    expect(criteria[0].points.map((point) => point.cell)).toEqual([{ state: 'unrated' }, null])
+    expect(criteria[1].points.map((point) => point.cell)).toEqual([null, { state: 'unrated' }])
+  })
+
+  it('a rodada cuja versão não tem o critério fica vazia na série dele', () => {
+    const codebooks = new Map<string, Codebook>([
+      ['cv1', codebook([{ id: 'c1', name: 'Clareza' }])],
+      [
+        'cv2',
+        codebook([
+          { id: 'c2', name: 'Clareza' },
+          { id: 'c3', name: 'Concisão' },
+        ]),
+      ],
+    ])
+
+    const { criteria } = agreementSeries(
+      [round('a', 1, 1), round('b', 2, 2)],
+      codebooks,
+      new Map(),
+    )
+
+    const concision = criteria.find((criterion) => criterion.column.name === 'Concisão')!
+    expect(concision.points.map((point) => point.cell)).toEqual([null, { state: 'unrated' }])
+    expect(concision.points).toHaveLength(2)
+  })
+
+  it('a rodada sem codebook carregado não cria série', () => {
+    expect(agreementSeries([round('a', 1, 9)], ONE_CRITERION, new Map()).criteria).toEqual([])
   })
 })
 
@@ -138,16 +274,18 @@ describe('agreementSeries — a fase de cada rodada', () => {
   ]
 
   it('a série carrega a fase de cada rodada, na ordem recebida', () => {
-    const points = agreementSeries(acrossPhases(), new Map())
+    const { rounds } = agreementSeries(acrossPhases(), ONE_CRITERION, new Map())
 
-    expect(points.map((point) => point.phase)).toEqual([2, 2, 3, 3])
-    expect(points.map((point) => point.roundNumber)).toEqual([1, 2, 3, 4])
+    expect(rounds.map((point) => point.phase)).toEqual([2, 2, 3, 3])
+    expect(rounds.map((point) => point.roundNumber)).toEqual([1, 2, 3, 4])
   })
 
   it('as duas fases ficam numa série só, com um ponto por rodada', () => {
     const rounds = acrossPhases()
 
-    expect(agreementSeries(rounds, new Map())).toHaveLength(rounds.length)
+    const { criteria } = agreementSeries(rounds, ONE_CRITERION, new Map())
+
+    expect(criteria[0].points).toHaveLength(rounds.length)
   })
 })
 
@@ -155,8 +293,9 @@ describe('phaseRuns — agrupa por sequência, sem valor próprio', () => {
   function pointsIn(phases: readonly number[]) {
     return agreementSeries(
       phases.map((phase, index) => round(`r${index + 1}`, index + 1, 1, null, phase)),
+      ONE_CRITERION,
       new Map(),
-    )
+    ).rounds
   }
 
   it('abre um grupo novo cada vez que a fase muda', () => {

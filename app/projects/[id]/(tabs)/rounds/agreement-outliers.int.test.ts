@@ -13,7 +13,10 @@ import {
   listEvaluatorEffort,
   loadRoundObservations,
 } from '@/app/projects/[id]/(tabs)/rounds/agreement'
-import { agreementPair } from '@/app/projects/[id]/(tabs)/rounds/agreement-pair'
+import {
+  criterionAgreements,
+  type MatrixCell,
+} from '@/app/projects/[id]/(tabs)/rounds/agreement-matrix'
 import {
   excludedMemberIds,
   loadProjectOutliers,
@@ -49,7 +52,7 @@ const ONE_CELL: DefinitionFixture[] = [
   { title: 'Navegacional', type: 'category', criteria: [{ name: 'Clareza' }] },
 ]
 
-type Scene = { round: string; responses: string[]; cells: Cell[] }
+type Scene = { round: string; codebook: string; responses: string[]; cells: Cell[] }
 
 function markForm(
   projectId: string,
@@ -77,10 +80,25 @@ function filled(cells: Cell[], value: CellFixture['value']): CellFixture[] {
   return cells.map((cell) => ({ ...cell, value }))
 }
 
-async function pairOf(roundId: string, projectId: string) {
-  const observations = await loadRoundObservations(roundId, ownerDb)
-  const outliers = await loadProjectOutliers(projectId, ownerDb)
-  return agreementPair(observations, outliers.get(roundId) ?? new Set<string>())
+function agreementOf(cell: MatrixCell | null) {
+  return cell?.state === 'calculated' ? cell.agreement : null
+}
+
+async function pairOf(scene: Scene, projectId: string) {
+  const observations = await loadRoundObservations(scene.round, ownerDb)
+  const excluded = (await loadProjectOutliers(projectId, ownerDb)).get(scene.round) ?? new Set<string>()
+  const version = await loadCodebookVersion(projectId, scene.codebook, ownerDb)
+  const [row] = criterionAgreements(
+    version!.definitions,
+    version!.criteria,
+    observations,
+    excluded,
+  )
+  return {
+    all: agreementOf(row.cell),
+    withoutOutliers: agreementOf(row.withoutOutliers),
+    excluded: excluded.size,
+  }
 }
 
 describe('app/projects/[id]/rounds — a marca de outlier no coeficiente da rodada', () => {
@@ -137,7 +155,7 @@ describe('app/projects/[id]/rounds — a marca de outlier no coeficiente da roda
       criterionId: cell.criterion.id,
     }))
 
-    return { round, responses: ids, cells }
+    return { round, codebook, responses: ids, cells }
   }
 
   async function rate(
@@ -177,7 +195,7 @@ describe('app/projects/[id]/rounds — a marca de outlier no coeficiente da roda
       await rate(scene, carla, ['high', 'low', 'medium'])
     }
 
-    const before = await pairOf(second.round, project)
+    const before = await pairOf(second, project)
     expect(before.withoutOutliers).toBeNull()
 
     auth.userId = admin
@@ -186,13 +204,13 @@ describe('app/projects/[id]/rounds — a marca de outlier no coeficiente da roda
       nonce: expect.any(Number),
     })
 
-    const marked = await pairOf(second.round, project)
+    const marked = await pairOf(second, project)
     expect(marked.all).toEqual(before.all)
     expect(marked.excluded).toBe(1)
     expect(marked.withoutOutliers).toMatchObject({ calculable: true, alpha: 1 })
     expect(marked.withoutOutliers).not.toEqual(marked.all)
 
-    const untouched = await pairOf(first.round, project)
+    const untouched = await pairOf(first, project)
     expect(untouched.withoutOutliers).toBeNull()
     expect(untouched.excluded).toBe(0)
     expect(untouched.all).toEqual(before.all)
@@ -210,12 +228,12 @@ describe('app/projects/[id]/rounds — a marca de outlier no coeficiente da roda
     await rate(scene, bruno, ['low', 'medium', 'high'])
     await rate(scene, carla, ['high', 'low', 'medium'])
 
-    const before = await pairOf(scene.round, project)
+    const before = await pairOf(scene, project)
 
     auth.userId = admin
     await markOutlier(null, markForm(project, scene.round, carla))
 
-    const marked = await pairOf(scene.round, project)
+    const marked = await pairOf(scene, project)
     expect(marked.all).toEqual(before.all)
     expect(marked.withoutOutliers).not.toBeNull()
 
@@ -224,7 +242,7 @@ describe('app/projects/[id]/rounds — a marca de outlier no coeficiente da roda
       { ok: true, nonce: expect.any(Number) },
     )
 
-    const restored = await pairOf(scene.round, project)
+    const restored = await pairOf(scene, project)
     expect(restored.all).toEqual(before.all)
     expect(restored.withoutOutliers).toBeNull()
     expect(restored.excluded).toBe(0)
@@ -240,7 +258,7 @@ describe('app/projects/[id]/rounds — a marca de outlier no coeficiente da roda
     await rate(scene, ana, ['low', 'medium', 'high'])
     await rate(scene, bruno, ['low', 'medium', 'high'])
 
-    const before = await pairOf(scene.round, project)
+    const before = await pairOf(scene, project)
     expect(before.all).toMatchObject({ calculable: true, alpha: 1, raters: 2 })
 
     await ownerDb
@@ -248,7 +266,7 @@ describe('app/projects/[id]/rounds — a marca de outlier no coeficiente da roda
       .set({ status: 'inactive' })
       .where(eq(projectMembers.id, bruno))
 
-    const after = await pairOf(scene.round, project)
+    const after = await pairOf(scene, project)
     expect(after).toEqual(before)
 
     expect(await listEvaluatorEffort(scene.round, project, ownerDb)).toEqual([
@@ -305,7 +323,7 @@ describe('app/projects/[id]/rounds — a marca de outlier no coeficiente da roda
     const marks = await loadRoundOutliers(scene.round, ownerDb)
     expect(excludedMemberIds(marks)).toEqual(new Set([carla]))
 
-    const pair = await pairOf(scene.round, project)
+    const pair = await pairOf(scene, project)
     expect(pair.all).toMatchObject({ raters: 3 })
     expect(pair.withoutOutliers).toMatchObject({ calculable: true, alpha: 1, raters: 2 })
   })

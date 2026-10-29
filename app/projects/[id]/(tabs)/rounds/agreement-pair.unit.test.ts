@@ -1,12 +1,9 @@
 import { describe, it, expect } from 'vitest'
 import {
-  agreementPair,
   evaluatedResponses,
-  profilePair,
   withoutExcluded,
 } from '@/app/projects/[id]/(tabs)/rounds/agreement-pair'
 import type { RoundObservation } from '@/app/projects/[id]/(tabs)/rounds/agreement'
-import { agreementProfile, ordinalAlpha } from '@/lib/agreement'
 
 function score(
   responseId: string,
@@ -30,60 +27,7 @@ function ratings(byRater: Record<string, readonly number[]>): RoundObservation[]
   )
 }
 
-const NONE: ReadonlySet<string> = new Set<string>()
-
-describe('agreementPair — o valor com todos e o valor sem os marcados', () => {
-  it('sem exclusão, o par traz só o valor com todos', () => {
-    const observations = ratings({ ana: [1, 2, 3], bruno: [1, 2, 3] })
-
-    const pair = agreementPair(observations, NONE)
-
-    expect(pair.withoutOutliers).toBeNull()
-    expect(pair.excluded).toBe(0)
-    expect(pair.all).toEqual(ordinalAlpha(observations))
-  })
-
-  it('com exclusão, os dois existem e o valor com todos continua o mesmo', () => {
-    const observations = ratings({
-      ana: [1, 2, 3, 1],
-      bruno: [1, 2, 3, 1],
-      carla: [3, 1, 2, 3],
-    })
-
-    const pair = agreementPair(observations, new Set(['carla']))
-
-    expect(pair.all).toEqual(ordinalAlpha(observations))
-    expect(pair.excluded).toBe(1)
-    expect(pair.withoutOutliers).toEqual(
-      ordinalAlpha(ratings({ ana: [1, 2, 3, 1], bruno: [1, 2, 3, 1] })),
-    )
-    expect(pair.withoutOutliers).not.toEqual(pair.all)
-  })
-
-  it('excluir todo mundo menos um deixa o filtrado não calculável, e o com todos intacto', () => {
-    const observations = ratings({ ana: [1, 2, 3], bruno: [3, 2, 1] })
-
-    const pair = agreementPair(observations, new Set(['bruno']))
-
-    expect(pair.all).toEqual(ordinalAlpha(observations))
-    expect(pair.all.calculable).toBe(true)
-    expect(pair.withoutOutliers).toMatchObject({
-      calculable: false,
-      reason: 'few_evaluators',
-      raters: 1,
-    })
-  })
-
-  it('excluir quem não avaliou não muda o número, e o par continua existindo', () => {
-    const observations = ratings({ ana: [1, 2, 3], bruno: [1, 2, 3] })
-
-    const pair = agreementPair(observations, new Set(['ninguem']))
-
-    expect(pair.excluded).toBe(1)
-    expect(pair.withoutOutliers).toEqual(pair.all)
-    expect(pair.withoutOutliers).not.toBeNull()
-  })
-
+describe('withoutExcluded e evaluatedResponses — o recorte e a contagem', () => {
   it('withoutExcluded filtra por vínculo, e não toca nas observações que ficam', () => {
     const observations = ratings({ ana: [1, 2], bruno: [3, 3] })
 
@@ -100,43 +44,5 @@ describe('agreementPair — o valor com todos e o valor sem os marcados', () => 
     expect(evaluatedResponses(observations)).toBe(3)
     expect(evaluatedResponses(withoutExcluded(observations, new Set(['bruno'])))).toBe(3)
     expect(evaluatedResponses([])).toBe(0)
-  })
-})
-
-describe('profilePair — notas iguais e distribuição com todos e sem os marcados', () => {
-  it('sem exclusão, o par traz só o perfil com todos', () => {
-    const observations = ratings({ ana: [3, 3, 3, 2], bruno: [3, 3, 3, 3] })
-
-    const pair = profilePair(observations, NONE)
-
-    expect(pair.all).toEqual(agreementProfile(observations))
-    expect(pair.all?.equal).toBeCloseTo(0.75, 10)
-    expect(pair.withoutOutliers).toBeNull()
-  })
-
-  it('com exclusão, cada perfil sai do seu recorte', () => {
-    const observations = ratings({
-      ana: [3, 3, 3, 3],
-      bruno: [3, 3, 3, 3],
-      carla: [1, 1, 1, 1],
-    })
-
-    const pair = profilePair(observations, new Set(['carla']))
-
-    expect(pair.all).toEqual(agreementProfile(observations))
-    expect(pair.withoutOutliers).toEqual(
-      agreementProfile(ratings({ ana: [3, 3, 3, 3], bruno: [3, 3, 3, 3] })),
-    )
-    expect(pair.withoutOutliers?.equal).toBe(1)
-    expect(pair.all?.equal).toBeCloseTo(1 / 3, 10)
-  })
-
-  it('excluir todo mundo menos um deixa o perfil filtrado nulo', () => {
-    const observations = ratings({ ana: [1, 2, 3], bruno: [3, 2, 1] })
-
-    const pair = profilePair(observations, new Set(['bruno']))
-
-    expect(pair.all).not.toBeNull()
-    expect(pair.withoutOutliers).toBeNull()
   })
 })

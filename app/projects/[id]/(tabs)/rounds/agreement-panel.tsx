@@ -1,9 +1,8 @@
 import { Fragment } from 'react'
-import type { Agreement, AgreementProfile } from '@/lib/agreement'
+import type { Agreement } from '@/lib/agreement'
 import type { EvaluatorEffort } from './agreement'
 import type { CriterionAgreement, MatrixCell } from './agreement-matrix'
 import { EffortList } from './effort-list'
-import type { AgreementPair, ProfilePair } from './agreement-pair'
 import type { OutlierMark } from './outliers'
 import type { RoundMark } from '../../round-usage'
 import {
@@ -19,10 +18,8 @@ import {
   agreementBand,
   bandLabel,
   bandTone,
-  equalShareText,
   formatAlpha,
   SMALL_SAMPLE_HELP,
-  sampleSize,
   smallSampleWarning,
 } from './agreement-labels'
 import { Alert } from '@/app/components/ui/alert'
@@ -166,74 +163,6 @@ export function AgreementNotes({
         </Card>
       ) : null}
     </div>
-  )
-}
-
-function ValuePart({
-  label,
-  agreement,
-  band,
-  profile,
-}: {
-  label: string
-  agreement: Agreement
-  band: boolean
-  profile: AgreementProfile | null | undefined
-}) {
-  return (
-    <>
-      <span>
-        {label}:{' '}
-        <span className="font-semibold text-ink">{agreementText(agreement)}</span>
-      </span>
-      {band && agreement.calculable ? <BandBadge alpha={agreement.alpha} /> : null}
-      {profile ? (
-        <>
-          <span aria-hidden>·</span>
-          <span>{equalShareText(profile)}</span>
-          <span aria-hidden>·</span>
-        </>
-      ) : null}
-      <span>{sampleSize(agreement)}</span>
-    </>
-  )
-}
-
-export function RoundAgreementValue({
-  pair,
-  band = true,
-  profiles,
-}: {
-  pair: AgreementPair
-  band?: boolean
-  profiles?: ProfilePair | undefined
-}) {
-  const { all, withoutOutliers } = pair
-
-  return (
-    <p className="m-0 mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] text-muted">
-      <ValuePart
-        label={
-          withoutOutliers
-            ? `${AGREEMENT_LABEL} ${AGREEMENT_ALL_LABEL}`
-            : AGREEMENT_LABEL
-        }
-        agreement={all}
-        band={band}
-        profile={profiles?.all}
-      />
-      {withoutOutliers ? (
-        <>
-          <span aria-hidden>·</span>
-          <ValuePart
-            label={AGREEMENT_WITHOUT_OUTLIERS_LABEL}
-            agreement={withoutOutliers}
-            band={band}
-            profile={profiles?.withoutOutliers}
-          />
-        </>
-      ) : null}
-    </p>
   )
 }
 

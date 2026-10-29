@@ -2,7 +2,8 @@ import { Badge } from '@/app/components/ui/badge'
 import { Card } from '@/app/components/ui/card'
 import { EmptyState } from '@/app/components/ui/empty-state'
 import { formatDate } from '@/app/notifications/labels'
-import { RoundAgreementValue } from './agreement-panel'
+import { PER_RESPONSE_LABEL } from '../../pipeline/criteria'
+import { AgreementValue } from './agreement-panel'
 import {
   AGREEMENT_ALL_LABEL,
   AGREEMENT_BANDS,
@@ -11,7 +12,13 @@ import {
   bandTone,
   type BandTone,
 } from './agreement-labels'
-import { phaseRuns, type PhaseRun, type SeriesPoint } from './agreement-series'
+import {
+  phaseRuns,
+  type AgreementSeries,
+  type CriterionSeries,
+  type PhaseRun,
+  type SeriesPoint,
+} from './agreement-series'
 import { HowToRead } from './how-to-read'
 
 const CHART_HEIGHT = 96
@@ -36,6 +43,11 @@ const OUTLIER_SERIES_NOTE =
   `A marca “${OUTLIER_MARK_LABEL}” diz quais rodadas têm exclusão; o par com e sem os ` +
   'marcados aparece em cada rodada.'
 
+const CRITERION_SERIES_NOTE =
+  'Um gráfico por critério, porque o α mede um critério de cada vez. As rodadas se ligam ' +
+  'pelo nome e pelo tipo do critério, já que cada versão do codebook cria critérios novos; ' +
+  'a rodada cuja versão não tem o critério fica vazia no gráfico dele.'
+
 const columnFill: Record<BandTone, string> = {
   success: 'fill-success-fg',
   warning: 'fill-warning-fg',
@@ -46,7 +58,7 @@ function cutLine(cut: number): number {
   return CHART_HEIGHT - cut * CHART_HEIGHT
 }
 
-function phaseBoundaries(runs: readonly PhaseRun[]): number[] {
+function phaseBoundaries(runs: readonly PhaseRun<SeriesPoint>[]): number[] {
   const boundaries: number[] = []
   let index = 0
   for (const run of runs) {
@@ -61,7 +73,7 @@ function SeriesColumns({
   runs,
 }: {
   points: SeriesPoint[]
-  runs: PhaseRun[]
+  runs: PhaseRun<SeriesPoint>[]
 }) {
   const slot = CHART_WIDTH / points.length
   const columnWidth = slot * COLUMN_RATIO
@@ -114,19 +126,20 @@ function SeriesColumns({
 
         {points.map((point, index) => {
           const x = index * slot + (slot - columnWidth) / 2
-          const height = point.agreement.calculable
-            ? Math.max(0, Math.min(1, point.agreement.alpha)) * CHART_HEIGHT
+          const agreement = point.cell?.state === 'calculated' ? point.cell.agreement : null
+          const height = agreement?.calculable
+            ? Math.max(0, Math.min(1, agreement.alpha)) * CHART_HEIGHT
             : 0
 
           return (
             <g key={point.roundId}>
-              {point.agreement.calculable ? (
+              {agreement?.calculable ? (
                 <rect
                   x={x}
                   y={CHART_HEIGHT - height}
                   width={columnWidth}
                   height={height}
-                  className={columnFill[bandTone(agreementBand(point.agreement.alpha))]}
+                  className={columnFill[bandTone(agreementBand(agreement.alpha))]}
                 />
               ) : null}
 
@@ -161,8 +174,32 @@ function SeriesColumns({
   )
 }
 
-export function AgreementSeriesChart({ points }: { points: SeriesPoint[] }) {
-  if (points.length === 0) {
+function CriterionChart({ series }: { series: CriterionSeries }) {
+  const { column, points } = series
+
+  return (
+    <figure className="m-0 flex flex-col gap-2">
+      <figcaption className="flex items-center gap-1.5 text-[13px] font-semibold text-ink">
+        {column.name}
+        {column.isGeneral ? <Badge tone="neutral">Geral</Badge> : null}
+        {column.isPerResponse ? <Badge tone="neutral">{PER_RESPONSE_LABEL}</Badge> : null}
+      </figcaption>
+      <SeriesColumns points={points} runs={phaseRuns(points)} />
+    </figure>
+  )
+}
+
+function roundValues(series: AgreementSeries, index: number) {
+  return series.criteria.flatMap(({ column, points }) => {
+    const cell = points[index].cell
+    return cell ? [{ column, cell, withoutOutliers: null }] : []
+  })
+}
+
+export function AgreementSeriesChart({ series }: { series: AgreementSeries }) {
+  const { rounds, criteria } = series
+
+  if (rounds.length === 0) {
     return (
       <EmptyState>
         Nenhuma rodada ainda. A série começa na primeira rodada, e cada rodada rende um
@@ -171,11 +208,16 @@ export function AgreementSeriesChart({ points }: { points: SeriesPoint[] }) {
     )
   }
 
-  const runs = phaseRuns(points)
+  const runs = phaseRuns(rounds)
+  const values = new Map(
+    rounds.map((round, index) => [round.roundId, roundValues(series, index)]),
+  )
 
   return (
     <div className="flex flex-col gap-3">
-      <SeriesColumns points={points} runs={runs} />
+      {criteria.map((criterion) => (
+        <CriterionChart key={criterion.key} series={criterion} />
+      ))}
 
       {runs.map((run) => (
         <div key={run.points[0].roundId} className="flex flex-col gap-2">
@@ -205,13 +247,7 @@ export function AgreementSeriesChart({ points }: { points: SeriesPoint[] }) {
                     ) : null}
                   </div>
 
-                  <RoundAgreementValue
-                    pair={{
-                      all: point.agreement,
-                      withoutOutliers: null,
-                      excluded: 0,
-                    }}
-                  />
+                  <AgreementValue rows={values.get(point.roundId) ?? []} />
                 </Card>
               </li>
             ))}
@@ -220,7 +256,7 @@ export function AgreementSeriesChart({ points }: { points: SeriesPoint[] }) {
       ))}
 
       <p className="m-0 text-xs text-muted">
-        {points.length === 1
+        {rounds.length === 1
           ? 'Um ponto por rodada, e nenhum valor que junte rodadas: a comparação começa na segunda rodada.'
           : 'Um ponto por rodada, e nenhum valor que junte rodadas: cada coeficiente mede a versão de codebook e a fase indicadas ao lado dele.'}
       </p>
@@ -228,9 +264,9 @@ export function AgreementSeriesChart({ points }: { points: SeriesPoint[] }) {
       <HowToRead
         summary="Como ler este gráfico"
         paragraphs={
-          points.some((point) => point.hasOutlier)
-            ? [BAND_REFERENCE, OUTLIER_SERIES_NOTE]
-            : [BAND_REFERENCE]
+          rounds.some((point) => point.hasOutlier)
+            ? [CRITERION_SERIES_NOTE, BAND_REFERENCE, OUTLIER_SERIES_NOTE]
+            : [CRITERION_SERIES_NOTE, BAND_REFERENCE]
         }
       />
     </div>

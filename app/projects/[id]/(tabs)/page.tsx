@@ -267,8 +267,13 @@ export default async function ProjectPage({
     !isAdmin && memberships.some((m) => m.role === 'evaluator' && m.status === 'active')
 
   const series = agreement
-    ? agreementSeries(agreement.rounds, agreement.observations, agreement.outliers)
-    : []
+    ? agreementSeries(
+        agreement.rounds,
+        agreement.codebooks,
+        agreement.observations,
+        agreement.outliers,
+      )
+    : null
 
   const focus = agreement ? focusRoundOf(agreement.rounds) : null
   const focusQuality =
@@ -283,7 +288,7 @@ export default async function ProjectPage({
     ? qualitySeries(agreement.rounds, agreement.observations, agreement.outliers)
     : []
 
-  const showSeries = series.some((point) => point.closedAt !== null)
+  const showSeries = Boolean(series?.rounds.some((round) => round.closedAt !== null))
   const showRoundsLink = showSeries || Boolean(focusQuality) || qualityPoints.length > 1
 
   const phase2 = agreement ? phase2ChecklistData(agreement) : null
@@ -496,13 +501,13 @@ export default async function ProjectPage({
             </div>
           ) : null}
 
-          {showSeries ? (
+          {series && showSeries ? (
             <Section
               title="Confiabilidade por rodada"
               hint="Um ponto por rodada, em ordem cronológica."
               more={{ points: AGREEMENT_SERIES_POINTS }}
             >
-              <AgreementSeriesChart points={series} />
+              <AgreementSeriesChart series={series} />
             </Section>
           ) : null}
 

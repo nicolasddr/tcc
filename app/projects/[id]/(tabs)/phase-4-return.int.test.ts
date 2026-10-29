@@ -468,9 +468,9 @@ describe('app/projects/[id]/page — painel para voltar da Fase 4 para a Fase 3'
     const tree = await render(project)
     const series = findElement(tree, AgreementSeriesChart)
     expect(series).toBeTruthy()
-    const points = (series!.props as SeriesProps).points
-    expect(points.map((point) => point.roundNumber)).toEqual([2, 3, 4])
-    expect(phaseRuns(points).map((run) => run.phase)).toEqual([PHASE_3, PHASE_4, PHASE_3])
+    const { rounds } = (series!.props as SeriesProps).series
+    expect(rounds.map((round) => round.roundNumber)).toEqual([2, 3, 4])
+    expect(phaseRuns(rounds).map((run) => run.phase)).toEqual([PHASE_3, PHASE_4, PHASE_3])
     expect(panelOf(tree)).toBeNull()
   })
 })

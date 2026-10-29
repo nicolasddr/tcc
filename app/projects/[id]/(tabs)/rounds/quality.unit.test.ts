@@ -4,10 +4,8 @@ import {
   qualityOf,
   qualityPair,
 } from '@/app/projects/[id]/(tabs)/rounds/quality'
-import {
-  agreementPair,
-  withoutExcluded,
-} from '@/app/projects/[id]/(tabs)/rounds/agreement-pair'
+import { withoutExcluded } from '@/app/projects/[id]/(tabs)/rounds/agreement-pair'
+import { criterionAgreements } from '@/app/projects/[id]/(tabs)/rounds/agreement-matrix'
 import type { RoundObservation } from '@/app/projects/[id]/(tabs)/rounds/agreement'
 import { scaleRank, type ScaleValue } from '@/app/projects/[id]/(tabs)/evaluate/scale'
 import { ordinalAlpha } from '@/lib/agreement'
@@ -149,12 +147,17 @@ describe('qualityPair — o valor com todos e o valor sem os marcados', () => {
     const kept = withoutExcluded(observations, marked)
 
     const quality = qualityPair(observations, marked)
-    const agreement = agreementPair(observations, marked)
+    const [agreement] = criterionAgreements(
+      [{ id: 'd1' }],
+      [{ id: 'c1', definitionId: 'd1', scope: 'specific', name: 'c1' }],
+      observations,
+      marked,
+    )
 
     expect(quality.withoutOutliers?.total).toBe(kept.length)
-    expect(agreement.withoutOutliers).toEqual(ordinalAlpha(kept))
+    expect(agreement.withoutOutliers).toMatchObject({ agreement: ordinalAlpha(kept) })
     expect(quality.withoutOutliers).toEqual(qualityOf(kept))
-    expect(quality.excluded).toBe(agreement.excluded)
+    expect(quality.excluded).toBe(marked.size)
   })
 })
 

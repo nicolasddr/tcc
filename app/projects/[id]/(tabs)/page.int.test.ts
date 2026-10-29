@@ -81,6 +81,7 @@ import {
   AGREEMENT_SERIES_POINTS,
   AGREEMENT_WITHOUT_OUTLIERS_LABEL,
   BAND_REFERENCE,
+  CELL_UNRATED_LABEL,
   NOT_CALCULABLE_LABEL,
   agreementBand,
   bandLabel,
@@ -107,6 +108,7 @@ import {
   addEvaluation,
   addOutlier,
   type CellFixture,
+  type DefinitionFixture,
   cleanup,
 } from '@/test/helpers'
 
@@ -223,6 +225,10 @@ type QualityProps = Parameters<typeof QualityPanel>[0]
 type QualitySeriesProps = Parameters<typeof QualitySeriesList>[0]
 
 type ScaleValue = NonNullable<CellFixture['value']>
+
+const CLAREZA: DefinitionFixture[] = [
+  { title: 'Informacional', type: 'category', criteria: [{ name: 'Clareza' }] },
+]
 
 function render(id: string) {
   return ProjectPage({ params: Promise.resolve({ id }) })
@@ -1637,7 +1643,7 @@ describe('app/projects/[id]/page — escopo de visibilidade', () => {
     })
 
     auth.userId = admin
-    expect(seriesOf(await render(project)).points).toHaveLength(1)
+    expect(seriesOf(await render(project)).series.rounds).toHaveLength(1)
 
     auth.userId = evaluator
     const tree = await render(project)
@@ -1762,7 +1768,7 @@ describe('app/projects/[id]/page — escopo de visibilidade', () => {
     expect(findElement(tree, QualityPanel)).toBeNull()
     expect(findElement(tree, QualitySeriesList)).toBeNull()
     expect(deepText(tree)).not.toContain('Qualidade')
-    expect(seriesOf(tree).points).toHaveLength(1)
+    expect(seriesOf(tree).series.rounds).toHaveLength(1)
   })
 
   it('o Avaliador não vê a Qualidade na visão geral, com a rodada da Fase 3 aberta nem depois de fechada', async () => {
@@ -1911,7 +1917,7 @@ describe('app/projects/[id]/page — escopo de visibilidade', () => {
     expect(text).not.toContain('Codebook v1')
     expect(text).not.toContain('Codebook v2')
 
-    expect(seriesOf(tree).points.map((point) => point.roundNumber)).toEqual([1, 2, 3, 4])
+    expect(seriesOf(tree).series.rounds.map((round) => round.roundNumber)).toEqual([1, 2, 3, 4])
   })
 
   it('o ponto da série tem os mesmos valores da Qualidade da tela de rodadas', async () => {
@@ -2011,29 +2017,32 @@ describe('app/projects/[id]/page — escopo de visibilidade', () => {
     auth.userId = admin
     const tree = await render(project)
 
-    const points = seriesOf(tree).points
-    expect(points.map((point) => point.roundNumber)).toEqual([1, 2])
-    expect(points.map((point) => point.codebookVersionNumber)).toEqual([1, 2])
+    const { rounds, criteria } = seriesOf(tree).series
+    expect(rounds.map((round) => round.roundNumber)).toEqual([1, 2])
+    expect(rounds.map((round) => round.codebookVersionNumber)).toEqual([1, 2])
+    expect(criteria.map((criterion) => criterion.column.name)).toEqual(['Clareza'])
 
-    const [first, second] = points
-    if (!first.agreement.calculable || !second.agreement.calculable) {
+    const [first, second] = criteria[0].points.map((point) =>
+      point.cell?.state === 'calculated' ? point.cell.agreement : null,
+    )
+    if (!first?.calculable || !second?.calculable) {
       throw new Error('as duas rodadas deveriam ter coeficiente')
     }
-    expect(first.agreement.alpha).not.toBe(second.agreement.alpha)
+    expect(first.alpha).not.toBe(second.alpha)
 
     const text = seriesTextOf(tree)
-    expect(text).toContain(formatAlpha(first.agreement.alpha))
-    expect(text).toContain(formatAlpha(second.agreement.alpha))
+    expect(text).toContain(`Clareza ${formatAlpha(first.alpha)}`)
+    expect(text).toContain(`Clareza ${formatAlpha(second.alpha)}`)
     expect(text).toContain('Codebook v1')
     expect(text).toContain('Codebook v2')
 
-    const mean = (first.agreement.alpha + second.agreement.alpha) / 2
+    const mean = (first.alpha + second.alpha) / 2
     expect(text).not.toContain(formatAlpha(mean))
     expect(text).not.toContain('média')
     expect(text).not.toContain('no total')
   })
 
-  it('a rodada sem avaliação continua na série, como ponto não calculável', async () => {
+  it('a rodada sem avaliação continua na série, como ponto sem nota', async () => {
     const admin = await newUser('Admin')
     const project = await newProject(admin, PHASE_2)
     const promptVersion = await addPromptVersion(ownerDb, project, admin)
@@ -2042,12 +2051,13 @@ describe('app/projects/[id]/page — escopo de visibilidade', () => {
     auth.userId = admin
     const tree = await render(project)
 
-    expect(seriesOf(tree).points).toHaveLength(1)
-    expect(seriesOf(tree).points[0].agreement).toMatchObject({ calculable: false })
+    const { rounds, criteria } = seriesOf(tree).series
+    expect(rounds).toHaveLength(1)
+    expect(criteria[0].points[0].cell).toEqual({ state: 'unrated' })
 
     const text = seriesTextOf(tree)
     expect(text).toContain('Rodada 1')
-    expect(text).toContain('não calculável')
+    expect(text).toContain(`Clareza ${CELL_UNRATED_LABEL}`)
     expect(text).not.toContain('0,000')
   })
 
@@ -2061,15 +2071,19 @@ describe('app/projects/[id]/page — escopo de visibilidade', () => {
     expect(findElement(AgreementSeriesChart(before), InfoTooltip)).toBeNull()
     expect(plain).toBeTruthy()
     expect((plain!.props as { summary: string }).summary).toBe('Como ler este gráfico')
-    expect((plain!.props as { paragraphs: string[] }).paragraphs).toEqual([BAND_REFERENCE])
+    const plainParagraphs = (plain!.props as { paragraphs: string[] }).paragraphs
+    expect(plainParagraphs).toHaveLength(2)
+    expect(plainParagraphs[0]).toContain('Um gráfico por critério')
+    expect(plainParagraphs[1]).toBe(BAND_REFERENCE)
 
     await addOutlier(ownerDb, third, bruno, admin)
     const after = seriesOf(await render(project))
     const marked = findElement(AgreementSeriesChart(after), HowToRead)
     const paragraphs = (marked!.props as { paragraphs: string[] }).paragraphs
-    expect(paragraphs).toHaveLength(2)
-    expect(paragraphs[0]).toBe(BAND_REFERENCE)
-    expect(paragraphs[1]).toContain('A série desenha sempre o valor com todos')
+    expect(paragraphs).toHaveLength(3)
+    expect(paragraphs[0]).toBe(plainParagraphs[0])
+    expect(paragraphs[1]).toBe(BAND_REFERENCE)
+    expect(paragraphs[2]).toContain('A série desenha sempre o valor com todos')
 
     const markup = renderToStaticMarkup(createElement(AgreementSeriesChart, after))
     expect(markup).toContain('Como ler este gráfico')
@@ -2149,7 +2163,7 @@ describe('app/projects/[id]/page — escopo de visibilidade', () => {
     for (const versionNumber of [1, 2, 3]) {
       codebook.set(
         versionNumber,
-        await addCodebookVersion(ownerDb, project, admin, { versionNumber }),
+        await addCodebookVersion(ownerDb, project, admin, { versionNumber, definitions: CLAREZA }),
       )
     }
     const scene = [
@@ -2180,7 +2194,7 @@ describe('app/projects/[id]/page — escopo de visibilidade', () => {
   }
 
   function phaseLabels(markup: string): string {
-    return markupText(markup.slice(0, markup.indexOf('<h3')))
+    return markupText(markup.slice(markup.indexOf('</figcaption>'), markup.indexOf('<h3')))
   }
 
   it('cada card da série diz a fase ao lado da versão de codebook', async () => {
@@ -2190,7 +2204,7 @@ describe('app/projects/[id]/page — escopo de visibilidade', () => {
     auth.userId = admin
     const tree = await render(project)
 
-    expect(seriesOf(tree).points.map((point) => point.phase)).toEqual([2, 2, 3, 3])
+    expect(seriesOf(tree).series.rounds.map((round) => round.phase)).toEqual([2, 2, 3, 3])
 
     const text = seriesTextOf(tree)
     expect(text).toContain('Codebook v1 · Fase 2')
@@ -2272,20 +2286,26 @@ describe('app/projects/[id]/page — escopo de visibilidade', () => {
     const tree = await render(project)
     const markup = seriesMarkupOf(tree)
 
-    expect(seriesOf(tree).points).toHaveLength(4)
+    expect(seriesOf(tree).series.rounds).toHaveLength(4)
 
     const text = markupText(markup)
     expect(text.match(/Rodada \d/g)).toEqual(['Rodada 1', 'Rodada 2', 'Rodada 3', 'Rodada 4'])
     expect(text).not.toContain('média')
     expect(text).not.toContain('total')
-    expect(text.match(new RegExp(NOT_CALCULABLE_LABEL, 'g'))).toHaveLength(4)
+    expect(text.match(new RegExp(`Clareza ${CELL_UNRATED_LABEL}`, 'g'))).toHaveLength(4)
   })
 
   async function phase4SeriesScene(admin: string) {
     const project = await newProject(admin, PHASE_4)
     const promptVersion = await addPromptVersion(ownerDb, project, admin)
-    const codebookV1 = await addCodebookVersion(ownerDb, project, admin, { versionNumber: 1 })
-    const codebookV2 = await addCodebookVersion(ownerDb, project, admin, { versionNumber: 2 })
+    const codebookV1 = await addCodebookVersion(ownerDb, project, admin, {
+      versionNumber: 1,
+      definitions: CLAREZA,
+    })
+    const codebookV2 = await addCodebookVersion(ownerDb, project, admin, {
+      versionNumber: 2,
+      definitions: CLAREZA,
+    })
     const scene = [
       { roundNumber: 1, codebook: codebookV1, phase: PHASE_2, status: 'closed' },
       { roundNumber: 2, codebook: codebookV2, phase: PHASE_3, status: 'closed' },
@@ -2308,10 +2328,10 @@ describe('app/projects/[id]/page — escopo de visibilidade', () => {
 
     auth.userId = admin
     const tree = await render(project)
-    const points = seriesOf(tree).points
+    const { rounds } = seriesOf(tree).series
 
-    expect(points.map((point) => point.roundNumber)).toEqual([1, 2, 3, 4])
-    expect(phaseRuns(points).map((run) => run.phase)).toEqual([PHASE_2, PHASE_3, PHASE_4])
+    expect(rounds.map((round) => round.roundNumber)).toEqual([1, 2, 3, 4])
+    expect(phaseRuns(rounds).map((run) => run.phase)).toEqual([PHASE_2, PHASE_3, PHASE_4])
 
     const markup = seriesMarkupOf(tree)
     expect(phaseDividers(markup)).toBe(2)
@@ -2400,7 +2420,7 @@ describe('app/projects/[id]/page — escopo de visibilidade', () => {
 
     auth.userId = admin
     const adminTree = await render(project)
-    expect(seriesOf(adminTree).points).toHaveLength(4)
+    expect(seriesOf(adminTree).series.rounds).toHaveLength(4)
     expect(qualitySeriesOf(adminTree).points).toHaveLength(3)
 
     auth.userId = evaluator

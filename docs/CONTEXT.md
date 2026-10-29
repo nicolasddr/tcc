@@ -156,9 +156,11 @@ por vez, e juntar critérios numa conta só infla o número. A orientação de l
 mais fraco (o não calculável, senão o de menor α) e diz o nome dele. Ao lado do α de cada critério,
 a tabela mostra a concordância (notas iguais e distribuição), para ler um α baixo quando as notas
 se concentram num nível só; ela não substitui o α. A série entre rodadas e
-a comparação da Fase 4 com a rodada de referência mostram só o α.
-Não existe média, soma nem "ICR do projeto" em tela nenhuma: a leitura entre rodadas é a série, um
-ponto por rodada com a sua versão de codebook e a sua fase ao lado. A série é uma só para as Fases 2,
+a comparação da Fase 4 com a rodada de referência mostram só o α, também por critério.
+Não existe α da rodada inteira, média, soma nem "ICR do projeto" em tela nenhuma: a leitura entre
+rodadas é a série, um gráfico por critério com um ponto por rodada e a sua versão de codebook e a
+sua fase ao lado. Critérios de versões diferentes se ligam pelo nome e pelo tipo (geral,
+específico ou por resposta), e a rodada sem o critério fica vazia. A série é uma só para as Fases 2,
 3 e 4, porque a passagem de uma fase para a seguinte com a mesma versão de codebook é uma comparação
 legítima. A tabela **por critério** também não é média: cada linha é um α sobre todas as notas
 daquele critério na rodada, juntando as definições numa conta só, e traz ao lado das notas iguais
