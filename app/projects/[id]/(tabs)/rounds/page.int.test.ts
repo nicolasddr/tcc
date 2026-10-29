@@ -76,8 +76,6 @@ import {
   OUTLIER_PAIR_SUMMARY,
   SMALL_SAMPLE_HELP,
   CONCENTRATION_HELP,
-  CRITERION_TABLE_HELP,
-  CRITERION_TABLE_NOTE,
   matrixVersionNote,
 } from '@/app/projects/[id]/(tabs)/rounds/agreement-labels'
 import { Section } from '@/app/components/ui/section'
@@ -2695,13 +2693,11 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     expect(visibleTextOf(table)).toBe(
       'Critério ICR i Notas iguais Divergência adjacente Divergência extrema Notas ' +
         'Clareza Geral 0,083 66,7% 0% 33,3% ' +
-        '6 notas · 2 avaliadores ' +
-        `${CRITERION_TABLE_NOTE} i`,
+        '6 notas · 2 avaliadores',
     )
     expect(markupTextOf(table)).not.toContain('0,167')
     expect(tooltipTextsOf(CriterionAgreementTable(criterionTableOf(tree)))).toEqual([
       BAND_REFERENCE,
-      CRITERION_TABLE_HELP,
     ])
   })
 

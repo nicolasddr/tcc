@@ -14,8 +14,6 @@ import {
   CELL_PER_RESPONSE_ROW_TITLE,
   CELL_UNRATED_LABEL,
   CONCENTRATION_HELP,
-  CRITERION_TABLE_HELP,
-  CRITERION_TABLE_NOTE,
   MATRIX_PER_RESPONSE_LEGEND,
   OUTLIER_PAIR_POINTS,
   OUTLIER_PAIR_RESULT,
@@ -235,13 +233,9 @@ describe('app/projects/[id]/rounds/agreement-labels — o coeficiente na tela', 
     expect(MATRIX_PER_RESPONSE_LEGEND).toContain('critério por resposta')
   })
 
-  it('a tabela por critério diz que junta as definições numa conta só, e não é a média das células', () => {
-    expect(CRITERION_TABLE_NOTE).toBe(
-      'Cada linha junta as notas do critério em todas as definições que o têm, numa conta só.',
-    )
-    expect(CRITERION_TABLE_HELP).toContain('não a média das células')
-    expect(CRITERION_TABLE_HELP).toContain(BY_DEFINITION_LABEL)
-    expect(CRITERION_TABLE_HELP).not.toContain('numa conta só')
+  it('a nota da tabela por critério e o seu ⓘ saíram', () => {
+    expect(labels).not.toHaveProperty('CRITERION_TABLE_NOTE')
+    expect(labels).not.toHaveProperty('CRITERION_TABLE_HELP')
   })
 
   it('o resumo da matriz recolhida conta as definições e os critérios', () => {

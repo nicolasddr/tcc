@@ -45,14 +45,6 @@ export const MATRIX_PER_RESPONSE_LEGEND =
 
 export const BY_DEFINITION_LABEL = 'Por definição'
 
-export const CRITERION_TABLE_NOTE =
-  'Cada linha junta as notas do critério em todas as definições que o têm, numa conta só.'
-
-export const CRITERION_TABLE_HELP =
-  'É um α sobre essas notas, e não a média das células da matriz. Para ver se alguma ' +
-  `definição puxa o número para baixo, veja ${BY_DEFINITION_LABEL}, logo abaixo. Quando as ` +
-  'definições são só posições (Query 1, Query 2…), a leitura é esta tabela.'
-
 export function byDefinitionSummary(definitions: number, criteria: number): string {
   return (
     `${BY_DEFINITION_LABEL} (${plural(definitions, 'definição', 'definições')} × ` +

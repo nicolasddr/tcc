@@ -14,8 +14,6 @@ import {
   AGREEMENT_WITHOUT_OUTLIERS_LABEL,
   BAND_REFERENCE,
   CELL_UNRATED_LABEL,
-  CRITERION_TABLE_HELP,
-  CRITERION_TABLE_NOTE,
   agreementBand,
   bandTone,
   cellNotCalculableLabel,
@@ -168,10 +166,6 @@ export function CriterionAgreementTable({
           </tbody>
         </table>
       </div>
-
-      <p className="m-0 text-xs text-muted">
-        {CRITERION_TABLE_NOTE} <InfoTooltip text={CRITERION_TABLE_HELP} />
-      </p>
     </div>
   )
 }
