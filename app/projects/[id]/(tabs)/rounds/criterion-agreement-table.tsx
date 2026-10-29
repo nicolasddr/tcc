@@ -31,7 +31,7 @@ const headerClass =
 
 const cellClass = 'border-b border-line px-3 py-2 align-top whitespace-nowrap'
 
-function Agreement({ cell }: { cell: MatrixCell }) {
+export function AgreementCell({ cell }: { cell: MatrixCell }) {
   if (cell.state !== 'calculated') {
     return <span className="text-muted">{CELL_UNRATED_LABEL}</span>
   }
@@ -55,17 +55,17 @@ function AgreementPair({
   cell: MatrixCell
   withoutOutliers: MatrixCell | null
 }) {
-  if (!withoutOutliers) return <Agreement cell={cell} />
+  if (!withoutOutliers) return <AgreementCell cell={cell} />
 
   return (
     <span className="flex flex-col items-end gap-1.5">
       <span className="flex flex-col items-end gap-0.5">
         <span className="text-[11px] text-muted">{AGREEMENT_ALL_LABEL}</span>
-        <Agreement cell={cell} />
+        <AgreementCell cell={cell} />
       </span>
       <span className="flex flex-col items-end gap-0.5">
         <span className="text-[11px] text-muted">{AGREEMENT_WITHOUT_OUTLIERS_LABEL}</span>
-        <Agreement cell={withoutOutliers} />
+        <AgreementCell cell={withoutOutliers} />
       </span>
     </span>
   )

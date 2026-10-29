@@ -61,6 +61,16 @@ export function matrixPerResponseNote(names: readonly string[]): string {
   )
 }
 
+export const ALL_CRITERIA_TAB = 'Todos'
+
+export function criterionTabTitle(name: string): string {
+  return `Ver só ${name}`
+}
+
+export function notApplicableNote(name: string, count: number): string {
+  return `${name} não se aplica a ${plural(count, 'definição', 'definições')} do codebook.`
+}
+
 export const MATRIX_OUTLIERS_NOTE = `${BY_DEFINITION_LABEL}, os valores são ${AGREEMENT_ALL_LABEL}.`
 
 export const OUTLIER_PAIR_SUMMARY =

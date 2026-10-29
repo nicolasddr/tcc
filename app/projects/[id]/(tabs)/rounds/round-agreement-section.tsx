@@ -6,6 +6,7 @@ import type { EvaluatorEffort, RoundObservation } from './agreement'
 import { evaluatedRaters, evaluatedResponses, withoutExcluded } from './agreement-pair'
 import { AgreementNotes, AgreementWarnings, type RoundSample } from './agreement-panel'
 import { AgreementMatrixTable } from './agreement-matrix-table'
+import { agreementByDefinition } from './agreement-by-definition'
 import { matrixColumns } from './agreement-matrix'
 import {
   MATRIX_OUTLIERS_NOTE,
@@ -37,6 +38,8 @@ export function roundAgreementSection({
   participation,
   definitions,
   criteria,
+  criterion,
+  href,
 }: {
   round: AgreementRound
   observations: RoundObservation[]
@@ -45,6 +48,8 @@ export function roundAgreementSection({
   participation?: Readonly<Record<string, RoundMark>>
   definitions: CodebookDefinition[]
   criteria: CodebookCriterion[]
+  criterion?: string
+  href: string
 }) {
   const excluded = excludedMemberIds(outliers)
   const open = isOpen(round)
@@ -94,7 +99,14 @@ export function roundAgreementSection({
               <ByDefinition
                 summary={byDefinitionSummary(definitions.length, definitionColumns)}
               >
-                {matrix}
+                {agreementByDefinition({
+                  definitions,
+                  criteria,
+                  observations,
+                  codebookVersionNumber: round.codebookVersionNumber,
+                  criterion: criterion ?? null,
+                  href,
+                })}
                 {perResponseNames.length > 0 ? (
                   <p className="m-0 text-xs text-muted">
                     {matrixPerResponseNote(perResponseNames)}

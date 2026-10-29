@@ -1,3 +1,4 @@
+import Link from '@/app/components/app-link'
 import { Badge } from '@/app/components/ui/badge'
 import { EmptyState } from '@/app/components/ui/empty-state'
 import type {
@@ -15,9 +16,11 @@ import {
   agreementBand,
   bandTone,
   cellNotCalculableLabel,
+  criterionTabTitle,
   formatAlpha,
   sampleSize,
 } from './agreement-labels'
+import { agreementCriterionHref } from './reading-shortcuts'
 
 const cellClass = 'border-b border-line px-2.5 py-1.5 align-middle whitespace-nowrap'
 
@@ -68,11 +71,13 @@ export function AgreementMatrixTable({
   criteria,
   observations,
   codebookVersionNumber,
+  href,
 }: {
   definitions: CodebookDefinition[]
   criteria: CodebookCriterion[]
   observations: RoundObservation[]
   codebookVersionNumber: number
+  href?: string
 }) {
   const byDefinition = criteria.filter((criterion) => !isPerResponse(criterion))
 
@@ -103,7 +108,17 @@ export function AgreementMatrixTable({
                 className="border-b border-line px-2.5 py-2 text-left align-bottom text-[12.5px] font-semibold whitespace-nowrap text-label"
               >
                 <span className="flex items-center gap-1.5">
-                  {column.name}
+                  {href ? (
+                    <Link
+                      href={agreementCriterionHref(href, column.key)}
+                      title={criterionTabTitle(column.name)}
+                      className="border-b border-dashed border-faint hover:border-brand hover:text-brand"
+                    >
+                      {column.name}
+                    </Link>
+                  ) : (
+                    column.name
+                  )}
                   {column.isGeneral ? <Badge tone="neutral">Geral</Badge> : null}
                 </span>
               </th>

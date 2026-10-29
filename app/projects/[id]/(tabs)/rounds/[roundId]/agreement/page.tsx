@@ -14,10 +14,13 @@ import { BackLink } from '@/app/components/ui/shell'
 
 export default async function RoundAgreementPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string; roundId: string }>
+  searchParams: Promise<{ criterio?: string }>
 }) {
   const { id, roundId } = await params
+  const query = await searchParams
   const userId = await requireUserId()
 
   const view = await transaction(async (tx) => {
@@ -61,6 +64,8 @@ export default async function RoundAgreementPage({
         effort,
         definitions: view.definitions,
         criteria: view.criteria,
+        ...(query.criterio ? { criterion: query.criterio } : {}),
+        href: `/projects/${id}/rounds/${roundId}/agreement`,
         ...(participation
           ? { participation: participationBefore(participation, round.roundNumber) }
           : {}),

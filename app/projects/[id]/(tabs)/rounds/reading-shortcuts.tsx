@@ -5,6 +5,13 @@ import { OpenLink } from '@/app/components/ui/open-link'
 export const AGREEMENT_SECTION_ID = 'concordancia'
 export const ROUNDS_SECTION_ID = 'rodadas-do-projeto'
 
+export const CRITERION_PARAM = 'criterio'
+
+export function agreementCriterionHref(href: string, criterion: string | null): string {
+  const query = criterion ? `?${new URLSearchParams({ [CRITERION_PARAM]: criterion })}` : ''
+  return `${href}${query}#${AGREEMENT_SECTION_ID}`
+}
+
 export type ReadingShortcut = { href: string; label: string }
 
 export function readingShortcuts({

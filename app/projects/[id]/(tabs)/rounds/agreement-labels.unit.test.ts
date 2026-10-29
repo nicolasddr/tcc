@@ -33,6 +33,9 @@ import {
   matrixPerResponseNote,
   matrixVersionLabel,
   matrixVersionNote,
+  notApplicableNote,
+  criterionTabTitle,
+  ALL_CRITERIA_TAB,
   isConcentrated,
   notCalculableMessage,
   notesCount,
@@ -258,6 +261,17 @@ describe('app/projects/[id]/rounds/agreement-labels — o coeficiente na tela', 
     expect(matrixPerResponseNote(['Diversity', 'Fluency'])).toBe(
       'Diversity e Fluency são avaliados por resposta, sem definição: só têm o valor geral, ' +
         'na tabela de cima.',
+    )
+  })
+
+  it('as abas por critério: Todos, o título do nome da coluna e o rodapé do não aplicável', () => {
+    expect(ALL_CRITERIA_TAB).toBe('Todos')
+    expect(criterionTabTitle('Relevance')).toBe('Ver só Relevance')
+    expect(notApplicableNote('Source citation', 8)).toBe(
+      'Source citation não se aplica a 8 definições do codebook.',
+    )
+    expect(notApplicableNote('Source citation', 1)).toBe(
+      'Source citation não se aplica a 1 definição do codebook.',
     )
   })
 

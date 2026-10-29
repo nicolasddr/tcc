@@ -22,7 +22,13 @@ import ProjectRoundsPage from '@/app/projects/[id]/(tabs)/rounds/page'
 import { AgreementNotes } from '@/app/projects/[id]/(tabs)/rounds/agreement-panel'
 import { CriterionAgreementTable } from '@/app/projects/[id]/(tabs)/rounds/criterion-agreement-table'
 import { loadRoundObservations } from '@/app/projects/[id]/(tabs)/rounds/agreement'
-import { AGREEMENT_SECTION_ID } from '@/app/projects/[id]/(tabs)/rounds/reading-shortcuts'
+import {
+  AGREEMENT_SECTION_ID,
+  agreementCriterionHref,
+} from '@/app/projects/[id]/(tabs)/rounds/reading-shortcuts'
+import { AgreementMatrixTable } from '@/app/projects/[id]/(tabs)/rounds/agreement-matrix-table'
+import { CriterionByDefinitionTable } from '@/app/projects/[id]/(tabs)/rounds/criterion-by-definition-table'
+import { Tab } from '@/app/components/ui/tabs'
 import { Section } from '@/app/components/ui/section'
 import { loadCodebookVersion } from '@/app/projects/[id]/pipeline/codebook'
 import { resolveCells } from '@/app/projects/[id]/pipeline/criteria'
@@ -67,8 +73,11 @@ function titleOf(section: ReactElement): unknown {
   return (section.props as { title: unknown }).title
 }
 
-function render(id: string, roundId: string) {
-  return RoundAgreementPage({ params: Promise.resolve({ id, roundId }) })
+function render(id: string, roundId: string, query: { criterio?: string } = {}) {
+  return RoundAgreementPage({
+    params: Promise.resolve({ id, roundId }),
+    searchParams: Promise.resolve(query),
+  })
 }
 
 function renderRounds(id: string) {
@@ -174,7 +183,36 @@ describe('app/projects/[id]/rounds/[roundId]/agreement — a concordância de um
     const fromPage = agreementSectionOf(await render(project, rounds[1]))
 
     expect(titleOf(fromPage)).toBe('Concordância e confiabilidade na rodada 2, fechada')
-    expect(renderToStaticMarkup(fromPage)).toBe(renderToStaticMarkup(fromRounds))
+    expect(
+      renderToStaticMarkup(fromPage).replaceAll(
+        `/projects/${project}/rounds/${rounds[1]}/agreement`,
+        `/projects/${project}/rounds`,
+      ),
+    ).toBe(renderToStaticMarkup(fromRounds))
+  })
+
+  it('as abas por critério levam à própria página, e a aba vem do parâmetro', async () => {
+    const { project, admin, rounds } = await scene()
+    const href = `/projects/${project}/rounds/${rounds[0]}/agreement`
+
+    auth.userId = admin
+    const all = agreementSectionOf(await render(project, rounds[0]))
+    const hrefs = findAll(all, Tab).map((tab) => (tab.props as { href: string }).href)
+    expect(hrefs).toHaveLength(3)
+    expect(hrefs[0]).toBe(agreementCriterionHref(href, null))
+    expect(findAll(all, AgreementMatrixTable)).toHaveLength(1)
+
+    const criterion = new URLSearchParams(hrefs[1].split('?')[1].split('#')[0]).get('criterio')!
+    const one = agreementSectionOf(await render(project, rounds[0], { criterio: criterion }))
+    expect(findAll(one, AgreementMatrixTable)).toHaveLength(0)
+    const [table] = findAll(one, CriterionByDefinitionTable)
+    expect((table.props as { columnKey: string }).columnKey).toBe(criterion)
+    expect(
+      findAll(one, Tab).map((tab) => (tab.props as { active?: boolean }).active),
+    ).toEqual([false, true, false])
+
+    const unknown = agreementSectionOf(await render(project, rounds[0], { criterio: 'x' }))
+    expect(findAll(unknown, AgreementMatrixTable)).toHaveLength(1)
   })
 
   it('uma rodada anterior mostra as notas dela, não as da rodada em foco', async () => {

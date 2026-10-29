@@ -81,7 +81,7 @@ export default async function ProjectRoundsPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>
-  searchParams: Promise<{ gerar?: string }>
+  searchParams: Promise<{ gerar?: string; criterio?: string }>
 }) {
   const { id } = await params
   const query = await searchParams
@@ -354,6 +354,8 @@ export default async function ProjectRoundsPage({
             effort,
             definitions: focusDefinitions,
             criteria: focusCriteria,
+            ...(query.criterio ? { criterion: query.criterio } : {}),
+            href: roundsHref,
             ...(focusParticipation ? { participation: focusParticipation } : {}),
           })
         : null}
