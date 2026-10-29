@@ -48,19 +48,10 @@ function NoticeAlert({ changes }: { changes: RoundChanges }) {
   )
 }
 
-function ChangeChip({
-  change,
-  text,
-  help,
-}: {
-  change: Change
-  text: string
-  help?: string
-}) {
+function ChangeChip({ change, text }: { change: Change; text: string }) {
   return (
     <Chip className={change.changed ? 'border-brand! font-semibold text-brand!' : undefined}>
       {text}
-      {help ? <InfoTooltip text={help} /> : null}
     </Chip>
   )
 }
@@ -86,12 +77,12 @@ export function RoundChangeChips({
   const prompt = changes?.prompt ?? same(round.promptVersionNumber)
   const phase = changes?.phase ?? same(round.phase)
   const notes = changes ? phaseNotes(changes) : []
+  const phaseHelpText = helpOf(phaseHelp === undefined ? notes : [phaseHelp])
   const phaseChip = (
-    <ChangeChip
-      change={phase}
-      text={phaseChipText(phase)}
-      help={helpOf(phaseHelp === undefined ? notes : [phaseHelp])}
-    />
+    <Chip>
+      {phaseChipText(phase)}
+      {phaseHelpText ? <InfoTooltip text={phaseHelpText} /> : null}
+    </Chip>
   )
 
   return (

@@ -1024,7 +1024,8 @@ describe('app/projects/[id]/rounds/[roundId] — a revisão de discordâncias', 
     auth.userId = admin
     const text = changesTextOf(await render(second.project, second.round))
 
-    expect(text).toContain(`Fase ${PHASE_2} → ${PHASE_3}`)
+    expect(text).toContain(`Fase ${PHASE_3}`)
+    expect(text).not.toContain(`Fase ${PHASE_2}`)
     expect(text).toContain('Codebook v1')
     expect(text).not.toContain('Codebook v1 →')
     expect(text).toContain('Prompt v1')
@@ -1062,7 +1063,8 @@ describe('app/projects/[id]/rounds/[roundId] — a revisão de discordâncias', 
     auth.userId = admin
     const text = changesTextOf(await render(second.project, second.round))
 
-    expect(text).toContain(`Fase ${PHASE_3} → ${PHASE_4}`)
+    expect(text).toContain(`Fase ${PHASE_4}`)
+    expect(text).not.toContain(`Fase ${PHASE_3}`)
     expect(text).toContain('Codebook v1')
     expect(text).not.toContain('Codebook v1 →')
     expect(text).toContain('Prompt v1')

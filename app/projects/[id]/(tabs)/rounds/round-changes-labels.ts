@@ -11,7 +11,7 @@ export function promptChipText(change: Change): string {
 }
 
 export function phaseChipText(change: Change): string {
-  return change.changed ? `Fase ${change.from} → ${change.to}` : `Fase ${change.to}`
+  return `Fase ${change.to}`
 }
 
 export const CODEBOOK_AND_PROMPT_NOTICE =

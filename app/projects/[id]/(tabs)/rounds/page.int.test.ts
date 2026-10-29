@@ -1071,7 +1071,8 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
     const thirdText = cardChangesTextOf(cards[0])
     expect(thirdText).toContain('Codebook v2 Prompt v2')
     expect(thirdText).not.toContain('Codebook v1')
-    expect(thirdText).toContain(`Fase ${PHASE_2} → ${PHASE_3}`)
+    expect(thirdText).toContain(`Fase ${PHASE_3}`)
+    expect(thirdText).not.toContain(`Fase ${PHASE_2}`)
     expect(thirdText).toContain(ENTERS_PHASE_3_NOTE)
     expect(thirdText).not.toContain(CODEBOOK_AND_PROMPT_NOTICE)
 
@@ -1083,7 +1084,7 @@ describe('app/projects/[id]/rounds — a área de rodadas do projeto', () => {
       ].map((match) => match[1])
     expect(highlightedOf(cards[2])).toEqual([])
     expect(highlightedOf(cards[1])).toEqual(['Codebook v2', 'Prompt v1 → v2'])
-    expect(highlightedOf(cards[0])).toEqual([`Fase ${PHASE_2} → ${PHASE_3}`])
+    expect(highlightedOf(cards[0])).toEqual([])
   })
 
   it('com codebook e prompt mudados juntos na última rodada, a nova rodada continua liberada', async () => {

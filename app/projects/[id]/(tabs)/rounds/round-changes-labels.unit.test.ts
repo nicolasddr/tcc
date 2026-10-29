@@ -48,12 +48,12 @@ function allTexts(): string[] {
 }
 
 describe('app/projects/[id]/rounds/round-changes-labels — o que mudou na tela', () => {
-  it('o chip do codebook diz só a versão da rodada; prompt e fase dizem as duas quando mudaram', () => {
+  it('os chips do codebook e da fase dizem só a versão e a fase da rodada; o prompt diz as duas quando mudou', () => {
     expect(codebookChipText(changed)).toBe('Codebook v4')
     expect(codebookChipText(unchanged)).toBe('Codebook v4')
     expect(promptChipText({ changed: true, from: 1, to: 2 })).toBe('Prompt v1 → v2')
     expect(promptChipText({ changed: false, from: 2, to: 2 })).toBe('Prompt v2')
-    expect(phaseChipText({ changed: true, from: 2, to: 3 })).toBe('Fase 2 → 3')
+    expect(phaseChipText({ changed: true, from: 2, to: 3 })).toBe('Fase 3')
     expect(phaseChipText({ changed: false, from: 3, to: 3 })).toBe('Fase 3')
   })
 
