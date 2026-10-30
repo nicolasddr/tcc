@@ -40,7 +40,7 @@ import {
   divergenceLabel,
   divergenceMeaning,
 } from '@/app/projects/[id]/(tabs)/rounds/divergence'
-import { AgreementWarnings } from '@/app/projects/[id]/(tabs)/rounds/agreement-panel'
+import { SampleLine } from '@/app/projects/[id]/(tabs)/rounds/agreement-panel'
 import { CriterionAgreementTable } from '@/app/projects/[id]/(tabs)/rounds/criterion-agreement-table'
 import { AgreementMatrixTable } from '@/app/projects/[id]/(tabs)/rounds/agreement-matrix-table'
 import { QualityPanel, QualityValue } from '@/app/projects/[id]/(tabs)/rounds/quality-panel'
@@ -917,7 +917,7 @@ describe('app/projects/[id]/rounds/[roundId] — a revisão de discordâncias', 
     for (const word of ['Krippendorff', 'ICR', 'Alpha', 'Concordância', 'Confiabilidade']) {
       expect(text).not.toContain(word)
     }
-    expect(findElement(tree, AgreementWarnings)).toBeNull()
+    expect(findElement(tree, SampleLine)).toBeNull()
     expect(findElement(tree, CriterionAgreementTable)).toBeNull()
     expect(findElement(tree, AgreementMatrixTable)).toBeNull()
   })

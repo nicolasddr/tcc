@@ -26,7 +26,7 @@ import { ItemPanel, PromptPanel } from '@/app/projects/[id]/(tabs)/evaluate/cont
 import { formatDate } from '@/app/notifications/labels'
 import { QueueNav } from '@/app/components/ui/queue-nav'
 import {
-  AgreementWarnings,
+  SampleLine,
   AgreementValue,
 } from '@/app/projects/[id]/(tabs)/rounds/agreement-panel'
 import { CriterionAgreementTable } from '@/app/projects/[id]/(tabs)/rounds/criterion-agreement-table'
@@ -1122,7 +1122,7 @@ describe('app/projects/[id]/evaluate — a tela do avaliador', () => {
     auth.userId = bruno
     const tree = await open(scene.project)
 
-    expect(findElement(tree, AgreementWarnings)).toBeNull()
+    expect(findElement(tree, SampleLine)).toBeNull()
     expect(findElement(tree, CriterionAgreementTable)).toBeNull()
     expect(findElement(tree, AgreementValue)).toBeNull()
 

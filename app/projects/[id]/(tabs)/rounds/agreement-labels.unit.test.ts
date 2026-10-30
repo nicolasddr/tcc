@@ -21,6 +21,7 @@ import {
   OUTLIER_PAIR_RESULT,
   OUTLIER_PAIR_SUMMARY,
   SMALL_SAMPLE_HELP,
+  SMALL_SAMPLE_LABEL,
   SMALL_SAMPLE_RATERS,
   SMALL_SAMPLE_RESPONSES,
   agreementBand,
@@ -40,7 +41,9 @@ import {
   notCalculableMessage,
   notesCount,
   sampleSize,
-  smallSampleWarning,
+  bandLegend,
+  isSmallSample,
+  sampleText,
 } from '@/app/projects/[id]/(tabs)/rounds/agreement-labels'
 import { PER_RESPONSE_LABEL } from '@/app/projects/[id]/pipeline/criteria'
 import * as labels from '@/app/projects/[id]/(tabs)/rounds/agreement-labels'
@@ -153,40 +156,31 @@ describe('app/projects/[id]/rounds/agreement-labels — o coeficiente na tela', 
     expect(notesCount({ units: 1 })).toBe('1 nota')
   })
 
-  it('a amostra pequena avisa por poucos avaliadores ou por poucas respostas', () => {
+  it('a amostra pequena vale por poucos avaliadores ou por poucas respostas', () => {
     expect(
-      smallSampleWarning({
-        raters: SMALL_SAMPLE_RATERS - 1,
-        responses: SMALL_SAMPLE_RESPONSES,
-      }),
-    ).toContain('Amostra pequena')
-
+      isSmallSample({ raters: SMALL_SAMPLE_RATERS - 1, responses: SMALL_SAMPLE_RESPONSES }),
+    ).toBe(true)
     expect(
-      smallSampleWarning({
-        raters: SMALL_SAMPLE_RATERS,
-        responses: SMALL_SAMPLE_RESPONSES - 1,
-      }),
-    ).toContain('Amostra pequena')
+      isSmallSample({ raters: SMALL_SAMPLE_RATERS, responses: SMALL_SAMPLE_RESPONSES - 1 }),
+    ).toBe(true)
+    expect(
+      isSmallSample({ raters: SMALL_SAMPLE_RATERS, responses: SMALL_SAMPLE_RESPONSES }),
+    ).toBe(false)
+    expect(isSmallSample({ raters: 8, responses: 40 })).toBe(false)
   })
 
-  it('nos dois limites exatos o aviso some', () => {
-    expect(
-      smallSampleWarning({
-        raters: SMALL_SAMPLE_RATERS,
-        responses: SMALL_SAMPLE_RESPONSES,
-      }),
-    ).toBeNull()
-
-    expect(smallSampleWarning({ raters: 8, responses: 40 })).toBeNull()
+  it('a linha da amostra traz o N de avaliadores e de respostas', () => {
+    expect(sampleText({ raters: 2, responses: 10 })).toBe('2 avaliadores · 10 respostas')
+    expect(sampleText({ raters: 1, responses: 1 })).toBe('1 avaliador · 1 resposta')
+    expect(SMALL_SAMPLE_LABEL).toBe('Amostra pequena')
   })
 
-  it('o aviso de amostra pequena cabe numa linha, com o N de avaliadores e de respostas', () => {
-    expect(smallSampleWarning({ raters: 2, responses: 2 })).toBe(
-      'Amostra pequena (2 avaliadores, 2 respostas): leia com cautela.',
-    )
-    expect(smallSampleWarning({ raters: 1, responses: 1 })).toBe(
-      'Amostra pequena (1 avaliador, 1 resposta): leia com cautela.',
-    )
+  it('a legenda das faixas sai dos cortes de referência, com o nome em minúscula', () => {
+    expect(bandLegend()).toEqual([
+      { band: 'questionable', range: '< 0,667', label: 'questionável' },
+      { band: 'acceptable', range: '0,667–0,8', label: 'aceitável' },
+      { band: 'good', range: '≥ 0,8', label: 'boa' },
+    ])
   })
 
   it('a ajuda da amostra pequena traz o corte e não se apresenta como literatura', () => {

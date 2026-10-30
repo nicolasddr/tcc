@@ -26,7 +26,7 @@ import ProjectRoundsPage from '@/app/projects/[id]/(tabs)/rounds/page'
 import { RoundList } from '@/app/projects/[id]/(tabs)/rounds/round-list'
 import {
   AgreementNotes,
-  AgreementWarnings,
+  SampleLine,
 } from '@/app/projects/[id]/(tabs)/rounds/agreement-panel'
 import { CriterionAgreementTable } from '@/app/projects/[id]/(tabs)/rounds/criterion-agreement-table'
 import {
@@ -472,7 +472,7 @@ describe('app/projects/[id]/rounds — a rodada da Fase 4 ao lado da rodada de r
     const tree = await render(scene.project)
 
     const guidance = blockIndexOf(tree, ReadingGuidanceNote)
-    const agreement = blockIndexOf(tree, AgreementWarnings)
+    const agreement = blockIndexOf(tree, SampleLine)
     const quality = blockIndexOf(tree, QualityPanel)
     const comparison = blockIndexOf(tree, ReferenceComparisonPanel)
     const list = blockIndexOf(tree, RoundList)

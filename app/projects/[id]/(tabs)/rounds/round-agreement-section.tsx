@@ -4,7 +4,8 @@ import { perResponseCriteria } from '../../pipeline/criteria'
 import type { RoundMark } from '../../round-usage'
 import type { EvaluatorEffort, RoundObservation } from './agreement'
 import { evaluatedRaters, evaluatedResponses, withoutExcluded } from './agreement-pair'
-import { AgreementNotes, AgreementWarnings, type RoundSample } from './agreement-panel'
+import { AgreementNotes, SampleLine, type RoundSample } from './agreement-panel'
+import { AgreementLegend } from './agreement-legend'
 import { AgreementMatrixTable } from './agreement-matrix-table'
 import { agreementByDefinition } from './agreement-by-definition'
 import { matrixColumns } from './agreement-matrix'
@@ -82,10 +83,9 @@ export function roundAgreementSection({
       className="scroll-mt-6"
       title={agreementSectionTitle(round)}
       help="Krippendorff's Alpha ordinal"
+      hint={<SampleLine sample={sample} />}
     >
       <div className="flex flex-col gap-4">
-        <AgreementWarnings sample={sample} />
-
         {hasCodebook ? (
           <>
             <CriterionAgreementTable
@@ -117,6 +117,8 @@ export function roundAgreementSection({
                 ) : null}
               </ByDefinition>
             ) : null}
+
+            <AgreementLegend />
           </>
         ) : (
           matrix

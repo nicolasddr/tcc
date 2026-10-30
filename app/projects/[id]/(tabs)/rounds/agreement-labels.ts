@@ -156,6 +156,23 @@ export function bandTone(band: AgreementBand): BandTone {
   }
 }
 
+export type BandLegendItem = { band: AgreementBand; range: string; label: string }
+
+export function bandLegend(): BandLegendItem[] {
+  const acceptable = formatCut(AGREEMENT_BANDS.acceptable)
+  const good = formatCut(AGREEMENT_BANDS.good)
+  const ranges: [AgreementBand, string][] = [
+    ['questionable', `< ${acceptable}`],
+    ['acceptable', `${acceptable}–${good}`],
+    ['good', `≥ ${good}`],
+  ]
+  return ranges.map(([band, range]) => ({
+    band,
+    range,
+    label: bandLabel(band).toLowerCase(),
+  }))
+}
+
 export function formatAlpha(alpha: number): string {
   return alpha.toFixed(3).replace('.', ',')
 }
@@ -175,20 +192,39 @@ export function notesCount({ units }: Pick<Agreement, 'units'>): string {
   return plural(units, 'nota', 'notas')
 }
 
-export function smallSampleWarning({
+export function sampleText({
   raters,
   responses,
 }: {
   raters: number
   responses: number
-}): string | null {
-  if (raters >= SMALL_SAMPLE_RATERS && responses >= SMALL_SAMPLE_RESPONSES) return null
-
-  return (
-    `Amostra pequena (${plural(raters, 'avaliador', 'avaliadores')}, ` +
-    `${plural(responses, 'resposta', 'respostas')}): leia com cautela.`
-  )
+}): string {
+  return `${plural(raters, 'avaliador', 'avaliadores')} · ${plural(
+    responses,
+    'resposta',
+    'respostas',
+  )}`
 }
+
+export function isSmallSample({
+  raters,
+  responses,
+}: {
+  raters: number
+  responses: number
+}): boolean {
+  return raters < SMALL_SAMPLE_RATERS || responses < SMALL_SAMPLE_RESPONSES
+}
+
+export const SMALL_SAMPLE_LABEL = 'Amostra pequena'
+
+function capitalize(text: string): string {
+  return text.charAt(0).toUpperCase() + text.slice(1)
+}
+
+export const SAMPLE_ALL_LABEL = capitalize(AGREEMENT_ALL_LABEL)
+
+export const SAMPLE_WITHOUT_OUTLIERS_LABEL = capitalize(AGREEMENT_WITHOUT_OUTLIERS_LABEL)
 
 export const SMALL_SAMPLE_HELP =
   `Abaixo de ${SMALL_SAMPLE_RATERS} avaliadores ou de ${SMALL_SAMPLE_RESPONSES} ` +

@@ -18,10 +18,13 @@ import {
   bandLabel,
   bandTone,
   formatAlpha,
+  SAMPLE_ALL_LABEL,
+  SAMPLE_WITHOUT_OUTLIERS_LABEL,
   SMALL_SAMPLE_HELP,
-  smallSampleWarning,
+  SMALL_SAMPLE_LABEL,
+  isSmallSample,
+  sampleText,
 } from './agreement-labels'
-import { Alert } from '@/app/components/ui/alert'
 import { Badge } from '@/app/components/ui/badge'
 import { Card } from '@/app/components/ui/card'
 import { Disclosure } from '@/app/components/ui/disclosure'
@@ -78,39 +81,33 @@ function ExcludedList({ outliers }: { outliers: OutlierMark[] }) {
   )
 }
 
-export function AgreementWarnings({ sample }: { sample: SamplePair }) {
+function SampleCount({ label, sample }: { label?: string; sample: RoundSample }) {
+  return (
+    <>
+      {label ? `${label}: ` : null}
+      {sampleText(sample)}
+      {isSmallSample(sample) ? (
+        <>
+          {' '}
+          <Badge tone="warning">{SMALL_SAMPLE_LABEL}</Badge>{' '}
+          <InfoTooltip text={SMALL_SAMPLE_HELP} />
+        </>
+      ) : null}
+    </>
+  )
+}
+
+export function SampleLine({ sample }: { sample: SamplePair }) {
   const { all, withoutOutliers } = sample
 
-  const warnings: { key: string; text: string; help: string }[] = []
-  const allWarning = smallSampleWarning(all)
-  if (allWarning) {
-    warnings.push({
-      key: 'all',
-      text: withoutOutliers ? `${AGREEMENT_ALL_LABEL} — ${allWarning}` : allWarning,
-      help: SMALL_SAMPLE_HELP,
-    })
-  }
-  if (withoutOutliers) {
-    const filteredWarning = smallSampleWarning(withoutOutliers)
-    if (filteredWarning) {
-      warnings.push({
-        key: 'without',
-        text: `${AGREEMENT_WITHOUT_OUTLIERS_LABEL} — ${filteredWarning}`,
-        help: SMALL_SAMPLE_HELP,
-      })
-    }
-  }
-
-  if (warnings.length === 0) return null
+  if (!withoutOutliers) return <SampleCount sample={all} />
 
   return (
-    <div className="flex flex-col gap-3">
-      {warnings.map((warning) => (
-        <Alert key={warning.key} tone="notice">
-          {warning.text} <InfoTooltip text={warning.help} />
-        </Alert>
-      ))}
-    </div>
+    <>
+      <SampleCount label={SAMPLE_ALL_LABEL} sample={all} />
+      {' · '}
+      <SampleCount label={SAMPLE_WITHOUT_OUTLIERS_LABEL} sample={withoutOutliers} />
+    </>
   )
 }
 
